@@ -1,0 +1,4590 @@
+{
+  "data_ceiling": "synthetic_only",
+  "data_subject_categories": [
+    {
+      "id": "firm_accountant",
+      "kind": "natural_person",
+      "note": "Profesional de la firma que opera bajo engagement."
+    },
+    {
+      "id": "firm_employee",
+      "kind": "natural_person",
+      "note": "Personal de apoyo de la firma."
+    },
+    {
+      "id": "sme_administrator",
+      "kind": "natural_person",
+      "note": "Autorizador de la company; controla el engagement."
+    },
+    {
+      "id": "sme_employee_or_contractor",
+      "kind": "natural_person",
+      "note": "Aporta soportes y contexto de negocio."
+    },
+    {
+      "id": "third_party_natural_person_in_documents",
+      "kind": "natural_person",
+      "note": "Aparece en facturas o movimientos sin ser usuario de la plataforma."
+    },
+    {
+      "id": "auditor_user",
+      "kind": "natural_person",
+      "note": "Lectura de evidencia e historicos."
+    },
+    {
+      "id": "support_user",
+      "kind": "natural_person",
+      "note": "Personal de Fincilia bajo acceso just-in-time."
+    },
+    {
+      "id": "service_principal_non_human",
+      "kind": "non_human_principal",
+      "note": "No es titular de datos personales; no ejerce derechos."
+    },
+    {
+      "id": "legal_entity_company",
+      "kind": "legal_entity",
+      "note": "Una persona juridica no se convierte automaticamente en titular persona natural, pero sus documentos pueden contener informacion de personas naturales."
+    }
+  ],
+  "deletion_state_machine": {
+    "cache_and_projection_treatment": "rebuilt_not_authority",
+    "completed_requires_path_through": [
+      "tombstoned",
+      "purge_in_progress",
+      "backup_pending",
+      "reconciled"
+    ],
+    "completion_rule": "no se declara completed mientras exista una copia activa no justificada en el inventario",
+    "ephemeral_export_in_inventory": true,
+    "initial": "requested",
+    "ledger_outside_ordinary_restore": true,
+    "ledger_store": "security_archive",
+    "legal_hold_silent_activation": false,
+    "raw_overwrite_to_delete": false,
+    "restore_requires_tombstone_reapplication_before_service_reopen": true,
+    "states": [
+      "requested",
+      "verified",
+      "blocked_by_hold",
+      "tombstoned",
+      "purge_in_progress",
+      "backup_pending",
+      "reconciled",
+      "completed",
+      "failed"
+    ],
+    "terminal": [
+      "completed",
+      "failed"
+    ],
+    "transitions": [
+      {
+        "from": "requested",
+        "to": "verified"
+      },
+      {
+        "from": "requested",
+        "to": "failed"
+      },
+      {
+        "from": "verified",
+        "to": "blocked_by_hold"
+      },
+      {
+        "from": "verified",
+        "to": "tombstoned"
+      },
+      {
+        "from": "verified",
+        "to": "failed"
+      },
+      {
+        "from": "blocked_by_hold",
+        "to": "tombstoned"
+      },
+      {
+        "from": "blocked_by_hold",
+        "to": "failed"
+      },
+      {
+        "from": "tombstoned",
+        "to": "purge_in_progress"
+      },
+      {
+        "from": "tombstoned",
+        "to": "failed"
+      },
+      {
+        "from": "purge_in_progress",
+        "to": "backup_pending"
+      },
+      {
+        "from": "purge_in_progress",
+        "to": "failed"
+      },
+      {
+        "from": "backup_pending",
+        "to": "reconciled"
+      },
+      {
+        "from": "backup_pending",
+        "to": "failed"
+      },
+      {
+        "from": "reconciled",
+        "to": "completed"
+      },
+      {
+        "from": "reconciled",
+        "to": "failed"
+      }
+    ]
+  },
+  "dpia_triggers": [
+    {
+      "gate": "L-02",
+      "id": "DPIA-01",
+      "trigger": "external_ai_or_ocr_enabled"
+    },
+    {
+      "gate": "DRG-01",
+      "id": "DPIA-02",
+      "trigger": "new_connector_or_data_source"
+    },
+    {
+      "gate": "A-02",
+      "id": "DPIA-03",
+      "trigger": "new_region_or_cloud_provider"
+    },
+    {
+      "gate": "S1-READY",
+      "id": "DPIA-04",
+      "trigger": "biometrics_or_passkeys_introduced"
+    },
+    {
+      "gate": "DRG-01",
+      "id": "DPIA-05",
+      "trigger": "scoring_or_anomaly_detection_over_natural_persons"
+    },
+    {
+      "gate": "GA-01",
+      "id": "DPIA-06",
+      "trigger": "employee_productivity_monitoring"
+    },
+    {
+      "gate": "DRG-01",
+      "id": "DPIA-07",
+      "trigger": "high_volume_personal_data_processing"
+    },
+    {
+      "gate": "DRG-00",
+      "id": "DPIA-08",
+      "trigger": "third_party_non_user_data_processing"
+    },
+    {
+      "gate": "DRG-01",
+      "id": "DPIA-09",
+      "trigger": "new_subprocessor_added"
+    },
+    {
+      "gate": "DRG-01",
+      "id": "DPIA-10",
+      "trigger": "combination_of_sources_enabling_new_inference"
+    },
+    {
+      "gate": "DRG-01",
+      "id": "DPIA-11",
+      "trigger": "support_access_to_raw_evidence"
+    },
+    {
+      "gate": "S1-READY",
+      "id": "DPIA-12",
+      "trigger": "bulk_or_multi_company_export"
+    },
+    {
+      "gate": "DRG-00",
+      "id": "DPIA-13",
+      "trigger": "training_or_evaluation_with_non_synthetic_data"
+    }
+  ],
+  "external_ai_enabled": false,
+  "gates": [
+    {
+      "acceptance": "pending_human",
+      "id": "S1-READY",
+      "owner_role": "Integration Steward",
+      "scope": "internal_sprint_1_enablement",
+      "status": "not_met"
+    },
+    {
+      "acceptance": "pending_human",
+      "id": "DRG-00",
+      "owner_role": "Legal",
+      "scope": "real_research_corpus_only",
+      "status": "not_met"
+    },
+    {
+      "acceptance": "pending_human",
+      "id": "DRG-01",
+      "owner_role": "Legal",
+      "scope": "pilot_with_real_financial_data",
+      "status": "not_met"
+    },
+    {
+      "acceptance": "pending_human",
+      "id": "GA-01",
+      "owner_role": "Product",
+      "scope": "general_availability",
+      "status": "not_met"
+    },
+    {
+      "acceptance": "pending_human",
+      "id": "L-01",
+      "owner_role": "Legal",
+      "scope": "retention_and_deletion_matrix",
+      "status": "not_met"
+    },
+    {
+      "acceptance": "pending_human",
+      "id": "L-02",
+      "owner_role": "Legal",
+      "scope": "external_ai_and_ocr_legal_basis",
+      "status": "not_met"
+    },
+    {
+      "acceptance": "pending_human",
+      "id": "A-02",
+      "owner_role": "Architecture",
+      "scope": "cloud_region_and_transmission_decision",
+      "status": "not_met"
+    },
+    {
+      "acceptance": "pending_human",
+      "id": "S-01",
+      "owner_role": "Security",
+      "scope": "security_readiness_for_real_data",
+      "status": "not_met"
+    }
+  ],
+  "human_acceptance": "pending",
+  "legal_validation": "pending_human",
+  "parties": [
+    {
+      "id": "PARTY-FINCILIA",
+      "kind": "platform",
+      "name": "fincilia_platform",
+      "role_state": "varies_by_activity_see_processing_activities"
+    },
+    {
+      "id": "PARTY-COMPANY",
+      "kind": "legal_entity",
+      "name": "served_company",
+      "role_state": "controller_candidate_for_its_financial_data"
+    },
+    {
+      "id": "PARTY-FIRM",
+      "kind": "legal_entity",
+      "name": "accounting_firm_organization",
+      "role_state": "delegated_operator_never_owner_pending_legal"
+    },
+    {
+      "id": "PARTY-PROVIDER",
+      "kind": "vendor",
+      "name": "external_provider_candidate",
+      "role_state": "subprocessor_candidate_pending_contract"
+    },
+    {
+      "id": "PARTY-AUTHORITY",
+      "kind": "authority",
+      "name": "regulator_or_authority",
+      "role_state": "recipient_on_legal_basis_pending_legal"
+    }
+  ],
+  "principles": [
+    "privacy_by_design_and_by_default",
+    "data_minimization",
+    "purpose_limitation",
+    "company_segregation",
+    "need_to_access",
+    "limited_retention",
+    "explainability_and_traceability",
+    "real_revocation",
+    "verifiable_deletion",
+    "zero_business_data_in_logs_by_default",
+    "zero_implicit_external_transmission"
+  ],
+  "processing_activities": [
+    {
+      "actor": "identity_provider_candidate_and_application",
+      "allowed_log_fields": [
+        "assurance_level",
+        "event_name",
+        "status_code",
+        "subject_id",
+        "trace_id"
+      ],
+      "classifications": [
+        "confidential",
+        "internal"
+      ],
+      "company_scope": "not_applicable_until_resource_resolution",
+      "cross_border_state": "pending_A-02",
+      "data_categories": [
+        "assurance_level",
+        "device_binding_reference",
+        "identity_reference",
+        "session_reference",
+        "subject_identifier"
+      ],
+      "deletion_triggers": [
+        "identity_revocation",
+        "retention_expiry",
+        "subject_deactivation"
+      ],
+      "evidence": [
+        {
+          "id": "EV-PRV-DFD",
+          "path": "docs/architecture/dfd-flows.json",
+          "status": "passed_spike"
+        },
+        {
+          "id": "EV-PRV-RBAC",
+          "path": "docs/security/RBAC_ABAC_SOD.md",
+          "status": "passed_spike"
+        }
+      ],
+      "external_ai": {
+        "enabled": false,
+        "fail_closed": true,
+        "gateway_required": true,
+        "minimization_required": true,
+        "state": "disabled_until_L-02"
+      },
+      "forbidden_log_fields": [
+        "account_number",
+        "amount",
+        "cell_value",
+        "credential",
+        "financial_reference",
+        "ocr_text",
+        "original_filename",
+        "payload",
+        "raw_content",
+        "secret",
+        "tax_id",
+        "token"
+      ],
+      "id": "PA-01",
+      "legal_basis_state": "pending_legal",
+      "legal_hold_behavior": "suspends_purge_until_explicit_release_by_legal",
+      "minimization_controls": [
+        "assurance_recorded_not_biometrics",
+        "no_credential_in_logs",
+        "no_password_persistence",
+        "opaque_session_reference"
+      ],
+      "name": "authentication_and_session",
+      "notes": "La cuenta de usuario es dato de la plataforma; la operacion financiera que ejecuta no lo es.",
+      "owner_role": "Security",
+      "provisional_role": "controller_candidate",
+      "purpose_id": "identity_and_access",
+      "recipients": [
+        "REC-IDP"
+      ],
+      "region_state": "pending_A-02",
+      "retention_policy_ids": [
+        "L-01-AUDIT",
+        "L-01-IDENTITY"
+      ],
+      "reviewer_roles": [
+        "Architecture",
+        "Privacy"
+      ],
+      "rights_workflows": [
+        "RW-ACCESS",
+        "RW-DELETE",
+        "RW-RECTIFY",
+        "RW-REVOKE"
+      ],
+      "source_flows": [
+        "F01"
+      ],
+      "status": "review_pending",
+      "stores": [
+        "postgresql",
+        "security_archive",
+        "valkey"
+      ],
+      "subject_categories": [
+        "auditor_user",
+        "firm_accountant",
+        "firm_employee",
+        "sme_administrator",
+        "sme_employee_or_contractor",
+        "support_user"
+      ],
+      "target_gate": "S1-READY",
+      "threat_refs": [
+        "TM-003",
+        "TM-011"
+      ]
+    },
+    {
+      "actor": "authorized_company_controller_and_application",
+      "allowed_log_fields": [
+        "company_scope_hash",
+        "event_name",
+        "status_code",
+        "trace_id"
+      ],
+      "classifications": [
+        "confidential",
+        "internal"
+      ],
+      "company_scope": "required_verified",
+      "cross_border_state": "pending_A-02",
+      "data_categories": [
+        "company_reference",
+        "engagement_reference",
+        "grant_reference",
+        "membership_reference",
+        "responsibility_designation"
+      ],
+      "deletion_triggers": [
+        "company_closure",
+        "engagement_revocation",
+        "retention_expiry"
+      ],
+      "evidence": [
+        {
+          "id": "EV-PRV-TENANCY",
+          "path": "docs/domain/TENANCY_MODEL.md",
+          "status": "passed_spike"
+        },
+        {
+          "id": "EV-PRV-RBAC",
+          "path": "docs/security/RBAC_ABAC_SOD.md",
+          "status": "passed_spike"
+        }
+      ],
+      "external_ai": {
+        "enabled": false,
+        "fail_closed": true,
+        "gateway_required": true,
+        "minimization_required": true,
+        "state": "disabled_until_L-02"
+      },
+      "forbidden_log_fields": [
+        "account_number",
+        "amount",
+        "cell_value",
+        "credential",
+        "financial_reference",
+        "ocr_text",
+        "original_filename",
+        "payload",
+        "raw_content",
+        "secret",
+        "tax_id",
+        "token"
+      ],
+      "id": "PA-02",
+      "legal_basis_state": "pending_legal",
+      "legal_hold_behavior": "suspends_purge_until_explicit_release_by_legal",
+      "minimization_controls": [
+        "authoritative_company_resolution",
+        "authorization_version_increment_on_reduction",
+        "no_financial_payload_in_administration_records"
+      ],
+      "name": "company_and_engagement_administration",
+      "notes": "La firma administra la relacion; no adquiere titularidad sobre la informacion de la company.",
+      "owner_role": "Architecture",
+      "provisional_role": "joint_or_context_dependent",
+      "purpose_id": "company_administration",
+      "recipients": [],
+      "region_state": "pending_A-02",
+      "retention_policy_ids": [
+        "L-01-AUDIT",
+        "L-01-AUTHORIZATION"
+      ],
+      "reviewer_roles": [
+        "Legal",
+        "Privacy",
+        "Security"
+      ],
+      "rights_workflows": [
+        "RW-ACCESS",
+        "RW-PROOF_OF_AUTHORIZATION"
+      ],
+      "source_flows": [],
+      "status": "review_pending",
+      "stores": [
+        "postgresql",
+        "security_archive"
+      ],
+      "subject_categories": [
+        "firm_accountant",
+        "legal_entity_company",
+        "sme_administrator"
+      ],
+      "target_gate": "S1-READY",
+      "threat_refs": [
+        "TM-003",
+        "TM-004"
+      ]
+    },
+    {
+      "actor": "firm_subject_under_engagement_and_application",
+      "allowed_log_fields": [
+        "authorization_result",
+        "close_cycle_id",
+        "company_scope_hash",
+        "dataset_version_id",
+        "decision_code",
+        "engine_release_id",
+        "event_name",
+        "record_count",
+        "trace_id",
+        "validation_code"
+      ],
+      "classifications": [
+        "financial_sensitive",
+        "internal"
+      ],
+      "company_scope": "required_verified",
+      "cross_border_state": "pending_A-02",
+      "data_categories": [
+        "balance_statement",
+        "close_decision",
+        "counterparty_reference",
+        "financial_movement",
+        "obligation",
+        "settlement"
+      ],
+      "deletion_triggers": [
+        "company_instruction",
+        "engagement_revocation",
+        "retention_expiry",
+        "tombstone_cascade"
+      ],
+      "evidence": [
+        {
+          "id": "EV-PRV-AUTHZ",
+          "path": "spikes/FNC-SEC-001/test/tenancy.test.mjs",
+          "status": "passed_spike"
+        },
+        {
+          "id": "EV-PRV-TENANCY",
+          "path": "docs/domain/TENANCY_MODEL.md",
+          "status": "passed_spike"
+        }
+      ],
+      "external_ai": {
+        "enabled": false,
+        "fail_closed": true,
+        "gateway_required": true,
+        "minimization_required": true,
+        "state": "disabled_until_L-02"
+      },
+      "forbidden_log_fields": [
+        "account_number",
+        "amount",
+        "cell_value",
+        "credential",
+        "financial_reference",
+        "ocr_text",
+        "original_filename",
+        "payload",
+        "raw_content",
+        "secret",
+        "tax_id",
+        "token"
+      ],
+      "id": "PA-03",
+      "legal_basis_state": "pending_legal",
+      "legal_hold_behavior": "suspends_purge_until_explicit_release_by_legal",
+      "minimization_controls": [
+        "field_level_lineage",
+        "no_cross_company_aggregation",
+        "per_company_authorization",
+        "segregation_of_duties",
+        "server_resolved_company_scope"
+      ],
+      "name": "delegated_accounting_operation",
+      "notes": "Tratamiento por instruccion de la company; la firma no determina finalidad propia aqui.",
+      "owner_role": "Accounting",
+      "provisional_role": "processor_candidate",
+      "purpose_id": "delegated_accounting_operation",
+      "recipients": [],
+      "region_state": "pending_A-02",
+      "retention_policy_ids": [
+        "L-01-AUDIT",
+        "L-01-CLOSE",
+        "L-01-DERIVED",
+        "L-01-FINANCIAL"
+      ],
+      "reviewer_roles": [
+        "Architecture",
+        "Privacy",
+        "Security"
+      ],
+      "rights_workflows": [
+        "RW-ACCESS",
+        "RW-DELETE",
+        "RW-PORTABILITY",
+        "RW-RECTIFY"
+      ],
+      "source_flows": [
+        "F05",
+        "F06"
+      ],
+      "status": "review_pending",
+      "stores": [
+        "object_storage_derived",
+        "postgresql",
+        "security_archive"
+      ],
+      "subject_categories": [
+        "firm_accountant",
+        "firm_employee",
+        "legal_entity_company",
+        "third_party_natural_person_in_documents"
+      ],
+      "target_gate": "DRG-01",
+      "threat_refs": [
+        "TM-001",
+        "TM-007",
+        "TM-011"
+      ]
+    },
+    {
+      "actor": "authorized_subject_or_verified_source",
+      "allowed_log_fields": [
+        "artifact_version_id",
+        "byte_size_bucket",
+        "company_scope_hash",
+        "event_name",
+        "status_code",
+        "trace_id"
+      ],
+      "classifications": [
+        "financial_sensitive",
+        "internal"
+      ],
+      "company_scope": "required_verified",
+      "cross_border_state": "pending_A-02",
+      "data_categories": [
+        "artifact_hash",
+        "artifact_version_reference",
+        "source_artifact",
+        "upload_metadata"
+      ],
+      "deletion_triggers": [
+        "promotion_decision",
+        "rejection_decision",
+        "retention_expiry",
+        "tombstone_cascade"
+      ],
+      "evidence": [
+        {
+          "id": "EV-PRV-DFD",
+          "path": "docs/architecture/dfd-flows.json",
+          "status": "passed_spike"
+        },
+        {
+          "id": "EV-PRV-SYNTHETIC",
+          "path": "docs/testing/SYNTHETIC_DATA_POLICY.md",
+          "status": "passed_spike"
+        }
+      ],
+      "external_ai": {
+        "enabled": false,
+        "fail_closed": true,
+        "gateway_required": true,
+        "minimization_required": true,
+        "state": "disabled_until_L-02"
+      },
+      "forbidden_log_fields": [
+        "account_number",
+        "amount",
+        "cell_value",
+        "credential",
+        "financial_reference",
+        "ocr_text",
+        "original_filename",
+        "payload",
+        "raw_content",
+        "secret",
+        "tax_id",
+        "token"
+      ],
+      "id": "PA-04",
+      "legal_basis_state": "pending_legal",
+      "legal_hold_behavior": "suspends_purge_until_explicit_release_by_legal",
+      "minimization_controls": [
+        "no_client_supplied_company_scope",
+        "no_filename_in_logs",
+        "size_and_expansion_limits",
+        "system_generated_object_key",
+        "untrusted_content_by_default"
+      ],
+      "name": "evidence_intake_quarantine",
+      "notes": "Un archivo subido puede contener datos de personas naturales aunque la company sea juridica.",
+      "owner_role": "Data Engineering",
+      "provisional_role": "processor_candidate",
+      "purpose_id": "evidence_ingestion",
+      "recipients": [],
+      "region_state": "pending_A-02",
+      "retention_policy_ids": [
+        "L-01-AUDITABLE-DECISION",
+        "L-01-QUARANTINE"
+      ],
+      "reviewer_roles": [
+        "Privacy",
+        "Security"
+      ],
+      "rights_workflows": [
+        "RW-ACCESS",
+        "RW-DELETE"
+      ],
+      "source_flows": [
+        "F02"
+      ],
+      "status": "review_pending",
+      "stores": [
+        "object_storage_quarantine",
+        "postgresql"
+      ],
+      "subject_categories": [
+        "firm_accountant",
+        "legal_entity_company",
+        "sme_administrator",
+        "sme_employee_or_contractor",
+        "third_party_natural_person_in_documents"
+      ],
+      "target_gate": "DRG-00",
+      "threat_refs": [
+        "TM-005",
+        "TM-011"
+      ]
+    },
+    {
+      "actor": "scan_workload_without_egress",
+      "allowed_log_fields": [
+        "artifact_version_id",
+        "duration_bucket",
+        "engine_release_id",
+        "event_name",
+        "scan_result_code",
+        "trace_id"
+      ],
+      "classifications": [
+        "financial_sensitive",
+        "internal"
+      ],
+      "company_scope": "required_verified",
+      "cross_border_state": "pending_A-02",
+      "data_categories": [
+        "artifact_version_reference",
+        "prohibited_content_indicator",
+        "scan_verdict"
+      ],
+      "deletion_triggers": [
+        "retention_expiry",
+        "scan_rejection",
+        "tombstone_cascade"
+      ],
+      "evidence": [
+        {
+          "id": "EV-PRV-DFD",
+          "path": "docs/architecture/dfd-flows.json",
+          "status": "passed_spike"
+        },
+        {
+          "id": "EV-PRV-TM",
+          "path": "docs/security/threat-model.json",
+          "status": "passed_spike"
+        }
+      ],
+      "external_ai": {
+        "enabled": false,
+        "fail_closed": true,
+        "gateway_required": true,
+        "minimization_required": true,
+        "state": "disabled_until_L-02"
+      },
+      "forbidden_log_fields": [
+        "account_number",
+        "amount",
+        "cell_value",
+        "credential",
+        "financial_reference",
+        "ocr_text",
+        "original_filename",
+        "payload",
+        "raw_content",
+        "secret",
+        "tax_id",
+        "token"
+      ],
+      "id": "PA-05",
+      "legal_basis_state": "pending_legal",
+      "legal_hold_behavior": "suspends_purge_until_explicit_release_by_legal",
+      "minimization_controls": [
+        "detect_prohibited_before_promotion",
+        "hash_and_metadata_only_on_rejection",
+        "no_prohibited_class_persistence",
+        "no_worker_egress"
+      ],
+      "name": "prohibited_content_scan_and_promotion",
+      "notes": "PAN, CVV o credenciales detectadas no se promueven ni se conservan: solo hash y metadatos.",
+      "owner_role": "Security",
+      "provisional_role": "processor_candidate",
+      "purpose_id": "evidence_ingestion",
+      "recipients": [],
+      "region_state": "pending_A-02",
+      "retention_policy_ids": [
+        "L-01-AUDITABLE-DECISION",
+        "L-01-QUARANTINE",
+        "L-01-RAW"
+      ],
+      "reviewer_roles": [
+        "Data Engineering",
+        "Privacy"
+      ],
+      "rights_workflows": [
+        "RW-ACCESS",
+        "RW-DELETE"
+      ],
+      "source_flows": [
+        "F03"
+      ],
+      "status": "review_pending",
+      "stores": [
+        "object_storage_quarantine",
+        "object_storage_raw",
+        "postgresql"
+      ],
+      "subject_categories": [
+        "legal_entity_company",
+        "third_party_natural_person_in_documents"
+      ],
+      "target_gate": "DRG-00",
+      "threat_refs": [
+        "TM-005",
+        "TM-006",
+        "TM-011"
+      ]
+    },
+    {
+      "actor": "isolated_processing_worker",
+      "allowed_log_fields": [
+        "duration_bucket",
+        "engine_release_id",
+        "event_name",
+        "processing_run_id",
+        "record_count",
+        "trace_id",
+        "warning_count"
+      ],
+      "classifications": [
+        "financial_sensitive",
+        "internal"
+      ],
+      "company_scope": "required_verified",
+      "cross_border_state": "pending_A-02",
+      "data_categories": [
+        "cell_coordinate",
+        "engine_release_reference",
+        "extraction_manifest",
+        "extraction_record"
+      ],
+      "deletion_triggers": [
+        "reprocessing_supersede",
+        "retention_expiry",
+        "tombstone_cascade"
+      ],
+      "evidence": [
+        {
+          "id": "EV-PRV-DFD",
+          "path": "docs/architecture/dfd-flows.json",
+          "status": "passed_spike"
+        }
+      ],
+      "external_ai": {
+        "enabled": false,
+        "fail_closed": true,
+        "gateway_required": true,
+        "minimization_required": true,
+        "state": "disabled_until_L-02"
+      },
+      "forbidden_log_fields": [
+        "account_number",
+        "amount",
+        "cell_value",
+        "credential",
+        "financial_reference",
+        "ocr_text",
+        "original_filename",
+        "payload",
+        "raw_content",
+        "secret",
+        "tax_id",
+        "token"
+      ],
+      "id": "PA-06",
+      "legal_basis_state": "pending_legal",
+      "legal_hold_behavior": "suspends_purge_until_explicit_release_by_legal",
+      "minimization_controls": [
+        "capability_scoped_to_single_company",
+        "no_cell_value_in_logs",
+        "no_worker_egress",
+        "versioned_worker_manifest"
+      ],
+      "name": "parsing_and_extraction",
+      "notes": "",
+      "owner_role": "Data Engineering",
+      "provisional_role": "processor_candidate",
+      "purpose_id": "parsing_and_mapping",
+      "recipients": [],
+      "region_state": "pending_A-02",
+      "retention_policy_ids": [
+        "L-01-AUDITABLE-DECISION",
+        "L-01-DERIVED"
+      ],
+      "reviewer_roles": [
+        "Privacy",
+        "Security"
+      ],
+      "rights_workflows": [
+        "RW-ACCESS",
+        "RW-DELETE",
+        "RW-PORTABILITY"
+      ],
+      "source_flows": [
+        "F04"
+      ],
+      "status": "review_pending",
+      "stores": [
+        "object_storage_derived",
+        "postgresql"
+      ],
+      "subject_categories": [
+        "legal_entity_company",
+        "third_party_natural_person_in_documents"
+      ],
+      "target_gate": "S1-READY",
+      "threat_refs": [
+        "TM-006",
+        "TM-011"
+      ]
+    },
+    {
+      "actor": "authorized_preparer_and_application",
+      "allowed_log_fields": [
+        "company_scope_hash",
+        "dataset_version_id",
+        "engine_release_id",
+        "event_name",
+        "record_count",
+        "trace_id",
+        "validation_code"
+      ],
+      "classifications": [
+        "financial_sensitive",
+        "internal"
+      ],
+      "company_scope": "required_verified",
+      "cross_border_state": "pending_A-02",
+      "data_categories": [
+        "canonical_field",
+        "lineage_edge",
+        "overlay_reference",
+        "recipe_reference",
+        "source_record"
+      ],
+      "deletion_triggers": [
+        "company_instruction",
+        "retention_expiry",
+        "tombstone_cascade"
+      ],
+      "evidence": [
+        {
+          "id": "EV-PRV-DFD",
+          "path": "docs/architecture/dfd-flows.json",
+          "status": "passed_spike"
+        }
+      ],
+      "external_ai": {
+        "enabled": false,
+        "fail_closed": true,
+        "gateway_required": true,
+        "minimization_required": true,
+        "state": "disabled_until_L-02"
+      },
+      "forbidden_log_fields": [
+        "account_number",
+        "amount",
+        "cell_value",
+        "credential",
+        "financial_reference",
+        "ocr_text",
+        "original_filename",
+        "payload",
+        "raw_content",
+        "secret",
+        "tax_id",
+        "token"
+      ],
+      "id": "PA-07",
+      "legal_basis_state": "pending_legal",
+      "legal_hold_behavior": "suspends_purge_until_explicit_release_by_legal",
+      "minimization_controls": [
+        "completeness_gate_before_publication",
+        "field_level_lineage",
+        "server_resolved_company_scope",
+        "unknown_partial_unverified_not_publishable"
+      ],
+      "name": "mapping_validation_and_publication",
+      "notes": "",
+      "owner_role": "Backend",
+      "provisional_role": "processor_candidate",
+      "purpose_id": "parsing_and_mapping",
+      "recipients": [],
+      "region_state": "pending_A-02",
+      "retention_policy_ids": [
+        "L-01-DERIVED",
+        "L-01-FINANCIAL"
+      ],
+      "reviewer_roles": [
+        "Accounting",
+        "Privacy",
+        "Security"
+      ],
+      "rights_workflows": [
+        "RW-ACCESS",
+        "RW-DELETE",
+        "RW-PORTABILITY",
+        "RW-RECTIFY"
+      ],
+      "source_flows": [
+        "F05"
+      ],
+      "status": "review_pending",
+      "stores": [
+        "object_storage_derived",
+        "postgresql"
+      ],
+      "subject_categories": [
+        "firm_accountant",
+        "legal_entity_company",
+        "sme_administrator",
+        "third_party_natural_person_in_documents"
+      ],
+      "target_gate": "S1-READY",
+      "threat_refs": [
+        "TM-007",
+        "TM-011"
+      ]
+    },
+    {
+      "actor": "authorized_preparer_reviewer_and_application",
+      "allowed_log_fields": [
+        "authorization_result",
+        "close_cycle_id",
+        "company_scope_hash",
+        "decision_code",
+        "event_name",
+        "trace_id"
+      ],
+      "classifications": [
+        "financial_sensitive",
+        "internal"
+      ],
+      "company_scope": "required_verified",
+      "cross_border_state": "pending_A-02",
+      "data_categories": [
+        "close_snapshot",
+        "exception",
+        "match_decision",
+        "reconciliation_statement"
+      ],
+      "deletion_triggers": [
+        "company_instruction",
+        "legal_hold_release",
+        "retention_expiry"
+      ],
+      "evidence": [
+        {
+          "id": "EV-PRV-TENANCY",
+          "path": "docs/domain/TENANCY_MODEL.md",
+          "status": "passed_spike"
+        },
+        {
+          "id": "EV-PRV-RBAC",
+          "path": "docs/security/RBAC_ABAC_SOD.md",
+          "status": "passed_spike"
+        }
+      ],
+      "external_ai": {
+        "enabled": false,
+        "fail_closed": true,
+        "gateway_required": true,
+        "minimization_required": true,
+        "state": "disabled_until_L-02"
+      },
+      "forbidden_log_fields": [
+        "account_number",
+        "amount",
+        "cell_value",
+        "credential",
+        "financial_reference",
+        "ocr_text",
+        "original_filename",
+        "payload",
+        "raw_content",
+        "secret",
+        "tax_id",
+        "token"
+      ],
+      "id": "PA-08",
+      "legal_basis_state": "pending_legal",
+      "legal_hold_behavior": "suspends_purge_until_explicit_release_by_legal",
+      "minimization_controls": [
+        "balance_statement_required",
+        "exact_decimal_only",
+        "no_llm_financial_authority",
+        "segregation_of_duties",
+        "server_resolved_company_scope"
+      ],
+      "name": "reconciliation_and_close",
+      "notes": "El cierre es evidencia contable; su retencion puede exceder la de otros datos y depende de L-01.",
+      "owner_role": "Accounting",
+      "provisional_role": "processor_candidate",
+      "purpose_id": "reconciliation_and_close",
+      "recipients": [],
+      "region_state": "pending_A-02",
+      "retention_policy_ids": [
+        "L-01-AUDIT",
+        "L-01-CLOSE",
+        "L-01-FINANCIAL"
+      ],
+      "reviewer_roles": [
+        "Architecture",
+        "Privacy",
+        "Security"
+      ],
+      "rights_workflows": [
+        "RW-ACCESS",
+        "RW-PORTABILITY",
+        "RW-RECTIFY"
+      ],
+      "source_flows": [
+        "F06"
+      ],
+      "status": "review_pending",
+      "stores": [
+        "object_storage_derived",
+        "postgresql",
+        "security_archive"
+      ],
+      "subject_categories": [
+        "firm_accountant",
+        "firm_employee",
+        "legal_entity_company",
+        "sme_administrator"
+      ],
+      "target_gate": "DRG-01",
+      "threat_refs": [
+        "TM-007",
+        "TM-013"
+      ]
+    },
+    {
+      "actor": "authorized_subject_and_reporting_module",
+      "allowed_log_fields": [
+        "authorization_result",
+        "company_scope_hash",
+        "event_name",
+        "report_version_id",
+        "status_code",
+        "trace_id"
+      ],
+      "classifications": [
+        "confidential",
+        "financial_sensitive",
+        "internal"
+      ],
+      "company_scope": "required_verified",
+      "cross_border_state": "pending_A-02",
+      "data_categories": [
+        "download_event",
+        "export_manifest",
+        "export_package",
+        "report_version"
+      ],
+      "deletion_triggers": [
+        "authorization_version_change",
+        "engagement_revocation",
+        "tombstone_cascade",
+        "ttl_expiry"
+      ],
+      "evidence": [
+        {
+          "id": "EV-PRV-AUTHZ",
+          "path": "spikes/FNC-SEC-001/test/tenancy.test.mjs",
+          "status": "passed_spike"
+        },
+        {
+          "id": "EV-PRV-TM",
+          "path": "docs/security/threat-model.json",
+          "status": "passed_spike"
+        }
+      ],
+      "external_ai": {
+        "enabled": false,
+        "fail_closed": true,
+        "gateway_required": true,
+        "minimization_required": true,
+        "state": "disabled_until_L-02"
+      },
+      "forbidden_log_fields": [
+        "account_number",
+        "amount",
+        "cell_value",
+        "credential",
+        "financial_reference",
+        "ocr_text",
+        "original_filename",
+        "payload",
+        "raw_content",
+        "secret",
+        "tax_id",
+        "token"
+      ],
+      "id": "PA-09",
+      "legal_basis_state": "pending_legal",
+      "legal_hold_behavior": "suspends_purge_until_explicit_release_by_legal",
+      "minimization_controls": [
+        "authorization_version_bound",
+        "export_manifest_and_hash",
+        "no_neighbouring_company_in_package",
+        "reauthorization_on_create_and_download",
+        "short_ttl_opaque_single_scope_link"
+      ],
+      "name": "reporting_and_export",
+      "notes": "Un export temporal es inventario borrable: aparece en la reconciliacion de supresion.",
+      "owner_role": "Reporting",
+      "provisional_role": "processor_candidate",
+      "purpose_id": "reporting_and_export",
+      "recipients": [],
+      "region_state": "pending_A-02",
+      "retention_policy_ids": [
+        "L-01-AUDIT",
+        "L-01-AUDITABLE-DECISION",
+        "L-01-EXPORT"
+      ],
+      "reviewer_roles": [
+        "Architecture",
+        "Privacy",
+        "Security"
+      ],
+      "rights_workflows": [
+        "RW-ACCESS",
+        "RW-PORTABILITY"
+      ],
+      "source_flows": [
+        "F07"
+      ],
+      "status": "review_pending",
+      "stores": [
+        "object_storage_derived",
+        "postgresql",
+        "security_archive"
+      ],
+      "subject_categories": [
+        "auditor_user",
+        "firm_accountant",
+        "legal_entity_company",
+        "sme_administrator",
+        "third_party_natural_person_in_documents"
+      ],
+      "target_gate": "S1-READY",
+      "threat_refs": [
+        "TM-011",
+        "TM-012"
+      ]
+    },
+    {
+      "actor": "approved_external_source_and_source_adapter",
+      "allowed_log_fields": [
+        "company_scope_hash",
+        "connection_id",
+        "event_name",
+        "provider_event_id_hash",
+        "status_code",
+        "trace_id"
+      ],
+      "classifications": [
+        "confidential",
+        "financial_sensitive",
+        "internal"
+      ],
+      "company_scope": "required_verified",
+      "cross_border_state": "pending_A-02",
+      "data_categories": [
+        "connection_reference",
+        "provider_event",
+        "provider_event_id_hash",
+        "source_metadata"
+      ],
+      "deletion_triggers": [
+        "connection_revocation",
+        "retention_expiry",
+        "tombstone_cascade"
+      ],
+      "evidence": [
+        {
+          "id": "EV-PRV-DFD",
+          "path": "docs/architecture/dfd-flows.json",
+          "status": "passed_spike"
+        }
+      ],
+      "external_ai": {
+        "enabled": false,
+        "fail_closed": true,
+        "gateway_required": true,
+        "minimization_required": true,
+        "state": "disabled_until_L-02"
+      },
+      "forbidden_log_fields": [
+        "account_number",
+        "amount",
+        "cell_value",
+        "credential",
+        "financial_reference",
+        "ocr_text",
+        "original_filename",
+        "payload",
+        "raw_content",
+        "secret",
+        "tax_id",
+        "token"
+      ],
+      "id": "PA-10",
+      "legal_basis_state": "pending_legal",
+      "legal_hold_behavior": "suspends_purge_until_explicit_release_by_legal",
+      "minimization_controls": [
+        "idempotent_provider_event",
+        "no_bank_credential_persistence",
+        "sender_authenticity_required",
+        "signature_freshness_and_replay_protection",
+        "vault_reference_only"
+      ],
+      "name": "connector_and_webhook_ingestion",
+      "notes": "Ningun conector real se conecta en E0. Solo credenciales por referencia opaca en vault.",
+      "owner_role": "Integrations",
+      "provisional_role": "processor_candidate",
+      "purpose_id": "connector_operation",
+      "recipients": [
+        "REC-CONNECTOR"
+      ],
+      "region_state": "pending_A-02",
+      "retention_policy_ids": [
+        "L-01-QUARANTINE",
+        "L-01-SOURCE-EVENT"
+      ],
+      "reviewer_roles": [
+        "Legal",
+        "Privacy",
+        "Security"
+      ],
+      "rights_workflows": [
+        "RW-ACCESS",
+        "RW-DELETE",
+        "RW-REVOKE"
+      ],
+      "source_flows": [
+        "F09"
+      ],
+      "status": "review_pending",
+      "stores": [
+        "object_storage_quarantine",
+        "postgresql",
+        "vault"
+      ],
+      "subject_categories": [
+        "legal_entity_company",
+        "third_party_natural_person_in_documents"
+      ],
+      "target_gate": "DRG-01",
+      "threat_refs": [
+        "TM-009",
+        "TM-011"
+      ]
+    },
+    {
+      "actor": "application_and_delivery_provider_candidate",
+      "allowed_log_fields": [
+        "company_scope_hash",
+        "event_name",
+        "status_code",
+        "trace_id"
+      ],
+      "classifications": [
+        "confidential",
+        "internal"
+      ],
+      "company_scope": "required_verified",
+      "cross_border_state": "pending_A-02",
+      "data_categories": [
+        "notification_event",
+        "recipient_reference",
+        "task_reference"
+      ],
+      "deletion_triggers": [
+        "engagement_revocation",
+        "retention_expiry",
+        "subject_revocation"
+      ],
+      "evidence": [
+        {
+          "id": "EV-PRV-MAP",
+          "path": "docs/privacy/PRIVACY_MAP.md",
+          "status": "planned"
+        }
+      ],
+      "external_ai": {
+        "enabled": false,
+        "fail_closed": true,
+        "gateway_required": true,
+        "minimization_required": true,
+        "state": "disabled_until_L-02"
+      },
+      "forbidden_log_fields": [
+        "account_number",
+        "amount",
+        "cell_value",
+        "credential",
+        "financial_reference",
+        "ocr_text",
+        "original_filename",
+        "payload",
+        "raw_content",
+        "secret",
+        "tax_id",
+        "token"
+      ],
+      "id": "PA-11",
+      "legal_basis_state": "pending_legal",
+      "legal_hold_behavior": "suspends_purge_until_explicit_release_by_legal",
+      "minimization_controls": [
+        "deep_link_requires_server_side_reauthorization",
+        "no_amount_account_or_tax_id_in_notification_body",
+        "no_financial_description_in_push",
+        "opaque_recipient_reference"
+      ],
+      "name": "reminders_and_notifications",
+      "notes": "El contenido financiero nunca viaja en el canal de notificacion; solo el hecho de que hay tarea.",
+      "owner_role": "Product",
+      "provisional_role": "controller_candidate",
+      "purpose_id": "reminders_and_notifications",
+      "recipients": [
+        "REC-EMAIL",
+        "REC-PUSH"
+      ],
+      "region_state": "pending_A-02",
+      "retention_policy_ids": [
+        "L-01-AUDIT",
+        "L-01-NOTIFICATION"
+      ],
+      "reviewer_roles": [
+        "Privacy",
+        "Security"
+      ],
+      "rights_workflows": [
+        "RW-ACCESS",
+        "RW-OBJECT",
+        "RW-RECTIFY"
+      ],
+      "source_flows": [],
+      "status": "review_pending",
+      "stores": [
+        "postgresql",
+        "security_archive"
+      ],
+      "subject_categories": [
+        "firm_accountant",
+        "firm_employee",
+        "sme_administrator",
+        "sme_employee_or_contractor"
+      ],
+      "target_gate": "S1-READY",
+      "threat_refs": [
+        "TM-011"
+      ]
+    },
+    {
+      "actor": "application_workers_and_security_pipeline",
+      "allowed_log_fields": [
+        "actor_subject_id",
+        "company_scope_hash",
+        "decision_code",
+        "event_name",
+        "resource_id_hash",
+        "trace_id"
+      ],
+      "classifications": [
+        "confidential",
+        "internal"
+      ],
+      "company_scope": "preserved_verified_or_platform_scope",
+      "cross_border_state": "pending_A-02",
+      "data_categories": [
+        "actor_reference",
+        "audit_event",
+        "decision_code",
+        "signed_digest"
+      ],
+      "deletion_triggers": [
+        "legal_hold_release",
+        "retention_expiry_after_all_windows"
+      ],
+      "evidence": [
+        {
+          "id": "EV-PRV-DFD",
+          "path": "docs/architecture/dfd-flows.json",
+          "status": "passed_spike"
+        },
+        {
+          "id": "EV-PRV-TM",
+          "path": "docs/security/threat-model.json",
+          "status": "passed_spike"
+        }
+      ],
+      "external_ai": {
+        "enabled": false,
+        "fail_closed": true,
+        "gateway_required": true,
+        "minimization_required": true,
+        "state": "disabled_until_L-02"
+      },
+      "forbidden_log_fields": [
+        "account_number",
+        "amount",
+        "cell_value",
+        "credential",
+        "financial_reference",
+        "ocr_text",
+        "original_filename",
+        "payload",
+        "raw_content",
+        "secret",
+        "tax_id",
+        "token"
+      ],
+      "id": "PA-12",
+      "legal_basis_state": "pending_legal_and_contract",
+      "legal_hold_behavior": "suspends_purge_until_explicit_release_by_legal",
+      "minimization_controls": [
+        "allowlist_schema_only",
+        "append_only_with_signed_digest",
+        "hashed_resource_identifiers",
+        "independent_review_of_privileged_events",
+        "no_financial_payload"
+      ],
+      "name": "security_audit_and_digest",
+      "notes": "La auditoria es interes propio de la plataforma; no se borra por solicitud ordinaria sin analisis legal.",
+      "owner_role": "Security",
+      "provisional_role": "controller_candidate",
+      "purpose_id": "security_and_audit",
+      "recipients": [],
+      "region_state": "pending_A-02",
+      "retention_policy_ids": [
+        "L-01-AUDIT"
+      ],
+      "reviewer_roles": [
+        "Legal",
+        "Privacy"
+      ],
+      "rights_workflows": [
+        "RW-ACCESS"
+      ],
+      "source_flows": [
+        "F10"
+      ],
+      "status": "review_pending",
+      "stores": [
+        "security_archive"
+      ],
+      "subject_categories": [
+        "auditor_user",
+        "firm_accountant",
+        "firm_employee",
+        "service_principal_non_human",
+        "sme_administrator",
+        "support_user"
+      ],
+      "target_gate": "S1-READY",
+      "threat_refs": [
+        "TM-011",
+        "TM-013"
+      ]
+    },
+    {
+      "actor": "support_user_under_just_in_time_grant",
+      "allowed_log_fields": [
+        "actor_subject_id",
+        "company_scope_hash",
+        "decision_code",
+        "event_name",
+        "resource_id_hash",
+        "trace_id"
+      ],
+      "classifications": [
+        "confidential",
+        "internal"
+      ],
+      "company_scope": "required_verified",
+      "cross_border_state": "pending_A-02",
+      "data_categories": [
+        "access_reason",
+        "accessed_resource_hash",
+        "jit_grant_reference",
+        "support_ticket_reference"
+      ],
+      "deletion_triggers": [
+        "grant_expiry",
+        "retention_expiry",
+        "ticket_closure"
+      ],
+      "evidence": [
+        {
+          "id": "EV-PRV-RBAC",
+          "path": "docs/security/RBAC_ABAC_SOD.md",
+          "status": "passed_spike"
+        },
+        {
+          "id": "EV-PRV-AUTHZ",
+          "path": "spikes/FNC-SEC-001/test/tenancy.test.mjs",
+          "status": "passed_spike"
+        }
+      ],
+      "external_ai": {
+        "enabled": false,
+        "fail_closed": true,
+        "gateway_required": true,
+        "minimization_required": true,
+        "state": "disabled_until_L-02"
+      },
+      "forbidden_log_fields": [
+        "account_number",
+        "amount",
+        "cell_value",
+        "credential",
+        "financial_reference",
+        "ocr_text",
+        "original_filename",
+        "payload",
+        "raw_content",
+        "secret",
+        "tax_id",
+        "token"
+      ],
+      "id": "PA-13",
+      "legal_basis_state": "pending_legal_and_contract",
+      "legal_hold_behavior": "suspends_purge_until_explicit_release_by_legal",
+      "minimization_controls": [
+        "customer_visible_access_record",
+        "explicit_reason_required",
+        "independent_review_after_access",
+        "just_in_time_grant_only",
+        "no_standing_access_to_production_data",
+        "time_bounded_expiration"
+      ],
+      "name": "support_and_break_glass",
+      "notes": "Soporte no decide semantica financiera. Todo acceso es excepcional, motivado y revisado por un tercero.",
+      "owner_role": "Security",
+      "provisional_role": "joint_or_context_dependent",
+      "purpose_id": "support_and_break_glass",
+      "recipients": [],
+      "region_state": "pending_A-02",
+      "retention_policy_ids": [
+        "L-01-AUDIT",
+        "L-01-AUTHORIZATION"
+      ],
+      "reviewer_roles": [
+        "Legal",
+        "Privacy"
+      ],
+      "rights_workflows": [
+        "RW-ACCESS",
+        "RW-PROOF_OF_AUTHORIZATION"
+      ],
+      "source_flows": [
+        "F10"
+      ],
+      "status": "review_pending",
+      "stores": [
+        "postgresql",
+        "security_archive"
+      ],
+      "subject_categories": [
+        "firm_accountant",
+        "legal_entity_company",
+        "sme_administrator",
+        "support_user"
+      ],
+      "target_gate": "DRG-01",
+      "threat_refs": [
+        "TM-011",
+        "TM-013"
+      ]
+    },
+    {
+      "actor": "application_and_billing_provider_candidate",
+      "allowed_log_fields": [
+        "company_scope_hash",
+        "event_name",
+        "status_code",
+        "trace_id"
+      ],
+      "classifications": [
+        "confidential",
+        "internal"
+      ],
+      "company_scope": "required_verified",
+      "cross_border_state": "pending_A-02",
+      "data_categories": [
+        "billing_contact_reference",
+        "invoice_reference",
+        "plan_reference",
+        "usage_counter"
+      ],
+      "deletion_triggers": [
+        "contract_termination",
+        "legal_retention_expiry"
+      ],
+      "evidence": [
+        {
+          "id": "EV-PRV-MAP",
+          "path": "docs/privacy/PRIVACY_MAP.md",
+          "status": "planned"
+        }
+      ],
+      "external_ai": {
+        "enabled": false,
+        "fail_closed": true,
+        "gateway_required": true,
+        "minimization_required": true,
+        "state": "disabled_until_L-02"
+      },
+      "forbidden_log_fields": [
+        "account_number",
+        "amount",
+        "cell_value",
+        "credential",
+        "financial_reference",
+        "ocr_text",
+        "original_filename",
+        "payload",
+        "raw_content",
+        "secret",
+        "tax_id",
+        "token"
+      ],
+      "id": "PA-14",
+      "legal_basis_state": "pending_legal_and_contract",
+      "legal_hold_behavior": "suspends_purge_until_explicit_release_by_legal",
+      "minimization_controls": [
+        "company_scoped_aggregation_only",
+        "counters_without_financial_payload",
+        "no_movement_content_in_metering"
+      ],
+      "name": "usage_metering_and_billing",
+      "notes": "Metering cuenta eventos, no lee contenido financiero. Facturacion propia es finalidad de Fincilia.",
+      "owner_role": "Finance",
+      "provisional_role": "controller_candidate",
+      "purpose_id": "usage_metering_and_billing",
+      "recipients": [
+        "REC-BILLING"
+      ],
+      "region_state": "pending_A-02",
+      "retention_policy_ids": [
+        "L-01-AUDIT",
+        "L-01-BILLING"
+      ],
+      "reviewer_roles": [
+        "Legal",
+        "Privacy",
+        "Security"
+      ],
+      "rights_workflows": [
+        "RW-ACCESS",
+        "RW-RECTIFY"
+      ],
+      "source_flows": [],
+      "status": "review_pending",
+      "stores": [
+        "analytics_projection",
+        "postgresql"
+      ],
+      "subject_categories": [
+        "firm_accountant",
+        "legal_entity_company",
+        "sme_administrator"
+      ],
+      "target_gate": "GA-01",
+      "threat_refs": [
+        "TM-011"
+      ]
+    },
+    {
+      "actor": "authorized_privacy_operator_and_deletion_workflow",
+      "allowed_log_fields": [
+        "company_scope_hash",
+        "deletion_request_id",
+        "event_name",
+        "scope_code",
+        "status_code",
+        "trace_id"
+      ],
+      "classifications": [
+        "confidential",
+        "internal"
+      ],
+      "company_scope": "required_verified",
+      "cross_border_state": "pending_A-02",
+      "data_categories": [
+        "deletion_request",
+        "purge_evidence",
+        "reconciliation_result",
+        "scope_resolution",
+        "tombstone"
+      ],
+      "deletion_triggers": [
+        "company_instruction",
+        "contract_termination",
+        "retention_expiry",
+        "subject_request"
+      ],
+      "evidence": [
+        {
+          "id": "EV-PRV-DFD",
+          "path": "docs/architecture/dfd-flows.json",
+          "status": "passed_spike"
+        },
+        {
+          "id": "EV-PRV-TM",
+          "path": "docs/security/threat-model.json",
+          "status": "passed_spike"
+        }
+      ],
+      "external_ai": {
+        "enabled": false,
+        "fail_closed": true,
+        "gateway_required": true,
+        "minimization_required": true,
+        "state": "disabled_until_L-02"
+      },
+      "forbidden_log_fields": [
+        "account_number",
+        "amount",
+        "cell_value",
+        "credential",
+        "financial_reference",
+        "ocr_text",
+        "original_filename",
+        "payload",
+        "raw_content",
+        "secret",
+        "tax_id",
+        "token"
+      ],
+      "id": "PA-15",
+      "legal_basis_state": "pending_legal",
+      "legal_hold_behavior": "suspends_purge_until_explicit_release_by_legal",
+      "minimization_controls": [
+        "delete_ledger_outside_ordinary_restore",
+        "inventory_reconciliation_before_completion",
+        "legal_hold_never_silent",
+        "no_raw_overwrite_to_delete",
+        "step_up_and_segregation_of_duties",
+        "tombstone_before_purge"
+      ],
+      "name": "deletion_and_tombstone",
+      "notes": "No se declara deleted mientras exista una copia activa no justificada en el inventario.",
+      "owner_role": "Privacy",
+      "provisional_role": "joint_or_context_dependent",
+      "purpose_id": "deletion_and_portability",
+      "recipients": [],
+      "region_state": "pending_A-02",
+      "retention_policy_ids": [
+        "L-01-AUDIT",
+        "L-01-DELETE-LEDGER",
+        "L-01-PRIVACY-REQUEST"
+      ],
+      "reviewer_roles": [
+        "Legal",
+        "Platform",
+        "Security"
+      ],
+      "rights_workflows": [
+        "RW-ACCESS",
+        "RW-DELETE",
+        "RW-REVOKE"
+      ],
+      "source_flows": [
+        "F11"
+      ],
+      "status": "review_pending",
+      "stores": [
+        "postgresql",
+        "security_archive",
+        "temporal"
+      ],
+      "subject_categories": [
+        "firm_accountant",
+        "legal_entity_company",
+        "sme_administrator",
+        "sme_employee_or_contractor",
+        "third_party_natural_person_in_documents"
+      ],
+      "target_gate": "DRG-00",
+      "threat_refs": [
+        "TM-013",
+        "TM-014"
+      ]
+    },
+    {
+      "actor": "authorized_company_controller_and_portability_workflow",
+      "allowed_log_fields": [
+        "authorization_result",
+        "authorization_version",
+        "company_scope_hash",
+        "engagement_id",
+        "event_name",
+        "invalidation_result",
+        "report_version_id",
+        "status_code",
+        "trace_id"
+      ],
+      "classifications": [
+        "confidential",
+        "financial_sensitive",
+        "internal"
+      ],
+      "company_scope": "required_verified",
+      "cross_border_state": "pending_A-02",
+      "data_categories": [
+        "package_hash",
+        "package_manifest",
+        "portability_package",
+        "scope_declaration"
+      ],
+      "deletion_triggers": [
+        "authorization_version_change",
+        "engagement_revocation",
+        "ttl_expiry"
+      ],
+      "evidence": [
+        {
+          "id": "EV-PRV-TENANCY",
+          "path": "docs/domain/TENANCY_MODEL.md",
+          "status": "passed_spike"
+        },
+        {
+          "id": "EV-PRV-AUTHZ",
+          "path": "spikes/FNC-SEC-001/test/tenancy.test.mjs",
+          "status": "passed_spike"
+        }
+      ],
+      "external_ai": {
+        "enabled": false,
+        "fail_closed": true,
+        "gateway_required": true,
+        "minimization_required": true,
+        "state": "disabled_until_L-02"
+      },
+      "forbidden_log_fields": [
+        "account_number",
+        "amount",
+        "cell_value",
+        "credential",
+        "financial_reference",
+        "ocr_text",
+        "original_filename",
+        "payload",
+        "raw_content",
+        "secret",
+        "tax_id",
+        "token"
+      ],
+      "id": "PA-16",
+      "legal_basis_state": "pending_legal",
+      "legal_hold_behavior": "suspends_purge_until_explicit_release_by_legal",
+      "minimization_controls": [
+        "authorization_version_bound",
+        "company_identifier_never_rewritten",
+        "export_manifest_and_hash",
+        "no_neighbouring_company_in_package",
+        "reauthorization_on_create_and_download",
+        "short_ttl_opaque_single_scope_link"
+      ],
+      "name": "portability_and_firm_change",
+      "notes": "El acceso historico de una firma saliente no equivale a propiedad: la company conserva su identidad.",
+      "owner_role": "Backend",
+      "provisional_role": "processor_candidate",
+      "purpose_id": "deletion_and_portability",
+      "recipients": [],
+      "region_state": "pending_A-02",
+      "retention_policy_ids": [
+        "L-01-AUDIT",
+        "L-01-AUTHORIZATION",
+        "L-01-EXPORT"
+      ],
+      "reviewer_roles": [
+        "Architecture",
+        "Legal",
+        "Privacy"
+      ],
+      "rights_workflows": [
+        "RW-ACCESS",
+        "RW-PORTABILITY"
+      ],
+      "source_flows": [
+        "F07",
+        "F13"
+      ],
+      "status": "review_pending",
+      "stores": [
+        "object_storage_derived",
+        "postgresql",
+        "security_archive"
+      ],
+      "subject_categories": [
+        "firm_accountant",
+        "legal_entity_company",
+        "sme_administrator"
+      ],
+      "target_gate": "DRG-01",
+      "threat_refs": [
+        "TM-001",
+        "TM-012"
+      ]
+    },
+    {
+      "actor": "authorized_recovery_operator_and_restore_workload",
+      "allowed_log_fields": [
+        "event_name",
+        "inventory_count",
+        "reconciliation_code",
+        "restore_run_id",
+        "tombstone_count",
+        "trace_id"
+      ],
+      "classifications": [
+        "confidential",
+        "financial_sensitive",
+        "internal"
+      ],
+      "company_scope": "preserved_verified",
+      "cross_border_state": "pending_A-02",
+      "data_categories": [
+        "backup_set",
+        "inventory_snapshot",
+        "restore_run",
+        "tombstone_reapplication_result"
+      ],
+      "deletion_triggers": [
+        "backup_window_expiry",
+        "retention_expiry",
+        "tombstone_reapplication"
+      ],
+      "evidence": [
+        {
+          "id": "EV-PRV-TM",
+          "path": "docs/security/threat-model.json",
+          "status": "passed_spike"
+        },
+        {
+          "id": "EV-PRV-DFD",
+          "path": "docs/architecture/dfd-flows.json",
+          "status": "passed_spike"
+        }
+      ],
+      "external_ai": {
+        "enabled": false,
+        "fail_closed": true,
+        "gateway_required": true,
+        "minimization_required": true,
+        "state": "disabled_until_L-02"
+      },
+      "forbidden_log_fields": [
+        "account_number",
+        "amount",
+        "cell_value",
+        "credential",
+        "financial_reference",
+        "ocr_text",
+        "original_filename",
+        "payload",
+        "raw_content",
+        "secret",
+        "tax_id",
+        "token"
+      ],
+      "id": "PA-17",
+      "legal_basis_state": "pending_legal",
+      "legal_hold_behavior": "suspends_purge_until_explicit_release_by_legal",
+      "minimization_controls": [
+        "delete_ledger_outside_restore_scope",
+        "inventory_reconciliation_required",
+        "segregated_kms_and_jit_access",
+        "tombstone_reapplication_before_service_reopen"
+      ],
+      "name": "backup_and_restore",
+      "notes": "Un backup cifrado que no puede reconciliarse contra tombstones no cuenta como restore exitoso.",
+      "owner_role": "Platform",
+      "provisional_role": "processor_candidate",
+      "purpose_id": "backup_and_disaster_recovery",
+      "recipients": [],
+      "region_state": "pending_A-02",
+      "retention_policy_ids": [
+        "L-01-AUDIT",
+        "L-01-BACKUP",
+        "L-01-FINANCIAL"
+      ],
+      "reviewer_roles": [
+        "Legal",
+        "Privacy",
+        "Security"
+      ],
+      "rights_workflows": [
+        "RW-ACCESS",
+        "RW-DELETE"
+      ],
+      "source_flows": [
+        "F12"
+      ],
+      "status": "review_pending",
+      "stores": [
+        "backups",
+        "postgresql",
+        "security_archive"
+      ],
+      "subject_categories": [
+        "firm_accountant",
+        "legal_entity_company",
+        "sme_administrator",
+        "third_party_natural_person_in_documents"
+      ],
+      "target_gate": "DRG-01",
+      "threat_refs": [
+        "TM-013",
+        "TM-014"
+      ]
+    },
+    {
+      "actor": "authorized_company_controller_and_access_module",
+      "allowed_log_fields": [
+        "authorization_version",
+        "company_scope_hash",
+        "engagement_id",
+        "event_name",
+        "invalidation_result",
+        "trace_id"
+      ],
+      "classifications": [
+        "confidential",
+        "internal"
+      ],
+      "company_scope": "required_verified",
+      "cross_border_state": "pending_A-02",
+      "data_categories": [
+        "authorization_version",
+        "engagement_state",
+        "grant_state",
+        "invalidation_evidence"
+      ],
+      "deletion_triggers": [
+        "engagement_revocation",
+        "retention_expiry"
+      ],
+      "evidence": [
+        {
+          "id": "EV-PRV-TENANCY",
+          "path": "docs/domain/TENANCY_MODEL.md",
+          "status": "passed_spike"
+        },
+        {
+          "id": "EV-PRV-AUTHZ",
+          "path": "spikes/FNC-SEC-001/test/tenancy.test.mjs",
+          "status": "passed_spike"
+        }
+      ],
+      "external_ai": {
+        "enabled": false,
+        "fail_closed": true,
+        "gateway_required": true,
+        "minimization_required": true,
+        "state": "disabled_until_L-02"
+      },
+      "forbidden_log_fields": [
+        "account_number",
+        "amount",
+        "cell_value",
+        "credential",
+        "financial_reference",
+        "ocr_text",
+        "original_filename",
+        "payload",
+        "raw_content",
+        "secret",
+        "tax_id",
+        "token"
+      ],
+      "id": "PA-18",
+      "legal_basis_state": "pending_legal",
+      "legal_hold_behavior": "suspends_purge_until_explicit_release_by_legal",
+      "minimization_controls": [
+        "authorization_version_increment_in_same_transaction",
+        "invalidate_sessions_jobs_links_schedules_and_caches",
+        "issued_context_revalidation_required",
+        "no_data_rewrite_on_revocation"
+      ],
+      "name": "engagement_revocation_and_invalidation",
+      "notes": "Revocar no reescribe datos. Depende de la entidad issued_authorization_context aun inexistente.",
+      "owner_role": "Security",
+      "provisional_role": "joint_or_context_dependent",
+      "purpose_id": "company_administration",
+      "recipients": [],
+      "region_state": "pending_A-02",
+      "retention_policy_ids": [
+        "L-01-AUDIT",
+        "L-01-AUTHORIZATION"
+      ],
+      "reviewer_roles": [
+        "Architecture",
+        "Legal",
+        "Privacy"
+      ],
+      "rights_workflows": [
+        "RW-ACCESS",
+        "RW-REVOKE"
+      ],
+      "source_flows": [
+        "F13"
+      ],
+      "status": "review_pending",
+      "stores": [
+        "postgresql",
+        "security_archive",
+        "valkey"
+      ],
+      "subject_categories": [
+        "firm_accountant",
+        "legal_entity_company",
+        "service_principal_non_human",
+        "sme_administrator"
+      ],
+      "target_gate": "S1-READY",
+      "threat_refs": [
+        "TM-004",
+        "TM-012"
+      ]
+    },
+    {
+      "actor": "ai_gateway_candidate_and_approved_provider_none_selected",
+      "allowed_log_fields": [
+        "ai_call_id",
+        "company_scope_hash",
+        "event_name",
+        "policy_version",
+        "provider_code",
+        "status_code",
+        "token_count_bucket",
+        "trace_id"
+      ],
+      "classifications": [
+        "confidential",
+        "internal"
+      ],
+      "company_scope": "required_verified",
+      "cross_border_state": "pending_A-02",
+      "data_categories": [
+        "cost_counter",
+        "minimized_call_record",
+        "policy_version",
+        "provider_reference"
+      ],
+      "deletion_triggers": [
+        "contractual_deletion",
+        "retention_expiry",
+        "tenant_policy_revocation"
+      ],
+      "evidence": [
+        {
+          "id": "EV-PRV-TM",
+          "path": "docs/security/threat-model.json",
+          "status": "passed_spike"
+        },
+        {
+          "id": "EV-PRV-MAP",
+          "path": "docs/privacy/PRIVACY_MAP.md",
+          "status": "planned"
+        }
+      ],
+      "external_ai": {
+        "enabled": false,
+        "fail_closed": true,
+        "gateway_required": true,
+        "minimization_required": true,
+        "state": "disabled_until_L-02"
+      },
+      "forbidden_log_fields": [
+        "account_number",
+        "amount",
+        "cell_value",
+        "credential",
+        "financial_reference",
+        "ocr_text",
+        "original_filename",
+        "payload",
+        "raw_content",
+        "secret",
+        "tax_id",
+        "token"
+      ],
+      "id": "PA-19",
+      "legal_basis_state": "pending_legal_and_contract",
+      "legal_hold_behavior": "suspends_purge_until_explicit_release_by_legal",
+      "minimization_controls": [
+        "external_ai_disabled_until_L-02",
+        "fail_closed_redaction",
+        "gateway_is_the_only_route",
+        "kill_switch_per_tenant_model_and_provider",
+        "model_output_is_proposal_only",
+        "no_full_raw_document_by_default",
+        "no_training_on_customer_data",
+        "prompt_and_output_are_not_free_logs"
+      ],
+      "name": "ai_assistance_disabled_by_default",
+      "notes": "Desactivado en E0. El feedback o etiquetado humano se considera finalidad nueva, no continuacion.",
+      "owner_role": "AI Platform",
+      "provisional_role": "not_determined_pending_legal",
+      "purpose_id": "ai_assistance_disabled_by_default",
+      "recipients": [
+        "REC-AI",
+        "REC-OCR"
+      ],
+      "region_state": "pending_A-02",
+      "retention_policy_ids": [
+        "L-02-AI-CALL"
+      ],
+      "reviewer_roles": [
+        "Legal",
+        "Privacy",
+        "Security"
+      ],
+      "rights_workflows": [
+        "RW-ACCESS",
+        "RW-DELETE",
+        "RW-OBJECT"
+      ],
+      "source_flows": [
+        "F08"
+      ],
+      "status": "review_pending",
+      "stores": [
+        "postgresql"
+      ],
+      "subject_categories": [
+        "legal_entity_company",
+        "third_party_natural_person_in_documents"
+      ],
+      "target_gate": "L-02",
+      "threat_refs": [
+        "TM-010",
+        "TM-011"
+      ]
+    },
+    {
+      "actor": "application_and_analytics_projection",
+      "allowed_log_fields": [
+        "company_scope_hash",
+        "event_name",
+        "status_code",
+        "trace_id"
+      ],
+      "classifications": [
+        "internal"
+      ],
+      "company_scope": "multi_company_per_company_authorized",
+      "cross_border_state": "pending_A-02",
+      "data_categories": [
+        "adoption_metric",
+        "aggregate_counter",
+        "job_outcome_code",
+        "latency_bucket"
+      ],
+      "deletion_triggers": [
+        "projection_rebuild",
+        "retention_expiry",
+        "tombstone_cascade"
+      ],
+      "evidence": [
+        {
+          "id": "EV-PRV-MAP",
+          "path": "docs/privacy/PRIVACY_MAP.md",
+          "status": "planned"
+        }
+      ],
+      "external_ai": {
+        "enabled": false,
+        "fail_closed": true,
+        "gateway_required": true,
+        "minimization_required": true,
+        "state": "disabled_until_L-02"
+      },
+      "forbidden_log_fields": [
+        "account_number",
+        "amount",
+        "cell_value",
+        "credential",
+        "financial_reference",
+        "ocr_text",
+        "original_filename",
+        "payload",
+        "raw_content",
+        "secret",
+        "tax_id",
+        "token"
+      ],
+      "id": "PA-20",
+      "legal_basis_state": "pending_legal",
+      "legal_hold_behavior": "suspends_purge_until_explicit_release_by_legal",
+      "minimization_controls": [
+        "authoritative_candidate_enumeration",
+        "no_cross_company_aggregate_without_authorization",
+        "no_financial_payload_in_projection",
+        "per_company_authorization",
+        "projection_is_never_authoritative",
+        "rebuilt_not_restored"
+      ],
+      "name": "operational_analytics",
+      "notes": "Metricas de producto sin monto identificable. La proyeccion se reconstruye, nunca se restaura.",
+      "owner_role": "Product",
+      "provisional_role": "controller_candidate",
+      "purpose_id": "operational_analytics",
+      "recipients": [],
+      "region_state": "pending_A-02",
+      "retention_policy_ids": [
+        "L-01-TELEMETRY"
+      ],
+      "reviewer_roles": [
+        "Architecture",
+        "Privacy",
+        "Security"
+      ],
+      "rights_workflows": [
+        "RW-ACCESS",
+        "RW-OBJECT"
+      ],
+      "source_flows": [],
+      "status": "review_pending",
+      "stores": [
+        "analytics_projection",
+        "postgresql"
+      ],
+      "subject_categories": [
+        "firm_accountant",
+        "firm_employee",
+        "legal_entity_company",
+        "sme_administrator"
+      ],
+      "target_gate": "S1-READY",
+      "threat_refs": [
+        "TM-001",
+        "TM-011"
+      ]
+    },
+    {
+      "actor": "firm_subject_and_portfolio_module",
+      "allowed_log_fields": [
+        "authorization_result",
+        "company_scope_hash",
+        "event_name",
+        "report_version_id",
+        "status_code",
+        "trace_id"
+      ],
+      "classifications": [
+        "confidential",
+        "financial_sensitive",
+        "internal"
+      ],
+      "company_scope": "multi_company_per_company_authorized",
+      "cross_border_state": "pending_A-02",
+      "data_categories": [
+        "company_state_indicator",
+        "portfolio_row",
+        "workload_indicator"
+      ],
+      "deletion_triggers": [
+        "authorization_version_change",
+        "engagement_revocation",
+        "retention_expiry"
+      ],
+      "evidence": [
+        {
+          "id": "EV-PRV-AUTHZ",
+          "path": "spikes/FNC-SEC-001/test/tenancy.test.mjs",
+          "status": "passed_spike"
+        },
+        {
+          "id": "EV-PRV-TENANCY",
+          "path": "docs/domain/TENANCY_MODEL.md",
+          "status": "passed_spike"
+        }
+      ],
+      "external_ai": {
+        "enabled": false,
+        "fail_closed": true,
+        "gateway_required": true,
+        "minimization_required": true,
+        "state": "disabled_until_L-02"
+      },
+      "forbidden_log_fields": [
+        "account_number",
+        "amount",
+        "cell_value",
+        "credential",
+        "financial_reference",
+        "ocr_text",
+        "original_filename",
+        "payload",
+        "raw_content",
+        "secret",
+        "tax_id",
+        "token"
+      ],
+      "id": "PA-21",
+      "legal_basis_state": "pending_legal",
+      "legal_hold_behavior": "suspends_purge_until_explicit_release_by_legal",
+      "minimization_controls": [
+        "aggregates_only_over_authorized_companies",
+        "authoritative_candidate_enumeration",
+        "multi_company_export_is_privileged_event",
+        "no_enumeration_from_consolidated_cache",
+        "per_company_authorization"
+      ],
+      "name": "multi_company_portfolio_view",
+      "notes": "Depende del hallazgo C de FNC-SEC-001: la lista de candidatos debe venir de almacenamiento autoritativo.",
+      "owner_role": "Backend",
+      "provisional_role": "processor_candidate",
+      "purpose_id": "delegated_accounting_operation",
+      "recipients": [],
+      "region_state": "pending_A-02",
+      "retention_policy_ids": [
+        "L-01-AUTHORIZATION",
+        "L-01-FINANCIAL"
+      ],
+      "reviewer_roles": [
+        "Architecture",
+        "Privacy",
+        "Security"
+      ],
+      "rights_workflows": [
+        "RW-ACCESS"
+      ],
+      "source_flows": [
+        "F07"
+      ],
+      "status": "review_pending",
+      "stores": [
+        "postgresql",
+        "valkey"
+      ],
+      "subject_categories": [
+        "firm_accountant",
+        "firm_employee",
+        "legal_entity_company"
+      ],
+      "target_gate": "S1-READY",
+      "threat_refs": [
+        "TM-001",
+        "TM-004"
+      ]
+    },
+    {
+      "actor": "internal_engineering_on_synthetic_corpus_only",
+      "allowed_log_fields": [
+        "company_scope_hash",
+        "event_name",
+        "status_code",
+        "trace_id"
+      ],
+      "classifications": [
+        "internal"
+      ],
+      "company_scope": "platform_scope_synthetic_only",
+      "cross_border_state": "pending_A-02",
+      "data_categories": [
+        "evaluation_metric",
+        "golden_expectation",
+        "synthetic_corpus_record"
+      ],
+      "deletion_triggers": [
+        "corpus_regeneration",
+        "retention_expiry"
+      ],
+      "evidence": [
+        {
+          "id": "EV-PRV-SYNTHETIC",
+          "path": "docs/testing/SYNTHETIC_DATA_POLICY.md",
+          "status": "passed_spike"
+        }
+      ],
+      "external_ai": {
+        "enabled": false,
+        "fail_closed": true,
+        "gateway_required": true,
+        "minimization_required": true,
+        "state": "disabled_until_L-02"
+      },
+      "forbidden_log_fields": [
+        "account_number",
+        "amount",
+        "cell_value",
+        "credential",
+        "financial_reference",
+        "ocr_text",
+        "original_filename",
+        "payload",
+        "raw_content",
+        "secret",
+        "tax_id",
+        "token"
+      ],
+      "id": "PA-22",
+      "legal_basis_state": "pending_legal_and_contract",
+      "legal_hold_behavior": "suspends_purge_until_explicit_release_by_legal",
+      "minimization_controls": [
+        "no_customer_data_for_training",
+        "no_real_derived_data_reclassified_as_synthetic",
+        "separate_consent_and_contract_required",
+        "synthetic_data_only_until_DRG-00"
+      ],
+      "name": "model_development_and_evaluation",
+      "notes": "En E0 solo corpus sintetico. Usar datos de cliente exigiria base, contrato, DPIA y gate propios.",
+      "owner_role": "AI Platform",
+      "provisional_role": "controller_candidate",
+      "purpose_id": "ai_assistance_disabled_by_default",
+      "recipients": [],
+      "region_state": "pending_A-02",
+      "retention_policy_ids": [
+        "L-01-TELEMETRY"
+      ],
+      "reviewer_roles": [
+        "Legal",
+        "Privacy",
+        "Security"
+      ],
+      "rights_workflows": [
+        "RW-OBJECT"
+      ],
+      "source_flows": [],
+      "status": "review_pending",
+      "stores": [
+        "object_storage_derived",
+        "postgresql"
+      ],
+      "subject_categories": [
+        "service_principal_non_human"
+      ],
+      "target_gate": "DRG-00",
+      "threat_refs": [
+        "TM-010"
+      ]
+    },
+    {
+      "actor": "privacy_operator_and_request_workflow",
+      "allowed_log_fields": [
+        "company_scope_hash",
+        "deletion_request_id",
+        "event_name",
+        "scope_code",
+        "status_code",
+        "trace_id"
+      ],
+      "classifications": [
+        "confidential",
+        "internal"
+      ],
+      "company_scope": "required_verified",
+      "cross_border_state": "pending_A-02",
+      "data_categories": [
+        "appeal_record",
+        "privacy_request",
+        "requester_verification_evidence",
+        "response_record"
+      ],
+      "deletion_triggers": [
+        "legal_hold_release",
+        "request_closure",
+        "retention_expiry"
+      ],
+      "evidence": [
+        {
+          "id": "EV-PRV-MAP",
+          "path": "docs/privacy/PRIVACY_MAP.md",
+          "status": "planned"
+        }
+      ],
+      "external_ai": {
+        "enabled": false,
+        "fail_closed": true,
+        "gateway_required": true,
+        "minimization_required": true,
+        "state": "disabled_until_L-02"
+      },
+      "forbidden_log_fields": [
+        "account_number",
+        "amount",
+        "cell_value",
+        "credential",
+        "financial_reference",
+        "ocr_text",
+        "original_filename",
+        "payload",
+        "raw_content",
+        "secret",
+        "tax_id",
+        "token"
+      ],
+      "id": "PA-23",
+      "legal_basis_state": "pending_legal_and_contract",
+      "legal_hold_behavior": "suspends_purge_until_explicit_release_by_legal",
+      "minimization_controls": [
+        "controller_processor_routing_declared",
+        "no_request_content_in_general_logs",
+        "recipient_registry_sweep",
+        "requester_authority_verification",
+        "scope_resolved_from_authoritative_storage"
+      ],
+      "name": "rights_and_requests_handling",
+      "notes": "Cuando Fincilia actua como encargado, enruta al responsable y no responde por cuenta propia.",
+      "owner_role": "Privacy",
+      "provisional_role": "joint_or_context_dependent",
+      "purpose_id": "deletion_and_portability",
+      "recipients": [],
+      "region_state": "pending_A-02",
+      "retention_policy_ids": [
+        "L-01-AUDIT",
+        "L-01-PRIVACY-REQUEST"
+      ],
+      "reviewer_roles": [
+        "Legal",
+        "Product",
+        "Security"
+      ],
+      "rights_workflows": [
+        "RW-ACCESS",
+        "RW-COMPLAINT",
+        "RW-DELETE",
+        "RW-OBJECT",
+        "RW-PORTABILITY",
+        "RW-PROOF_OF_AUTHORIZATION",
+        "RW-RECTIFY",
+        "RW-REVOKE",
+        "RW-UPDATE"
+      ],
+      "source_flows": [
+        "F11"
+      ],
+      "status": "review_pending",
+      "stores": [
+        "postgresql",
+        "security_archive"
+      ],
+      "subject_categories": [
+        "auditor_user",
+        "firm_accountant",
+        "firm_employee",
+        "sme_administrator",
+        "sme_employee_or_contractor",
+        "third_party_natural_person_in_documents"
+      ],
+      "target_gate": "DRG-00",
+      "threat_refs": [
+        "TM-011",
+        "TM-013"
+      ]
+    },
+    {
+      "actor": "legal_operator_and_hold_workflow",
+      "allowed_log_fields": [
+        "company_scope_hash",
+        "event_name",
+        "status_code",
+        "trace_id"
+      ],
+      "classifications": [
+        "confidential",
+        "internal"
+      ],
+      "company_scope": "required_verified",
+      "cross_border_state": "pending_A-02",
+      "data_categories": [
+        "hold_basis_reference",
+        "hold_scope",
+        "legal_hold",
+        "regulatory_request_record"
+      ],
+      "deletion_triggers": [
+        "hold_release",
+        "obligation_expiry"
+      ],
+      "evidence": [
+        {
+          "id": "EV-PRV-MAP",
+          "path": "docs/privacy/PRIVACY_MAP.md",
+          "status": "planned"
+        }
+      ],
+      "external_ai": {
+        "enabled": false,
+        "fail_closed": true,
+        "gateway_required": true,
+        "minimization_required": true,
+        "state": "disabled_until_L-02"
+      },
+      "forbidden_log_fields": [
+        "account_number",
+        "amount",
+        "cell_value",
+        "credential",
+        "financial_reference",
+        "ocr_text",
+        "original_filename",
+        "payload",
+        "raw_content",
+        "secret",
+        "tax_id",
+        "token"
+      ],
+      "id": "PA-24",
+      "legal_basis_state": "pending_legal_and_contract",
+      "legal_hold_behavior": "suspends_purge_until_explicit_release_by_legal",
+      "minimization_controls": [
+        "explicit_basis_scope_and_owner",
+        "hold_supersedes_ordinary_retention",
+        "hold_visible_in_deletion_workflow",
+        "legal_hold_never_activated_silently"
+      ],
+      "name": "legal_obligations_and_holds",
+      "notes": "Un hold suspende la purga pero nunca crea una finalidad nueva de uso del dato retenido.",
+      "owner_role": "Legal",
+      "provisional_role": "not_determined_pending_legal",
+      "purpose_id": "legal_obligation_compliance",
+      "recipients": [],
+      "region_state": "pending_A-02",
+      "retention_policy_ids": [
+        "L-01-AUDIT",
+        "L-01-PRIVACY-REQUEST"
+      ],
+      "reviewer_roles": [
+        "Architecture",
+        "Privacy",
+        "Security"
+      ],
+      "rights_workflows": [
+        "RW-ACCESS",
+        "RW-COMPLAINT"
+      ],
+      "source_flows": [],
+      "status": "review_pending",
+      "stores": [
+        "postgresql",
+        "security_archive"
+      ],
+      "subject_categories": [
+        "firm_accountant",
+        "legal_entity_company",
+        "sme_administrator"
+      ],
+      "target_gate": "L-01",
+      "threat_refs": [
+        "TM-013",
+        "TM-014"
+      ]
+    },
+    {
+      "actor": "mobile_and_web_client",
+      "allowed_log_fields": [
+        "company_scope_hash",
+        "event_name",
+        "status_code",
+        "trace_id"
+      ],
+      "classifications": [
+        "confidential",
+        "internal"
+      ],
+      "company_scope": "required_verified",
+      "cross_border_state": "pending_A-02",
+      "data_categories": [
+        "capture_buffer_reference",
+        "local_draft_reference",
+        "session_reference"
+      ],
+      "deletion_triggers": [
+        "device_revocation",
+        "logout",
+        "ttl_expiry",
+        "upload_confirmation"
+      ],
+      "evidence": [
+        {
+          "id": "EV-PRV-MAP",
+          "path": "docs/privacy/PRIVACY_MAP.md",
+          "status": "planned"
+        }
+      ],
+      "external_ai": {
+        "enabled": false,
+        "fail_closed": true,
+        "gateway_required": true,
+        "minimization_required": true,
+        "state": "disabled_until_L-02"
+      },
+      "forbidden_log_fields": [
+        "account_number",
+        "amount",
+        "cell_value",
+        "credential",
+        "financial_reference",
+        "ocr_text",
+        "original_filename",
+        "payload",
+        "raw_content",
+        "secret",
+        "tax_id",
+        "token"
+      ],
+      "id": "PA-25",
+      "legal_basis_state": "pending_legal",
+      "legal_hold_behavior": "suspends_purge_until_explicit_release_by_legal",
+      "minimization_controls": [
+        "clear_local_cache_on_logout_or_revocation",
+        "no_financial_content_in_push_or_clipboard_by_default",
+        "no_financial_truth_in_browser_storage",
+        "no_persistent_raw_on_device_after_confirmed_upload",
+        "secure_storage_for_session_reference_only",
+        "short_lived_signed_urls"
+      ],
+      "name": "device_and_client_side_handling",
+      "notes": "El dispositivo nunca es autoridad financiera. Mapeo complejo y export masivo permanecen en web.",
+      "owner_role": "Mobile",
+      "provisional_role": "processor_candidate",
+      "purpose_id": "identity_and_access",
+      "recipients": [],
+      "region_state": "pending_A-02",
+      "retention_policy_ids": [
+        "L-01-DEVICE"
+      ],
+      "reviewer_roles": [
+        "Privacy",
+        "Product",
+        "Security"
+      ],
+      "rights_workflows": [
+        "RW-ACCESS",
+        "RW-DELETE",
+        "RW-REVOKE"
+      ],
+      "source_flows": [],
+      "status": "review_pending",
+      "stores": [
+        "browser_storage",
+        "mobile_device"
+      ],
+      "subject_categories": [
+        "firm_accountant",
+        "firm_employee",
+        "sme_administrator",
+        "sme_employee_or_contractor"
+      ],
+      "target_gate": "S1-READY",
+      "threat_refs": [
+        "TM-011",
+        "TM-012"
+      ]
+    }
+  ],
+  "processing_roles": [
+    {
+      "definition": "Fincilia trataria por instruccion documentada de la company.",
+      "id": "processor_candidate"
+    },
+    {
+      "definition": "Fincilia determinaria finalidad y medios para su propia operacion.",
+      "id": "controller_candidate"
+    },
+    {
+      "definition": "El rol depende del origen de la instruccion y del contrato aplicable.",
+      "id": "joint_or_context_dependent"
+    },
+    {
+      "definition": "No hay base suficiente para postular un rol sin concepto juridico.",
+      "id": "not_determined_pending_legal"
+    }
+  ],
+  "purposes": [
+    {
+      "description": "Autenticar y sostener una sesion con assurance verificable.",
+      "grant_isolation": "un grant para esta finalidad no autoriza ninguna otra",
+      "id": "identity_and_access"
+    },
+    {
+      "description": "Administrar company, engagement, membresias y grants.",
+      "grant_isolation": "un grant para esta finalidad no autoriza ninguna otra",
+      "id": "company_administration"
+    },
+    {
+      "description": "Operar contablemente por instruccion de la company.",
+      "grant_isolation": "un grant para esta finalidad no autoriza ninguna otra",
+      "id": "delegated_accounting_operation"
+    },
+    {
+      "description": "Recibir y decidir sobre artefactos de evidencia no confiables.",
+      "grant_isolation": "un grant para esta finalidad no autoriza ninguna otra",
+      "id": "evidence_ingestion"
+    },
+    {
+      "description": "Extraer, mapear y publicar registros con linaje.",
+      "grant_isolation": "un grant para esta finalidad no autoriza ninguna otra",
+      "id": "parsing_and_mapping"
+    },
+    {
+      "description": "Proponer, revisar y cerrar con evidencia.",
+      "grant_isolation": "un grant para esta finalidad no autoriza ninguna otra",
+      "id": "reconciliation_and_close"
+    },
+    {
+      "description": "Materializar y entregar vistas autorizadas.",
+      "grant_isolation": "un grant para esta finalidad no autoriza ninguna otra",
+      "id": "reporting_and_export"
+    },
+    {
+      "description": "Recibir eventos de fuentes aprobadas.",
+      "grant_isolation": "un grant para esta finalidad no autoriza ninguna otra",
+      "id": "connector_operation"
+    },
+    {
+      "description": "Avisar sin transportar contenido financiero.",
+      "grant_isolation": "un grant para esta finalidad no autoriza ninguna otra",
+      "id": "reminders_and_notifications"
+    },
+    {
+      "description": "Preservar evidencia de seguridad y decision.",
+      "grant_isolation": "un grant para esta finalidad no autoriza ninguna otra",
+      "id": "security_and_audit"
+    },
+    {
+      "description": "Asistir tecnicamente bajo acceso excepcional.",
+      "grant_isolation": "un grant para esta finalidad no autoriza ninguna otra",
+      "id": "support_and_break_glass"
+    },
+    {
+      "description": "Medir consumo y facturar el servicio.",
+      "grant_isolation": "un grant para esta finalidad no autoriza ninguna otra",
+      "id": "usage_metering_and_billing"
+    },
+    {
+      "description": "Ejercer supresion, portabilidad y derechos.",
+      "grant_isolation": "un grant para esta finalidad no autoriza ninguna otra",
+      "id": "deletion_and_portability"
+    },
+    {
+      "description": "Recuperar estado sin resucitar datos suprimidos.",
+      "grant_isolation": "un grant para esta finalidad no autoriza ninguna otra",
+      "id": "backup_and_disaster_recovery"
+    },
+    {
+      "description": "Asistencia opcional, desactivada hasta L-02.",
+      "grant_isolation": "un grant para esta finalidad no autoriza ninguna otra",
+      "id": "ai_assistance_disabled_by_default"
+    },
+    {
+      "description": "Medir operacion sin payload financiero identificable.",
+      "grant_isolation": "un grant para esta finalidad no autoriza ninguna otra",
+      "id": "operational_analytics"
+    },
+    {
+      "description": "Atender obligaciones legales y legal holds.",
+      "grant_isolation": "un grant para esta finalidad no autoriza ninguna otra",
+      "id": "legal_obligation_compliance"
+    }
+  ],
+  "recipient_registry": [
+    {
+      "contract_state": "pending_dpa",
+      "data_categories": [
+        "identity_and_authentication_metadata"
+      ],
+      "deletion_support_state": "pending_evidence",
+      "egress_default": "deny",
+      "id": "REC-IDP",
+      "kind": "external",
+      "name": "identity_provider_candidate",
+      "owner_role": "Privacy",
+      "region_state": "pending_A-02",
+      "reviewer_roles": [
+        "Architecture",
+        "Legal",
+        "Security"
+      ],
+      "rights_support_state": "pending_evidence",
+      "role_state": "processor_candidate_pending_legal",
+      "security_assessment_state": "pending_evidence",
+      "selected": false,
+      "subprocessor_disclosure_state": "pending_evidence"
+    },
+    {
+      "contract_state": "pending_dpa",
+      "data_categories": [
+        "notification_event",
+        "recipient_reference"
+      ],
+      "deletion_support_state": "pending_evidence",
+      "egress_default": "deny",
+      "id": "REC-EMAIL",
+      "kind": "external",
+      "name": "transactional_email_provider_candidate",
+      "owner_role": "Privacy",
+      "region_state": "pending_A-02",
+      "reviewer_roles": [
+        "Architecture",
+        "Legal",
+        "Security"
+      ],
+      "rights_support_state": "pending_evidence",
+      "role_state": "processor_candidate_pending_legal",
+      "security_assessment_state": "pending_evidence",
+      "selected": false,
+      "subprocessor_disclosure_state": "pending_evidence"
+    },
+    {
+      "contract_state": "pending_dpa",
+      "data_categories": [
+        "device_token_reference",
+        "notification_event"
+      ],
+      "deletion_support_state": "pending_evidence",
+      "egress_default": "deny",
+      "id": "REC-PUSH",
+      "kind": "external",
+      "name": "push_notification_provider_candidate",
+      "owner_role": "Privacy",
+      "region_state": "pending_A-02",
+      "reviewer_roles": [
+        "Architecture",
+        "Legal",
+        "Security"
+      ],
+      "rights_support_state": "pending_evidence",
+      "role_state": "processor_candidate_pending_legal",
+      "security_assessment_state": "pending_evidence",
+      "selected": false,
+      "subprocessor_disclosure_state": "pending_evidence"
+    },
+    {
+      "contract_state": "pending_dpa",
+      "data_categories": [
+        "billing_contact_reference",
+        "invoice_reference"
+      ],
+      "deletion_support_state": "pending_evidence",
+      "egress_default": "deny",
+      "id": "REC-BILLING",
+      "kind": "external",
+      "name": "billing_and_payment_provider_candidate",
+      "owner_role": "Privacy",
+      "region_state": "pending_A-02",
+      "reviewer_roles": [
+        "Architecture",
+        "Legal",
+        "Security"
+      ],
+      "rights_support_state": "pending_evidence",
+      "role_state": "processor_candidate_pending_legal",
+      "security_assessment_state": "pending_evidence",
+      "selected": false,
+      "subprocessor_disclosure_state": "pending_evidence"
+    },
+    {
+      "contract_state": "pending_dpa",
+      "data_categories": [
+        "minimized_extraction_input"
+      ],
+      "deletion_support_state": "pending_evidence",
+      "egress_default": "deny",
+      "id": "REC-AI",
+      "kind": "external",
+      "name": "ai_provider_candidate",
+      "owner_role": "Privacy",
+      "region_state": "pending_A-02",
+      "reviewer_roles": [
+        "Architecture",
+        "Legal",
+        "Security"
+      ],
+      "rights_support_state": "pending_evidence",
+      "role_state": "processor_candidate_pending_legal",
+      "security_assessment_state": "pending_evidence",
+      "selected": false,
+      "subprocessor_disclosure_state": "pending_evidence"
+    },
+    {
+      "contract_state": "pending_dpa",
+      "data_categories": [
+        "minimized_document_region"
+      ],
+      "deletion_support_state": "pending_evidence",
+      "egress_default": "deny",
+      "id": "REC-OCR",
+      "kind": "external",
+      "name": "ocr_provider_candidate",
+      "owner_role": "Privacy",
+      "region_state": "pending_A-02",
+      "reviewer_roles": [
+        "Architecture",
+        "Legal",
+        "Security"
+      ],
+      "rights_support_state": "pending_evidence",
+      "role_state": "processor_candidate_pending_legal",
+      "security_assessment_state": "pending_evidence",
+      "selected": false,
+      "subprocessor_disclosure_state": "pending_evidence"
+    },
+    {
+      "contract_state": "pending_dpa",
+      "data_categories": [
+        "provider_event",
+        "source_metadata"
+      ],
+      "deletion_support_state": "pending_evidence",
+      "egress_default": "deny",
+      "id": "REC-CONNECTOR",
+      "kind": "external",
+      "name": "financial_data_source_candidate",
+      "owner_role": "Privacy",
+      "region_state": "pending_A-02",
+      "reviewer_roles": [
+        "Architecture",
+        "Legal",
+        "Security"
+      ],
+      "rights_support_state": "pending_evidence",
+      "role_state": "processor_candidate_pending_legal",
+      "security_assessment_state": "pending_evidence",
+      "selected": false,
+      "subprocessor_disclosure_state": "pending_evidence"
+    },
+    {
+      "contract_state": "pending_dpa",
+      "data_categories": [
+        "hosted_data_at_rest_and_in_transit"
+      ],
+      "deletion_support_state": "pending_evidence",
+      "egress_default": "deny",
+      "id": "REC-CLOUD",
+      "kind": "external",
+      "name": "cloud_infrastructure_provider_candidate",
+      "owner_role": "Privacy",
+      "region_state": "pending_A-02",
+      "reviewer_roles": [
+        "Architecture",
+        "Legal",
+        "Security"
+      ],
+      "rights_support_state": "pending_evidence",
+      "role_state": "processor_candidate_pending_legal",
+      "security_assessment_state": "pending_evidence",
+      "selected": false,
+      "subprocessor_disclosure_state": "pending_evidence"
+    }
+  ],
+  "region_decision": "pending_A-02",
+  "retention_policies": [
+    {
+      "backup_restore_behavior": "tombstone_reapplied_before_service_reopen",
+      "class": "identity_and_session",
+      "computation_start": "last_identity_or_session_event",
+      "derived_affected": [],
+      "duration_state": "pending_legal",
+      "expiry_trigger": "policy_duration_after_start_or_revocation",
+      "id": "L-01-IDENTITY",
+      "legal_hold": "suspends_purge_and_requires_explicit_documented_basis",
+      "owner_role": "Privacy",
+      "pending_decision": "L-01",
+      "purge_evidence": "delete_ledger_entry_and_audit_event",
+      "purge_method": "delete_and_expire_by_policy",
+      "reviewer_roles": [
+        "Legal",
+        "Security"
+      ],
+      "stores": [
+        "postgresql",
+        "valkey"
+      ]
+    },
+    {
+      "backup_restore_behavior": "not_restored_as_authority",
+      "class": "untrusted_artifact",
+      "computation_start": "artifact_version_received_at",
+      "derived_affected": [],
+      "duration_state": "pending_legal",
+      "expiry_trigger": "rejection_promotion_or_policy_expiry",
+      "id": "L-01-QUARANTINE",
+      "legal_hold": "suspends_purge_and_requires_explicit_documented_basis",
+      "owner_role": "Privacy",
+      "pending_decision": "L-01",
+      "purge_evidence": "delete_ledger_entry_and_scan_decision_record",
+      "purge_method": "expire_or_purge_without_promotion",
+      "reviewer_roles": [
+        "Data Engineering",
+        "Legal",
+        "Security"
+      ],
+      "stores": [
+        "object_storage_quarantine"
+      ]
+    },
+    {
+      "backup_restore_behavior": "tombstone_reapplied_before_service_reopen",
+      "class": "accepted_original_evidence",
+      "computation_start": "artifact_version_accepted_at",
+      "derived_affected": [
+        "analytics_projection",
+        "object_storage_derived"
+      ],
+      "duration_state": "pending_legal",
+      "expiry_trigger": "policy_duration_after_start_or_tombstone",
+      "id": "L-01-RAW",
+      "legal_hold": "suspends_purge_and_requires_explicit_documented_basis",
+      "owner_role": "Privacy",
+      "pending_decision": "L-01",
+      "purge_evidence": "delete_ledger_entry_and_signed_digest",
+      "purge_method": "tombstone_then_version_purge_never_overwrite",
+      "reviewer_roles": [
+        "Accounting",
+        "Legal",
+        "Security"
+      ],
+      "stores": [
+        "object_storage_raw"
+      ]
+    },
+    {
+      "backup_restore_behavior": "regenerated_not_restored",
+      "class": "derived_dataset_and_manifest",
+      "computation_start": "derived_version_created_at",
+      "derived_affected": [
+        "analytics_projection"
+      ],
+      "duration_state": "pending_legal",
+      "expiry_trigger": "cascade_from_source_tombstone_or_policy_expiry",
+      "id": "L-01-DERIVED",
+      "legal_hold": "suspends_purge_and_requires_explicit_documented_basis",
+      "owner_role": "Privacy",
+      "pending_decision": "L-01",
+      "purge_evidence": "delete_ledger_entry_and_reconciliation_result",
+      "purge_method": "cascade_purge_from_tombstone",
+      "reviewer_roles": [
+        "Data Engineering",
+        "Legal"
+      ],
+      "stores": [
+        "object_storage_derived"
+      ]
+    },
+    {
+      "backup_restore_behavior": "tombstone_reapplied_before_service_reopen",
+      "class": "canonical_financial_record",
+      "computation_start": "last_related_accounting_entry_or_document",
+      "derived_affected": [
+        "analytics_projection",
+        "object_storage_derived"
+      ],
+      "duration_state": "pending_legal",
+      "expiry_trigger": "policy_duration_after_start_or_instruction",
+      "id": "L-01-FINANCIAL",
+      "legal_hold": "suspends_purge_and_requires_explicit_documented_basis",
+      "owner_role": "Legal",
+      "pending_decision": "L-01",
+      "purge_evidence": "delete_ledger_entry_and_inventory_reconciliation",
+      "purge_method": "tombstone_and_cascaded_policy_purge",
+      "reviewer_roles": [
+        "Accounting",
+        "Architecture",
+        "Privacy"
+      ],
+      "stores": [
+        "postgresql"
+      ]
+    },
+    {
+      "backup_restore_behavior": "tombstone_reapplied_before_service_reopen",
+      "class": "close_snapshot_evidence",
+      "computation_start": "close_snapshot_sealed_at",
+      "derived_affected": [],
+      "duration_state": "pending_legal",
+      "expiry_trigger": "legal_hold_aware_policy_expiry",
+      "id": "L-01-CLOSE",
+      "legal_hold": "suspends_purge_and_requires_explicit_documented_basis",
+      "owner_role": "Legal",
+      "pending_decision": "L-01",
+      "purge_evidence": "delete_ledger_entry_and_signed_digest",
+      "purge_method": "legal_hold_aware_policy_purge",
+      "reviewer_roles": [
+        "Accounting",
+        "Privacy"
+      ],
+      "stores": [
+        "object_storage_derived"
+      ]
+    },
+    {
+      "backup_restore_behavior": "not_restored_as_authority",
+      "class": "ephemeral_export_package",
+      "computation_start": "export_materialized_at",
+      "derived_affected": [],
+      "duration_state": "pending_contract",
+      "expiry_trigger": "short_ttl_or_authorization_version_change",
+      "id": "L-01-EXPORT",
+      "legal_hold": "suspends_purge_and_requires_explicit_documented_basis",
+      "owner_role": "Privacy",
+      "pending_decision": "L-01",
+      "purge_evidence": "delete_ledger_entry_and_download_event",
+      "purge_method": "short_ttl_then_purge",
+      "reviewer_roles": [
+        "Legal",
+        "Security"
+      ],
+      "stores": [
+        "object_storage_derived"
+      ]
+    },
+    {
+      "backup_restore_behavior": "tombstone_reapplied_before_service_reopen",
+      "class": "provider_source_event",
+      "computation_start": "provider_event_received_at",
+      "derived_affected": [
+        "object_storage_quarantine"
+      ],
+      "duration_state": "pending_legal",
+      "expiry_trigger": "policy_duration_after_start_or_tombstone",
+      "id": "L-01-SOURCE-EVENT",
+      "legal_hold": "suspends_purge_and_requires_explicit_documented_basis",
+      "owner_role": "Privacy",
+      "pending_decision": "L-01",
+      "purge_evidence": "delete_ledger_entry_and_audit_event",
+      "purge_method": "tombstone_and_policy_purge",
+      "reviewer_roles": [
+        "Integrations",
+        "Legal"
+      ],
+      "stores": [
+        "postgresql"
+      ]
+    },
+    {
+      "backup_restore_behavior": "outside_ordinary_restore_scope",
+      "class": "security_and_decision_audit",
+      "computation_start": "audit_event_written_at",
+      "derived_affected": [],
+      "duration_state": "pending_legal",
+      "expiry_trigger": "policy_duration_after_all_restore_windows",
+      "id": "L-01-AUDIT",
+      "legal_hold": "suspends_purge_and_requires_explicit_documented_basis",
+      "owner_role": "Security",
+      "pending_decision": "L-01",
+      "purge_evidence": "signed_digest_chain_and_reconciliation",
+      "purge_method": "segregated_policy_purge_with_digest_continuity",
+      "reviewer_roles": [
+        "Legal",
+        "Privacy"
+      ],
+      "stores": [
+        "security_archive"
+      ]
+    },
+    {
+      "backup_restore_behavior": "outside_ordinary_restore_scope",
+      "class": "delete_ledger_and_tombstone",
+      "computation_start": "tombstone_written_at",
+      "derived_affected": [],
+      "duration_state": "pending_legal",
+      "expiry_trigger": "policy_after_all_restore_windows_and_legal_hold",
+      "id": "L-01-DELETE-LEDGER",
+      "legal_hold": "suspends_purge_and_requires_explicit_documented_basis",
+      "owner_role": "Privacy",
+      "pending_decision": "L-01",
+      "purge_evidence": "signed_digest_and_restore_reconciliation_result",
+      "purge_method": "retain_beyond_longest_backup_window_then_policy_purge",
+      "reviewer_roles": [
+        "Legal",
+        "Platform",
+        "Security"
+      ],
+      "stores": [
+        "security_archive"
+      ]
+    },
+    {
+      "backup_restore_behavior": "tombstone_reapplied_before_service_reopen",
+      "class": "privacy_request_record",
+      "computation_start": "request_closed_at",
+      "derived_affected": [],
+      "duration_state": "pending_legal",
+      "expiry_trigger": "policy_duration_after_closure",
+      "id": "L-01-PRIVACY-REQUEST",
+      "legal_hold": "suspends_purge_and_requires_explicit_documented_basis",
+      "owner_role": "Privacy",
+      "pending_decision": "L-01",
+      "purge_evidence": "delete_ledger_entry_and_response_record",
+      "purge_method": "policy_purge_with_audit",
+      "reviewer_roles": [
+        "Legal"
+      ],
+      "stores": [
+        "postgresql",
+        "security_archive"
+      ]
+    },
+    {
+      "backup_restore_behavior": "tombstone_reapplied_before_service_reopen",
+      "class": "authorization_and_revocation_evidence",
+      "computation_start": "authorization_state_change_at",
+      "derived_affected": [
+        "valkey"
+      ],
+      "duration_state": "pending_legal",
+      "expiry_trigger": "policy_duration_after_revocation",
+      "id": "L-01-AUTHORIZATION",
+      "legal_hold": "suspends_purge_and_requires_explicit_documented_basis",
+      "owner_role": "Security",
+      "pending_decision": "L-01",
+      "purge_evidence": "delete_ledger_entry_and_invalidation_evidence",
+      "purge_method": "retain_revocation_evidence_then_policy_purge",
+      "reviewer_roles": [
+        "Architecture",
+        "Legal",
+        "Privacy"
+      ],
+      "stores": [
+        "postgresql",
+        "security_archive"
+      ]
+    },
+    {
+      "backup_restore_behavior": "tombstone_reapplied_before_service_reopen",
+      "class": "operational_decision_record",
+      "computation_start": "decision_recorded_at",
+      "derived_affected": [],
+      "duration_state": "pending_legal",
+      "expiry_trigger": "policy_duration_after_start",
+      "id": "L-01-AUDITABLE-DECISION",
+      "legal_hold": "suspends_purge_and_requires_explicit_documented_basis",
+      "owner_role": "Security",
+      "pending_decision": "L-01",
+      "purge_evidence": "delete_ledger_entry_and_audit_event",
+      "purge_method": "policy_purge_with_audit",
+      "reviewer_roles": [
+        "Architecture",
+        "Privacy"
+      ],
+      "stores": [
+        "postgresql"
+      ]
+    },
+    {
+      "backup_restore_behavior": "not_restored_as_authority",
+      "class": "minimized_ai_call_record",
+      "computation_start": "ai_call_recorded_at",
+      "derived_affected": [],
+      "duration_state": "pending_contract",
+      "expiry_trigger": "tenant_policy_or_contractual_deletion",
+      "id": "L-02-AI-CALL",
+      "legal_hold": "suspends_purge_and_requires_explicit_documented_basis",
+      "owner_role": "AI Platform",
+      "pending_decision": "L-02",
+      "purge_evidence": "delete_ledger_entry_and_provider_deletion_evidence",
+      "purge_method": "tenant_policy_and_provider_contractual_deletion",
+      "reviewer_roles": [
+        "Legal",
+        "Privacy",
+        "Security"
+      ],
+      "stores": [
+        "postgresql"
+      ]
+    },
+    {
+      "backup_restore_behavior": "not_restored_as_authority",
+      "class": "notification_dispatch_record",
+      "computation_start": "notification_dispatched_at",
+      "derived_affected": [],
+      "duration_state": "pending_contract",
+      "expiry_trigger": "policy_duration_after_dispatch",
+      "id": "L-01-NOTIFICATION",
+      "legal_hold": "suspends_purge_and_requires_explicit_documented_basis",
+      "owner_role": "Privacy",
+      "pending_decision": "L-01",
+      "purge_evidence": "delete_ledger_entry_and_audit_event",
+      "purge_method": "policy_purge",
+      "reviewer_roles": [
+        "Legal",
+        "Product"
+      ],
+      "stores": [
+        "postgresql"
+      ]
+    },
+    {
+      "backup_restore_behavior": "tombstone_reapplied_before_service_reopen",
+      "class": "billing_and_usage_record",
+      "computation_start": "invoice_or_usage_period_closed_at",
+      "derived_affected": [],
+      "duration_state": "pending_legal",
+      "expiry_trigger": "legal_or_contractual_obligation_expiry",
+      "id": "L-01-BILLING",
+      "legal_hold": "suspends_purge_and_requires_explicit_documented_basis",
+      "owner_role": "Legal",
+      "pending_decision": "L-01",
+      "purge_evidence": "delete_ledger_entry_and_audit_event",
+      "purge_method": "policy_purge_after_obligation",
+      "reviewer_roles": [
+        "Finance",
+        "Privacy"
+      ],
+      "stores": [
+        "analytics_projection",
+        "postgresql"
+      ]
+    },
+    {
+      "backup_restore_behavior": "tombstone_reapplied_before_service_reopen",
+      "class": "recovery_copy",
+      "computation_start": "backup_set_created_at",
+      "derived_affected": [],
+      "duration_state": "pending_contract",
+      "expiry_trigger": "backup_window_expiry",
+      "id": "L-01-BACKUP",
+      "legal_hold": "suspends_purge_and_requires_explicit_documented_basis",
+      "owner_role": "Platform",
+      "pending_decision": "L-01",
+      "purge_evidence": "restore_reconciliation_result_and_delete_ledger",
+      "purge_method": "window_expiry_and_key_destruction",
+      "reviewer_roles": [
+        "Legal",
+        "Privacy",
+        "Security"
+      ],
+      "stores": [
+        "backups"
+      ]
+    },
+    {
+      "backup_restore_behavior": "rebuilt_never_restored",
+      "class": "observability_and_operational_metric",
+      "computation_start": "event_emitted_at",
+      "derived_affected": [],
+      "duration_state": "pending_contract",
+      "expiry_trigger": "short_policy_expiry",
+      "id": "L-01-TELEMETRY",
+      "legal_hold": "suspends_purge_and_requires_explicit_documented_basis",
+      "owner_role": "Security",
+      "pending_decision": "L-01",
+      "purge_evidence": "purge_job_result_and_audit_event",
+      "purge_method": "short_policy_purge_and_projection_rebuild",
+      "reviewer_roles": [
+        "Platform",
+        "Privacy"
+      ],
+      "stores": [
+        "analytics_projection",
+        "logs_traces"
+      ]
+    },
+    {
+      "backup_restore_behavior": "not_restored",
+      "class": "client_side_local_state",
+      "computation_start": "local_state_written_at",
+      "derived_affected": [],
+      "duration_state": "pending_contract",
+      "expiry_trigger": "logout_revocation_or_ttl_expiry",
+      "id": "L-01-DEVICE",
+      "legal_hold": "suspends_purge_and_requires_explicit_documented_basis",
+      "owner_role": "Mobile",
+      "pending_decision": "L-01",
+      "purge_evidence": "client_purge_acknowledgement_event",
+      "purge_method": "local_purge_on_logout_revocation_or_ttl",
+      "reviewer_roles": [
+        "Privacy",
+        "Security"
+      ],
+      "stores": [
+        "browser_storage",
+        "mobile_device"
+      ]
+    }
+  ],
+  "rights_workflows": [
+    {
+      "appeal_state": "pending_legal",
+      "applicability_state": "pending_legal_by_category_and_jurisdiction",
+      "applies_to_subject_categories": [
+        "auditor_user",
+        "firm_accountant",
+        "firm_employee",
+        "legal_entity_company",
+        "sme_administrator",
+        "sme_employee_or_contractor",
+        "support_user",
+        "third_party_natural_person_in_documents"
+      ],
+      "audit": "privileged_event_with_independent_review",
+      "authority_verification": "proportional_identity_and_authority_check_before_any_disclosure",
+      "controller_processor_routing": "if_processor_route_to_controller_and_do_not_answer_directly",
+      "evidence": "append_only_record_in_security_archive",
+      "exceptions_state": "pending_legal",
+      "id": "RW-ACCESS",
+      "name": "access_or_consultation",
+      "owner_role": "Privacy",
+      "requester_assurance": "AAL2",
+      "response_format": "structured_record_with_scope_and_evidence_reference",
+      "reviewer_roles": [
+        "Legal",
+        "Security"
+      ],
+      "scope_resolution": "authoritative_per_company_never_from_cache",
+      "sla_state": "pending_legal",
+      "store_search": [
+        "analytics_projection",
+        "backups",
+        "browser_storage",
+        "email_push_delivery",
+        "external_provider_future",
+        "logs_traces",
+        "mobile_device",
+        "object_storage_derived",
+        "object_storage_quarantine",
+        "object_storage_raw",
+        "postgresql",
+        "security_archive",
+        "temporal",
+        "valkey",
+        "vault"
+      ],
+      "third_parties": "recipient_registry_sweep_required_before_response"
+    },
+    {
+      "appeal_state": "pending_legal",
+      "applicability_state": "pending_legal_by_category_and_jurisdiction",
+      "applies_to_subject_categories": [
+        "auditor_user",
+        "firm_accountant",
+        "firm_employee",
+        "legal_entity_company",
+        "sme_administrator",
+        "sme_employee_or_contractor",
+        "support_user",
+        "third_party_natural_person_in_documents"
+      ],
+      "audit": "privileged_event_with_independent_review",
+      "authority_verification": "proportional_identity_and_authority_check_before_any_disclosure",
+      "controller_processor_routing": "if_processor_route_to_controller_and_do_not_answer_directly",
+      "evidence": "append_only_record_in_security_archive",
+      "exceptions_state": "pending_legal",
+      "id": "RW-RECTIFY",
+      "name": "rectification",
+      "owner_role": "Privacy",
+      "requester_assurance": "AAL2",
+      "response_format": "structured_record_with_scope_and_evidence_reference",
+      "reviewer_roles": [
+        "Legal",
+        "Security"
+      ],
+      "scope_resolution": "authoritative_per_company_never_from_cache",
+      "sla_state": "pending_legal",
+      "store_search": [
+        "analytics_projection",
+        "backups",
+        "browser_storage",
+        "email_push_delivery",
+        "external_provider_future",
+        "logs_traces",
+        "mobile_device",
+        "object_storage_derived",
+        "object_storage_quarantine",
+        "object_storage_raw",
+        "postgresql",
+        "security_archive",
+        "temporal",
+        "valkey",
+        "vault"
+      ],
+      "third_parties": "recipient_registry_sweep_required_before_response"
+    },
+    {
+      "appeal_state": "pending_legal",
+      "applicability_state": "pending_legal_by_category_and_jurisdiction",
+      "applies_to_subject_categories": [
+        "auditor_user",
+        "firm_accountant",
+        "firm_employee",
+        "legal_entity_company",
+        "sme_administrator",
+        "sme_employee_or_contractor",
+        "support_user",
+        "third_party_natural_person_in_documents"
+      ],
+      "audit": "privileged_event_with_independent_review",
+      "authority_verification": "proportional_identity_and_authority_check_before_any_disclosure",
+      "controller_processor_routing": "if_processor_route_to_controller_and_do_not_answer_directly",
+      "evidence": "append_only_record_in_security_archive",
+      "exceptions_state": "pending_legal",
+      "id": "RW-UPDATE",
+      "name": "update",
+      "owner_role": "Privacy",
+      "requester_assurance": "AAL2",
+      "response_format": "structured_record_with_scope_and_evidence_reference",
+      "reviewer_roles": [
+        "Legal",
+        "Security"
+      ],
+      "scope_resolution": "authoritative_per_company_never_from_cache",
+      "sla_state": "pending_legal",
+      "store_search": [
+        "analytics_projection",
+        "backups",
+        "browser_storage",
+        "email_push_delivery",
+        "external_provider_future",
+        "logs_traces",
+        "mobile_device",
+        "object_storage_derived",
+        "object_storage_quarantine",
+        "object_storage_raw",
+        "postgresql",
+        "security_archive",
+        "temporal",
+        "valkey",
+        "vault"
+      ],
+      "third_parties": "recipient_registry_sweep_required_before_response"
+    },
+    {
+      "appeal_state": "pending_legal",
+      "applicability_state": "pending_legal_by_category_and_jurisdiction",
+      "applies_to_subject_categories": [
+        "auditor_user",
+        "firm_accountant",
+        "firm_employee",
+        "legal_entity_company",
+        "sme_administrator",
+        "sme_employee_or_contractor",
+        "support_user",
+        "third_party_natural_person_in_documents"
+      ],
+      "audit": "privileged_event_with_independent_review",
+      "authority_verification": "proportional_identity_and_authority_check_before_any_disclosure",
+      "controller_processor_routing": "if_processor_route_to_controller_and_do_not_answer_directly",
+      "evidence": "append_only_record_in_security_archive",
+      "exceptions_state": "pending_legal",
+      "id": "RW-REVOKE",
+      "name": "revocation_of_authorization",
+      "owner_role": "Privacy",
+      "requester_assurance": "AAL3",
+      "response_format": "structured_record_with_scope_and_evidence_reference",
+      "reviewer_roles": [
+        "Legal",
+        "Security"
+      ],
+      "scope_resolution": "authoritative_per_company_never_from_cache",
+      "sla_state": "pending_legal",
+      "store_search": [
+        "analytics_projection",
+        "backups",
+        "browser_storage",
+        "email_push_delivery",
+        "external_provider_future",
+        "logs_traces",
+        "mobile_device",
+        "object_storage_derived",
+        "object_storage_quarantine",
+        "object_storage_raw",
+        "postgresql",
+        "security_archive",
+        "temporal",
+        "valkey",
+        "vault"
+      ],
+      "third_parties": "recipient_registry_sweep_required_before_response"
+    },
+    {
+      "appeal_state": "pending_legal",
+      "applicability_state": "pending_legal_by_category_and_jurisdiction",
+      "applies_to_subject_categories": [
+        "auditor_user",
+        "firm_accountant",
+        "firm_employee",
+        "legal_entity_company",
+        "sme_administrator",
+        "sme_employee_or_contractor",
+        "support_user",
+        "third_party_natural_person_in_documents"
+      ],
+      "audit": "privileged_event_with_independent_review",
+      "authority_verification": "proportional_identity_and_authority_check_before_any_disclosure",
+      "controller_processor_routing": "if_processor_route_to_controller_and_do_not_answer_directly",
+      "evidence": "append_only_record_in_security_archive",
+      "exceptions_state": "pending_legal",
+      "id": "RW-DELETE",
+      "name": "deletion_or_suppression",
+      "owner_role": "Privacy",
+      "requester_assurance": "AAL3",
+      "response_format": "structured_record_with_scope_and_evidence_reference",
+      "reviewer_roles": [
+        "Legal",
+        "Security"
+      ],
+      "scope_resolution": "authoritative_per_company_never_from_cache",
+      "sla_state": "pending_legal",
+      "store_search": [
+        "analytics_projection",
+        "backups",
+        "browser_storage",
+        "email_push_delivery",
+        "external_provider_future",
+        "logs_traces",
+        "mobile_device",
+        "object_storage_derived",
+        "object_storage_quarantine",
+        "object_storage_raw",
+        "postgresql",
+        "security_archive",
+        "temporal",
+        "valkey",
+        "vault"
+      ],
+      "third_parties": "recipient_registry_sweep_required_before_response"
+    },
+    {
+      "appeal_state": "pending_legal",
+      "applicability_state": "pending_legal_by_category_and_jurisdiction",
+      "applies_to_subject_categories": [
+        "auditor_user",
+        "firm_accountant",
+        "firm_employee",
+        "legal_entity_company",
+        "sme_administrator",
+        "sme_employee_or_contractor",
+        "support_user",
+        "third_party_natural_person_in_documents"
+      ],
+      "audit": "privileged_event_with_independent_review",
+      "authority_verification": "proportional_identity_and_authority_check_before_any_disclosure",
+      "controller_processor_routing": "if_processor_route_to_controller_and_do_not_answer_directly",
+      "evidence": "append_only_record_in_security_archive",
+      "exceptions_state": "pending_legal",
+      "id": "RW-PORTABILITY",
+      "name": "contractual_portability",
+      "owner_role": "Privacy",
+      "requester_assurance": "AAL3",
+      "response_format": "structured_record_with_scope_and_evidence_reference",
+      "reviewer_roles": [
+        "Legal",
+        "Security"
+      ],
+      "scope_resolution": "authoritative_per_company_never_from_cache",
+      "sla_state": "pending_legal",
+      "store_search": [
+        "analytics_projection",
+        "backups",
+        "browser_storage",
+        "email_push_delivery",
+        "external_provider_future",
+        "logs_traces",
+        "mobile_device",
+        "object_storage_derived",
+        "object_storage_quarantine",
+        "object_storage_raw",
+        "postgresql",
+        "security_archive",
+        "temporal",
+        "valkey",
+        "vault"
+      ],
+      "third_parties": "recipient_registry_sweep_required_before_response"
+    },
+    {
+      "appeal_state": "pending_legal",
+      "applicability_state": "pending_legal_by_category_and_jurisdiction",
+      "applies_to_subject_categories": [
+        "auditor_user",
+        "firm_accountant",
+        "firm_employee",
+        "legal_entity_company",
+        "sme_administrator",
+        "sme_employee_or_contractor",
+        "support_user",
+        "third_party_natural_person_in_documents"
+      ],
+      "audit": "privileged_event_with_independent_review",
+      "authority_verification": "proportional_identity_and_authority_check_before_any_disclosure",
+      "controller_processor_routing": "if_processor_route_to_controller_and_do_not_answer_directly",
+      "evidence": "append_only_record_in_security_archive",
+      "exceptions_state": "pending_legal",
+      "id": "RW-OBJECT",
+      "name": "objection_or_restriction_where_applicable",
+      "owner_role": "Privacy",
+      "requester_assurance": "AAL2",
+      "response_format": "structured_record_with_scope_and_evidence_reference",
+      "reviewer_roles": [
+        "Legal",
+        "Security"
+      ],
+      "scope_resolution": "authoritative_per_company_never_from_cache",
+      "sla_state": "pending_legal",
+      "store_search": [
+        "analytics_projection",
+        "backups",
+        "browser_storage",
+        "email_push_delivery",
+        "external_provider_future",
+        "logs_traces",
+        "mobile_device",
+        "object_storage_derived",
+        "object_storage_quarantine",
+        "object_storage_raw",
+        "postgresql",
+        "security_archive",
+        "temporal",
+        "valkey",
+        "vault"
+      ],
+      "third_parties": "recipient_registry_sweep_required_before_response"
+    },
+    {
+      "appeal_state": "pending_legal",
+      "applicability_state": "pending_legal_by_category_and_jurisdiction",
+      "applies_to_subject_categories": [
+        "auditor_user",
+        "firm_accountant",
+        "firm_employee",
+        "legal_entity_company",
+        "sme_administrator",
+        "sme_employee_or_contractor",
+        "support_user",
+        "third_party_natural_person_in_documents"
+      ],
+      "audit": "privileged_event_with_independent_review",
+      "authority_verification": "proportional_identity_and_authority_check_before_any_disclosure",
+      "controller_processor_routing": "if_processor_route_to_controller_and_do_not_answer_directly",
+      "evidence": "append_only_record_in_security_archive",
+      "exceptions_state": "pending_legal",
+      "id": "RW-PROOF_OF_AUTHORIZATION",
+      "name": "proof_of_authorization",
+      "owner_role": "Privacy",
+      "requester_assurance": "AAL2",
+      "response_format": "structured_record_with_scope_and_evidence_reference",
+      "reviewer_roles": [
+        "Legal",
+        "Security"
+      ],
+      "scope_resolution": "authoritative_per_company_never_from_cache",
+      "sla_state": "pending_legal",
+      "store_search": [
+        "analytics_projection",
+        "backups",
+        "browser_storage",
+        "email_push_delivery",
+        "external_provider_future",
+        "logs_traces",
+        "mobile_device",
+        "object_storage_derived",
+        "object_storage_quarantine",
+        "object_storage_raw",
+        "postgresql",
+        "security_archive",
+        "temporal",
+        "valkey",
+        "vault"
+      ],
+      "third_parties": "recipient_registry_sweep_required_before_response"
+    },
+    {
+      "appeal_state": "pending_legal",
+      "applicability_state": "pending_legal_by_category_and_jurisdiction",
+      "applies_to_subject_categories": [
+        "auditor_user",
+        "firm_accountant",
+        "firm_employee",
+        "legal_entity_company",
+        "sme_administrator",
+        "sme_employee_or_contractor",
+        "support_user",
+        "third_party_natural_person_in_documents"
+      ],
+      "audit": "privileged_event_with_independent_review",
+      "authority_verification": "proportional_identity_and_authority_check_before_any_disclosure",
+      "controller_processor_routing": "if_processor_route_to_controller_and_do_not_answer_directly",
+      "evidence": "append_only_record_in_security_archive",
+      "exceptions_state": "pending_legal",
+      "id": "RW-COMPLAINT",
+      "name": "incident_or_complaint",
+      "owner_role": "Privacy",
+      "requester_assurance": "AAL2",
+      "response_format": "structured_record_with_scope_and_evidence_reference",
+      "reviewer_roles": [
+        "Legal",
+        "Security"
+      ],
+      "scope_resolution": "authoritative_per_company_never_from_cache",
+      "sla_state": "pending_legal",
+      "store_search": [
+        "analytics_projection",
+        "backups",
+        "browser_storage",
+        "email_push_delivery",
+        "external_provider_future",
+        "logs_traces",
+        "mobile_device",
+        "object_storage_derived",
+        "object_storage_quarantine",
+        "object_storage_raw",
+        "postgresql",
+        "security_archive",
+        "temporal",
+        "valkey",
+        "vault"
+      ],
+      "third_parties": "recipient_registry_sweep_required_before_response"
+    }
+  ],
+  "schema_version": 1,
+  "status": "review_pending",
+  "stores": [
+    {
+      "allowed_classifications": [
+        "confidential",
+        "financial_sensitive",
+        "internal"
+      ],
+      "authority": "authoritative_operational",
+      "deletion": "tombstone_then_policy_purge",
+      "encryption": "kms_at_rest_and_tls_in_transit",
+      "financial_authority": true,
+      "forbidden_classifications": [
+        "prohibited",
+        "secret"
+      ],
+      "id": "postgresql",
+      "in_dfd": true,
+      "limitations": "Referencias a secretos como identificador opaco; el material vive en vault.",
+      "restore_behavior": "restored_then_tombstones_reapplied",
+      "scope": "row_level_security_forced_company_scoped"
+    },
+    {
+      "allowed_classifications": [
+        "financial_sensitive",
+        "internal"
+      ],
+      "authority": "untrusted_holding_area",
+      "deletion": "reject_expire_or_promote_by_decision",
+      "encryption": "kms_at_rest_private_access",
+      "financial_authority": false,
+      "forbidden_classifications": [
+        "prohibited",
+        "secret"
+      ],
+      "id": "object_storage_quarantine",
+      "in_dfd": true,
+      "limitations": "Sin WORM irreversible: primero aceptar, clasificar y asignar base de retencion.",
+      "restore_behavior": "not_restored_as_authority",
+      "scope": "opaque_prefix_per_company_no_client_supplied_key"
+    },
+    {
+      "allowed_classifications": [
+        "financial_sensitive",
+        "internal"
+      ],
+      "authority": "authoritative_evidence_immutable",
+      "deletion": "tombstone_then_version_purge_never_overwrite",
+      "encryption": "kms_at_rest_versioned_private",
+      "financial_authority": false,
+      "forbidden_classifications": [
+        "prohibited",
+        "secret"
+      ],
+      "id": "object_storage_raw",
+      "in_dfd": true,
+      "limitations": "Object Lock protege una version, no una key: un delete marker puede ocultarla.",
+      "restore_behavior": "restored_then_tombstones_reapplied",
+      "scope": "opaque_prefix_per_company"
+    },
+    {
+      "allowed_classifications": [
+        "confidential",
+        "financial_sensitive",
+        "internal"
+      ],
+      "authority": "derived_reproducible",
+      "deletion": "cascade_from_tombstone_and_ttl_for_exports",
+      "encryption": "kms_at_rest_versioned_private",
+      "financial_authority": false,
+      "forbidden_classifications": [
+        "prohibited",
+        "secret"
+      ],
+      "id": "object_storage_derived",
+      "in_dfd": true,
+      "limitations": "Los exports tienen TTL corto y forman parte del inventario de supresion.",
+      "restore_behavior": "regenerable_from_raw_and_recipe",
+      "scope": "opaque_prefix_per_company"
+    },
+    {
+      "allowed_classifications": [
+        "internal"
+      ],
+      "authority": "workflow_execution_state",
+      "deletion": "history_retention_policy_and_payload_minimization",
+      "encryption": "tls_and_encrypted_at_rest",
+      "financial_authority": false,
+      "forbidden_classifications": [
+        "financial_sensitive",
+        "prohibited",
+        "secret"
+      ],
+      "id": "temporal",
+      "in_dfd": true,
+      "limitations": "El historial de workflow no transporta payload financiero: solo referencias.",
+      "restore_behavior": "not_a_financial_authority",
+      "scope": "workflow_scoped_by_company_reference"
+    },
+    {
+      "allowed_classifications": [
+        "internal"
+      ],
+      "authority": "ephemeral_cache_and_coordination",
+      "deletion": "ttl_and_namespace_rotation_on_authorization_change",
+      "encryption": "tls_and_memory_encryption_where_available",
+      "financial_authority": false,
+      "forbidden_classifications": [
+        "financial_sensitive",
+        "prohibited",
+        "secret"
+      ],
+      "id": "valkey",
+      "in_dfd": true,
+      "limitations": "Nunca autoridad. Una caida degrada rendimiento, no integridad.",
+      "restore_behavior": "rebuilt_never_restored",
+      "scope": "namespaced_by_environment_workspace_subject_and_authorization_version"
+    },
+    {
+      "allowed_classifications": [
+        "internal"
+      ],
+      "authority": "derived_projection",
+      "deletion": "rebuild_or_drop_on_tombstone",
+      "encryption": "encrypted_at_rest",
+      "financial_authority": false,
+      "forbidden_classifications": [
+        "financial_sensitive",
+        "prohibited",
+        "secret"
+      ],
+      "id": "analytics_projection",
+      "in_dfd": true,
+      "limitations": "Nunca autoriza una accion ni sustituye el dato operacional.",
+      "restore_behavior": "rebuilt_never_restored",
+      "scope": "company_scoped_authorized_subset_only"
+    },
+    {
+      "allowed_classifications": [
+        "confidential",
+        "internal"
+      ],
+      "authority": "append_only_audit_authority",
+      "deletion": "segregated_policy_and_legal_hold",
+      "encryption": "segregated_kms_signed_digest_append_only",
+      "financial_authority": false,
+      "forbidden_classifications": [
+        "financial_sensitive",
+        "prohibited",
+        "secret"
+      ],
+      "id": "security_archive",
+      "in_dfd": true,
+      "limitations": "Aloja delete ledger y tombstones: por eso queda fuera del restore ordinario.",
+      "restore_behavior": "outside_ordinary_restore_scope",
+      "scope": "separate_account_from_production_data"
+    },
+    {
+      "allowed_classifications": [
+        "secret"
+      ],
+      "authority": "secret_authority",
+      "deletion": "destroy_and_rotate",
+      "encryption": "hsm_or_kms_backed_with_rotation",
+      "financial_authority": false,
+      "forbidden_classifications": [
+        "financial_sensitive",
+        "prohibited"
+      ],
+      "id": "vault",
+      "in_dfd": true,
+      "limitations": "Unico store donde puede persistir clase secret; el resto usa referencia opaca.",
+      "restore_behavior": "not_restored_with_business_data",
+      "scope": "workload_identity_scoped"
+    },
+    {
+      "allowed_classifications": [
+        "confidential",
+        "financial_sensitive",
+        "internal"
+      ],
+      "authority": "recovery_copy_not_authority",
+      "deletion": "window_expiry_plus_tombstone_reapplication_on_restore",
+      "encryption": "encrypted_with_segregated_keys",
+      "financial_authority": false,
+      "forbidden_classifications": [
+        "prohibited",
+        "secret"
+      ],
+      "id": "backups",
+      "in_dfd": false,
+      "limitations": "Un backup del que no se puede reconciliar supresiones no es un restore valido.",
+      "restore_behavior": "restored_then_tombstones_reapplied_before_service_reopen",
+      "scope": "environment_and_account_segregated"
+    },
+    {
+      "allowed_classifications": [
+        "internal"
+      ],
+      "authority": "observability_not_authority",
+      "deletion": "short_policy_purge",
+      "encryption": "encrypted_at_rest_access_controlled",
+      "financial_authority": false,
+      "forbidden_classifications": [
+        "confidential",
+        "financial_sensitive",
+        "prohibited",
+        "secret"
+      ],
+      "id": "logs_traces",
+      "in_dfd": false,
+      "limitations": "Allowlist, no blacklist. Un campo no declarado no se emite.",
+      "restore_behavior": "not_restored_as_authority",
+      "scope": "allowlist_schema_with_tenant_reference"
+    },
+    {
+      "allowed_classifications": [
+        "internal"
+      ],
+      "authority": "client_cache_not_authority",
+      "deletion": "purge_on_logout_revocation_or_ttl",
+      "encryption": "os_secure_storage_and_encrypted_local_state",
+      "financial_authority": false,
+      "forbidden_classifications": [
+        "financial_sensitive",
+        "prohibited",
+        "secret"
+      ],
+      "id": "mobile_device",
+      "in_dfd": false,
+      "limitations": "Sin raw persistente tras confirmar upload; contemplar clipboard, capturas y backup del SO.",
+      "restore_behavior": "not_restored",
+      "scope": "single_session_and_company_context"
+    },
+    {
+      "allowed_classifications": [
+        "internal"
+      ],
+      "authority": "client_cache_not_authority",
+      "deletion": "cleared_on_logout_or_authorization_change",
+      "encryption": "session_scoped_no_long_lived_tokens",
+      "financial_authority": false,
+      "forbidden_classifications": [
+        "financial_sensitive",
+        "prohibited",
+        "secret"
+      ],
+      "id": "browser_storage",
+      "in_dfd": false,
+      "limitations": "Nunca contiene verdad financiera ni tokens de larga vida.",
+      "restore_behavior": "not_restored",
+      "scope": "single_session_context"
+    },
+    {
+      "allowed_classifications": [
+        "internal"
+      ],
+      "authority": "external_delivery_channel",
+      "deletion": "provider_contractual_deletion_pending",
+      "encryption": "tls_in_transit_provider_dependent",
+      "financial_authority": false,
+      "forbidden_classifications": [
+        "confidential",
+        "financial_sensitive",
+        "prohibited",
+        "secret"
+      ],
+      "id": "email_push_delivery",
+      "in_dfd": false,
+      "limitations": "Proveedor no seleccionado. Sin montos, cuentas, NIT ni descripciones financieras.",
+      "restore_behavior": "not_restored",
+      "scope": "recipient_reference_only"
+    },
+    {
+      "allowed_classifications": [],
+      "authority": "not_selected",
+      "deletion": "pending_contractual_deletion_evidence",
+      "encryption": "pending_contract_and_assessment",
+      "financial_authority": false,
+      "forbidden_classifications": [
+        "confidential",
+        "financial_sensitive",
+        "internal",
+        "prohibited",
+        "secret"
+      ],
+      "id": "external_provider_future",
+      "in_dfd": false,
+      "limitations": "Egress deny-by-default. Ningun proveedor externo recibe datos antes de contrato, region y rol.",
+      "restore_behavior": "not_applicable",
+      "scope": "pending_A-02"
+    }
+  ],
+  "task_id": "FNC-PRV-001",
+  "unresolved_decisions": [
+    {
+      "blocks": [
+        "DRG-00",
+        "DRG-01"
+      ],
+      "id": "UD-A-02",
+      "owner_role": "Architecture",
+      "question": "Cloud, region y evaluacion de transmision internacional.",
+      "reviewer_roles": [
+        "Legal",
+        "Privacy",
+        "Security"
+      ],
+      "state": "pending_human"
+    },
+    {
+      "blocks": [
+        "DRG-00",
+        "DRG-01"
+      ],
+      "id": "UD-L-01",
+      "owner_role": "Legal",
+      "question": "Duraciones exactas de retencion por clase documental.",
+      "reviewer_roles": [
+        "Privacy",
+        "Accounting"
+      ],
+      "state": "pending_human"
+    },
+    {
+      "blocks": [
+        "L-02"
+      ],
+      "id": "UD-L-02",
+      "owner_role": "Legal",
+      "question": "Base juridica, contrato y region para IA u OCR externo.",
+      "reviewer_roles": [
+        "Privacy",
+        "Security",
+        "AI Platform"
+      ],
+      "state": "pending_human"
+    },
+    {
+      "blocks": [
+        "DRG-00"
+      ],
+      "id": "UD-ROLE",
+      "owner_role": "Legal",
+      "question": "Rol responsable/encargado por actividad y por contrato.",
+      "reviewer_roles": [
+        "Privacy",
+        "Product"
+      ],
+      "state": "pending_human"
+    },
+    {
+      "blocks": [
+        "S1-READY"
+      ],
+      "id": "UD-PRIMARY-OPERATOR",
+      "owner_role": "Architecture",
+      "question": "Atomicidad de primary_accounting_operator mediante constraint en base de datos (hallazgo A de FNC-SEC-001). Una comprobacion en memoria no es garantia.",
+      "reviewer_roles": [
+        "Security",
+        "Privacy"
+      ],
+      "state": "pending_human"
+    },
+    {
+      "blocks": [
+        "S1-READY"
+      ],
+      "id": "UD-ISSUED-CONTEXT",
+      "owner_role": "Architecture",
+      "question": "Entidad canonica issued_authorization_context con authorization_version, company scope, purpose, principal, issued_at y expires_at (hallazgo B de FNC-SEC-001).",
+      "reviewer_roles": [
+        "Security",
+        "Privacy",
+        "Backend"
+      ],
+      "state": "pending_human"
+    },
+    {
+      "blocks": [
+        "S1-READY"
+      ],
+      "id": "UD-PORTFOLIO-CANDIDATES",
+      "owner_role": "Backend",
+      "question": "Origen autoritativo de la lista de companies candidatas del portafolio (hallazgo C de FNC-SEC-001).",
+      "reviewer_roles": [
+        "Security",
+        "Privacy",
+        "Architecture"
+      ],
+      "state": "pending_human"
+    },
+    {
+      "blocks": [
+        "DRG-01"
+      ],
+      "id": "UD-PROVIDERS",
+      "owner_role": "Architecture",
+      "question": "Seleccion de IdP, correo, push, billing, OCR e IA.",
+      "reviewer_roles": [
+        "Legal",
+        "Privacy",
+        "Security"
+      ],
+      "state": "pending_human"
+    }
+  ]
+}

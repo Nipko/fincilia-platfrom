@@ -35,7 +35,7 @@
 | FNC-ARC-002 | A2/A3 | ARC-001, DAT-001 | Review | DFD con flujos, trust boundaries y clasificación |
 | FNC-SEC-001 | A3 | DOM-001, PRD-001 | Review | Matriz RBAC/ABAC/SoD y kernel puro de política |
 | FNC-SEC-002 | A3 | ARC-002, SEC-001 | Review | Threat model y pruebas por amenaza alta |
-| FNC-PRV-001 | A3 | ARC-002, DAT-001 | Draftable | Mapa de privacidad, región, finalidad, retención y borrado |
+| FNC-PRV-001 | A3 | ARC-002, DAT-001 | Review | Mapa de privacidad, región, finalidad, retención y borrado |
 | FNC-PLT-001 | A4/A2 | GOV-002 | Draftable | Spike A-01 y decisión documentada de stack |
 | FNC-PLT-002 | A4 | PLT-001 | Blocked | Compose local fijado, loopback, healthchecks y datos sintéticos |
 | FNC-PLT-003 | A4/A5 | PLT-001, DAT-002 | Review | CI: formato, tipos, tests, secretos, dependencias y contenedores |

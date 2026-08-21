@@ -78,8 +78,9 @@ python3 -m tools.architecture_model.validate
 python3 -m tools.canonical_model.validate
 python3 -m tools.completeness_model.validate
 python3 -m tools.dfd_model.validate
+python3 -m tools.privacy_model.validate
 python3 -m tools.threat_model.validate
-python3 -m unittest tools.architecture_model.test_validate tools.canonical_model.test_validate tools.completeness_model.test_validate tools.dfd_model.test_validate tools.threat_model.test_validate tools.quality_gate.test_repo_policy tools.synthetic_corpus.test_corpus -v
+python3 -m unittest tools.architecture_model.test_validate tools.canonical_model.test_validate tools.completeness_model.test_validate tools.dfd_model.test_validate tools.privacy_model.test_validate tools.threat_model.test_validate tools.quality_gate.test_repo_policy tools.synthetic_corpus.test_corpus -v
 python3 -m tools.synthetic_corpus.cli verify --root tests/golden/synthetic
 ```
 

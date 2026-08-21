@@ -79,6 +79,7 @@ Hasta S1-READY solo se admite scaffolding, automatización, pruebas, documentaci
 | FNC-SEC-002 | Threat model ejecutable | Review pending | Integration Steward | docs/security/THREAT_MODEL.md, threat-model.json, tools/threat_model, CI, handoff |
 | FNC-DOM-002 | Modelo canónico financiero ejecutable | Review pending | Integration Steward | docs/domain/CANONICAL_MODEL.md, canonical-model.json, tools/canonical_model, CI, handoff |
 | FNC-DOM-003 | Completitud y conciliación de saldos | Review pending | Integration Steward | docs/domain/COMPLETENESS_BALANCES.md, completeness-balances.json, tools/completeness_model, CI, handoff |
+| FNC-PRV-001 | Mapa ejecutable de privacidad, retención y borrado | Review pending | Claude + Integration Steward | docs/privacy, tools/privacy_model, CI, handoff |
 
 Solo el Integration Steward modifica esta tabla.
 
@@ -100,6 +101,7 @@ Solo el Integration Steward modifica esta tabla.
 | 0 | FNC-PLT-003 CI sintético y policy gate | FNC-PLT-001, FNC-DAT-002 | Review pending |
 | 1 | FNC-DOM-002 Modelo canónico financiero | FNC-DOM-001, FNC-DAT-001 | Review pending |
 | 1 | FNC-DOM-003 Completitud y saldos | FNC-DOM-002 | Review pending |
+| 1 | FNC-PRV-001 Privacidad, retención y borrado | FNC-ARC-002, FNC-DAT-001 | Review pending |
 
 Draftable significa que un agente puede preparar un borrador, pero no marcarlo Accepted hasta resolver la dependencia.
 
