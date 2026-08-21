@@ -1,6 +1,6 @@
 # ADR-001 — Monolito modular y workers aislados
 
-- Status: Accepted architectural shape; language choice pending FNC-PLT-001
+- Status: Accepted architectural shape; stack recommendation ready for human review
 - Date: 2026-08-21
 - Owners: Architecture, UNASSIGNED
 - Gate: S1-READY
@@ -16,7 +16,7 @@ El producto requiere invariantes financieras fuertes y también procesamiento pe
 - Parsing, OCR y cómputo se ejecutan en workers aislados.
 - Workers devuelven manifiestos; no publican directamente estado financiero.
 - Los módulos no escriben tablas ajenas.
-- Stack candidato: NestJS/TypeScript + workers Python, sujeto al spike A-01.
+- Stack recomendado: NestJS/TypeScript + workers Python, validado funcionalmente por el spike FNC-PLT-001 y pendiente de aceptación humana.
 
 ## Alternatives rejected
 
@@ -30,5 +30,4 @@ Menor costo operacional y transacciones locales claras; exige enforcement de lí
 
 ## Verification
 
-FNC-PLT-001 demuestra auth context, RLS, outbox y worker sintético antes de aceptar lenguajes/tooling.
-
+FNC-PLT-001 demostró contexto de autorización, RLS, outbox y worker sintético. Evidencia: `docs/implementation/evidence/FNC-PLT-001/README.md`.

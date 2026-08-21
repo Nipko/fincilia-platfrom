@@ -1,0 +1,15 @@
+{
+  "job_id": "30000000-0000-4000-8000-000000000001",
+  "idempotency_key": "synthetic-import-001",
+  "data_classification": "synthetic",
+  "rows": [
+    {
+      "reference": "SYN-001",
+      "amount_minor": 125000
+    },
+    {
+      "reference": "SYN-002",
+      "amount_minor": -5000
+    }
+  ]
+}
