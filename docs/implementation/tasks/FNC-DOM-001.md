@@ -5,9 +5,11 @@ epic: FNC-EP-004
 phase: F0
 iteration: E0
 type: design
-status: draftable
+status: review_pending
 priority: P0
 accountable_owner: UNASSIGNED
+implementer: Einstein
+base_sha: f621236
 agent_lane: A2
 independent_reviewer: Security and Accounting
 plan_refs: [§6, §14, §29]
@@ -15,7 +17,7 @@ adr_refs: [ADR-003]
 dependencies: [FNC-PRD-001]
 gate: S1-READY
 allowed_data: synthetic
-file_scope: [docs/domain/TENANCY_MODEL.md, docs/adr/ADR-003-organization-company-engagement.md]
+file_scope: [docs/domain/TENANCY_MODEL.md, docs/implementation/handoffs/FNC-DOM-001.md, docs/adr/ADR-003-organization-company-engagement.md]
 forbidden_scope: [db/migrations, apps]
 ---
 
@@ -32,4 +34,3 @@ Congelar subject, organization, company, engagement, membership, grant y service
 - Responsable legal, propiedad de activo y autorización permanecen separados.
 - Casos de acceso directo de la PYME y firma delegada.
 - TST-TEN-001 descrito con casos positivos y negativos.
-
