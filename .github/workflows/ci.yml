@@ -30,10 +30,13 @@ jobs:
         run: >-
           python -m unittest
           tools.architecture_model.test_validate
+          tools.dfd_model.test_validate
           tools.quality_gate.test_repo_policy
           tools.synthetic_corpus.test_corpus -v
       - name: Validate executable architecture model
         run: python -m tools.architecture_model.validate
+      - name: Validate executable data-flow model
+        run: python -m tools.dfd_model.validate
       - name: Verify synthetic corpus byte for byte
         run: python -m tools.synthetic_corpus.cli verify --root tests/golden/synthetic
       - name: Authorization kernel tests in pinned Node
