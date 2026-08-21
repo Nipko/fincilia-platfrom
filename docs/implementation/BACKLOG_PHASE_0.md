@@ -31,7 +31,7 @@
 | FNC-RES-001 | A1 | GOV-001 | Draftable | Protocolo para 5 firmas/10 cierres sin recibir documentos |
 | FNC-DAT-001 | A5 | PRD-001 provisional | Draftable | Taxonomía de fuentes/documentos y política por gate |
 | FNC-DOM-001 | A2 | PRD-001 provisional | Draftable | Modelo subject/organization/company/engagement/grant |
-| FNC-ARC-001 | A2 | DOM-001 | Draftable | C4 contexto/contenedores/componentes |
+| FNC-ARC-001 | A2 | DOM-001 | Review | C4 contexto/contenedores/componentes + modelo ejecutable |
 | FNC-ARC-002 | A2/A3 | ARC-001, DAT-001 | Blocked | DFD con flujos, trust boundaries y clasificación |
 | FNC-SEC-001 | A3 | DOM-001, PRD-001 | Claimed external | Matriz RBAC/ABAC/SoD y kernel puro de política |
 | FNC-SEC-002 | A3 | ARC-002, SEC-001 | Blocked | Threat model y pruebas por amenaza alta |

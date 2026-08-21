@@ -1,0 +1,170 @@
+{
+  "global_invariants": [
+    {
+      "id": "ARC-AI-NO-MONEY",
+      "rule": "AI Gateway never calculates money, confirms matches, authorizes access or closes periods."
+    },
+    {
+      "id": "ARC-CACHE-NONAUTHORITATIVE",
+      "rule": "Valkey and analytical projections are never authoritative financial state."
+    },
+    {
+      "id": "ARC-COMPANY-STABLE",
+      "rule": "Company is the stable financial boundary and is not structurally owned by a firm."
+    },
+    {
+      "id": "ARC-EVIDENCE-LINEAGE",
+      "rule": "Every published financial field and decision retains lineage to versioned evidence."
+    },
+    {
+      "id": "ARC-NO-CROSS-WRITE",
+      "rule": "A module writes only the entities listed in its owns collection."
+    },
+    {
+      "id": "ARC-WORKER-MANIFEST",
+      "rule": "Workers return versioned manifests and cannot publish canonical financial state directly."
+    }
+  ],
+  "modules": [
+    {
+      "allowed_dependencies": ["tenancy"],
+      "authoritative_financial_state": false,
+      "id": "access",
+      "owns": ["subject", "identity", "membership", "grant", "service_principal", "authorization_context"],
+      "plane": "control"
+    },
+    {
+      "allowed_dependencies": [],
+      "authoritative_financial_state": false,
+      "id": "tenancy",
+      "owns": ["organization", "company", "engagement", "company_authorization_version"],
+      "plane": "control"
+    },
+    {
+      "allowed_dependencies": ["access", "tenancy"],
+      "authoritative_financial_state": false,
+      "id": "sources",
+      "owns": ["data_source", "connection", "expected_source", "connector_registration"],
+      "plane": "control"
+    },
+    {
+      "allowed_dependencies": ["access", "platform", "sources", "tenancy"],
+      "authoritative_financial_state": false,
+      "id": "ingestion",
+      "owns": ["source_artifact", "document", "processing_run", "quarantine_decision"],
+      "plane": "evidence"
+    },
+    {
+      "allowed_dependencies": ["ingestion", "platform"],
+      "authoritative_financial_state": false,
+      "id": "clean",
+      "owns": ["raw_record", "dataset_version", "schema_profile", "mapping_template_version", "transform_recipe_version", "source_record", "lineage_edge", "field_overlay"],
+      "plane": "evidence"
+    },
+    {
+      "allowed_dependencies": ["clean", "platform", "tenancy"],
+      "authoritative_financial_state": true,
+      "id": "finance",
+      "owns": ["counterparty", "financial_account", "obligation", "money_movement", "settlement", "ledger_entry", "ledger_line", "account_balance"],
+      "plane": "financial"
+    },
+    {
+      "allowed_dependencies": ["finance", "platform", "sources"],
+      "authoritative_financial_state": true,
+      "id": "reconciliation",
+      "owns": ["source_completeness", "match_candidate", "match_group", "match_member", "match_decision", "exception", "reconciliation_statement"],
+      "plane": "financial"
+    },
+    {
+      "allowed_dependencies": ["platform", "reconciliation"],
+      "authoritative_financial_state": true,
+      "id": "close",
+      "owns": ["close_cycle", "close_task", "close_approval", "close_snapshot", "reminder_policy"],
+      "plane": "financial"
+    },
+    {
+      "allowed_dependencies": ["access", "close", "reconciliation"],
+      "authoritative_financial_state": false,
+      "id": "reporting",
+      "owns": ["report_definition", "report_snapshot", "export_request", "report_schedule"],
+      "plane": "analytics"
+    },
+    {
+      "allowed_dependencies": ["finance", "reconciliation"],
+      "authoritative_financial_state": false,
+      "id": "risk",
+      "owns": ["anomaly_signal", "investigation_case", "risk_resolution"],
+      "plane": "analytics"
+    },
+    {
+      "allowed_dependencies": [],
+      "authoritative_financial_state": false,
+      "id": "usage",
+      "owns": ["entitlement", "usage_event", "usage_ledger", "billing_credit"],
+      "plane": "control"
+    },
+    {
+      "allowed_dependencies": [],
+      "authoritative_financial_state": false,
+      "id": "platform",
+      "owns": ["outbox_event", "inbox_receipt", "job_definition", "engine_release", "delivery_attempt"],
+      "plane": "control"
+    },
+    {
+      "allowed_dependencies": [],
+      "authoritative_financial_state": false,
+      "id": "audit",
+      "owns": ["audit_event", "access_event", "delete_ledger_entry", "audit_digest"],
+      "plane": "security"
+    },
+    {
+      "allowed_dependencies": [],
+      "authoritative_financial_state": false,
+      "id": "analytics",
+      "owns": ["analytical_projection", "portfolio_projection"],
+      "plane": "analytics"
+    },
+    {
+      "allowed_dependencies": ["access", "tenancy"],
+      "authoritative_financial_state": false,
+      "id": "ai_gateway",
+      "owns": ["ai_request_record", "ai_evaluation", "ai_provider_policy"],
+      "plane": "security"
+    },
+    {
+      "allowed_dependencies": ["access", "tenancy"],
+      "authoritative_financial_state": false,
+      "id": "notifications",
+      "owns": ["notification_preference", "notification_delivery"],
+      "plane": "control"
+    }
+  ],
+  "planes": ["control", "financial", "evidence", "analytics", "security"],
+  "schema_version": 1,
+  "stores": [
+    {
+      "authority_scope": "domain_and_visible_workflow_state",
+      "id": "postgresql"
+    },
+    {
+      "authority_scope": "binary_evidence_versions",
+      "id": "object_storage"
+    },
+    {
+      "authority_scope": "durable_execution_history",
+      "id": "temporal"
+    },
+    {
+      "authority_scope": "none",
+      "id": "valkey"
+    },
+    {
+      "authority_scope": "none",
+      "id": "analytics_store"
+    },
+    {
+      "authority_scope": "audit_and_delete_ledger",
+      "id": "security_archive"
+    }
+  ]
+}
