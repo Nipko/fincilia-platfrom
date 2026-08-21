@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.fincilia.local/common/error.v1.schema.json",
+  "title": "Fincilia Safe Error v1",
+  "type": "object",
+  "required": ["error_class", "error_code", "safe_message"],
+  "properties": {
+    "error_class": {
+      "enum": ["retryable", "fatal", "requires_human"]
+    },
+    "error_code": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9_]{2,63}$"
+    },
+    "safe_message": {
+      "type": "string",
+      "maxLength": 512
+    },
+    "retry_after_seconds": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 86400
+    }
+  },
+  "additionalProperties": false
+}
+

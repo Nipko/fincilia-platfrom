@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.fincilia.local/jobs/job-result.v1.schema.json",
+  "title": "Fincilia Job Result v1",
+  "type": "object",
+  "required": [
+    "job_id",
+    "outcome",
+    "actual_engine_release",
+    "output_refs",
+    "metrics",
+    "started_at",
+    "finished_at"
+  ],
+  "properties": {
+    "job_id": { "type": "string", "format": "uuid" },
+    "outcome": { "enum": ["completed", "failed", "cancelled", "requires_human"] },
+    "actual_engine_release": { "type": "string", "maxLength": 128 },
+    "output_refs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["kind", "id", "version", "sha256"],
+        "properties": {
+          "kind": { "type": "string", "maxLength": 64 },
+          "id": { "type": "string", "maxLength": 256 },
+          "version": { "type": "string", "maxLength": 256 },
+          "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "properties": {
+        "duration_ms": { "type": "integer", "minimum": 0 },
+        "rows_read": { "type": "integer", "minimum": 0 },
+        "rows_written": { "type": "integer", "minimum": 0 },
+        "cost_units": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "error": {
+      "$ref": "../common/error.schema.json"
+    },
+    "started_at": { "type": "string", "format": "date-time" },
+    "finished_at": { "type": "string", "format": "date-time" }
+  },
+  "additionalProperties": false
+}
+

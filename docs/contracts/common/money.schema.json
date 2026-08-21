@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.fincilia.local/common/money.v1.schema.json",
+  "title": "Fincilia Money v1",
+  "type": "object",
+  "required": ["amount", "currency", "direction"],
+  "properties": {
+    "amount": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)(\\.[0-9]+)?$"
+    },
+    "currency": {
+      "type": "string",
+      "pattern": "^[A-Z]{3}$"
+    },
+    "direction": {
+      "enum": ["credit", "debit"]
+    }
+  },
+  "additionalProperties": false
+}
+

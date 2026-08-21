@@ -1,0 +1,104 @@
+---
+program: FINCILIA
+implementation_package_version: 1.0
+plan_version: 1.0-unificada
+phase_id: F-1_F0
+phase_name: Descubrimiento y arquitectura ejecutable
+iteration: E0
+execution_stage: PRE_SPRINT_1
+status: active
+current_gate: S1-READY
+next_data_gate: DRG-00
+started_at: 2026-08-21
+data_ceiling: synthetic_only
+real_financial_data_allowed: false
+real_research_corpus_allowed: false
+real_pilot_allowed: false
+public_pricing_allowed: false
+external_ai_with_customer_data_allowed: false
+integration_owner: UNASSIGNED
+product_owner: UNASSIGNED
+accounting_owner: UNASSIGNED
+architecture_owner: UNASSIGNED
+security_owner: UNASSIGNED
+privacy_owner: UNASSIGNED
+legal_owner: UNASSIGNED
+review_date: UNASSIGNED
+---
+
+# Fase vigente
+
+## Objetivo
+
+Cerrar los artefactos previos a Sprint 1 definidos en el plan y dejar ejecutables los fundamentos de Fase 0 sin utilizar datos reales.
+
+## Calendario operativo
+
+- E0, semanas 0–2: gobierno, modelos v0, repo, entorno local, investigación y datos sintéticos.
+- E1, semanas 3–4: DRG-00, stack spike, ADR bloqueantes, golden suite y revisión integral.
+- S1-READY, fin de semana 4: gate interno que habilita Sprint 1 de producto.
+- Sprint 1, desde semana 5: código de producto sobre contratos aprobados; no autoriza piloto real.
+
+Hasta S1-READY solo se admite scaffolding, automatización, pruebas, documentación, prototipos y spikes explícitamente descartables.
+
+## Permitido
+
+- Gobierno del repositorio y Git.
+- Entorno Docker local y CI con datos sintéticos.
+- ADR, C4, DFD, threat model y contratos.
+- Modelos de tenancy y dominio.
+- Corpus completamente sintético y golden tests.
+- Prototipos sin datos reales.
+- Pruebas de RLS, outbox, parser e idempotencia con fixtures sintéticos.
+- Investigación de proceso sin recibir documentos de clientes.
+
+## Prohibido
+
+- Recibir, copiar o versionar documentos financieros reales.
+- Conectar bancos, DIAN, ERP, correo, SFTP o pasarelas reales.
+- Ejecutar IA externa sobre información de clientes.
+- Construir auto-match o cierre como función autorizada.
+- Publicar precios definitivos.
+- Declarar superado un gate sin aprobadores humanos requeridos.
+- Tratar un spike como arquitectura productiva sin ADR.
+
+## Trabajo activo
+
+| ID | Resultado | Estado | Implementador | Rutas |
+|---|---|---|---|---|
+| FNC-GOV-002 | Paquete de implementación multiagente | Review | Integration Steward | raíz, docs/implementation, docs/adr |
+
+Solo el Integration Steward modifica esta tabla.
+
+## Siguientes tareas paralelizables
+
+| Ola | Tarea | Dependencia | Estado |
+|---:|---|---|---|
+| 0 | FNC-GOV-001 Owners humanos y RACI | Ninguna | Blocked: founder |
+| 0 | FNC-PRD-001 PRD general y wedge | FNC-GOV-001 para aprobación | Draftable |
+| 0 | FNC-DOM-001 Modelo tenancy | PRD provisional | Draftable |
+| 0 | FNC-ARC-001 C4 contexto/contenedores | FNC-DOM-001 | Draftable |
+| 0 | FNC-SEC-001 RBAC/ABAC/SoD | FNC-DOM-001 | Draftable |
+| 0 | FNC-DAT-001 Taxonomía y política de datos | PRD provisional | Draftable |
+| 0 | FNC-PLT-001 Spike y decisión de stack | Gobierno | Draftable |
+| 0 | FNC-UX-001 Arquitectura de información | PRD provisional | Draftable |
+
+Draftable significa que un agente puede preparar un borrador, pero no marcarlo Accepted hasta resolver la dependencia.
+
+## Salida S1-READY
+
+- [ ] Owners humanos y revisores independientes asignados.
+- [ ] PRD general y wedge.
+- [ ] Modelo organization/company/engagement.
+- [ ] Modelo canónico con saldos, completitud y dedupe.
+- [ ] C4 y DFD.
+- [ ] Threat model.
+- [ ] Matriz RBAC/ABAC/SoD.
+- [ ] Especificación de linaje.
+- [ ] Contrato de conectores.
+- [ ] Estados, eventos y retry ownership.
+- [ ] ADR-001 a ADR-010 y ADR de engine release.
+- [ ] Corpus sintético y golden suite inicial.
+- [ ] Design system y prototipo navegable.
+- [ ] Cero datos reales en repo, local, CI o artefactos.
+- [ ] Cero riesgo crítico sin tratamiento, owner y fecha.

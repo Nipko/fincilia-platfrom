@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.fincilia.local/events/event-envelope.v1.schema.json",
+  "title": "Fincilia CloudEvent Envelope v1",
+  "type": "object",
+  "required": [
+    "specversion",
+    "id",
+    "source",
+    "type",
+    "subject",
+    "time",
+    "datacontenttype",
+    "dataschema",
+    "companyid",
+    "cellid",
+    "correlationid",
+    "classification",
+    "data"
+  ],
+  "properties": {
+    "specversion": { "const": "1.0" },
+    "id": { "type": "string", "format": "uuid" },
+    "source": { "type": "string", "format": "uri" },
+    "type": {
+      "type": "string",
+      "pattern": "^fincilia\\.[a-z0-9_]+(?:\\.[a-z0-9_]+)+\\.v[1-9][0-9]*$"
+    },
+    "subject": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "time": { "type": "string", "format": "date-time" },
+    "datacontenttype": { "const": "application/json" },
+    "dataschema": { "type": "string", "format": "uri-reference" },
+    "companyid": { "type": "string", "format": "uuid" },
+    "organizationid": {
+      "anyOf": [
+        { "type": "string", "format": "uuid" },
+        { "type": "null" }
+      ]
+    },
+    "cellid": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,62}$" },
+    "aggregateversion": { "type": "integer", "minimum": 0 },
+    "correlationid": { "type": "string", "format": "uuid" },
+    "causationid": {
+      "anyOf": [
+        { "type": "string", "format": "uuid" },
+        { "type": "null" }
+      ]
+    },
+    "classification": {
+      "enum": ["public", "internal", "confidential", "financial_sensitive"]
+    },
+    "traceparent": { "type": "string", "maxLength": 128 },
+    "data": { "type": "object" }
+  },
+  "additionalProperties": false
+}
+

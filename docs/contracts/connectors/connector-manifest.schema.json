@@ -1,0 +1,133 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.fincilia.local/connectors/connector-manifest.v1.schema.json",
+  "title": "Fincilia Connector Manifest v1",
+  "type": "object",
+  "required": [
+    "connector_id",
+    "version",
+    "countries",
+    "source_kind",
+    "institutions",
+    "account_types",
+    "auth",
+    "history",
+    "identity",
+    "freshness",
+    "error_taxonomy",
+    "completeness",
+    "fallback",
+    "owner"
+  ],
+  "properties": {
+    "connector_id": { "type": "string", "pattern": "^[a-z][a-z0-9-]{2,63}$" },
+    "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+    "countries": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "pattern": "^[A-Z]{2}$" }
+    },
+    "source_kind": {
+      "enum": ["file", "bank", "gateway", "marketplace", "erp", "email", "tax"]
+    },
+    "institutions": {
+      "type": "array",
+      "items": { "type": "string", "maxLength": 128 }
+    },
+    "account_types": {
+      "type": "array",
+      "items": { "type": "string", "maxLength": 64 }
+    },
+    "auth": {
+      "type": "object",
+      "required": ["method", "revocation_supported"],
+      "properties": {
+        "method": { "type": "string", "maxLength": 64 },
+        "revocation_supported": { "type": "boolean" },
+        "scopes": {
+          "type": "array",
+          "items": { "type": "string", "maxLength": 128 }
+        }
+      },
+      "additionalProperties": false
+    },
+    "history": {
+      "type": "object",
+      "required": ["mode"],
+      "properties": {
+        "mode": { "enum": ["none", "backfill", "incremental", "both"] },
+        "max_days": { "type": "integer", "minimum": 0 },
+        "cursor_type": { "type": "string", "maxLength": 64 }
+      },
+      "additionalProperties": false
+    },
+    "identity": {
+      "type": "object",
+      "required": ["stable_record_id", "corrections_supported"],
+      "properties": {
+        "stable_record_id": { "type": "boolean" },
+        "corrections_supported": { "type": "boolean" },
+        "pending_to_posted": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "freshness": {
+      "type": "object",
+      "required": ["mode"],
+      "properties": {
+        "mode": { "enum": ["manual", "poll", "webhook"] },
+        "target_seconds": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "error_taxonomy": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "enum": ["retryable", "fatal", "requires_human"] }
+    },
+    "completeness": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "record_count",
+          "debit_total",
+          "credit_total",
+          "opening_balance",
+          "closing_balance",
+          "cursor",
+          "sequence"
+        ]
+      },
+      "uniqueItems": true
+    },
+    "fallback": {
+      "type": "object",
+      "required": ["file_supported"],
+      "properties": {
+        "file_supported": { "type": "boolean" },
+        "formats": {
+          "type": "array",
+          "items": { "type": "string", "maxLength": 32 }
+        }
+      },
+      "additionalProperties": false
+    },
+    "region": { "type": "string", "maxLength": 64 },
+    "subprocessors": {
+      "type": "array",
+      "items": { "type": "string", "maxLength": 128 }
+    },
+    "cost": {
+      "type": "object",
+      "properties": {
+        "unit": { "type": "string", "maxLength": 64 },
+        "currency": { "type": "string", "pattern": "^[A-Z]{3}$" },
+        "minimum": { "type": "string", "pattern": "^(0|[1-9][0-9]*)(\\.[0-9]+)?$" }
+      },
+      "additionalProperties": false
+    },
+    "owner": { "type": "string", "minLength": 1, "maxLength": 128 }
+  },
+  "additionalProperties": false
+}
+
