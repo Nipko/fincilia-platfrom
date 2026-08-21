@@ -5,16 +5,18 @@ epic: FNC-EP-003
 phase: F0
 iteration: E0
 type: product
-status: draftable
+status: review_pending
 priority: P0
 accountable_owner: UNASSIGNED
+implementer: Hume
+base_sha: f621236
 agent_lane: A1
 independent_reviewer: Accounting and Architecture
 plan_refs: [§1–§4, §48]
 dependencies: [FNC-GOV-001]
 gate: S1-READY
 allowed_data: synthetic
-file_scope: [docs/product/PRD_WEDGE.md]
+file_scope: [docs/product/PRD_WEDGE.md, docs/implementation/handoffs/FNC-PRD-001.md]
 forbidden_scope: [public-pricing, implementation]
 ---
 
@@ -30,4 +32,3 @@ Convertir el wedge factura/pedido→pago→fee/retención→liquidación→banco
 - Fuentes de factura emitida explícitas; buzón DIAN recibido no cubre CxC.
 - No promete feed, parser universal, auto-match o acusación de fraude.
 - Define hipótesis que deben validar 5 firmas y 10 cierres.
-
