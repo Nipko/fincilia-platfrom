@@ -31,6 +31,7 @@ jobs:
           python -m unittest
           tools.architecture_model.test_validate
           tools.canonical_model.test_validate
+          tools.completeness_model.test_validate
           tools.dfd_model.test_validate
           tools.threat_model.test_validate
           tools.quality_gate.test_repo_policy
@@ -39,6 +40,8 @@ jobs:
         run: python -m tools.architecture_model.validate
       - name: Validate executable canonical domain model
         run: python -m tools.canonical_model.validate
+      - name: Validate completeness and balance model
+        run: python -m tools.completeness_model.validate
       - name: Validate executable data-flow model
         run: python -m tools.dfd_model.validate
       - name: Validate executable threat model

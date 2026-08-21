@@ -72,7 +72,7 @@
       "allowed_dependencies": ["finance", "platform", "sources"],
       "authoritative_financial_state": true,
       "id": "reconciliation",
-      "owns": ["source_completeness", "match_candidate", "match_group", "match_member", "match_decision", "exception", "reconciliation_statement"],
+      "owns": ["completeness_assessment", "completeness_control_result", "match_candidate", "match_group", "match_member", "match_decision", "exception", "reconciliation_statement", "reconciling_item"],
       "plane": "financial"
     },
     {

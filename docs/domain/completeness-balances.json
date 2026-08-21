@@ -1,0 +1,145 @@
+{
+  "schema_version": 1,
+  "task_id": "FNC-DOM-003",
+  "status": "review_pending",
+  "data_ceiling": "synthetic_only",
+  "money_type": "money_decimal",
+  "float_forbidden": true,
+  "assessment_states": ["verified", "mismatch", "unknown", "accepted_exception"],
+  "control_outcomes": ["match", "mismatch", "unknown", "not_applicable"],
+  "statement_states": ["draft", "review_required", "balanced", "exception_accepted", "superseded"],
+  "reconciling_item_states": ["proposed", "confirmed", "rejected", "reversed"],
+  "control_types": [
+    {"id": "record_count", "value_type": "integer", "unavailable_outcome": "unknown"},
+    {"id": "debit_total", "value_type": "money_decimal", "unavailable_outcome": "unknown"},
+    {"id": "credit_total", "value_type": "money_decimal", "unavailable_outcome": "unknown"},
+    {"id": "opening_balance", "value_type": "money_decimal", "unavailable_outcome": "unknown"},
+    {"id": "closing_balance", "value_type": "money_decimal", "unavailable_outcome": "unknown"},
+    {"id": "running_balance_continuity", "value_type": "boolean", "unavailable_outcome": "unknown"},
+    {"id": "period_coverage", "value_type": "date_range", "unavailable_outcome": "unknown"},
+    {"id": "page_section_coverage", "value_type": "integer_pair", "unavailable_outcome": "unknown"},
+    {"id": "sequence_cursor", "value_type": "text", "unavailable_outcome": "unknown"},
+    {"id": "provenance_integrity", "value_type": "boolean", "unavailable_outcome": "unknown"},
+    {"id": "currency_consistency", "value_type": "currency_code", "unavailable_outcome": "unknown"},
+    {"id": "account_identity", "value_type": "tokenized_identifier", "unavailable_outcome": "unknown"}
+  ],
+  "assessment_contract": {
+    "entity": "completeness_assessment",
+    "owner_module": "reconciliation",
+    "company_scoped": true,
+    "scope_fields": ["company_id", "data_source_id", "source_expectation_id", "period_start", "period_end", "dataset_version_id", "engine_release_id"],
+    "optional_scope_fields": ["financial_account_id"],
+    "required_evidence": ["control_results", "dataset_version", "source_expectation", "lineage"],
+    "derivation_precedence": [
+      {"when": "any_required_control_mismatch", "state": "mismatch"},
+      {"when": "no_mismatch_and_any_required_control_unknown", "state": "unknown"},
+      {"when": "all_required_controls_match", "state": "verified"}
+    ],
+    "not_applicable_rule": "must_be_predeclared_by_versioned_expectation_with_reason",
+    "accepted_exception_is_derived": false,
+    "base_state_preserved": true,
+    "lineage_required": true,
+    "mutation_policy": "immutable_version"
+  },
+  "control_result_contract": {
+    "entity": "completeness_control_result",
+    "owner_module": "reconciliation",
+    "company_scoped": true,
+    "fields": ["assessment_id", "control_type", "required", "outcome", "expected_value", "observed_value", "value_type", "tolerance_policy_id", "evidence_refs", "rule_version", "reason"],
+    "expected_and_observed_are_typed": true,
+    "monetary_tolerance_uses_decimal": true,
+    "silent_skip_forbidden": true,
+    "lineage_required": true,
+    "mutation_policy": "immutable_version"
+  },
+  "eligibility": {
+    "verified": {"investigation": true, "match_suggestion": true, "auto_match": false, "close_input": true, "certified_report_input": true},
+    "mismatch": {"investigation": true, "match_suggestion": false, "auto_match": false, "close_input": false, "certified_report_input": false},
+    "unknown": {"investigation": true, "match_suggestion": false, "auto_match": false, "close_input": false, "certified_report_input": false},
+    "accepted_exception": {"investigation": true, "match_suggestion": true, "auto_match": false, "close_input": "conditional_valid_exception", "certified_report_input": "conditional_disclosed_exception"}
+  },
+  "account_balance_contract": {
+    "entity": "account_balance",
+    "owner_module": "finance",
+    "company_scoped": true,
+    "required_fields": ["company_id", "financial_account_id", "source_record_id", "balance_type", "amount", "currency_code", "as_of", "engine_release_id", "canonical_schema_version", "lineage_state"],
+    "balance_types": ["opening", "closing", "running", "available", "ledger"],
+    "amount_type": "money_decimal",
+    "currency_required": true,
+    "source_observation_not_completeness_proof": true,
+    "lineage_required": true
+  },
+  "reconciliation_statement_contract": {
+    "entity": "reconciliation_statement",
+    "owner_module": "reconciliation",
+    "company_scoped": true,
+    "scope_fields": ["company_id", "financial_account_id", "period_start", "period_end", "currency_code"],
+    "input_fields": ["bank_closing_balance_id", "books_closing_balance_id", "confirmed_reconciling_item_ids", "completeness_assessment_ids"],
+    "computed_fields": ["confirmed_additions_to_bank", "confirmed_deductions_from_bank", "adjusted_bank_balance", "unexplained_difference"],
+    "formula": {
+      "adjusted_bank_balance": "bank_closing_balance + confirmed_additions_to_bank - confirmed_deductions_from_bank",
+      "unexplained_difference": "adjusted_bank_balance - books_closing_balance"
+    },
+    "amount_type": "money_decimal",
+    "single_currency": true,
+    "same_company_account_period_required": true,
+    "only_confirmed_items_count": true,
+    "balanced_requires_exact_zero": true,
+    "accepted_difference_state": "exception_accepted",
+    "accepted_difference_never_named_balanced": true,
+    "lineage_required": true,
+    "version_refs": ["engine_release_id", "canonical_schema_version", "reference_dataset_version_ids", "rule_version_ids"],
+    "mutation_policy": "immutable_version"
+  },
+  "reconciling_item_contract": {
+    "entity": "reconciling_item",
+    "owner_module": "reconciliation",
+    "company_scoped": true,
+    "adjustment_sides": ["add_to_bank", "deduct_from_bank"],
+    "amount_type": "money_decimal",
+    "amount_rule": "positive",
+    "currency_required": true,
+    "required_fields": ["company_id", "statement_id", "adjustment_side", "amount", "currency_code", "reason_code", "state", "evidence_refs", "prepared_by", "decision_version"],
+    "confirmed_requires": ["approved_by", "approved_at", "sod_check", "lineage"],
+    "reversal_creates_new_decision": true,
+    "only_state_counted": "confirmed",
+    "mutation_policy": "append_only"
+  },
+  "accepted_exception_contract": {
+    "base_states": ["mismatch", "unknown"],
+    "required_fields": ["scope", "reason", "owner_subject_id", "approved_by", "approved_at", "materiality_policy_id", "valid_from", "expires_at", "allowed_actions", "evidence_refs", "audit_event_id"],
+    "independent_approver_required": true,
+    "expiry_required": true,
+    "base_state_preserved": true,
+    "auto_match_allowed": false,
+    "must_be_disclosed_in_snapshot_and_report": true,
+    "expired_exception_allows_new_close": false,
+    "mutation_policy": "append_only"
+  },
+  "close_readiness_gate": {
+    "required_conditions": [
+      "every_expected_source_has_assessment",
+      "no_unhandled_mismatch_or_unknown",
+      "statement_for_every_required_account_and_currency",
+      "every_statement_balanced_or_explicit_exception_accepted",
+      "no_hidden_unexplained_difference",
+      "confirmed_items_have_evidence_and_sod",
+      "all_published_fields_and_decisions_have_lineage",
+      "engine_schema_reference_and_rule_versions_fixed",
+      "authorization_revalidated_before_snapshot"
+    ],
+    "matching_coverage_is_not_completeness": true,
+    "movement_matches_are_not_balance_reconciliation": true,
+    "auto_match_enabled_in_e0": false,
+    "product_close_enabled_in_e0": false,
+    "exception_close_state": "closed_with_disclosed_exception",
+    "balanced_label_requires_zero": true
+  },
+  "required_test_scenarios": [
+    "TST-CMP-001", "TST-CMP-002", "TST-BAL-001", "TST-BAL-002", "TST-EXC-001", "TST-CLOSE-001"
+  ],
+  "risk_refs": ["TM-007", "TM-008", "TM-009", "TM-013"],
+  "owner_roles": ["Accounting", "Data Engineering"],
+  "reviewer_roles": ["Product", "Security"],
+  "human_acceptance": "pending"
+}
