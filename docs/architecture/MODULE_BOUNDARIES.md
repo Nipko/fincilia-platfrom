@@ -22,7 +22,7 @@ Las entidades del JSON son ownership conceptual previo al esquema v0.1; no autor
 | Sources | Control | fuentes, conexiones lógicas, expectativas y registro de conectores | Persistir secretos en DB o prometer feed universal |
 | Ingestion | Evidencia | artifact, document, processing run, quarantine decision | Publicar source record o movimiento financiero |
 | Clean | Evidencia | raw record, dataset, schema, mapping, recipe, source record, lineage, overlay | Modificar raw o decidir hechos financieros |
-| Finance | Financiero | contraparte, cuenta, obligación, movimiento, settlement, ledger y balance | Leer tablas internas de ingesta o deduplicar por fecha/monto |
+| Finance | Financiero | contraparte, cuenta, obligación, movimiento, dedupe económico versionado, settlement, ledger y balance | Leer tablas internas de ingesta o deduplicar por fecha/monto sin decisión trazable |
 | Reconciliation | Financiero | completitud, candidates, groups, decisions, exceptions y statement | Confirmar por LLM o usar fuente parcial silenciosamente |
 | Close | Financiero | cycle, tasks, approvals, snapshot y reminder policy | Cerrar sin statement, evidencia o SoD |
 | Reporting | Analítico | report definition/snapshot, export y schedule | Autorizar desde warehouse/proyección |

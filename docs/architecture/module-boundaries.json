@@ -65,7 +65,7 @@
       "allowed_dependencies": ["clean", "platform", "tenancy"],
       "authoritative_financial_state": true,
       "id": "finance",
-      "owns": ["counterparty", "financial_account", "obligation", "money_movement", "movement_evidence_link", "settlement", "ledger_entry", "ledger_line", "account_balance", "external_reference"],
+      "owns": ["counterparty", "financial_account", "obligation", "money_movement", "movement_evidence_link", "dedupe_candidate", "dedupe_decision", "settlement", "ledger_entry", "ledger_line", "account_balance", "external_reference"],
       "plane": "financial"
     },
     {

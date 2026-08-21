@@ -1,0 +1,233 @@
+{
+  "schema_version": 1,
+  "task_id": "FNC-DOM-004",
+  "status": "review_pending",
+  "human_acceptance": "pending",
+  "data_ceiling": "synthetic_only",
+  "execution_mode": "contract_only_no_productive_merge",
+  "principles": [
+    {"id": "DED-SEPARATE-LAYERS", "rule": "Transport delivery, artifact bytes, source observation, economic event and published effect have separate identities."},
+    {"id": "DED-CANDIDATE-NOT-IDENTITY", "rule": "Date, amount, direction, reference, counterparty and derived fingerprints only generate candidates."},
+    {"id": "DED-PRESERVE-EVIDENCE", "rule": "Deduplication never deletes or overwrites source evidence."},
+    {"id": "DED-LEGITIMATE-IDENTICAL", "rule": "Distinct legitimate events may have identical business attributes and must remain representable."},
+    {"id": "IDEM-ATOMIC-DATABASE", "rule": "Hard idempotency is enforced by a database uniqueness or compare-and-set primitive, never an application pre-check alone."},
+    {"id": "IDEM-ONE-RETRY-OWNER", "rule": "Exactly one durable state machine owns retry timing for each effect."},
+    {"id": "IDEM-OUTBOX", "rule": "A domain transition and its outbox record commit in the same database transaction."},
+    {"id": "IDEM-CONFLICT-EXPLICIT", "rule": "Reuse of an idempotency key with different payload is a conflict, never a replay success."},
+    {"id": "IDEM-COMPANY-SCOPE", "rule": "Every financial idempotency and dedupe record is scoped to a server-verified company."},
+    {"id": "IDEM-NO-RAW-KEYS-IN-LOGS", "rule": "Raw provider IDs, references, account identifiers and payloads never appear in logs."}
+  ],
+  "identity_layers": [
+    {
+      "id": "transport_delivery",
+      "question": "Was this provider delivery or client command already received?",
+      "authoritative_entity": "inbox_receipt",
+      "hard_identity_allowed": true,
+      "never_proves": ["same_artifact", "same_source_observation", "same_economic_event"]
+    },
+    {
+      "id": "artifact_bytes",
+      "question": "Are these exact bytes a redelivery from the same company and source?",
+      "authoritative_entity": "artifact_version",
+      "hard_identity_allowed": true,
+      "never_proves": ["same_source_observation", "same_economic_event"]
+    },
+    {
+      "id": "source_observation",
+      "question": "Do two records represent the same observation emitted by one source?",
+      "authoritative_entity": "source_record",
+      "hard_identity_allowed": "only_with_verified_provider_identity_contract",
+      "never_proves": ["same_economic_event_across_sources"]
+    },
+    {
+      "id": "economic_event",
+      "question": "Do several observations describe one real money movement?",
+      "authoritative_entity": "money_movement",
+      "hard_identity_allowed": false,
+      "never_proves": ["same_transport_delivery", "same_artifact"]
+    },
+    {
+      "id": "published_effect",
+      "question": "Was this versioned state transition already made visible or delivered?",
+      "authoritative_entity": "outbox_event",
+      "hard_identity_allowed": true,
+      "never_proves": ["same_economic_event"]
+    }
+  ],
+  "hard_idempotency_rules": [
+    {
+      "id": "IDEM-ARTIFACT-EXACT",
+      "owner_module": "ingestion",
+      "scope_fields": ["company_id", "data_source_id"],
+      "identity_material": ["content_sha256_exact_bytes"],
+      "same_key_same_payload": "return_existing_artifact_version",
+      "same_key_different_payload": "not_applicable_hash_is_payload",
+      "atomic_mechanism": "database_unique_constraint",
+      "preserve_raw": true
+    },
+    {
+      "id": "IDEM-PROVIDER-EVENT",
+      "owner_module": "platform",
+      "scope_fields": ["connection_id"],
+      "identity_material": ["provider_event_id_hmac"],
+      "payload_digest": "canonical_transport_payload_sha256",
+      "same_key_same_payload": "acknowledge_existing_receipt",
+      "same_key_different_payload": "record_conflict_and_block_publication",
+      "atomic_mechanism": "database_unique_constraint_then_digest_compare",
+      "preserve_raw": true
+    },
+    {
+      "id": "IDEM-COMMAND",
+      "owner_module": "platform",
+      "scope_fields": ["company_id", "principal_id", "operation_id"],
+      "identity_material": ["client_idempotency_key_hmac"],
+      "payload_digest": "validated_command_payload_sha256",
+      "same_key_same_payload": "return_original_status_and_response_reference",
+      "same_key_different_payload": "conflict_no_effect",
+      "atomic_mechanism": "database_unique_constraint_then_digest_compare",
+      "preserve_raw": false
+    },
+    {
+      "id": "IDEM-PROCESSING",
+      "owner_module": "ingestion",
+      "scope_fields": ["company_id", "artifact_version_id"],
+      "identity_material": ["parser_version", "recipe_version", "canonical_schema_version", "engine_release_id"],
+      "same_key_same_payload": "reuse_or_resume_processing_run",
+      "same_key_different_payload": "create_new_versioned_run",
+      "atomic_mechanism": "database_unique_constraint_on_versioned_run_key",
+      "preserve_raw": true
+    },
+    {
+      "id": "IDEM-PUBLICATION",
+      "owner_module": "platform",
+      "scope_fields": ["company_id", "aggregate_type", "aggregate_id"],
+      "identity_material": ["transition_name", "aggregate_version"],
+      "same_key_same_payload": "no_second_domain_effect",
+      "same_key_different_payload": "conflict_and_investigation",
+      "atomic_mechanism": "domain_transaction_with_unique_outbox_record",
+      "preserve_raw": false
+    }
+  ],
+  "provider_identity_contract": {
+    "states": ["unverified", "verified", "suspended"],
+    "default_state": "unverified",
+    "verified_requires": [
+      "documented_namespace_and_scope",
+      "documented_immutability_or_revision_semantics",
+      "replay_and_id_reuse_tests",
+      "connector_version_binding",
+      "owner_and_independent_reviewer",
+      "observed_collision_rate_zero_in_approved_corpus"
+    ],
+    "suspended_on": ["identifier_reuse", "scope_drift", "semantic_drift", "unexplained_collision"],
+    "unverified_effect": "candidate_only_never_hard_identity"
+  },
+  "candidate_rules": [
+    {
+      "id": "CAND-SOURCE-OVERLAP",
+      "layer": "source_observation",
+      "features": ["source_scope", "account_token", "provider_reference", "posting_date", "amount", "direction", "source_locator"],
+      "fingerprint_usage": "blocking_and_ranking_only",
+      "unique_constraint_forbidden": true,
+      "automatic_effect": "none",
+      "required_outcome": "preserve_both_observations_until_reviewed"
+    },
+    {
+      "id": "CAND-MOVEMENT-SIMILARITY",
+      "layer": "economic_event",
+      "features": ["company_id", "financial_account_id", "occurrence_date", "posting_date", "amount", "currency", "direction", "reference", "counterparty"],
+      "fingerprint_usage": "blocking_and_ranking_only",
+      "unique_constraint_forbidden": true,
+      "automatic_effect": "none",
+      "required_outcome": "create_reviewable_candidate_without_mutating_movements"
+    },
+    {
+      "id": "CAND-PROVIDER-ID-UNVERIFIED",
+      "layer": "source_observation",
+      "features": ["connection_id", "provider_record_id", "provider_record_type"],
+      "fingerprint_usage": "candidate_until_contract_verified",
+      "unique_constraint_forbidden": true,
+      "automatic_effect": "none",
+      "required_outcome": "abstain_on_collision_or_reuse"
+    }
+  ],
+  "forbidden_hard_uniqueness": [
+    {"id": "NO-BUSINESS-COMPOSITE", "fields": ["company_id", "financial_account_id", "posting_date", "amount", "direction", "reference"]},
+    {"id": "NO-DEDUPE-FINGERPRINT", "fields": ["company_id", "dedupe_fingerprint"]},
+    {"id": "NO-SOURCE-LOCATOR-ALONE", "fields": ["company_id", "source_locator"]},
+    {"id": "NO-NORMALIZED-PAYLOAD-ALONE", "fields": ["company_id", "normalized_payload_hash"]}
+  ],
+  "fingerprint_policy": {
+    "exact_artifact_hash": "sha256_over_original_bytes_before_transformation",
+    "transport_payload_digest": "deterministic_canonicalization_defined_per_connector_version",
+    "candidate_fingerprint": "versioned_hmac_over_normalized_candidate_features",
+    "candidate_fingerprint_secret": "vault_managed_rotatable_key",
+    "raw_values_in_logs": false,
+    "hash_or_hmac_is_not_anonymization": true,
+    "locale_and_normalization_version_required": true
+  },
+  "inbox_state_machine": {
+    "states": ["received", "processing", "succeeded", "retryable_failed", "terminal_failed", "conflict"],
+    "initial": "received",
+    "terminal": ["succeeded", "terminal_failed", "conflict"],
+    "retry_owner": "platform_durable_workflow",
+    "claim_mechanism": "atomic_insert_or_compare_and_set",
+    "lease_requires_fencing_token": true,
+    "application_precheck_is_authority": false
+  },
+  "dedupe_decision_contract": {
+    "owner_module": "finance",
+    "entities": ["dedupe_candidate", "dedupe_decision"],
+    "candidate_states": ["open", "confirmed_same_event", "confirmed_distinct", "dismissed", "superseded"],
+    "required_fields": ["company_id", "candidate_id", "left_movement_id", "right_movement_id", "decision", "reason_code", "evidence_refs", "decided_by", "decided_at", "rule_version", "engine_release_id", "audit_event_id", "reverses_decision_id"],
+    "pair_order": "lower_uuid_then_higher_uuid",
+    "active_candidate_uniqueness": "company_rule_version_ordered_pair_partial_unique",
+    "decision_history": "append_only",
+    "reversal": "new_decision_referencing_prior_decision",
+    "source_evidence_deleted": false,
+    "movement_physical_delete": false,
+    "automatic_same_event_decision_enabled": false,
+    "confirmed_same_event_product_effect": "blocked_until_accounting_and_architecture_define_supersession_semantics"
+  },
+  "concurrency_contract": {
+    "correctness_primitives": ["database_unique_constraint", "database_transaction", "compare_and_set", "transactional_outbox", "fencing_token"],
+    "forbidden_as_sole_correctness": ["application_precheck", "valkey_lock", "process_mutex", "delivery_order", "exactly_once_broker_claim"],
+    "worker_delivery": "at_least_once",
+    "effect_semantics": "exactly_once_visible_effect_through_idempotent_consumer_and_unique_publication_key",
+    "retry_owner": "platform_durable_workflow",
+    "domain_handler_schedules_retries": false,
+    "connector_schedules_retries": false,
+    "outbox_same_transaction_as_domain_change": true,
+    "consumer_receipt_before_effect_forbidden": true
+  },
+  "security_contract": {
+    "company_scope_source": "server_verified_authorization_context",
+    "cross_company_candidate_forbidden": true,
+    "raw_identifier_log_forbidden": true,
+    "replay_window_bounded_by_connector_contract": true,
+    "provider_signature_verified_before_claim": true,
+    "conflict_is_security_signal": true
+  },
+  "required_tests": [
+    {"id": "TST-DED-001", "scenario": "exact artifact redelivery", "expected": "one artifact identity and preserved receipt evidence"},
+    {"id": "TST-DED-002", "scenario": "two legitimate identical transactions", "expected": "two movements remain representable"},
+    {"id": "TST-DED-003", "scenario": "overlapping statement periods", "expected": "candidate only and both observations preserved"},
+    {"id": "TST-DED-004", "scenario": "dedupe decision reversal", "expected": "append-only reversal and original evidence retained"},
+    {"id": "TST-DED-005", "scenario": "cross-company similarity", "expected": "no candidate and deny uniformly"},
+    {"id": "TST-IDEM-001", "scenario": "two concurrent claims", "expected": "one winner by database primitive"},
+    {"id": "TST-IDEM-002", "scenario": "same key same payload", "expected": "original result reference returned"},
+    {"id": "TST-IDEM-003", "scenario": "same key different payload", "expected": "conflict and no second effect"},
+    {"id": "TST-IDEM-004", "scenario": "crash after domain commit before delivery", "expected": "outbox retry delivers without duplicate domain effect"},
+    {"id": "TST-IDEM-005", "scenario": "stale worker after lease expiry", "expected": "fencing token rejects stale write"},
+    {"id": "TST-IDEM-006", "scenario": "provider reuses record id", "expected": "suspend identity assurance and block publication"},
+    {"id": "TST-IDEM-007", "scenario": "retry layers compete", "expected": "only durable workflow owns schedule"}
+  ],
+  "dependencies": ["FNC-DOM-002", "FNC-ARC-002", "FNC-SEC-002", "FNC-PLT-001"],
+  "deferred": [
+    "sql_migrations_and_partial_unique_indexes",
+    "provider_specific_identity_contracts",
+    "productive_merge_or_supersession_semantics",
+    "automatic_dedupe_thresholds",
+    "real_connector_replay_tests"
+  ]
+}
