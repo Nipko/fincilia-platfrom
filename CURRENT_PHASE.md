@@ -71,6 +71,8 @@ Hasta S1-READY solo se admite scaffolding, automatización, pruebas, documentaci
 | FNC-DOM-001 | Tenancy company/engagement | Review pending | Einstein | docs/domain/TENANCY_MODEL.md, handoff |
 | FNC-DAT-001 | Glosario y política sintética | Review pending | Bohr | docs/domain/GLOSSARY.md, docs/testing/SYNTHETIC_DATA_POLICY.md, handoff |
 | FNC-PLT-001 | Walking spike del stack | Review pending | Integration Steward | spikes/FNC-PLT-001, ADR-001/002, evidencia |
+| FNC-SEC-001 | Matriz y kernel de autorización | Claimed external | Claude | docs/security/RBAC_ABAC_SOD.md, spikes/FNC-SEC-001, handoff |
+| FNC-DAT-002 | Corpus y linter sintéticos | Claimed | Integration Steward | tools/synthetic_corpus, tests/golden/synthetic, docs/testing, handoff |
 
 Solo el Integration Steward modifica esta tabla.
 
@@ -82,10 +84,11 @@ Solo el Integration Steward modifica esta tabla.
 | 0 | FNC-PRD-001 PRD general y wedge | FNC-GOV-001 para aprobación | Review pending |
 | 0 | FNC-DOM-001 Modelo tenancy | PRD provisional | Review pending |
 | 0 | FNC-ARC-001 C4 contexto/contenedores | FNC-DOM-001 | Draftable |
-| 0 | FNC-SEC-001 RBAC/ABAC/SoD | FNC-DOM-001 | Draftable |
+| 0 | FNC-SEC-001 RBAC/ABAC/SoD | FNC-DOM-001 | Claimed external |
 | 0 | FNC-DAT-001 Taxonomía y política de datos | PRD provisional | Review pending |
 | 0 | FNC-PLT-001 Spike y decisión de stack | Gobierno | Review pending |
 | 0 | FNC-UX-001 Arquitectura de información | PRD provisional | Draftable |
+| 0 | FNC-DAT-002 Corpus y golden harness sintético | FNC-DAT-001 provisional | Claimed |
 
 Draftable significa que un agente puede preparar un borrador, pero no marcarlo Accepted hasta resolver la dependencia.
 
