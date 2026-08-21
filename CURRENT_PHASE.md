@@ -76,6 +76,7 @@ Hasta S1-READY solo se admite scaffolding, automatización, pruebas, documentaci
 | FNC-PLT-003 | CI y quality gate inicial | Review pending | Integration Steward | .github/workflows, tools/quality_gate, docs/testing, handoff |
 | FNC-ARC-001 | C4 y modelo ejecutable de módulos | Review pending | Integration Steward | docs/architecture, tools/architecture_model, CI, handoff |
 | FNC-ARC-002 | DFD ejecutable y clasificación por flujo | Review pending | Integration Steward | docs/architecture/DFD.md, dfd-flows.json, tools/dfd_model, CI, handoff |
+| FNC-SEC-002 | Threat model ejecutable | Review pending | Integration Steward | docs/security/THREAT_MODEL.md, threat-model.json, tools/threat_model, CI, handoff |
 
 Solo el Integration Steward modifica esta tabla.
 
@@ -89,6 +90,7 @@ Solo el Integration Steward modifica esta tabla.
 | 0 | FNC-ARC-001 C4 contexto/contenedores | FNC-DOM-001 | Review pending |
 | 0 | FNC-ARC-002 DFD y clasificación por flujo | FNC-ARC-001, FNC-DAT-001 | Review pending |
 | 0 | FNC-SEC-001 RBAC/ABAC/SoD | FNC-DOM-001 | Review pending |
+| 0 | FNC-SEC-002 Threat model y pruebas de riesgo | FNC-ARC-002, FNC-SEC-001 | Review pending |
 | 0 | FNC-DAT-001 Taxonomía y política de datos | PRD provisional | Review pending |
 | 0 | FNC-PLT-001 Spike y decisión de stack | Gobierno | Review pending |
 | 0 | FNC-UX-001 Arquitectura de información | PRD provisional | Draftable |
