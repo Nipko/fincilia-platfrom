@@ -73,6 +73,7 @@ Hasta S1-READY solo se admite scaffolding, automatización, pruebas, documentaci
 | FNC-PLT-001 | Walking spike del stack | Review pending | Integration Steward | spikes/FNC-PLT-001, ADR-001/002, evidencia |
 | FNC-SEC-001 | Matriz y kernel de autorización | Claimed external | Claude | docs/security/RBAC_ABAC_SOD.md, spikes/FNC-SEC-001, handoff |
 | FNC-DAT-002 | Corpus y linter sintéticos | Review pending | Integration Steward | tools/synthetic_corpus, tests/golden/synthetic, docs/testing, handoff |
+| FNC-PLT-003 | CI y quality gate inicial | Review pending | Integration Steward | .github/workflows, tools/quality_gate, docs/testing, handoff |
 
 Solo el Integration Steward modifica esta tabla.
 
@@ -89,6 +90,7 @@ Solo el Integration Steward modifica esta tabla.
 | 0 | FNC-PLT-001 Spike y decisión de stack | Gobierno | Review pending |
 | 0 | FNC-UX-001 Arquitectura de información | PRD provisional | Draftable |
 | 0 | FNC-DAT-002 Corpus y golden harness sintético | FNC-DAT-001 provisional | Review pending |
+| 0 | FNC-PLT-003 CI sintético y policy gate | FNC-PLT-001, FNC-DAT-002 | Review pending |
 
 Draftable significa que un agente puede preparar un borrador, pero no marcarlo Accepted hasta resolver la dependencia.
 

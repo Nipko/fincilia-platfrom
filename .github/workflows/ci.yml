@@ -1,0 +1,57 @@
+name: fincilia-ci
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fincilia-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  repository-and-data-policy:
+    name: Repository and synthetic-data policy
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Repository policy
+        run: python -m tools.quality_gate.cli
+      - name: Python unit tests
+        run: python -m unittest tools.quality_gate.test_repo_policy tools.synthetic_corpus.test_corpus -v
+      - name: Verify synthetic corpus byte for byte
+        run: python -m tools.synthetic_corpus.cli verify --root tests/golden/synthetic
+
+  stack-spike:
+    name: PostgreSQL RLS and worker spike
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: spikes/FNC-PLT-001
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Validate Compose
+        run: docker compose config --quiet
+      - name: Start PostgreSQL
+        run: docker compose up -d --wait
+      - name: Typecheck, dependency audit and integration tests
+        run: >-
+          docker compose --profile test run --rm api-test sh -lc
+          "npm ci --ignore-scripts && npm audit --audit-level=high && npm run typecheck && npm test"
+      - name: Python worker tests
+        working-directory: spikes/FNC-PLT-001/worker
+        run: python3 -m unittest -v
+      - name: Cleanup
+        if: always()
+        run: docker compose --profile test down --volumes --remove-orphans
