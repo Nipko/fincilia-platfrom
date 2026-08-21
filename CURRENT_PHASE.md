@@ -67,6 +67,10 @@ Hasta S1-READY solo se admite scaffolding, automatización, pruebas, documentaci
 | ID | Resultado | Estado | Implementador | Rutas |
 |---|---|---|---|---|
 | FNC-GOV-002 | Paquete de implementación multiagente | Done | Integration Steward | raíz, docs/implementation, docs/adr |
+| FNC-PRD-001 | PRD y wedge de firma contable | Review pending | Hume | docs/product/PRD_WEDGE.md, handoff |
+| FNC-DOM-001 | Tenancy company/engagement | Review pending | Einstein | docs/domain/TENANCY_MODEL.md, handoff |
+| FNC-DAT-001 | Glosario y política sintética | Review pending | Bohr | docs/domain/GLOSSARY.md, docs/testing/SYNTHETIC_DATA_POLICY.md, handoff |
+| FNC-PLT-001 | Walking spike del stack | Review pending | Integration Steward | spikes/FNC-PLT-001, ADR-001/002, evidencia |
 
 Solo el Integration Steward modifica esta tabla.
 
@@ -75,12 +79,12 @@ Solo el Integration Steward modifica esta tabla.
 | Ola | Tarea | Dependencia | Estado |
 |---:|---|---|---|
 | 0 | FNC-GOV-001 Owners humanos y RACI | Ninguna | Blocked: founder |
-| 0 | FNC-PRD-001 PRD general y wedge | FNC-GOV-001 para aprobación | Draftable |
-| 0 | FNC-DOM-001 Modelo tenancy | PRD provisional | Draftable |
+| 0 | FNC-PRD-001 PRD general y wedge | FNC-GOV-001 para aprobación | Review pending |
+| 0 | FNC-DOM-001 Modelo tenancy | PRD provisional | Review pending |
 | 0 | FNC-ARC-001 C4 contexto/contenedores | FNC-DOM-001 | Draftable |
 | 0 | FNC-SEC-001 RBAC/ABAC/SoD | FNC-DOM-001 | Draftable |
-| 0 | FNC-DAT-001 Taxonomía y política de datos | PRD provisional | Draftable |
-| 0 | FNC-PLT-001 Spike y decisión de stack | Gobierno | Draftable |
+| 0 | FNC-DAT-001 Taxonomía y política de datos | PRD provisional | Review pending |
+| 0 | FNC-PLT-001 Spike y decisión de stack | Gobierno | Review pending |
 | 0 | FNC-UX-001 Arquitectura de información | PRD provisional | Draftable |
 
 Draftable significa que un agente puede preparar un borrador, pero no marcarlo Accepted hasta resolver la dependencia.
