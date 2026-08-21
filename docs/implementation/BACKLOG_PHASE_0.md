@@ -25,7 +25,7 @@
 | ID | Carril | Dependencias | Estado inicial | Resultado verificable |
 |---|---|---|---|---|
 | FNC-GOV-001 | A0/Founder | — | Blocked: human | Owners nominales, suplentes, RACI y aprobador por gate |
-| FNC-GOV-002 | A0 | — | Review | Gobierno, templates, ownership y protocolo multiagente |
+| FNC-GOV-002 | A0 | — | Done | Gobierno, templates, ownership y protocolo multiagente |
 | FNC-GOV-003 | A0 | GOV-002 | Draftable | Backlog, dependencias, decisiones y trazabilidad validados |
 | FNC-PRD-001 | A1 | GOV-001 para aceptar | Draftable | PRD del wedge factura→pago→liquidación→banco→ERP |
 | FNC-RES-001 | A1 | GOV-001 | Draftable | Protocolo para 5 firmas/10 cierres sin recibir documentos |

@@ -66,7 +66,7 @@ Hasta S1-READY solo se admite scaffolding, automatización, pruebas, documentaci
 
 | ID | Resultado | Estado | Implementador | Rutas |
 |---|---|---|---|---|
-| FNC-GOV-002 | Paquete de implementación multiagente | Review | Integration Steward | raíz, docs/implementation, docs/adr |
+| FNC-GOV-002 | Paquete de implementación multiagente | Done | Integration Steward | raíz, docs/implementation, docs/adr |
 
 Solo el Integration Steward modifica esta tabla.
 

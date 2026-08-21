@@ -19,6 +19,7 @@ Coordinador:
 - TRACEABILITY.md
 - GATES.md
 - DECISION_LOG.md
+- PACKAGE_MANIFEST.md
 
 Implementador:
 
@@ -42,4 +43,3 @@ Blocked puede aplicarse desde cualquier estado. Done exige evidencia; un mensaje
 - Las pruebas y el handoff demuestran el resultado.
 
 No se copian fragmentos extensos del plan dentro de tareas. Se citan sección y requisito para evitar versiones divergentes.
-
