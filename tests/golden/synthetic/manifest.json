@@ -1,0 +1,117 @@
+{
+  "classification": "synthetic_financial_sensitive",
+  "corpus_id": "FNC-DAT-002-GOLDEN-001",
+  "coverage": {
+    "currencies": [
+      "COP",
+      "USD"
+    ],
+    "encodings": [
+      "utf-8",
+      "latin-1"
+    ],
+    "locales": [
+      "es-CO",
+      "en-US",
+      "es-MX"
+    ],
+    "scenarios": [
+      "ambiguous_dates",
+      "balance_continuity",
+      "delimiter_variation",
+      "formula_injection_text",
+      "legitimate_duplicate_candidates",
+      "partial_source",
+      "settlement_equation",
+      "unknown_columns"
+    ]
+  },
+  "files": [
+    {
+      "bytes": 459,
+      "delimiter": ";",
+      "encoding": "utf-8",
+      "expected_status": "accepted_with_duplicate_candidates",
+      "fixture_type": "bank_statement_with_legitimate_duplicates",
+      "locale": "es-CO",
+      "notes": [
+        "SYN-BANK-001 and SYN-BANK-002 deliberately share date, amount and reference.",
+        "Opening plus movements equals the final running balance."
+      ],
+      "path": "files/bank_es_co.csv",
+      "row_count": 4,
+      "sha256": "0cb010cffec2f00c06823c4401a5e43b321bcb6d21a169ea93bb208e5adb5371"
+    },
+    {
+      "bytes": 231,
+      "delimiter": ",",
+      "encoding": "utf-8",
+      "expected_status": "accepted",
+      "fixture_type": "settlement_equation",
+      "locale": "en-US",
+      "notes": [
+        "gross - fee - withholding = net using exact decimal strings"
+      ],
+      "path": "files/payments_en_us.csv",
+      "row_count": 2,
+      "sha256": "56aeb68e8e8edf23408b5dd370cb2fd1ab81c26773445f89617ef3a66cb79b62"
+    },
+    {
+      "bytes": 265,
+      "delimiter": ";",
+      "encoding": "latin-1",
+      "expected_status": "requires_confirmation",
+      "fixture_type": "ambiguous_locale_and_unknown_column",
+      "locale": "es-MX",
+      "notes": [
+        "Dates are intentionally ambiguous and must never be inferred silently."
+      ],
+      "path": "files/ambiguous_es_mx_latin1.csv",
+      "row_count": 2,
+      "sha256": "f954acdf439273a93ed2582adeff337d01c5955793585612eb4173db5941d31e"
+    },
+    {
+      "bytes": 365,
+      "delimiter": ",",
+      "encoding": "utf-8",
+      "expected_status": "accepted_as_untrusted_text_with_warnings",
+      "fixture_type": "inert_hostile_tabular_cells",
+      "locale": "en-US",
+      "notes": [
+        "Formula and markup strings are inert test text; never execute them."
+      ],
+      "path": "files/hostile_cells.csv",
+      "row_count": 3,
+      "sha256": "558d0e1915d37e286916d50c771a4383c67af9ee6d0cbbac5f9f2339a7ad9dd3"
+    },
+    {
+      "bytes": 238,
+      "delimiter": ",",
+      "encoding": "utf-8",
+      "expected_status": "partial_blocks_certified_use",
+      "fixture_type": "partial_statement_with_sequence_gap",
+      "locale": "en-US",
+      "notes": [
+        "Sequence 2 is deliberately absent and the opening/closing evidence is incomplete."
+      ],
+      "path": "files/partial_statement.csv",
+      "row_count": 2,
+      "sha256": "cbf67347b5b42c394ff3fc02dce1e59b864e86a6f3eb5684cbc9f3c8ad11db59"
+    }
+  ],
+  "generator": {
+    "name": "fincilia-synthetic-corpus",
+    "seed": "FNC-DAT-002-SEED-001",
+    "source": "tools/synthetic_corpus/generator.py",
+    "version": "1.0.0"
+  },
+  "policy_version": "FNC-DAT-001-v0",
+  "provenance": {
+    "external_inputs": [],
+    "method": "deterministic_generation",
+    "real_data_used": false,
+    "review_required": true
+  },
+  "schema_version": 1,
+  "synthetic": true
+}

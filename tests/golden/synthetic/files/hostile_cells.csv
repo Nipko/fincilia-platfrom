@@ -1,0 +1,4 @@
+row_id,untrusted_text,contact,expected_handling,synthetic_marker
+SYN-HOSTILE-001,"=HYPERLINK(""https://example.invalid"",""SYN"")",contabilidad@example.invalid,escape_on_export,SYN-ONLY
+SYN-HOSTILE-002,"<!DOCTYPE synthetic [<!ENTITY x ""SYN"">]>",soporte@example.test,treat_as_text,SYN-ONLY
+SYN-HOSTILE-003,@SUM(1+1),auditoria@example.com,escape_on_export,SYN-ONLY

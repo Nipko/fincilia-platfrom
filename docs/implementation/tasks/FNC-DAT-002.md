@@ -5,7 +5,7 @@ epic: FNC-EP-006
 phase: F0
 iteration: E0
 type: data-quality
-status: claimed
+status: review_pending
 priority: P0
 accountable_owner: UNASSIGNED
 implementer: Integration Steward

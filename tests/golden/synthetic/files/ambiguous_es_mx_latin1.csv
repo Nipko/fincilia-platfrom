@@ -1,0 +1,3 @@
+fila_sintetica;fecha_ambigua;importe;descripción;columna_sorpresa;expected_semantics
+SYN-MX-001;03/04/2026;1.234,56;Operación sintética con acento;SYN-UNKNOWN-A;requires_confirmation
+SYN-MX-002;04/03/2026;-25,00;Débito sintético;SYN-UNKNOWN-B;requires_confirmation
