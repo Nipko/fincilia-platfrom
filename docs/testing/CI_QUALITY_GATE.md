@@ -23,6 +23,7 @@ El gate evita que un cambio aparentemente documental o de scaffolding debilite l
 4. tests de arquitectura, escáner y corpus;
 5. validación del modelo ejecutable de módulos;
 6. regeneración byte a byte del corpus golden.
+7. 61 pruebas del kernel de autorización dentro de una imagen Node fijada por digest.
 
 ### PostgreSQL RLS and worker spike
 

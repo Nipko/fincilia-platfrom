@@ -5,7 +5,7 @@ epic: FNC-EP-005
 phase: F0
 iteration: E0
 type: security
-status: claimed
+status: review_pending
 priority: P0
 accountable_owner: UNASSIGNED
 implementer: Claude (external agent)
