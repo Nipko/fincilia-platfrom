@@ -20,12 +20,13 @@ El gate evita que un cambio aparentemente documental o de scaffolding debilite l
 1. checkout fijado a commit SHA;
 2. Python 3.12 mediante action fijada a SHA;
 3. política del repositorio sobre el índice Git;
-4. tests de arquitectura modular, DFD, threat model, escáner y corpus;
+4. tests de arquitectura modular, modelo canónico, DFD, threat model, escáner y corpus;
 5. validación del modelo ejecutable de módulos;
-6. validación de los 13 flujos del DFD y sus contratos de seguridad/privacidad;
-7. validación de cobertura/scoring del threat model y aceptación humana pendiente;
-8. regeneración byte a byte del corpus golden;
-9. 61 pruebas del kernel de autorización dentro de una imagen Node fijada por digest.
+6. validación de ownership, company scope, dinero, fechas, dedupe y linaje del modelo canónico;
+7. validación de los 13 flujos del DFD y sus contratos de seguridad/privacidad;
+8. validación de cobertura/scoring del threat model y aceptación humana pendiente;
+9. regeneración byte a byte del corpus golden;
+10. 61 pruebas del kernel de autorización dentro de una imagen Node fijada por digest.
 
 ### PostgreSQL RLS and worker spike
 
@@ -73,9 +74,10 @@ Desde la raíz:
 ```bash
 python3 -m tools.quality_gate.cli
 python3 -m tools.architecture_model.validate
+python3 -m tools.canonical_model.validate
 python3 -m tools.dfd_model.validate
 python3 -m tools.threat_model.validate
-python3 -m unittest tools.architecture_model.test_validate tools.dfd_model.test_validate tools.threat_model.test_validate tools.quality_gate.test_repo_policy tools.synthetic_corpus.test_corpus -v
+python3 -m unittest tools.architecture_model.test_validate tools.canonical_model.test_validate tools.dfd_model.test_validate tools.threat_model.test_validate tools.quality_gate.test_repo_policy tools.synthetic_corpus.test_corpus -v
 python3 -m tools.synthetic_corpus.cli verify --root tests/golden/synthetic
 ```
 

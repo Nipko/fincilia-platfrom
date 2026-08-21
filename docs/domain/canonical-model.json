@@ -1,0 +1,312 @@
+{
+  "schema_version": 1,
+  "canonical_schema_version": "0.1.0",
+  "task_id": "FNC-DOM-002",
+  "status": "review_pending",
+  "data_ceiling": "synthetic_only",
+  "database_target": "postgresql",
+  "logical_types": [
+    {"id": "uuid", "storage": "uuid"},
+    {"id": "uuid_v7", "storage": "uuid", "rule": "application_generated_no_tenant_encoding"},
+    {"id": "text", "storage": "text"},
+    {"id": "boolean", "storage": "boolean"},
+    {"id": "integer", "storage": "bigint"},
+    {"id": "money_decimal", "storage": "numeric", "precision": 38, "scale": 12, "json_representation": "string", "float_forbidden": true},
+    {"id": "currency_code", "storage": "char(3)", "standard": "ISO-4217"},
+    {"id": "instant", "storage": "timestamptz", "normalized_zone": "UTC"},
+    {"id": "local_date", "storage": "date"},
+    {"id": "sha256", "storage": "bytea_or_validated_hex"},
+    {"id": "json_document", "storage": "jsonb", "requires": ["schema_ref", "max_bytes"]},
+    {"id": "object_reference", "storage": "text", "rule": "opaque_versioned_key_not_binary"},
+    {"id": "tokenized_identifier", "storage": "text", "rule": "token_or_last4_no_clear_full_identifier"},
+    {"id": "enum", "storage": "text_with_constraint"}
+  ],
+  "classifications": ["internal", "confidential", "financial_sensitive", "secret"],
+  "enums": {
+    "source_family": ["bank_account", "payment_gateway", "merchant_acquirer", "marketplace", "digital_wallet", "billing_erp", "accounting_ledger", "tax_documents_received", "supporting_evidence", "reference_data"],
+    "lifecycle_state": ["active", "suspended", "revoked", "closed"],
+    "ingestion_channel": ["web_upload", "mobile_upload", "email", "sftp", "api", "webhook", "connector"],
+    "artifact_state": ["received", "quarantined", "accepted", "rejected", "purged"],
+    "technical_format": ["csv", "xlsx", "ofx", "mt940", "xml", "pdf_native", "pdf_scanned", "image", "json", "unknown"],
+    "document_family": ["bank_account_statement", "invoice", "credit_note", "debit_note", "settlement_payout_report", "payment_transaction_report", "order_report", "accounting_ledger_export", "supporting_document", "unknown"],
+    "document_state": ["classified", "mapping_required", "validated", "rejected", "superseded"],
+    "job_state": ["queued", "running", "waiting_for_mapping", "failed", "cancelled", "completed"],
+    "direction": ["inflow", "outflow"],
+    "debit_credit": ["debit", "credit"],
+    "source_record_state": ["draft", "published", "superseded", "rejected"],
+    "movement_state": ["proposed", "confirmed", "reversed", "voided"],
+    "obligation_kind": ["invoice", "credit_note", "debit_note", "order", "other"],
+    "movement_kind": ["payment", "payout", "refund", "chargeback", "fee", "tax", "withholding", "transfer", "adjustment", "other"],
+    "balance_type": ["opening", "closing", "running", "available", "ledger"],
+    "reference_strength": ["provider_stable", "exact_source", "soft_candidate"],
+    "lineage_state": ["required_pending", "complete", "invalidated"],
+    "completeness_state": ["verified", "mismatch", "unknown", "accepted_exception"]
+  },
+  "global_invariants": [
+    {"id": "DOM-COMPANY-NOT-NULL", "rule": "Every company-scoped entity has immutable non-null company_id."},
+    {"id": "DOM-COMPOSITE-FK", "rule": "Every relationship between company-scoped entities carries company_id."},
+    {"id": "DOM-MONEY-DECIMAL", "rule": "Money uses exact decimal, explicit currency and direction or debit_credit where semantically applicable."},
+    {"id": "DOM-DATE-SEMANTICS", "rule": "occurred, posted, value, accounting, settlement and issue dates remain distinct."},
+    {"id": "DOM-SOURCE-NOT-MOVEMENT", "rule": "source_record is an observation and never aliases money_movement."},
+    {"id": "DOM-EVIDENCE-LINK", "rule": "movement_evidence_link relates evidence and economic events without deleting evidence."},
+    {"id": "DOM-SAFE-DEDUPE", "rule": "Date, amount, direction and reference only form candidates and are never a hard unique key."},
+    {"id": "DOM-BINARY-OBJECT-STORE", "rule": "Large payloads and binaries remain in object storage behind versioned opaque references."},
+    {"id": "DOM-JSON-BOUNDED", "rule": "Every JSON document has a schema reference and maximum byte size."},
+    {"id": "DOM-LINEAGE-REQUIRED", "rule": "Published evidence and financial facts require lineage and engine/schema versions."},
+    {"id": "DOM-NO-COMPANY-CASCADE", "rule": "Company deletion never cascades into evidence or finance."},
+    {"id": "DOM-TOKENIZED-ACCOUNT", "rule": "Financial account identifiers are tokenized or last4, never stored in clear in canonical fields."}
+  ],
+  "entities": [
+    {
+      "id": "data_source", "owner_module": "sources", "plane": "control", "company_scoped": true, "authoritative_financial_state": false, "classification": "confidential", "mutation_policy": "mutable_master_versioned", "lineage_required": false,
+      "fields": [
+        {"name": "id", "type": "uuid_v7", "nullable": false, "immutable": true},
+        {"name": "company_id", "type": "uuid", "nullable": false, "immutable": true},
+        {"name": "source_family", "type": "enum", "nullable": false, "immutable": false, "enum_ref": "source_family"},
+        {"name": "purpose_code", "type": "text", "nullable": false, "immutable": false},
+        {"name": "timezone", "type": "text", "nullable": false, "immutable": false},
+        {"name": "status", "type": "enum", "nullable": false, "immutable": false, "enum_ref": "lifecycle_state"},
+        {"name": "created_at", "type": "instant", "nullable": false, "immutable": true}
+      ],
+      "relationships": [], "unique_constraints": [{"id": "uq_data_source_identity", "fields": ["company_id", "id"], "kind": "entity_identity"}]
+    },
+    {
+      "id": "source_expectation", "owner_module": "sources", "plane": "control", "company_scoped": true, "authoritative_financial_state": false, "classification": "confidential", "mutation_policy": "mutable_master_versioned", "lineage_required": false,
+      "fields": [
+        {"name": "id", "type": "uuid_v7", "nullable": false, "immutable": true}, {"name": "company_id", "type": "uuid", "nullable": false, "immutable": true},
+        {"name": "data_source_id", "type": "uuid", "nullable": false, "immutable": true}, {"name": "financial_account_id", "type": "uuid", "nullable": true, "immutable": false},
+        {"name": "period_start", "type": "local_date", "nullable": false, "immutable": false}, {"name": "period_end", "type": "local_date", "nullable": false, "immutable": false},
+        {"name": "expected_controls", "type": "json_document", "nullable": false, "immutable": false, "schema_ref": "fnc://source-expectation-controls/v1", "max_bytes": 16384},
+        {"name": "created_at", "type": "instant", "nullable": false, "immutable": true}
+      ],
+      "relationships": [{"field": "data_source_id", "target": "data_source", "company_scoped_fk": true, "on_delete": "restrict"}, {"field": "financial_account_id", "target": "financial_account", "company_scoped_fk": true, "on_delete": "restrict"}],
+      "unique_constraints": [{"id": "uq_source_expectation_identity", "fields": ["company_id", "id"], "kind": "entity_identity"}]
+    },
+    {
+      "id": "reference_dataset_version", "owner_module": "sources", "plane": "control", "company_scoped": false, "authoritative_financial_state": false, "classification": "internal", "mutation_policy": "immutable_version", "lineage_required": true,
+      "fields": [
+        {"name": "id", "type": "uuid_v7", "nullable": false, "immutable": true}, {"name": "dataset_code", "type": "text", "nullable": false, "immutable": true},
+        {"name": "version", "type": "text", "nullable": false, "immutable": true}, {"name": "content_sha256", "type": "sha256", "nullable": false, "immutable": true},
+        {"name": "object_ref", "type": "object_reference", "nullable": false, "immutable": true}, {"name": "valid_from", "type": "instant", "nullable": false, "immutable": true},
+        {"name": "valid_to", "type": "instant", "nullable": true, "immutable": true}, {"name": "created_at", "type": "instant", "nullable": false, "immutable": true}
+      ],
+      "relationships": [], "unique_constraints": [{"id": "uq_reference_dataset_version", "fields": ["dataset_code", "version", "content_sha256"], "kind": "hard_version_identity"}]
+    },
+    {
+      "id": "source_artifact", "owner_module": "ingestion", "plane": "evidence", "company_scoped": true, "authoritative_financial_state": false, "classification": "financial_sensitive", "mutation_policy": "controlled_state_machine", "lineage_required": true,
+      "fields": [
+        {"name": "id", "type": "uuid_v7", "nullable": false, "immutable": true}, {"name": "company_id", "type": "uuid", "nullable": false, "immutable": true},
+        {"name": "data_source_id", "type": "uuid", "nullable": false, "immutable": true}, {"name": "ingestion_channel", "type": "enum", "nullable": false, "immutable": true, "enum_ref": "ingestion_channel"},
+        {"name": "received_at", "type": "instant", "nullable": false, "immutable": true}, {"name": "status", "type": "enum", "nullable": false, "immutable": false, "enum_ref": "artifact_state"},
+        {"name": "authorization_version", "type": "integer", "nullable": false, "immutable": true}, {"name": "created_at", "type": "instant", "nullable": false, "immutable": true}
+      ],
+      "relationships": [{"field": "data_source_id", "target": "data_source", "company_scoped_fk": true, "on_delete": "restrict"}],
+      "unique_constraints": [{"id": "uq_source_artifact_identity", "fields": ["company_id", "id"], "kind": "entity_identity"}]
+    },
+    {
+      "id": "artifact_version", "owner_module": "ingestion", "plane": "evidence", "company_scoped": true, "authoritative_financial_state": false, "classification": "financial_sensitive", "mutation_policy": "immutable_version", "lineage_required": true,
+      "fields": [
+        {"name": "id", "type": "uuid_v7", "nullable": false, "immutable": true}, {"name": "company_id", "type": "uuid", "nullable": false, "immutable": true},
+        {"name": "source_artifact_id", "type": "uuid", "nullable": false, "immutable": true}, {"name": "data_source_id", "type": "uuid", "nullable": false, "immutable": true},
+        {"name": "content_sha256", "type": "sha256", "nullable": false, "immutable": true}, {"name": "object_ref", "type": "object_reference", "nullable": false, "immutable": true},
+        {"name": "byte_size", "type": "integer", "nullable": false, "immutable": true}, {"name": "detected_format", "type": "enum", "nullable": false, "immutable": true, "enum_ref": "technical_format"},
+        {"name": "created_at", "type": "instant", "nullable": false, "immutable": true}
+      ],
+      "relationships": [{"field": "source_artifact_id", "target": "source_artifact", "company_scoped_fk": true, "on_delete": "restrict"}, {"field": "data_source_id", "target": "data_source", "company_scoped_fk": true, "on_delete": "restrict"}],
+      "unique_constraints": [{"id": "uq_artifact_version_identity", "fields": ["company_id", "id"], "kind": "entity_identity"}, {"id": "uq_exact_artifact_redelivery", "fields": ["company_id", "data_source_id", "content_sha256"], "kind": "hard_idempotency"}]
+    },
+    {
+      "id": "document", "owner_module": "ingestion", "plane": "evidence", "company_scoped": true, "authoritative_financial_state": false, "classification": "financial_sensitive", "mutation_policy": "controlled_state_machine", "lineage_required": true,
+      "fields": [
+        {"name": "id", "type": "uuid_v7", "nullable": false, "immutable": true}, {"name": "company_id", "type": "uuid", "nullable": false, "immutable": true},
+        {"name": "artifact_version_id", "type": "uuid", "nullable": false, "immutable": true}, {"name": "document_family", "type": "enum", "nullable": false, "immutable": false, "enum_ref": "document_family"},
+        {"name": "issuer_reference", "type": "tokenized_identifier", "nullable": true, "immutable": false}, {"name": "period_start", "type": "local_date", "nullable": true, "immutable": false},
+        {"name": "period_end", "type": "local_date", "nullable": true, "immutable": false}, {"name": "status", "type": "enum", "nullable": false, "immutable": false, "enum_ref": "document_state"},
+        {"name": "created_at", "type": "instant", "nullable": false, "immutable": true}
+      ],
+      "relationships": [{"field": "artifact_version_id", "target": "artifact_version", "company_scoped_fk": true, "on_delete": "restrict"}],
+      "unique_constraints": [{"id": "uq_document_identity", "fields": ["company_id", "id"], "kind": "entity_identity"}]
+    },
+    {
+      "id": "processing_run", "owner_module": "ingestion", "plane": "evidence", "company_scoped": true, "authoritative_financial_state": false, "classification": "internal", "mutation_policy": "append_only", "lineage_required": true,
+      "fields": [
+        {"name": "id", "type": "uuid_v7", "nullable": false, "immutable": true}, {"name": "company_id", "type": "uuid", "nullable": false, "immutable": true},
+        {"name": "artifact_version_id", "type": "uuid", "nullable": false, "immutable": true}, {"name": "engine_release_id", "type": "uuid", "nullable": false, "immutable": true},
+        {"name": "canonical_schema_version", "type": "text", "nullable": false, "immutable": true}, {"name": "idempotency_key", "type": "text", "nullable": false, "immutable": true},
+        {"name": "authorization_version", "type": "integer", "nullable": false, "immutable": true}, {"name": "status", "type": "enum", "nullable": false, "immutable": false, "enum_ref": "job_state"},
+        {"name": "created_at", "type": "instant", "nullable": false, "immutable": true}
+      ],
+      "relationships": [{"field": "artifact_version_id", "target": "artifact_version", "company_scoped_fk": true, "on_delete": "restrict"}],
+      "unique_constraints": [{"id": "uq_processing_run_identity", "fields": ["company_id", "id"], "kind": "entity_identity"}, {"id": "uq_processing_idempotency", "fields": ["company_id", "idempotency_key"], "kind": "hard_idempotency"}]
+    },
+    {
+      "id": "raw_record", "owner_module": "clean", "plane": "evidence", "company_scoped": true, "authoritative_financial_state": false, "classification": "financial_sensitive", "mutation_policy": "immutable_version", "lineage_required": true,
+      "fields": [
+        {"name": "id", "type": "uuid_v7", "nullable": false, "immutable": true}, {"name": "company_id", "type": "uuid", "nullable": false, "immutable": true},
+        {"name": "processing_run_id", "type": "uuid", "nullable": false, "immutable": true}, {"name": "artifact_version_id", "type": "uuid", "nullable": false, "immutable": true},
+        {"name": "origin_locator", "type": "json_document", "nullable": false, "immutable": true, "schema_ref": "fnc://origin-locator/v1", "max_bytes": 8192},
+        {"name": "raw_values", "type": "json_document", "nullable": false, "immutable": true, "schema_ref": "fnc://raw-record/v1", "max_bytes": 131072},
+        {"name": "created_at", "type": "instant", "nullable": false, "immutable": true}
+      ],
+      "relationships": [{"field": "processing_run_id", "target": "processing_run", "company_scoped_fk": true, "on_delete": "restrict"}, {"field": "artifact_version_id", "target": "artifact_version", "company_scoped_fk": true, "on_delete": "restrict"}],
+      "unique_constraints": [{"id": "uq_raw_record_identity", "fields": ["company_id", "id"], "kind": "entity_identity"}]
+    },
+    {
+      "id": "dataset_version", "owner_module": "clean", "plane": "evidence", "company_scoped": true, "authoritative_financial_state": false, "classification": "financial_sensitive", "mutation_policy": "immutable_version", "lineage_required": true,
+      "fields": [
+        {"name": "id", "type": "uuid_v7", "nullable": false, "immutable": true}, {"name": "company_id", "type": "uuid", "nullable": false, "immutable": true},
+        {"name": "processing_run_id", "type": "uuid", "nullable": false, "immutable": true}, {"name": "engine_release_id", "type": "uuid", "nullable": false, "immutable": true},
+        {"name": "canonical_schema_version", "type": "text", "nullable": false, "immutable": true}, {"name": "object_ref", "type": "object_reference", "nullable": false, "immutable": true},
+        {"name": "completeness_state", "type": "enum", "nullable": false, "immutable": true, "enum_ref": "completeness_state"}, {"name": "lineage_state", "type": "enum", "nullable": false, "immutable": true, "enum_ref": "lineage_state"},
+        {"name": "created_at", "type": "instant", "nullable": false, "immutable": true}
+      ],
+      "relationships": [{"field": "processing_run_id", "target": "processing_run", "company_scoped_fk": true, "on_delete": "restrict"}],
+      "unique_constraints": [{"id": "uq_dataset_version_identity", "fields": ["company_id", "id"], "kind": "entity_identity"}]
+    },
+    {
+      "id": "source_record", "owner_module": "clean", "plane": "evidence", "company_scoped": true, "authoritative_financial_state": false, "classification": "financial_sensitive", "mutation_policy": "immutable_version", "lineage_required": true,
+      "fields": [
+        {"name": "id", "type": "uuid_v7", "nullable": false, "immutable": true}, {"name": "company_id", "type": "uuid", "nullable": false, "immutable": true},
+        {"name": "dataset_version_id", "type": "uuid", "nullable": false, "immutable": true}, {"name": "data_source_id", "type": "uuid", "nullable": false, "immutable": true},
+        {"name": "raw_record_id", "type": "uuid", "nullable": false, "immutable": true}, {"name": "record_family", "type": "text", "nullable": false, "immutable": true},
+        {"name": "provider_event_id", "type": "text", "nullable": true, "immutable": true}, {"name": "source_payload", "type": "json_document", "nullable": false, "immutable": true, "schema_ref": "fnc://source-record/v1", "max_bytes": 65536},
+        {"name": "state", "type": "enum", "nullable": false, "immutable": true, "enum_ref": "source_record_state"}, {"name": "engine_release_id", "type": "uuid", "nullable": false, "immutable": true},
+        {"name": "canonical_schema_version", "type": "text", "nullable": false, "immutable": true}, {"name": "lineage_state", "type": "enum", "nullable": false, "immutable": true, "enum_ref": "lineage_state"},
+        {"name": "created_at", "type": "instant", "nullable": false, "immutable": true}
+      ],
+      "relationships": [{"field": "dataset_version_id", "target": "dataset_version", "company_scoped_fk": true, "on_delete": "restrict"}, {"field": "data_source_id", "target": "data_source", "company_scoped_fk": true, "on_delete": "restrict"}, {"field": "raw_record_id", "target": "raw_record", "company_scoped_fk": true, "on_delete": "restrict"}],
+      "unique_constraints": [{"id": "uq_source_record_identity", "fields": ["company_id", "id"], "kind": "entity_identity"}]
+    },
+    {
+      "id": "counterparty", "owner_module": "finance", "plane": "financial", "company_scoped": true, "authoritative_financial_state": true, "classification": "confidential", "mutation_policy": "mutable_master_versioned", "lineage_required": true,
+      "fields": [
+        {"name": "id", "type": "uuid_v7", "nullable": false, "immutable": true}, {"name": "company_id", "type": "uuid", "nullable": false, "immutable": true},
+        {"name": "display_label", "type": "text", "nullable": false, "immutable": false}, {"name": "tax_id_token", "type": "tokenized_identifier", "nullable": true, "immutable": false},
+        {"name": "version", "type": "integer", "nullable": false, "immutable": false}, {"name": "created_at", "type": "instant", "nullable": false, "immutable": true}
+      ],
+      "relationships": [], "unique_constraints": [{"id": "uq_counterparty_identity", "fields": ["company_id", "id"], "kind": "entity_identity"}]
+    },
+    {
+      "id": "financial_account", "owner_module": "finance", "plane": "financial", "company_scoped": true, "authoritative_financial_state": true, "classification": "financial_sensitive", "mutation_policy": "mutable_master_versioned", "lineage_required": true,
+      "fields": [
+        {"name": "id", "type": "uuid_v7", "nullable": false, "immutable": true}, {"name": "company_id", "type": "uuid", "nullable": false, "immutable": true},
+        {"name": "account_family", "type": "text", "nullable": false, "immutable": false}, {"name": "identifier_token", "type": "tokenized_identifier", "nullable": false, "immutable": false},
+        {"name": "identifier_last4", "type": "tokenized_identifier", "nullable": true, "immutable": false}, {"name": "currency_code", "type": "currency_code", "nullable": false, "immutable": false},
+        {"name": "timezone", "type": "text", "nullable": false, "immutable": false}, {"name": "created_at", "type": "instant", "nullable": false, "immutable": true}
+      ],
+      "relationships": [], "unique_constraints": [{"id": "uq_financial_account_identity", "fields": ["company_id", "id"], "kind": "entity_identity"}]
+    },
+    {
+      "id": "obligation", "owner_module": "finance", "plane": "financial", "company_scoped": true, "authoritative_financial_state": true, "classification": "financial_sensitive", "mutation_policy": "controlled_state_machine", "lineage_required": true,
+      "fields": [
+        {"name": "id", "type": "uuid_v7", "nullable": false, "immutable": true}, {"name": "company_id", "type": "uuid", "nullable": false, "immutable": true},
+        {"name": "counterparty_id", "type": "uuid", "nullable": true, "immutable": false}, {"name": "kind", "type": "enum", "nullable": false, "immutable": true, "enum_ref": "obligation_kind"},
+        {"name": "currency_code", "type": "currency_code", "nullable": false, "immutable": true}, {"name": "gross_amount", "type": "money_decimal", "nullable": false, "immutable": true, "value_rule": "non_negative"},
+        {"name": "tax_amount", "type": "money_decimal", "nullable": true, "immutable": true, "value_rule": "non_negative_or_unknown"}, {"name": "withholding_amount", "type": "money_decimal", "nullable": true, "immutable": true, "value_rule": "non_negative_or_unknown"},
+        {"name": "open_amount", "type": "money_decimal", "nullable": false, "immutable": false, "value_rule": "non_negative"}, {"name": "issued_on", "type": "local_date", "nullable": false, "immutable": true},
+        {"name": "due_on", "type": "local_date", "nullable": true, "immutable": false}, {"name": "engine_release_id", "type": "uuid", "nullable": false, "immutable": true},
+        {"name": "canonical_schema_version", "type": "text", "nullable": false, "immutable": true}, {"name": "lineage_state", "type": "enum", "nullable": false, "immutable": false, "enum_ref": "lineage_state"},
+        {"name": "created_at", "type": "instant", "nullable": false, "immutable": true}
+      ],
+      "relationships": [{"field": "counterparty_id", "target": "counterparty", "company_scoped_fk": true, "on_delete": "restrict"}],
+      "unique_constraints": [{"id": "uq_obligation_identity", "fields": ["company_id", "id"], "kind": "entity_identity"}]
+    },
+    {
+      "id": "money_movement", "owner_module": "finance", "plane": "financial", "company_scoped": true, "authoritative_financial_state": true, "classification": "financial_sensitive", "mutation_policy": "controlled_state_machine", "lineage_required": true,
+      "fields": [
+        {"name": "id", "type": "uuid_v7", "nullable": false, "immutable": true}, {"name": "company_id", "type": "uuid", "nullable": false, "immutable": true},
+        {"name": "financial_account_id", "type": "uuid", "nullable": false, "immutable": true}, {"name": "counterparty_id", "type": "uuid", "nullable": true, "immutable": false},
+        {"name": "kind", "type": "enum", "nullable": false, "immutable": false, "enum_ref": "movement_kind"}, {"name": "amount", "type": "money_decimal", "nullable": false, "immutable": true, "value_rule": "positive"},
+        {"name": "currency_code", "type": "currency_code", "nullable": false, "immutable": true}, {"name": "direction", "type": "enum", "nullable": false, "immutable": true, "enum_ref": "direction"},
+        {"name": "occurred_at", "type": "instant", "nullable": true, "immutable": true}, {"name": "posted_at", "type": "instant", "nullable": true, "immutable": true},
+        {"name": "value_date", "type": "local_date", "nullable": true, "immutable": true}, {"name": "accounting_date", "type": "local_date", "nullable": true, "immutable": false},
+        {"name": "dedupe_fingerprint", "type": "sha256", "nullable": true, "immutable": true, "value_rule": "candidate_only_never_unique"}, {"name": "state", "type": "enum", "nullable": false, "immutable": false, "enum_ref": "movement_state"},
+        {"name": "engine_release_id", "type": "uuid", "nullable": false, "immutable": true}, {"name": "canonical_schema_version", "type": "text", "nullable": false, "immutable": true},
+        {"name": "lineage_state", "type": "enum", "nullable": false, "immutable": false, "enum_ref": "lineage_state"}, {"name": "created_at", "type": "instant", "nullable": false, "immutable": true}
+      ],
+      "relationships": [{"field": "financial_account_id", "target": "financial_account", "company_scoped_fk": true, "on_delete": "restrict"}, {"field": "counterparty_id", "target": "counterparty", "company_scoped_fk": true, "on_delete": "restrict"}],
+      "unique_constraints": [{"id": "uq_money_movement_identity", "fields": ["company_id", "id"], "kind": "entity_identity"}]
+    },
+    {
+      "id": "movement_evidence_link", "owner_module": "finance", "plane": "financial", "company_scoped": true, "authoritative_financial_state": true, "classification": "financial_sensitive", "mutation_policy": "append_only", "lineage_required": true,
+      "fields": [
+        {"name": "id", "type": "uuid_v7", "nullable": false, "immutable": true}, {"name": "company_id", "type": "uuid", "nullable": false, "immutable": true},
+        {"name": "money_movement_id", "type": "uuid", "nullable": false, "immutable": true}, {"name": "source_record_id", "type": "uuid", "nullable": false, "immutable": true},
+        {"name": "link_role", "type": "text", "nullable": false, "immutable": true}, {"name": "allocated_amount", "type": "money_decimal", "nullable": true, "immutable": true, "value_rule": "non_negative_or_unknown"},
+        {"name": "currency_code", "type": "currency_code", "nullable": true, "immutable": true}, {"name": "engine_release_id", "type": "uuid", "nullable": false, "immutable": true},
+        {"name": "canonical_schema_version", "type": "text", "nullable": false, "immutable": true}, {"name": "lineage_state", "type": "enum", "nullable": false, "immutable": true, "enum_ref": "lineage_state"},
+        {"name": "created_at", "type": "instant", "nullable": false, "immutable": true}
+      ],
+      "relationships": [{"field": "money_movement_id", "target": "money_movement", "company_scoped_fk": true, "on_delete": "restrict"}, {"field": "source_record_id", "target": "source_record", "company_scoped_fk": true, "on_delete": "restrict"}],
+      "unique_constraints": [{"id": "uq_movement_evidence_identity", "fields": ["company_id", "id"], "kind": "entity_identity"}]
+    },
+    {
+      "id": "settlement", "owner_module": "finance", "plane": "financial", "company_scoped": true, "authoritative_financial_state": true, "classification": "financial_sensitive", "mutation_policy": "controlled_state_machine", "lineage_required": true,
+      "fields": [
+        {"name": "id", "type": "uuid_v7", "nullable": false, "immutable": true}, {"name": "company_id", "type": "uuid", "nullable": false, "immutable": true},
+        {"name": "data_source_id", "type": "uuid", "nullable": false, "immutable": true}, {"name": "payout_movement_id", "type": "uuid", "nullable": true, "immutable": false},
+        {"name": "currency_code", "type": "currency_code", "nullable": false, "immutable": true}, {"name": "gross_amount", "type": "money_decimal", "nullable": false, "immutable": true, "value_rule": "non_negative"},
+        {"name": "fee_amount", "type": "money_decimal", "nullable": true, "immutable": true, "value_rule": "non_negative_or_unknown"}, {"name": "tax_amount", "type": "money_decimal", "nullable": true, "immutable": true, "value_rule": "non_negative_or_unknown"},
+        {"name": "withholding_amount", "type": "money_decimal", "nullable": true, "immutable": true, "value_rule": "non_negative_or_unknown"}, {"name": "refund_amount", "type": "money_decimal", "nullable": true, "immutable": true, "value_rule": "non_negative_or_unknown"},
+        {"name": "adjustment_amount", "type": "money_decimal", "nullable": true, "immutable": true, "value_rule": "signed_explicit"}, {"name": "net_amount", "type": "money_decimal", "nullable": false, "immutable": true, "value_rule": "non_negative"},
+        {"name": "settled_at", "type": "instant", "nullable": true, "immutable": true}, {"name": "engine_release_id", "type": "uuid", "nullable": false, "immutable": true},
+        {"name": "canonical_schema_version", "type": "text", "nullable": false, "immutable": true}, {"name": "lineage_state", "type": "enum", "nullable": false, "immutable": false, "enum_ref": "lineage_state"},
+        {"name": "created_at", "type": "instant", "nullable": false, "immutable": true}
+      ],
+      "relationships": [{"field": "data_source_id", "target": "data_source", "company_scoped_fk": true, "on_delete": "restrict"}, {"field": "payout_movement_id", "target": "money_movement", "company_scoped_fk": true, "on_delete": "restrict"}],
+      "unique_constraints": [{"id": "uq_settlement_identity", "fields": ["company_id", "id"], "kind": "entity_identity"}]
+    },
+    {
+      "id": "ledger_entry", "owner_module": "finance", "plane": "financial", "company_scoped": true, "authoritative_financial_state": true, "classification": "financial_sensitive", "mutation_policy": "controlled_state_machine", "lineage_required": true,
+      "fields": [
+        {"name": "id", "type": "uuid_v7", "nullable": false, "immutable": true}, {"name": "company_id", "type": "uuid", "nullable": false, "immutable": true},
+        {"name": "accounting_date", "type": "local_date", "nullable": false, "immutable": true}, {"name": "external_reference", "type": "text", "nullable": true, "immutable": true},
+        {"name": "status", "type": "text", "nullable": false, "immutable": false}, {"name": "engine_release_id", "type": "uuid", "nullable": false, "immutable": true},
+        {"name": "canonical_schema_version", "type": "text", "nullable": false, "immutable": true}, {"name": "lineage_state", "type": "enum", "nullable": false, "immutable": false, "enum_ref": "lineage_state"},
+        {"name": "created_at", "type": "instant", "nullable": false, "immutable": true}
+      ],
+      "relationships": [], "unique_constraints": [{"id": "uq_ledger_entry_identity", "fields": ["company_id", "id"], "kind": "entity_identity"}]
+    },
+    {
+      "id": "ledger_line", "owner_module": "finance", "plane": "financial", "company_scoped": true, "authoritative_financial_state": true, "classification": "financial_sensitive", "mutation_policy": "immutable_version", "lineage_required": true,
+      "fields": [
+        {"name": "id", "type": "uuid_v7", "nullable": false, "immutable": true}, {"name": "company_id", "type": "uuid", "nullable": false, "immutable": true},
+        {"name": "ledger_entry_id", "type": "uuid", "nullable": false, "immutable": true}, {"name": "account_code", "type": "text", "nullable": false, "immutable": true},
+        {"name": "amount", "type": "money_decimal", "nullable": false, "immutable": true, "value_rule": "positive"}, {"name": "currency_code", "type": "currency_code", "nullable": false, "immutable": true},
+        {"name": "debit_credit", "type": "enum", "nullable": false, "immutable": true, "enum_ref": "debit_credit"}, {"name": "counterparty_id", "type": "uuid", "nullable": true, "immutable": true},
+        {"name": "engine_release_id", "type": "uuid", "nullable": false, "immutable": true}, {"name": "canonical_schema_version", "type": "text", "nullable": false, "immutable": true},
+        {"name": "lineage_state", "type": "enum", "nullable": false, "immutable": true, "enum_ref": "lineage_state"},
+        {"name": "created_at", "type": "instant", "nullable": false, "immutable": true}
+      ],
+      "relationships": [{"field": "ledger_entry_id", "target": "ledger_entry", "company_scoped_fk": true, "on_delete": "restrict"}, {"field": "counterparty_id", "target": "counterparty", "company_scoped_fk": true, "on_delete": "restrict"}],
+      "unique_constraints": [{"id": "uq_ledger_line_identity", "fields": ["company_id", "id"], "kind": "entity_identity"}]
+    },
+    {
+      "id": "account_balance", "owner_module": "finance", "plane": "financial", "company_scoped": true, "authoritative_financial_state": true, "classification": "financial_sensitive", "mutation_policy": "immutable_version", "lineage_required": true,
+      "fields": [
+        {"name": "id", "type": "uuid_v7", "nullable": false, "immutable": true}, {"name": "company_id", "type": "uuid", "nullable": false, "immutable": true},
+        {"name": "financial_account_id", "type": "uuid", "nullable": false, "immutable": true}, {"name": "source_record_id", "type": "uuid", "nullable": false, "immutable": true},
+        {"name": "balance_type", "type": "enum", "nullable": false, "immutable": true, "enum_ref": "balance_type"}, {"name": "amount", "type": "money_decimal", "nullable": false, "immutable": true, "value_rule": "signed_balance"},
+        {"name": "currency_code", "type": "currency_code", "nullable": false, "immutable": true}, {"name": "as_of", "type": "instant", "nullable": false, "immutable": true},
+        {"name": "engine_release_id", "type": "uuid", "nullable": false, "immutable": true}, {"name": "canonical_schema_version", "type": "text", "nullable": false, "immutable": true},
+        {"name": "lineage_state", "type": "enum", "nullable": false, "immutable": true, "enum_ref": "lineage_state"},
+        {"name": "created_at", "type": "instant", "nullable": false, "immutable": true}
+      ],
+      "relationships": [{"field": "financial_account_id", "target": "financial_account", "company_scoped_fk": true, "on_delete": "restrict"}, {"field": "source_record_id", "target": "source_record", "company_scoped_fk": true, "on_delete": "restrict"}],
+      "unique_constraints": [{"id": "uq_account_balance_identity", "fields": ["company_id", "id"], "kind": "entity_identity"}]
+    },
+    {
+      "id": "external_reference", "owner_module": "finance", "plane": "financial", "company_scoped": true, "authoritative_financial_state": true, "classification": "confidential", "mutation_policy": "append_only", "lineage_required": true,
+      "fields": [
+        {"name": "id", "type": "uuid_v7", "nullable": false, "immutable": true}, {"name": "company_id", "type": "uuid", "nullable": false, "immutable": true},
+        {"name": "target_entity", "type": "text", "nullable": false, "immutable": true}, {"name": "target_id", "type": "uuid", "nullable": false, "immutable": true},
+        {"name": "namespace", "type": "text", "nullable": false, "immutable": true}, {"name": "issuer", "type": "text", "nullable": false, "immutable": true},
+        {"name": "normalized_value", "type": "text", "nullable": false, "immutable": true}, {"name": "strength", "type": "enum", "nullable": false, "immutable": true, "enum_ref": "reference_strength"},
+        {"name": "engine_release_id", "type": "uuid", "nullable": false, "immutable": true}, {"name": "canonical_schema_version", "type": "text", "nullable": false, "immutable": true},
+        {"name": "lineage_state", "type": "enum", "nullable": false, "immutable": true, "enum_ref": "lineage_state"},
+        {"name": "created_at", "type": "instant", "nullable": false, "immutable": true}
+      ],
+      "relationships": [], "unique_constraints": [{"id": "uq_external_reference_identity", "fields": ["company_id", "id"], "kind": "entity_identity"}]
+    }
+  ]
+}

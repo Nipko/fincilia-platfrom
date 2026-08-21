@@ -44,14 +44,14 @@
       "allowed_dependencies": ["access", "tenancy"],
       "authoritative_financial_state": false,
       "id": "sources",
-      "owns": ["data_source", "connection", "expected_source", "connector_registration"],
+      "owns": ["data_source", "connection", "source_expectation", "reference_dataset_version", "connector_registration"],
       "plane": "control"
     },
     {
       "allowed_dependencies": ["access", "platform", "sources", "tenancy"],
       "authoritative_financial_state": false,
       "id": "ingestion",
-      "owns": ["source_artifact", "document", "processing_run", "quarantine_decision"],
+      "owns": ["source_artifact", "artifact_version", "document", "processing_run", "quarantine_decision"],
       "plane": "evidence"
     },
     {
@@ -65,7 +65,7 @@
       "allowed_dependencies": ["clean", "platform", "tenancy"],
       "authoritative_financial_state": true,
       "id": "finance",
-      "owns": ["counterparty", "financial_account", "obligation", "money_movement", "settlement", "ledger_entry", "ledger_line", "account_balance"],
+      "owns": ["counterparty", "financial_account", "obligation", "money_movement", "movement_evidence_link", "settlement", "ledger_entry", "ledger_line", "account_balance", "external_reference"],
       "plane": "financial"
     },
     {
