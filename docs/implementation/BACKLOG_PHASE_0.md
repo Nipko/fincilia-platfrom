@@ -84,6 +84,9 @@ FNC-GAT-001 es la única tarea que puede autorizar el primer artefacto real de i
 | FNC-ARC-005 | A2 | ARC-004 | Contrato de conector con archivos como fallback |
 | FNC-ARC-006 | A2 | DOM-001..005, ARC-001..005 | ADR bloqueantes aceptados |
 | FNC-PLT-005 | A2/A4 | DOM-001, SEC-001, ARC-004 | Spike auth-context, RLS, outbox y parser sintético |
+| FNC-PLT-006 | A4 | PLT-002, ARC-001 | Scaffold pre-S1 de apps, worker, paquetes y migraciones |
+| FNC-CFG-001 | A4/A3 | PLT-002, ARC-003 | Contrato de configuración, ambientes y secretos |
+| FNC-DB-001 | A2/A4 | PLT-001 | Evaluación y spike plan de migraciones SQL-first |
 | FNC-QA-002 | A5 | DOM-002..005 | Estrategia integral de pruebas |
 | FNC-QA-003 | A5 | DAT-002, DOM-002..005 | Golden harness determinista en CI |
 | FNC-QA-004 | A5 | QA-002, QA-003 | Catálogo ejecutable y reconciliación dinámica de cobertura |

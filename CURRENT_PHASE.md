@@ -95,6 +95,9 @@ Hasta S1-READY solo se admite scaffolding, automatización, pruebas, documentaci
 | FNC-FIN-001 | Presupuesto ejecutable F0–F2 y runway | Review pending | Integration Steward | docs/business/BUDGET_F0_F2.md, budget-f0-f2.json, tools/budget_model, handoff |
 | FNC-RES-001 | Protocolo seguro de investigación de cierres | Review pending | Integration Steward | docs/product/RESEARCH_PROTOCOL.md, research-protocol.json, tools/research_protocol, handoff |
 | FNC-BRD-001 | Clearance preliminar y paquete legal de Fincilia | Review pending | Integration Steward | docs/business/BRAND_CLEARANCE_FINCILIA.md, brand-clearance.json, tools/brand_clearance, handoff |
+| FNC-PLT-006 | Scaffold pre-S1 del monorepo | Review pending | Integration Steward | apps, workers/document, packages, db/migrations, tools/workspace_contract, handoff |
+| FNC-CFG-001 | Contrato de configuración y secretos | Review pending | Integration Steward | .env.example, docs/platform/runtime-config.json, tools/runtime_config, handoff |
+| FNC-DB-001 | Evaluación de tooling de migraciones | Review pending | Integration Steward | docs/database/migration-tooling.json, tools/migration_readiness, handoff |
 | FNC-QA-002 | Estrategia ejecutable de pruebas y huecos declarados | Review pending | Claude + Integration Steward | docs/testing/TEST_STRATEGY.md, test-strategy.json, tools/quality_strategy, handoff |
 | FNC-QA-003 | Golden harness adjudicado y fail-closed | Review pending | Claude + Integration Steward | docs/testing/GOLDEN_HARNESS.md, golden-harness.json, tools/golden_harness, tests/golden/harness, handoff |
 | FNC-QA-004 | Catálogo ejecutable y reconciliación dinámica | Claimed | Claude | docs/testing/TEST_CATALOG_MODEL.md, test-catalog-model.json, tools/test_catalog, handoff |
@@ -135,6 +138,9 @@ Solo el Integration Steward modifica esta tabla.
 | 1 | FNC-FIN-001 Presupuesto F0–F2 +30% | FNC-INT-001, FNC-PLT-005 | Review pending; costos/capital requieren Founder/Finance |
 | 1 | FNC-RES-001 Protocolo 5 firmas/10 cierres | FNC-GOV-001 para ejecutar | Review pending; sesiones reales no autorizadas |
 | 1 | FNC-BRD-001 Clearance jurídico Fincilia | Ninguna para borrador | Review pending; SIC/WIPO y filing pendientes de Legal/Founder |
+| 1 | FNC-PLT-006 Scaffold pre-S1 | FNC-PLT-002, FNC-ARC-001 | Review pending; lógica/frameworks bloqueados |
+| 1 | FNC-CFG-001 Configuración y secretos | FNC-PLT-002, FNC-ARC-003 | Review pending; cloud/producción bloqueados |
+| 1 | FNC-DB-001 Tooling de migraciones | FNC-PLT-001 | Review pending; spike Flyway no ejecutado |
 | 1 | FNC-QA-002 Estrategia integral de pruebas | FNC-DOM-002..005 | Review pending |
 | 1 | FNC-QA-003 Golden harness determinista | FNC-DAT-002, FNC-DOM-002..005 | Review pending |
 | 1 | FNC-QA-004 Catálogo ejecutable de pruebas | FNC-QA-002/003 | Claimed by Claude |

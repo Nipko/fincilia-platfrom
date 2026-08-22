@@ -32,6 +32,11 @@
 - API final del wrapper transaccional y telemetría de contextos ausentes.
 - UUIDv7 y extensiones.
 
+FNC-DB-001 comparó Flyway, Dbmate y node-pg-migrate con fuentes primarias. Flyway queda
+preferido únicamente para un spike de ocho pruebas por su SQL versionado, checksums e
+historial; `selected_tool` continúa nulo y esta ADR permanece Proposed hasta revisión de
+licencia/supply chain, blank/replay/upgrade/concurrency y aprobación independiente.
+
 ## Verification
 
 TST-RLS-001/002 pasaron en FNC-PLT-001. Siguen pendientes migración desde cero productiva, referencia cross-company con FK compuesta y revisión independiente Security/Architecture.

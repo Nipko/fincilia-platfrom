@@ -28,6 +28,9 @@ Una celda de implementación vacía significa no implementado. No se rellena con
 | REQ-FNC-061-CAPITAL | §49–§50 | FIN-001 | `budget-f0-f2.json`, escenarios COP/USD +30% | `tools.budget_model.test_validate` | F0-CAPITAL | Review; founder approval pending |
 | REQ-FNC-062-RESEARCH | §48 F0 | RES-001 | `research-protocol.json`, guion y límites de captura | `tools.research_protocol.test_validate` | RES-G01..G04 | Review; real sessions blocked |
 | REQ-FNC-063-BRAND | §48 F0 | BRD-001 | `brand-clearance.json`, búsqueda y arquitectura de marca | `tools.brand_clearance.test_validate` | BRD-G01..G06 | Review; counsel pending |
+| REQ-FNC-064-WORKSPACE | §20–§21 | PLT-006 | `workspace-scaffold.json`, siete componentes | `tools.workspace_contract.test_validate` | S1-READY | Review; product code blocked |
+| REQ-FNC-065-CONFIG | §20, §29 | CFG-001 | `runtime-config.json`, `.env.example` | `tools.runtime_config.test_validate` | CFG-G01..G03 | Review; production disabled |
+| REQ-FNC-066-MIGRATIONS | §23.2 | DB-001 | `migration-tooling.json`, ADR-002 evaluation | `tools.migration_readiness.test_validate` | DB-G01..G04 | Review; tool not selected |
 
 ## Campos al implementar
 
