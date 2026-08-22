@@ -116,6 +116,7 @@ Draftable significa que un agente puede preparar un borrador, pero no marcarlo A
 - [ ] C4 y DFD.
 - [ ] Threat model.
 - [ ] Matriz RBAC/ABAC/SoD.
+- [ ] Mapa de privacidad y retención revisado y firmado por Privacy y Legal.
 - [ ] Especificación de linaje.
 - [ ] Contrato de conectores.
 - [ ] Estados, eventos y retry ownership.

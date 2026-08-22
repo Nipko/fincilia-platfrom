@@ -2,7 +2,7 @@
 task: FNC-PRV-001
 status: REVIEW_PENDING
 base_sha: 00d9408
-integration_sha: pending_integration_steward
+integration_sha: 96c40d3
 implementer: Claude + Integration Steward
 data_used: synthetic_only
 human_acceptance: pending

@@ -10,6 +10,9 @@ Registro append-only. Una corrección crea una nueva decisión que sustituye a l
 | IMP-004 | 2026-08-21 | Governance | Accepted | En agentes con filesystem compartido solo el coordinador opera Git y archivos centrales | Integration Steward | Riesgo de colisión |
 | IMP-005 | 2026-08-21 | Data | Accepted | Hasta DRG-00 solo se permiten datos completamente sintéticos | Security/Privacy/Product | Plan §0.4 |
 | IMP-006 | 2026-08-21 | Tooling | Accepted | Git se ejecuta desde Windows en este workspace; Docker y servicios desde WSL | Integration Steward | Evitar EOL/permisos inconsistentes |
+| IMP-007 | 2026-08-21 | ADR | Proposed | Aclarar stores de capacidad vs persistencia activa y extracción dinámica de políticas del DFD | Architecture | `decision_requests/FNC-PRV-001-FINDINGS.md` DR-ARC-001 |
+| IMP-008 | 2026-08-21 | PRIVACY | Proposed | Separar sensibilidad operativa/financiera de la condición y categoría de dato personal | Privacy + Architecture | `decision_requests/FNC-PRV-001-FINDINGS.md` DR-PRV-001 |
+| IMP-009 | 2026-08-21 | LEGAL | Proposed | Fijar orden delete-ledger > backup y reloj legal de retención financiera | Legal + Privacy + Platform | `decision_requests/FNC-PRV-001-FINDINGS.md` DR-LEG-001 |
 
 ## Campos para nuevas decisiones
 

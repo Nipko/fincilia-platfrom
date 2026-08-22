@@ -8,9 +8,9 @@ type: privacy
 status: review_pending
 priority: P0
 accountable_owner: UNASSIGNED
-implementer: Claude (external agent)
+implementer: Claude (external agent) + Integration Steward
 base_sha: 00d9408
-integration_sha: pending_integration_steward
+integration_sha: 96c40d3
 agent_lane: A4
 independent_reviewers: [Legal, Security, Architecture, Product]
 dependencies: [FNC-DOM-001, FNC-SEC-001, FNC-SEC-002, FNC-ARC-002, FNC-DAT-001]
