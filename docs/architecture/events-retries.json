@@ -1,0 +1,240 @@
+{
+  "schema_version": 1,
+  "task_id": "FNC-ARC-004",
+  "status": "review_pending",
+  "human_acceptance": "pending",
+  "data_ceiling": "synthetic_only",
+  "provider_selection": "pending_human",
+  "principles": [
+    {"id": "EVT-DOMAIN-FIRST", "rule": "Events communicate committed facts and never complete an invariant that belongs in the originating transaction."},
+    {"id": "EVT-AT-LEAST-ONCE", "rule": "Transport is at-least-once and consumers make visible effects idempotent."},
+    {"id": "EVT-OUTBOX-ATOMIC", "rule": "Domain change and outbox record commit in one PostgreSQL transaction."},
+    {"id": "EVT-INBOX-ATOMIC", "rule": "Consumer receipt and local effect commit atomically or neither commits."},
+    {"id": "EVT-NO-GLOBAL-ORDER", "rule": "No consumer assumes global delivery order; aggregate version detects gaps and stale events."},
+    {"id": "RET-ONE-OWNER", "rule": "Every retryable unit has exactly one durable retry schedule owner."},
+    {"id": "RET-BOUNDED", "rule": "Attempts, elapsed time, per-attempt timeout, cost and deadline are bounded by a versioned policy."},
+    {"id": "RET-ADAPTER-CLASSIFIES", "rule": "Adapters classify failure and fail fast; they do not run independent retry loops."},
+    {"id": "DLQ-VISIBLE", "rule": "Exhausted or unsafe work becomes a visible, scoped and auditable dead-letter item."},
+    {"id": "EXT-NO-BLIND-RETRY", "rule": "An external effect without verified provider idempotency is never retried blindly."},
+    {"id": "EXE-SEPARATE-TRUTHS", "rule": "PostgreSQL owns visible domain state, durable workflow owns execution history and Valkey owns neither."},
+    {"id": "EVT-MINIMIZED", "rule": "Messages and telemetry carry minimized versioned data; secret or prohibited data is forbidden."}
+  ],
+  "owned_entities": [
+    {"id": "outbox_event", "owner_module": "platform"},
+    {"id": "inbox_receipt", "owner_module": "platform"},
+    {"id": "job_definition", "owner_module": "platform"},
+    {"id": "delivery_attempt", "owner_module": "platform"},
+    {"id": "dead_letter_item", "owner_module": "platform"}
+  ],
+  "event_envelope": {
+    "required_fields": [
+      "event_id", "event_name", "schema_id", "schema_version", "producer_module",
+      "occurred_at", "recorded_at", "aggregate_type", "aggregate_id", "aggregate_version",
+      "company_scope", "purpose", "classification", "correlation_id", "causation_id",
+      "trace_id", "idempotency_key_hash", "payload_digest", "payload_or_reference"
+    ],
+    "immutable": true,
+    "event_id_type": "uuid_v7_or_equivalent_monotonic_identifier",
+    "company_scope_source": "server_verified_authorization_context_or_explicit_platform_scope",
+    "payload_schema": "registered_versioned_schema",
+    "payload_max_bytes": "bounded_by_schema_policy",
+    "large_payload_mode": "immutable_object_reference_plus_sha256",
+    "forbidden_classes": ["secret", "prohibited"],
+    "forbidden_metadata": ["raw_payload", "credential", "token", "account_number", "tax_id", "financial_reference", "amount"],
+    "unknown_schema_action": "dead_letter_without_domain_effect"
+  },
+  "outbox_contract": {
+    "states": ["pending", "claimed", "published", "retry_scheduled", "terminal_failed"],
+    "initial": "pending",
+    "terminal": ["published", "terminal_failed"],
+    "domain_and_outbox_transaction": "same_postgresql_transaction",
+    "producer_access": "platform_port_inside_originating_transaction_no_direct_repository",
+    "claim": "skip_locked_or_atomic_compare_and_set_with_fencing_token",
+    "delivery": "at_least_once",
+    "broker_ack_before_published": true,
+    "delete_after_publish": false,
+    "retention_policy": "pending_L_01",
+    "ordering": "aggregate_version_only_no_global_order",
+    "dispatcher_retry_owner": "outbox_dispatcher",
+    "reconciliation_required": true
+  },
+  "inbox_contract": {
+    "states": ["received", "processing", "succeeded", "retryable_failed", "terminal_failed", "conflict"],
+    "identity_fields": ["consumer_id", "event_id"],
+    "payload_digest_required": true,
+    "claim": "database_unique_constraint_then_digest_compare",
+    "receipt_and_effect_transaction": "same_consumer_database_transaction",
+    "same_id_same_digest": "return_prior_result_without_second_effect",
+    "same_id_different_digest": "conflict_and_security_signal",
+    "receipt_before_effect_commit": false,
+    "cross_company_effect": "forbidden"
+  },
+  "delivery_attempt_contract": {
+    "append_only": true,
+    "required_fields": [
+      "attempt_id", "work_id", "company_scope", "attempt_number", "owner",
+      "started_at", "finished_at", "outcome", "failure_class", "reason_code",
+      "policy_version", "fencing_token", "cost_bucket", "trace_id"
+    ],
+    "failure_classes": ["retryable", "rate_limited", "fatal", "requires_human", "unknown"],
+    "raw_error_or_payload_forbidden": true,
+    "unknown_failure_action": "fail_closed_requires_triage"
+  },
+  "work_classes": [
+    {
+      "id": "outbox_dispatch",
+      "schedule_owner": "outbox_dispatcher",
+      "execution_authority": "postgresql_outbox_state",
+      "adapter_retries": false,
+      "exhaustion": "dead_letter"
+    },
+    {
+      "id": "stateless_job",
+      "schedule_owner": "managed_queue",
+      "execution_authority": "postgresql_job_definition_and_queue_delivery",
+      "adapter_retries": false,
+      "exhaustion": "dead_letter"
+    },
+    {
+      "id": "durable_workflow",
+      "schedule_owner": "durable_workflow_engine",
+      "execution_authority": "workflow_history",
+      "adapter_retries": false,
+      "exhaustion": "visible_workflow_failure_or_human_task"
+    },
+    {
+      "id": "external_idempotent_effect",
+      "schedule_owner": "parent_queue_or_workflow_never_adapter",
+      "execution_authority": "local_effect_ledger_plus_provider_reconciliation",
+      "adapter_retries": false,
+      "exhaustion": "reconcile_then_human_review"
+    },
+    {
+      "id": "external_non_idempotent_effect",
+      "schedule_owner": "none_automatic",
+      "execution_authority": "human_authorized_single_attempt_and_reconciliation",
+      "adapter_retries": false,
+      "exhaustion": "requires_human_no_blind_retry"
+    }
+  ],
+  "retry_policy_contract": {
+    "required_fields": [
+      "policy_id", "version", "work_class", "max_attempts", "max_elapsed_time",
+      "attempt_timeout", "deadline", "cost_budget", "backoff_strategy",
+      "retryable_reason_codes", "exhaustion_action", "owner", "reviewer"
+    ],
+    "numeric_values": "configured_per_policy_not_global_defaults",
+    "owner_and_reviewer_independent": true,
+    "backoff": "bounded_exponential_or_provider_retry_after_with_jitter",
+    "retry_after_is_capped_by_budget": true,
+    "deadline_precedes_new_attempt": true,
+    "circuit_breaker_schedules_retry": false,
+    "adapter_schedules_retry": false,
+    "broker_redelivery_is_not_extra_owner": true,
+    "policy_change_effect": "new_version_never_rewrites_existing_attempt_history"
+  },
+  "dead_letter_contract": {
+    "entity": "dead_letter_item",
+    "states": ["open", "triaged", "replay_approved", "replayed", "discarded_with_reason", "requires_human"],
+    "required_fields": [
+      "dead_letter_id", "company_scope", "work_class", "work_id", "event_schema_version",
+      "payload_digest_or_reference", "failure_class", "reason_code", "attempt_count",
+      "first_failed_at", "last_failed_at", "retry_policy_version", "owner",
+      "resolution_state", "audit_event_id"
+    ],
+    "raw_payload_forbidden": true,
+    "replay_requires": [
+      "current_authorization_revalidated", "original_schema_available_or_explicit_migration",
+      "same_effect_idempotency_key", "budget_and_policy_selected_explicitly",
+      "human_approval_when_external_or_financial", "new_delivery_attempt"
+    ],
+    "replay_mutates_original": false,
+    "discard_requires_reason_and_author": true,
+    "financial_state_authority": false
+  },
+  "schema_compatibility_contract": {
+    "registry_required": true,
+    "consumer_contracts_versioned": true,
+    "compatible_change": "add_optional_field_without_semantic_change",
+    "breaking_change": "new_major_schema_and_explicit_consumer_migration",
+    "unknown_field_behavior": "schema_defined_never_silent_semantic_change",
+    "unknown_schema_behavior": "dead_letter_without_effect",
+    "payload_migration": "new_event_or_replay_attempt_linked_to_original_never_mutate_original",
+    "latest_reference_forbidden": true
+  },
+  "ordering_contract": {
+    "global_order_guaranteed": false,
+    "aggregate_version_required": true,
+    "duplicate_version": "inbox_idempotent_replay",
+    "stale_version": "ignore_effect_and_record_observation",
+    "future_gap": "pause_aggregate_and_reconcile_or_redeliver",
+    "concurrent_aggregate_change": "optimistic_conflict_no_last_write_wins",
+    "cross_aggregate_workflow": "explicit_saga_or_domain_reconciliation_not_order_assumption"
+  },
+  "execution_truth_contract": {
+    "postgresql": "domain_state_job_definition_outbox_inbox_and_visible_status",
+    "durable_workflow": "workflow_history_timers_compensations_and_human_waits",
+    "managed_queue": "stateless_work_delivery_and_backoff",
+    "valkey": "ephemeral_progress_heartbeat_and_cache_only",
+    "analytics": "rebuildable_projection_only",
+    "valkey_loss_effect": "progress_degraded_no_domain_or_retry_state_loss",
+    "workflow_history_financial_authority": false,
+    "queue_message_financial_authority": false,
+    "reconciler_authority": "detect_and_propose_or_apply_only_predefined_safe_repairs"
+  },
+  "external_effect_contract": {
+    "provider_idempotency_verified_before_auto_retry": true,
+    "local_effect_ledger_required": true,
+    "provider_reconciliation_required": true,
+    "unknown_outcome": "reconcile_before_retry",
+    "non_idempotent_unknown_outcome": "requires_human",
+    "payments_enabled": false,
+    "credential_or_funds_handling": false
+  },
+  "authorization_contract": {
+    "company_scope_server_resolved": true,
+    "authorization_version_on_work": true,
+    "revalidate_before_read": true,
+    "revalidate_before_publish_or_external_effect": true,
+    "revocation_action": "cancel_or_block_pending_work_and_invalidate_capabilities",
+    "service_principal_capability_short_lived": true,
+    "dead_letter_replay_reauthorizes": true
+  },
+  "observability_contract": {
+    "metrics": ["pending_count", "oldest_age_bucket", "attempt_count", "failure_class", "dead_letter_count", "reconciliation_drift_count", "budget_exhaustion_count"],
+    "trace_fields": ["event_name", "schema_version", "producer_module", "company_scope_hash", "reason_code", "attempt_bucket", "trace_id"],
+    "forbidden": ["payload", "raw_error", "amount", "account_number", "tax_id", "financial_reference", "token", "credential", "secret"],
+    "alerts": ["stuck_outbox", "stuck_inbox", "dead_letter_growth", "retry_storm", "authorization_revoked_work", "reconciliation_drift"]
+  },
+  "required_tests": [
+    {"id": "TST-OUT-001", "scenario": "domain and outbox atomic commit and rollback"},
+    {"id": "TST-OUT-002", "scenario": "crash after commit before publish is recovered"},
+    {"id": "TST-OUT-003", "scenario": "duplicate delivery creates one visible consumer effect"},
+    {"id": "TST-OUT-004", "scenario": "same event id with different digest conflicts"},
+    {"id": "TST-OUT-005", "scenario": "consumer crash rolls back receipt and effect together"},
+    {"id": "TST-RET-001", "scenario": "exactly one retry schedule owner per work class"},
+    {"id": "TST-RET-002", "scenario": "adapter and circuit breaker never schedule retry"},
+    {"id": "TST-RET-003", "scenario": "attempt time cost and deadline budget exhaustion"},
+    {"id": "TST-RET-004", "scenario": "stale fencing token cannot publish"},
+    {"id": "TST-RET-005", "scenario": "provider retry-after cannot exceed budget"},
+    {"id": "TST-DLQ-001", "scenario": "exhausted work becomes visible minimized dead letter"},
+    {"id": "TST-DLQ-002", "scenario": "replay reauthorizes and preserves idempotency key"},
+    {"id": "TST-DLQ-003", "scenario": "discard requires reason actor and audit"},
+    {"id": "TST-ORD-001", "scenario": "out-of-order aggregate gap pauses effect"},
+    {"id": "TST-SCH-001", "scenario": "unknown or incompatible schema has no effect"},
+    {"id": "TST-EXT-001", "scenario": "unknown non-idempotent external outcome is not retried"},
+    {"id": "TST-EXE-001", "scenario": "Valkey loss does not lose domain or retry state"},
+    {"id": "TST-EXE-002", "scenario": "workflow history cannot become financial authority"},
+    {"id": "TST-AUTH-001", "scenario": "revoked authorization blocks pending publish and replay"},
+    {"id": "TST-TEN-002", "scenario": "event or dead letter cannot cross company scope"}
+  ],
+  "dependencies": ["FNC-ARC-001", "FNC-ARC-002", "FNC-DOM-004", "FNC-SEC-001", "FNC-SEC-002", "FNC-PLT-001"],
+  "deferred": [
+    "queue_provider_and_region",
+    "durable_workflow_provider_and_region",
+    "numeric_retry_policy_values_per_job",
+    "sql_migrations_and_concurrency_tests",
+    "productive_schema_registry",
+    "external_provider_idempotency_contracts"
+  ]
+}

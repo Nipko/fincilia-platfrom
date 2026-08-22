@@ -33,6 +33,7 @@ jobs:
           tools.canonical_model.test_validate
           tools.completeness_model.test_validate
           tools.dfd_model.test_validate
+          tools.event_model.test_validate
           tools.idempotency_model.test_validate
           tools.privacy_model.test_validate
           tools.threat_model.test_validate
@@ -46,6 +47,8 @@ jobs:
         run: python -m tools.completeness_model.validate
       - name: Validate executable data-flow model
         run: python -m tools.dfd_model.validate
+      - name: Validate events, retries and dead letters
+        run: python -m tools.event_model.validate
       - name: Validate idempotency and dedupe model
         run: python -m tools.idempotency_model.validate
       - name: Validate executable privacy model

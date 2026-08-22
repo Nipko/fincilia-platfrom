@@ -107,7 +107,7 @@
       "allowed_dependencies": [],
       "authoritative_financial_state": false,
       "id": "platform",
-      "owns": ["outbox_event", "inbox_receipt", "job_definition", "engine_release", "delivery_attempt"],
+      "owns": ["outbox_event", "inbox_receipt", "job_definition", "engine_release", "delivery_attempt", "dead_letter_item"],
       "plane": "control"
     },
     {

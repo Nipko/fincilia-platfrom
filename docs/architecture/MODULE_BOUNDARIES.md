@@ -28,7 +28,7 @@ Las entidades del JSON son ownership conceptual previo al esquema v0.1; no autor
 | Reporting | Analítico | report definition/snapshot, export y schedule | Autorizar desde warehouse/proyección |
 | Risk | Analítico | signal, investigation y resolution | Declarar fraude o mutar conciliación |
 | Usage | Control | entitlement, usage event/ledger y credits | Bloquear seguridad, privacidad o export básico por plan |
-| Platform | Control | outbox, inbox, job, engine release y delivery attempt | Ser verdad financiera o poseer retries de todos los niveles |
+| Platform | Control | outbox, inbox, job, engine release, delivery attempt y dead-letter item | Ser verdad financiera o poseer retries de todos los niveles |
 | Audit | Seguridad | audit/access event, delete ledger y digest | Actualizar/borrar eventos o servir payload financiero |
 | Analytics | Analítico | proyecciones reconstruibles | Convertirse en fuente de autorización/cierre |
 | AI Gateway | Seguridad | request record, eval y provider policy | Calcular dinero, autorizar, confirmar o cerrar |
