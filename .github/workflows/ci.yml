@@ -33,6 +33,7 @@ jobs:
           tools.canonical_model.test_validate
           tools.completeness_model.test_validate
           tools.connector_model.test_validate
+          tools.cross_contract_model.test_validate
           tools.dfd_model.test_validate
           tools.event_model.test_validate
           tools.idempotency_model.test_validate
@@ -49,6 +50,8 @@ jobs:
         run: python -m tools.completeness_model.validate
       - name: Validate connector contract
         run: python -m tools.connector_model.validate
+      - name: Validate cross-contract vocabulary
+        run: python -m tools.cross_contract_model.validate
       - name: Validate executable data-flow model
         run: python -m tools.dfd_model.validate
       - name: Validate events, retries and dead letters

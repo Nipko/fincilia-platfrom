@@ -85,6 +85,7 @@ Hasta S1-READY solo se admite scaffolding, automatización, pruebas, documentaci
 | FNC-ARC-005 | Conectores read-only y fallback por archivos | Review pending | Integration Steward | docs/contracts/connectors, tools/connector_model, CI, handoff |
 | FNC-DOM-005 | Linaje por campo, overlays y engine release | Review pending | Claude + Integration Steward | docs/domain/LINEAGE_SPEC.md, lineage-model.json, tools/lineage_model, CI, handoff |
 | FNC-PLT-005 | Auth-context, RLS, outbox/inbox y parser sintético | Review pending | Integration Steward | spikes/FNC-PLT-005, CI, evidencia, handoff |
+| FNC-ARC-006A | Stores, clasificación y engine release cross-contract | Review pending | Integration Steward | docs/architecture/CROSS_CONTRACT_VOCABULARY.md, tools/cross_contract_model, ADR-023, CI, handoff |
 
 Solo el Integration Steward modifica esta tabla.
 
@@ -112,6 +113,7 @@ Solo el Integration Steward modifica esta tabla.
 | 1 | FNC-ARC-005 Contrato de conectores y fallback | FNC-ARC-004, FNC-DOM-003/004 | Review pending |
 | 1 | FNC-DOM-005 Linaje, overlays y engine release | FNC-DOM-002/004, FNC-PRV-001 | Review pending |
 | 1 | FNC-PLT-005 Spike auth-context, RLS, eventos y parser | FNC-DOM-001, FNC-SEC-001, FNC-ARC-004 | Review pending |
+| 1 | FNC-ARC-006A Reconciliación cross-contract | FNC-ARC-002, FNC-DOM-005, FNC-PRV-001 | Review pending |
 
 Draftable significa que un agente puede preparar un borrador, pero no marcarlo Accepted hasta resolver la dependencia.
 

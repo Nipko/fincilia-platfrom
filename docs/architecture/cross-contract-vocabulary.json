@@ -1,0 +1,139 @@
+{
+  "schema_version": 1,
+  "task_id": "FNC-ARC-006A",
+  "status": "review_pending",
+  "data_ceiling": "synthetic_only",
+  "human_acceptance": "pending",
+  "decision_states": {
+    "DR-ARC-001": "proposed",
+    "DR-PRV-001": "proposed"
+  },
+  "store_contract": {
+    "boundary_catalog_kind": "logical_capability",
+    "dfd_catalog_kind": "physical_or_operational_destination",
+    "unmapped_store_effect": "validation_error",
+    "inactive_store_persistence_effect": "blocked",
+    "mappings": [
+      {
+        "id": "STORE-POSTGRESQL",
+        "boundary_store_id": "postgresql",
+        "dfd_store_ids": ["postgresql"],
+        "resolution_kind": "direct",
+        "usage_state": "active",
+        "decision_state": "proposed"
+      },
+      {
+        "id": "STORE-OBJECT-ZONES",
+        "boundary_store_id": "object_storage",
+        "dfd_store_ids": ["object_storage_quarantine", "object_storage_raw", "object_storage_derived"],
+        "resolution_kind": "physical_zones",
+        "usage_state": "active",
+        "zone_isolation_required": true,
+        "decision_state": "proposed"
+      },
+      {
+        "id": "STORE-TEMPORAL",
+        "boundary_store_id": "temporal",
+        "dfd_store_ids": ["temporal"],
+        "resolution_kind": "direct",
+        "usage_state": "capability_only",
+        "decision_state": "proposed"
+      },
+      {
+        "id": "STORE-VALKEY",
+        "boundary_store_id": "valkey",
+        "dfd_store_ids": ["valkey"],
+        "resolution_kind": "direct",
+        "usage_state": "capability_only",
+        "decision_state": "proposed"
+      },
+      {
+        "id": "STORE-ANALYTICS",
+        "boundary_store_id": "analytics_store",
+        "dfd_store_ids": ["analytics_projection"],
+        "resolution_kind": "renamed_projection",
+        "usage_state": "capability_only",
+        "decision_state": "proposed"
+      },
+      {
+        "id": "STORE-SECURITY-ARCHIVE",
+        "boundary_store_id": "security_archive",
+        "dfd_store_ids": ["security_archive"],
+        "resolution_kind": "direct",
+        "usage_state": "active",
+        "decision_state": "proposed"
+      },
+      {
+        "id": "STORE-VAULT",
+        "boundary_store_id": null,
+        "dfd_store_ids": ["vault"],
+        "resolution_kind": "boundary_addition_pending",
+        "usage_state": "capability_only",
+        "decision_state": "pending_human"
+      }
+    ]
+  },
+  "classification_contract": {
+    "relationship": "canonical_is_persisted_domain_subset_of_dfd",
+    "shared_domain_classes": ["internal", "confidential", "financial_sensitive", "secret"],
+    "dfd_edge_only_classes": ["public", "prohibited"],
+    "public_canonical_entity_allowed": false,
+    "prohibited_canonical_entity_allowed": false,
+    "prohibited_persistence": "forbidden",
+    "prohibited_egress": "forbidden",
+    "secret_persistence": "vault_only",
+    "personal_data_axis": {
+      "decision_request": "DR-PRV-001",
+      "state": "pending_human",
+      "orthogonal_to_operational_classification": true,
+      "unknown_external_egress": "blocked_when_assessment_required",
+      "agent_may_define_taxonomy": false
+    }
+  },
+  "engine_release_profile": {
+    "source_contract": "docs/domain/lineage-model.json#engine_release_contract.required_fields",
+    "adr": "ADR-023",
+    "decision_state": "accepted_core_profile_review_pending",
+    "required_fields": [
+      "approval_ref",
+      "artifact_digests",
+      "attestation_ref",
+      "build_provenance_ref",
+      "build_timestamp",
+      "builder_identity",
+      "canonical_schema_compatibility",
+      "classification",
+      "dependency_lock_digest",
+      "engine_release_id",
+      "evaluation_corpus_manifest_ref",
+      "evaluation_report_ref",
+      "included_components",
+      "sbom_digest",
+      "sbom_format",
+      "sbom_format_version",
+      "semver",
+      "signature_ref",
+      "source_commit_sha",
+      "source_tree_clean",
+      "state"
+    ],
+    "floating_versions_forbidden": ["latest", "main", "head", "stable", "current"],
+    "agent_can_approve_release": false,
+    "unverifiable_release_effect": "block_publication_and_close"
+  },
+  "gates": [
+    {
+      "id": "S1-READY",
+      "status": "not_met",
+      "acceptance": "pending_human"
+    }
+  ],
+  "required_tests": [
+    "TST-XCON-001",
+    "TST-XCON-002",
+    "TST-XCON-003",
+    "TST-XCON-004",
+    "TST-XCON-005",
+    "TST-XCON-006"
+  ]
+}

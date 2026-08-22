@@ -34,6 +34,13 @@ catálogo de stores, pero ningún `persistence[]` de F01–F13 los usa.
 - Revisión Architecture + Privacy.
 - Ninguna política L-01 inventada o aceptada por un agente.
 
+### Evidencia técnica disponible
+
+FNC-ARC-006A propone un mapping ejecutable en
+`docs/architecture/cross-contract-vocabulary.json`: deriva stores activos desde todos los
+`persistence[]`, bloquea uso de capacidades inactivas y conserva DR-ARC-001 como Proposed.
+Architecture, Privacy y Platform todavía deben aceptarlo o corregirlo.
+
 ## DR-PRV-001 — Segundo eje de clasificación personal
 
 - Tareas afectadas: FNC-ARC-002, FNC-PRV-001, FNC-PRV-002, FNC-DOM-005.
@@ -66,6 +73,12 @@ No se permite inferir que `internal` significa “no personal”, ni que hash/HM
 - Contrato ejecutable y pruebas de propagación/redacción.
 - Privacy y Legal aprueban categorías; Architecture aprueba representación.
 - PA-20 y todos los flujos F01–F13 quedan evaluados explícitamente.
+
+### Evidencia técnica disponible
+
+FNC-ARC-006A valida que la clasificación canónica sea el subconjunto financiero del DFD y
+que `public/prohibited` permanezcan sentinelas de borde. El contenido del eje personal no
+se define: sigue `pending_human`, ortogonal y con egreso fail-closed.
 
 ## DR-LEG-001 — Orden y reloj de retención
 

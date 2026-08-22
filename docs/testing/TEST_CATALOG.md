@@ -40,6 +40,12 @@
 | TST-PAR-007 | Release revocada no inicia runs nuevos | FNC-DOM-005 |
 | TST-PRV-001 | Tags de privacidad no bajan silenciosamente | FNC-DOM-005 |
 | TST-DED-002 | Linaje no fusiona hechos legítimos idénticos | FNC-DOM-005 |
+| TST-XCON-001 | Todo store lógico queda mapeado exactamente una vez | FNC-ARC-006A |
+| TST-XCON-002 | Todo store DFD queda mapeado exactamente una vez | FNC-ARC-006A |
+| TST-XCON-003 | Uso activo se deriva de persistencia declarada | FNC-ARC-006A |
+| TST-XCON-004 | Zonas de object storage conservan aislamiento | FNC-ARC-006A |
+| TST-XCON-005 | Clases canónicas igualan subconjunto financiero DFD | FNC-ARC-006A |
+| TST-XCON-006 | Eje personal permanece ortogonal, pendiente y fail-closed | FNC-ARC-006A |
 | TST-CON-001 | Conector tolera replay, cursor, corrección y degradación | FNC-ARC-005 |
 | TST-DRG-001 | Egress IA denegado, acceso auditado y purga reconciliada | FNC-QA-001 |
 | TST-A11Y-001 | Teclado, foco, encabezados y estados no solo por color | FNC-UX-001 |
