@@ -30,7 +30,12 @@ services:
       postgres:
         condition: service_healthy
     volumes:
-      - ./api:/workspace:ro
+      - ./api/package.json:/workspace/package.json:ro
+      - ./api/package-lock.json:/workspace/package-lock.json:ro
+      - ./api/tsconfig.json:/workspace/tsconfig.json:ro
+      - ./api/vitest.config.mts:/workspace/vitest.config.mts:ro
+      - ./api/src:/workspace/src:ro
+      - ./api/test:/workspace/test:ro
       - api_node_modules:/workspace/node_modules
 
 volumes:

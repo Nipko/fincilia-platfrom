@@ -1173,7 +1173,7 @@
     },
     {
       "path": "spikes/FNC-DB-002/MANIFEST.json",
-      "sha256": "d257ecbeaaca22c148c15fafa95c7c74deda6711b0a1a962d8b3138841a93671",
+      "sha256": "dac9f52175a0f1c0873ead605c958e0b9aa38521eab3f56f7160b0c503b01836",
       "produced_by": "FNC-DB-002 manifest review; declaration baseline, not runtime evidence"
     },
     {

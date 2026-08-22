@@ -91,7 +91,7 @@
   "driver": {
     "bytes": 2244,
     "path": "sql/apply_one.sql",
-    "sha256": "d6f9ecacf2bc99bbc66ece16c041f14fba59808c259f694b400bf98defb90143"
+    "sha256": "4dd3df4a9a73bdcd47677ba1ff0f60f751360da4f450e374a6f66ad1da0b74a7"
   },
   "failing": [
     {
