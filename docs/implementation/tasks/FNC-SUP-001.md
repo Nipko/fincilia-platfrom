@@ -1,10 +1,10 @@
 ---
 task: FNC-SUP-001
 title: Baseline ejecutable de cadena de suministro
-status: claimed
+status: review_pending
 implementer: Claude (external principal dev)
 base_sha: 48b21d1
-integration_sha: pending_integration_steward
+integration_sha: see_git_commit_containing_this_task
 gate: DRG-00
 data_ceiling: synthetic_only
 independent_reviewers: [Security, Platform, QA]

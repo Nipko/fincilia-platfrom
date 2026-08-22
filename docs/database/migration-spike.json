@@ -1,0 +1,149 @@
+{
+  "schema_version": 1,
+  "task_id": "FNC-DB-002",
+  "status": "review_pending",
+  "human_acceptance": "pending",
+  "data_ceiling": "synthetic_only",
+  "execution_mode": "disposable_spike",
+  "is_production_decision": false,
+  "product_migrations_allowed": false,
+  "modifies_shared_infrastructure": false,
+
+  "spike_root": "spikes/FNC-DB-002",
+  "manifest_path": "spikes/FNC-DB-002/MANIFEST.json",
+
+  "hypotheses": [
+    "Un esquema de migraciones SQL-first puede garantizar atomicidad por migracion sobre PostgreSQL 17 sin ninguna herramienta externa.",
+    "Un checksum de contenido detecta la edicion de una migracion ya aplicada antes de ejecutar nada.",
+    "Un advisory lock transaccional basta para que dos migradores concurrentes produzcan una sola aplicacion por version.",
+    "Los privilegios de PostgreSQL permiten separar migrator y runtime de modo que el runtime no pueda migrar ni reescribir el historial.",
+    "FORCE ROW LEVEL SECURITY somete tambien al propietario, de modo que el aislamiento por compania no depende de que nadie se conecte con el rol equivocado."
+  ],
+
+  "limits": [
+    "Este spike NO selecciona herramienta de migraciones y NO acepta ADR-002.",
+    "No prueba rendimiento, ni migraciones de gran volumen, ni bloqueos largos sobre tablas con datos.",
+    "No prueba upgrade desde una release anterior real: no existe todavia ninguna.",
+    "No prueba backup, restore, RPO ni RTO.",
+    "Un advisory lock serializa migradores dentro de la misma base; no coordina despliegues entre regiones.",
+    "El laboratorio corre en una sola instancia sin replicas, asi que no dice nada sobre replicacion ni failover.",
+    "Los datos son sinteticos y minusculos; ningun resultado extrapola a volumen de produccion."
+  ],
+
+  "environment": {
+    "postgres_image": "postgres:17.11-alpine3.24@sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73",
+    "postgres_version": "17.11",
+    "image_source": "misma referencia ya adjudicada en infra/local/compose.yaml; no se introduce ningun artefacto nuevo",
+    "compose_project": "fincilia-db-spike",
+    "compose_file": "spikes/FNC-DB-002/compose.yaml",
+    "publishes_host_port": false,
+    "network_internal": true,
+    "healthcheck": "pg_isready -U $POSTGRES_USER -d $POSTGRES_DB cada 2s, 30 reintentos",
+    "access_method": "docker compose exec -T postgres psql; no hay puerto publicado porque no hace falta",
+    "roles": {
+      "bootstrap": "fnc_spike_bootstrap",
+      "migrator": "fnc_spike_migrator",
+      "runtime": "fnc_spike_runtime"
+    },
+    "runtime_adapters": [
+      {"id": "direct", "when": "docker esta en el PATH (Linux, CI)"},
+      {"id": "wsl", "when": "Windows con Docker dentro de WSL; las rutas se traducen a /mnt/<unidad>"}
+    ]
+  },
+
+  "migration_policy": {
+    "transaction_per_migration": true,
+    "destructive_down_migrations": false,
+    "automatic_historical_rollback": false,
+    "applied_file_edit_allowed": false,
+    "startup_auto_migrate": false,
+    "runtime_role_can_migrate": false,
+    "runtime_role_owns_tables": false,
+    "advisory_lock_serialises_migrators": true,
+    "server_side_applied_at": true,
+    "forward_only": "un fallo se corrige con una migracion nueva hacia adelante, no deshaciendo la anterior",
+    "history_table": "spike.schema_history con version, name, checksum, applied_at del servidor, applied_by y status"
+  },
+
+  "expand_contract": {
+    "proven_by_this_spike": false,
+    "policy": "expand y contract viven en releases distintas: primero se anade lo nuevo como opcional, la aplicacion migra, y solo despues una release posterior retira lo viejo. V0003 ejecuta un paso expand; el paso contract NO se ejecuta aqui.",
+    "n_n1_compatibility": "declarada como politica, no demostrada: probarla exige dos versiones reales de la aplicacion corriendo a la vez, y en E0 no existe ninguna."
+  },
+
+  "cleanup": {
+    "scope": "fincilia-db-spike",
+    "command": "docker compose -f spikes/FNC-DB-002/compose.yaml -p fincilia-db-spike down --volumes --remove-orphans",
+    "removes_foreign_volumes": false,
+    "rationale": "el laboratorio es descartable y su volumen es suyo; el runner fija proyecto y fichero de Compose antes de construir ningun argv, de modo que no puede apuntar a otro proyecto"
+  },
+
+  "evidence_policy": {
+    "machine_readable": true,
+    "records": ["case_id", "invariant", "expectation", "outcome", "exit_code", "argv"],
+    "excludes": ["payload completo", "entorno completo", "contrasenas", "contenido de ficheros"],
+    "fabrication_rule": "si no hubo ejecucion, el estado es not_executed; nunca passed",
+    "timeout_or_truncation": "nunca cuenta como passed; se clasifica error"
+  },
+
+  "cases": [
+    {"case_id": "DBS-BLANK", "invariant": "blank_database_to_head", "expectation": "una base vacia llega al estado esperado y registra tres migraciones", "owner_role": "Database Migration Owner", "gate": "ADR-002-MIGRATIONS", "evidence_state": "not_executed", "matrix_ref": "DBS-01"},
+    {"case_id": "DBS-REPLAY", "invariant": "replay_head_is_noop", "expectation": "una segunda ejecucion no aplica nada y no duplica historial", "owner_role": "Database Migration Owner", "gate": "ADR-002-MIGRATIONS", "evidence_state": "not_executed", "matrix_ref": "DBS-02"},
+    {"case_id": "DBS-TAMPER", "invariant": "modified_applied_file_fails_checksum", "expectation": "editar una migracion ya aplicada aborta por checksum antes de ejecutar", "owner_role": "Database Migration Owner", "gate": "ADR-002-MIGRATIONS", "evidence_state": "not_executed", "matrix_ref": "DBS-04"},
+    {"case_id": "DBS-PARTIAL-FAILURE", "invariant": "failed_migration_leaves_nothing", "expectation": "un error a mitad no deja objetos parciales ni fila de historial", "owner_role": "Database Migration Owner", "gate": "ADR-002-MIGRATIONS", "evidence_state": "not_executed", "matrix_ref": "DBS-07"},
+    {"case_id": "DBS-PRIVILEGES", "invariant": "separated_roles_without_privilege", "expectation": "migrator y runtime no son superuser, bypassrls, createdb ni createrole y el runtime no es propietario", "owner_role": "Security", "gate": "ADR-002-MIGRATIONS", "evidence_state": "not_executed", "matrix_ref": "DBS-06"},
+    {"case_id": "DBS-RUNTIME-DENIAL", "invariant": "runtime_cannot_migrate", "expectation": "el runtime no crea, altera ni borra objetos y no escribe historial", "owner_role": "Security", "gate": "ADR-002-MIGRATIONS", "evidence_state": "not_executed", "matrix_ref": "DBS-06"},
+    {"case_id": "DBS-RLS", "invariant": "company_isolation_fails_closed", "expectation": "A no lee ni escribe B, y sin contexto de compania no se ve ni se escribe nada", "owner_role": "Security", "gate": "ADR-002-MIGRATIONS", "evidence_state": "not_executed", "matrix_ref": "DBS-06"},
+    {"case_id": "DBS-FORCE-RLS", "invariant": "force_row_level_security_preserved", "expectation": "la tabla sensible conserva RLS habilitada y forzada, con politica", "owner_role": "Security", "gate": "ADR-002-MIGRATIONS", "evidence_state": "not_executed", "matrix_ref": "DBS-06"},
+    {"case_id": "DBS-CONCURRENCY", "invariant": "two_migrators_do_not_race", "expectation": "dos migradores concurrentes producen una sola aplicacion por version", "owner_role": "Database Migration Owner", "gate": "ADR-002-MIGRATIONS", "evidence_state": "not_executed", "matrix_ref": "DBS-05"},
+    {"case_id": "DBS-CHECKSUM-ORDER", "invariant": "plan_is_independent_of_directory_order", "expectation": "barajar el manifiesto no cambia el plan canonico ni su digest", "owner_role": "Database Migration Owner", "gate": "ADR-002-MIGRATIONS", "evidence_state": "not_executed", "matrix_ref": "DBS-04"},
+    {"case_id": "DBS-UNKNOWN-MIGRATION", "invariant": "duplicate_or_gapped_version_refused", "expectation": "una version duplicada, un hueco o un fichero no manifestado se rechazan", "owner_role": "Database Migration Owner", "gate": "ADR-002-MIGRATIONS", "evidence_state": "not_executed", "matrix_ref": "DBS-01"},
+    {"case_id": "DBS-CLEANUP-SCOPE", "invariant": "cleanup_never_targets_another_project", "expectation": "todo argv apunta al proyecto del spike y a su propio fichero de Compose", "owner_role": "Platform", "gate": "ADR-002-MIGRATIONS", "evidence_state": "not_executed", "matrix_ref": "DBS-05"}
+  ],
+
+  "tooling_decision": {
+    "adr": "ADR-002",
+    "adr_state": "proposed",
+    "selected_tool": null,
+    "state": "pending_human",
+    "owner_role": "Architecture",
+    "reviewer_roles": ["Platform", "Security", "Database Migration Owner"],
+    "note": "migration-tooling.json prefiere Flyway solo para un spike. Este spike no usa Flyway ni ninguna otra herramienta: aplica SQL con psql para probar los invariantes SIN condicionar la eleccion. Que los invariantes se cumplan aqui no dice cual herramienta los cumple mejor."
+  },
+
+  "relation_to_fnc_db_001": {
+    "spike_matrix_source": "docs/database/migration-tooling.json",
+    "covered": ["DBS-01", "DBS-02", "DBS-04", "DBS-05", "DBS-06", "DBS-07"],
+    "not_covered": ["DBS-03", "DBS-08"],
+    "not_covered_reason": "DBS-03 (upgrade desde release anterior) exige una release previa real, que no existe en E0. DBS-08 (expand/contract en dos releases) exige dos versiones de la aplicacion corriendo, que tampoco existen.",
+    "state_updates_this_spike_may_write": "ninguna: migration-tooling.json pertenece a FNC-DB-001 y este spike no lo edita"
+  },
+
+  "gates": [
+    {"id": "ADR-002-MIGRATIONS", "status": "not_met", "acceptance": "pending_human", "owner_role": "Architecture"},
+    {"id": "S1-READY", "status": "not_met", "acceptance": "pending_human", "owner_role": "Integration Steward"}
+  ],
+
+  "declared_gaps": [
+    {"id": "GAP-DB-UPGRADE", "reason": "No existe release anterior contra la que probar un upgrade real (DBS-03).", "owner_role": "Database Migration Owner", "gate": "ADR-002-MIGRATIONS", "blocks_gate": true},
+    {"id": "GAP-DB-EXPAND-CONTRACT", "reason": "Probar compatibilidad N/N+1 exige dos versiones de la aplicacion corriendo a la vez (DBS-08).", "owner_role": "Architecture", "gate": "ADR-002-MIGRATIONS", "blocks_gate": true},
+    {"id": "GAP-DB-TOOLING-LICENSE", "reason": "La revision de licencia y cadena de suministro de la herramienta candidata no la hace este spike.", "owner_role": "Security", "gate": "ADR-002-MIGRATIONS", "blocks_gate": true},
+    {"id": "GAP-DB-VOLUME", "reason": "Ninguna prueba aqui dice nada sobre tiempo de bloqueo ni sobre migraciones con datos reales de volumen.", "owner_role": "Platform", "gate": "ADR-002-MIGRATIONS", "blocks_gate": true}
+  ],
+
+  "unresolved_decisions": [
+    {"id": "UD-DB-TOOL", "question": "Que herramienta de migraciones se adopta y con que version y digest fijados", "owner_role": "Architecture"},
+    {"id": "UD-DB-NONTRANSACTIONAL", "question": "Que politica rige las sentencias que no pueden vivir en una transaccion, como CREATE INDEX CONCURRENTLY", "owner_role": "Database Migration Owner"},
+    {"id": "UD-DB-LOCK-KEY", "question": "Que espacio de claves de advisory lock se reserva para migraciones frente a otros usos", "owner_role": "Platform"},
+    {"id": "UD-DB-CONTRACT-CADENCE", "question": "Cuantas releases deben pasar entre el paso expand y el paso contract", "owner_role": "Architecture"}
+  ],
+
+  "anti_promises": [
+    "Un spike verde prueba invariantes sobre un laboratorio minusculo, no que el sistema real migre bien.",
+    "No selecciona herramienta de migraciones y no acepta ADR-002.",
+    "No prueba volumen, rendimiento, tiempo de bloqueo, backup, restore ni replicacion.",
+    "No demuestra compatibilidad N/N+1: eso exige dos versiones reales de la aplicacion.",
+    "Que el runtime no pueda migrar aqui no dice nada sobre los privilegios que tendra en produccion.",
+    "El laboratorio es descartable: nada de lo que hay en el es infraestructura."
+  ]
+}

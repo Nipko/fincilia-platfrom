@@ -1,0 +1,1263 @@
+{
+  "schema_version": 1,
+  "task_id": "FNC-GAT-003",
+  "status": "review_pending",
+  "human_acceptance": "pending",
+  "data_ceiling": "synthetic_only",
+  "target_gate": "S1-READY",
+  "initial_gate_status": "not_met",
+  "agent_may_accept": false,
+  "writes_central_state": false,
+  "aggregate_score_as_gate": false,
+  "runs_containers_in_evaluate": false,
+  "purpose": "Componer validadores ejecutables y decisiones humanas en un veredicto fail-closed sobre S1-READY, distinguiendo siempre 'contrato valido' de 'gate aceptado'.",
+  "categories": [
+    "machine_pass",
+    "machine_fail",
+    "not_executed",
+    "pending_human",
+    "blocked_dependency",
+    "stale_evidence",
+    "contradiction"
+  ],
+  "aggregation": {
+    "rule": "conjunctive_fail_closed",
+    "satisfying_categories": [
+      "machine_pass"
+    ],
+    "note": "unknown, pending_human, stale_evidence, blocked_dependency, not_executed y contradiction NO satisfacen nada. Un validador en verde acredita un contrato ejecutable, jamas una aprobacion humana."
+  },
+  "source_precedence": [
+    "structured_json",
+    "front_matter",
+    "narrative_markdown"
+  ],
+  "contradiction_ignored_fields": [
+    "blocks_gate"
+  ],
+  "precedence_rationale": "El repositorio declara que, si el documento y el modelo difieren, manda el modelo. La prosa se cita; no es estado.",
+  "freshness_policy": {
+    "max_age_days": null,
+    "measured_by": "source_digest",
+    "rationale": "Ningun humano ha decidido una antiguedad maxima para la evidencia. Inventar un numero seria fabricar politica, asi que la frescura se mide comparando el digest registrado con el actual."
+  },
+  "task_cards_glob": "docs/implementation/tasks/*.md",
+  "phase_path": "CURRENT_PHASE.md",
+  "sources": [
+    {
+      "path": "docs/architecture/adr-readiness.json",
+      "kind": "json",
+      "decisions_keys": [
+        "decisions"
+      ],
+      "adr_readiness": true
+    },
+    {
+      "path": "docs/architecture/cross-contract-vocabulary.json",
+      "kind": "json",
+      "gates_keys": [
+        "gates"
+      ]
+    },
+    {
+      "path": "docs/architecture/region-transmission-decision.json",
+      "kind": "json",
+      "gates_keys": [
+        "decision_gates"
+      ],
+      "decisions_keys": [
+        "open_decisions"
+      ]
+    },
+    {
+      "path": "docs/business/brand-clearance.json",
+      "kind": "json",
+      "gates_keys": [
+        "gates"
+      ]
+    },
+    {
+      "path": "docs/contracts/connectors/connector-contract.json",
+      "kind": "json",
+      "gates_keys": [
+        "certification_gates"
+      ]
+    },
+    {
+      "path": "docs/database/migration-spike.json",
+      "kind": "json",
+      "gates_keys": [
+        "gates"
+      ],
+      "decisions_keys": [
+        "unresolved_decisions"
+      ]
+    },
+    {
+      "path": "docs/database/migration-tooling.json",
+      "kind": "json",
+      "gates_keys": [
+        "gates"
+      ]
+    },
+    {
+      "path": "docs/domain/lineage-model.json",
+      "kind": "json",
+      "gates_keys": [
+        "gates"
+      ],
+      "decisions_keys": [
+        "unresolved_decisions"
+      ]
+    },
+    {
+      "path": "docs/implementation/work-graph.json",
+      "kind": "json",
+      "flags_only": true
+    },
+    {
+      "path": "docs/integrations/provider-evaluation.json",
+      "kind": "json",
+      "gates_keys": [
+        "gates"
+      ]
+    },
+    {
+      "path": "docs/platform/developer-cli.json",
+      "kind": "json",
+      "gates_keys": [
+        "gates"
+      ],
+      "decisions_keys": [
+        "unresolved_decisions"
+      ]
+    },
+    {
+      "path": "docs/platform/runtime-config.json",
+      "kind": "json",
+      "gates_keys": [
+        "gates"
+      ]
+    },
+    {
+      "path": "docs/platform/workspace-scaffold.json",
+      "kind": "json",
+      "gates_keys": [
+        "activation_gates"
+      ]
+    },
+    {
+      "path": "docs/privacy/privacy-map.json",
+      "kind": "json",
+      "gates_keys": [
+        "gates"
+      ],
+      "decisions_keys": [
+        "unresolved_decisions"
+      ]
+    },
+    {
+      "path": "docs/product/research-protocol.json",
+      "kind": "json",
+      "gates_keys": [
+        "gates"
+      ]
+    },
+    {
+      "path": "docs/security/supply-chain.json",
+      "kind": "json",
+      "gates_keys": [
+        "gates"
+      ],
+      "decisions_keys": [
+        "unresolved_decisions"
+      ]
+    },
+    {
+      "path": "docs/security/threat-model.json",
+      "kind": "json",
+      "flags_only": true
+    },
+    {
+      "path": "docs/testing/golden-harness.json",
+      "kind": "json",
+      "flags_only": true
+    },
+    {
+      "path": "docs/testing/mutation-harness.json",
+      "kind": "json",
+      "gates_keys": [
+        "gates"
+      ],
+      "decisions_keys": [
+        "unresolved_decisions"
+      ]
+    },
+    {
+      "path": "docs/testing/test-catalog-model.json",
+      "kind": "json",
+      "gates_keys": [
+        "gates"
+      ],
+      "decisions_keys": [
+        "unresolved_decisions"
+      ]
+    },
+    {
+      "path": "docs/testing/test-strategy.json",
+      "kind": "json",
+      "gates_keys": [
+        "gates"
+      ],
+      "decisions_keys": [
+        "unresolved_decisions"
+      ]
+    }
+  ],
+  "machine_checks": [
+    {
+      "id": "chk-adr-readiness",
+      "argv": [
+        "-m",
+        "tools.adr_readiness.validate"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 180,
+      "max_output_bytes": 1048576,
+      "expected_exit_code": 0,
+      "owner_role": "Architecture",
+      "covers": [
+        "adr"
+      ]
+    },
+    {
+      "id": "chk-architecture",
+      "argv": [
+        "-m",
+        "tools.architecture_model.validate"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 180,
+      "max_output_bytes": 1048576,
+      "expected_exit_code": 0,
+      "owner_role": "Architecture",
+      "covers": [
+        "architecture"
+      ]
+    },
+    {
+      "id": "chk-brand-clearance",
+      "argv": [
+        "-m",
+        "tools.brand_clearance.validate"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 180,
+      "max_output_bytes": 1048576,
+      "expected_exit_code": 0,
+      "owner_role": "Legal",
+      "covers": [
+        "brand"
+      ]
+    },
+    {
+      "id": "chk-budget",
+      "argv": [
+        "-m",
+        "tools.budget_model.validate"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 180,
+      "max_output_bytes": 1048576,
+      "expected_exit_code": 0,
+      "owner_role": "Finance",
+      "covers": [
+        "budget"
+      ]
+    },
+    {
+      "id": "chk-canonical",
+      "argv": [
+        "-m",
+        "tools.canonical_model.validate"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 180,
+      "max_output_bytes": 1048576,
+      "expected_exit_code": 0,
+      "owner_role": "Architecture",
+      "covers": [
+        "canonical"
+      ]
+    },
+    {
+      "id": "chk-completeness",
+      "argv": [
+        "-m",
+        "tools.completeness_model.validate"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 180,
+      "max_output_bytes": 1048576,
+      "expected_exit_code": 0,
+      "owner_role": "Accounting",
+      "covers": [
+        "completeness"
+      ]
+    },
+    {
+      "id": "chk-connectors",
+      "argv": [
+        "-m",
+        "tools.connector_model.validate"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 180,
+      "max_output_bytes": 1048576,
+      "expected_exit_code": 0,
+      "owner_role": "Integrations",
+      "covers": [
+        "connectors"
+      ]
+    },
+    {
+      "id": "chk-cross-contract",
+      "argv": [
+        "-m",
+        "tools.cross_contract_model.validate"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 180,
+      "max_output_bytes": 1048576,
+      "expected_exit_code": 0,
+      "owner_role": "Architecture",
+      "covers": [
+        "cross_contract"
+      ]
+    },
+    {
+      "id": "chk-dfd",
+      "argv": [
+        "-m",
+        "tools.dfd_model.validate"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 180,
+      "max_output_bytes": 1048576,
+      "expected_exit_code": 0,
+      "owner_role": "Architecture",
+      "covers": [
+        "dfd"
+      ]
+    },
+    {
+      "id": "chk-events",
+      "argv": [
+        "-m",
+        "tools.event_model.validate"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 180,
+      "max_output_bytes": 1048576,
+      "expected_exit_code": 0,
+      "owner_role": "Platform",
+      "covers": [
+        "events"
+      ]
+    },
+    {
+      "id": "chk-golden-harness",
+      "argv": [
+        "-m",
+        "tools.golden_harness.cli",
+        "verify"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 300,
+      "max_output_bytes": 1048576,
+      "expected_exit_code": 0,
+      "owner_role": "QA",
+      "covers": [
+        "golden_harness"
+      ]
+    },
+    {
+      "id": "chk-idempotency",
+      "argv": [
+        "-m",
+        "tools.idempotency_model.validate"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 180,
+      "max_output_bytes": 1048576,
+      "expected_exit_code": 0,
+      "owner_role": "Platform",
+      "covers": [
+        "idempotency"
+      ]
+    },
+    {
+      "id": "chk-lineage",
+      "argv": [
+        "-m",
+        "tools.lineage_model.validate"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 180,
+      "max_output_bytes": 1048576,
+      "expected_exit_code": 0,
+      "owner_role": "Architecture",
+      "covers": [
+        "lineage"
+      ]
+    },
+    {
+      "id": "chk-local-stack",
+      "argv": [
+        "-m",
+        "tools.local_stack.validate"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 180,
+      "max_output_bytes": 1048576,
+      "expected_exit_code": 0,
+      "owner_role": "Platform",
+      "covers": [
+        "local_stack"
+      ]
+    },
+    {
+      "id": "chk-migration-readiness",
+      "argv": [
+        "-m",
+        "tools.migration_readiness.validate"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 180,
+      "max_output_bytes": 1048576,
+      "expected_exit_code": 0,
+      "owner_role": "Database Migration Owner",
+      "covers": [
+        "migration_readiness"
+      ]
+    },
+    {
+      "id": "chk-migration-spike",
+      "argv": [
+        "-m",
+        "tools.migration_spike.cli",
+        "validate"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 180,
+      "max_output_bytes": 1048576,
+      "expected_exit_code": 0,
+      "owner_role": "Database Migration Owner",
+      "covers": [
+        "migration_spike"
+      ]
+    },
+    {
+      "id": "chk-mutation-harness",
+      "argv": [
+        "-m",
+        "tools.mutation_harness.cli",
+        "verify"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 300,
+      "max_output_bytes": 1048576,
+      "expected_exit_code": 0,
+      "owner_role": "QA",
+      "covers": [
+        "mutation_harness"
+      ]
+    },
+    {
+      "id": "chk-privacy",
+      "argv": [
+        "-m",
+        "tools.privacy_model.validate"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 180,
+      "max_output_bytes": 1048576,
+      "expected_exit_code": 0,
+      "owner_role": "Privacy",
+      "covers": [
+        "privacy"
+      ]
+    },
+    {
+      "id": "chk-provider-evaluation",
+      "argv": [
+        "-m",
+        "tools.provider_evaluation.validate"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 180,
+      "max_output_bytes": 1048576,
+      "expected_exit_code": 0,
+      "owner_role": "Integrations",
+      "covers": [
+        "provider_evaluation"
+      ]
+    },
+    {
+      "id": "chk-quality-strategy",
+      "argv": [
+        "-m",
+        "tools.quality_strategy.validate"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 180,
+      "max_output_bytes": 1048576,
+      "expected_exit_code": 0,
+      "owner_role": "QA",
+      "covers": [
+        "quality_strategy"
+      ]
+    },
+    {
+      "id": "chk-region",
+      "argv": [
+        "-m",
+        "tools.region_decision.validate"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 180,
+      "max_output_bytes": 1048576,
+      "expected_exit_code": 0,
+      "owner_role": "Architecture",
+      "covers": [
+        "region"
+      ]
+    },
+    {
+      "id": "chk-research-protocol",
+      "argv": [
+        "-m",
+        "tools.research_protocol.validate"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 180,
+      "max_output_bytes": 1048576,
+      "expected_exit_code": 0,
+      "owner_role": "Product",
+      "covers": [
+        "research"
+      ]
+    },
+    {
+      "id": "chk-runtime-config",
+      "argv": [
+        "-m",
+        "tools.runtime_config.validate"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 180,
+      "max_output_bytes": 1048576,
+      "expected_exit_code": 0,
+      "owner_role": "Platform",
+      "covers": [
+        "runtime_config"
+      ]
+    },
+    {
+      "id": "chk-supply-chain",
+      "argv": [
+        "-m",
+        "tools.supply_chain.cli",
+        "validate"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 300,
+      "max_output_bytes": 1048576,
+      "expected_exit_code": 0,
+      "owner_role": "Security",
+      "covers": [
+        "supply_chain"
+      ]
+    },
+    {
+      "id": "chk-test-catalog",
+      "argv": [
+        "-m",
+        "tools.test_catalog.cli",
+        "validate"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 300,
+      "max_output_bytes": 1048576,
+      "expected_exit_code": 0,
+      "owner_role": "QA",
+      "covers": [
+        "test_catalog"
+      ]
+    },
+    {
+      "id": "chk-threat-model",
+      "argv": [
+        "-m",
+        "tools.threat_model.validate"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 180,
+      "max_output_bytes": 1048576,
+      "expected_exit_code": 0,
+      "owner_role": "Security",
+      "covers": [
+        "threat"
+      ]
+    },
+    {
+      "id": "chk-ux-contract",
+      "argv": [
+        "-m",
+        "tools.ux_contract.validate"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 180,
+      "max_output_bytes": 1048576,
+      "expected_exit_code": 0,
+      "owner_role": "Web/UX",
+      "covers": [
+        "ux"
+      ]
+    },
+    {
+      "id": "chk-work-graph",
+      "argv": [
+        "-m",
+        "tools.work_graph.validate"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 180,
+      "max_output_bytes": 1048576,
+      "expected_exit_code": 0,
+      "owner_role": "Integration Steward",
+      "covers": [
+        "work_graph"
+      ]
+    },
+    {
+      "id": "chk-workspace",
+      "argv": [
+        "-m",
+        "tools.workspace_contract.validate"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 180,
+      "max_output_bytes": 1048576,
+      "expected_exit_code": 0,
+      "owner_role": "Platform",
+      "covers": [
+        "workspace"
+      ]
+    }
+  ],
+  "critical_coverage": [
+    "adr",
+    "architecture",
+    "brand",
+    "budget",
+    "canonical",
+    "completeness",
+    "connectors",
+    "cross_contract",
+    "dfd",
+    "events",
+    "golden_harness",
+    "idempotency",
+    "lineage",
+    "local_stack",
+    "migration_readiness",
+    "migration_spike",
+    "mutation_harness",
+    "privacy",
+    "provider_evaluation",
+    "quality_strategy",
+    "region",
+    "research",
+    "runtime_config",
+    "supply_chain",
+    "test_catalog",
+    "threat",
+    "ux",
+    "work_graph",
+    "workspace"
+  ],
+  "requirements": [
+    {
+      "id": "REQ-CHK-ADR-READINESS",
+      "kind": "machine_check",
+      "ref": "chk-adr-readiness",
+      "owner_role": "Architecture",
+      "reviewer_roles": [
+        "Security",
+        "Platform"
+      ],
+      "gate": "S1-READY",
+      "explanation": "El contrato ejecutable de adr debe validar sin errores. Que valide no significa que este aprobado por un humano."
+    },
+    {
+      "id": "REQ-CHK-ARCHITECTURE",
+      "kind": "machine_check",
+      "ref": "chk-architecture",
+      "owner_role": "Architecture",
+      "reviewer_roles": [
+        "Security",
+        "Platform"
+      ],
+      "gate": "S1-READY",
+      "explanation": "El contrato ejecutable de architecture debe validar sin errores. Que valide no significa que este aprobado por un humano."
+    },
+    {
+      "id": "REQ-CHK-BRAND-CLEARANCE",
+      "kind": "machine_check",
+      "ref": "chk-brand-clearance",
+      "owner_role": "Legal",
+      "reviewer_roles": [
+        "Privacy",
+        "Product"
+      ],
+      "gate": "S1-READY",
+      "explanation": "El contrato ejecutable de brand debe validar sin errores. Que valide no significa que este aprobado por un humano."
+    },
+    {
+      "id": "REQ-CHK-BUDGET",
+      "kind": "machine_check",
+      "ref": "chk-budget",
+      "owner_role": "Finance",
+      "reviewer_roles": [
+        "Product",
+        "Architecture"
+      ],
+      "gate": "S1-READY",
+      "explanation": "El contrato ejecutable de budget debe validar sin errores. Que valide no significa que este aprobado por un humano."
+    },
+    {
+      "id": "REQ-CHK-CANONICAL",
+      "kind": "machine_check",
+      "ref": "chk-canonical",
+      "owner_role": "Architecture",
+      "reviewer_roles": [
+        "Security",
+        "Platform"
+      ],
+      "gate": "S1-READY",
+      "explanation": "El contrato ejecutable de canonical debe validar sin errores. Que valide no significa que este aprobado por un humano."
+    },
+    {
+      "id": "REQ-CHK-COMPLETENESS",
+      "kind": "machine_check",
+      "ref": "chk-completeness",
+      "owner_role": "Accounting",
+      "reviewer_roles": [
+        "Architecture",
+        "QA"
+      ],
+      "gate": "S1-READY",
+      "explanation": "El contrato ejecutable de completeness debe validar sin errores. Que valide no significa que este aprobado por un humano."
+    },
+    {
+      "id": "REQ-CHK-CONNECTORS",
+      "kind": "machine_check",
+      "ref": "chk-connectors",
+      "owner_role": "Integrations",
+      "reviewer_roles": [
+        "Security",
+        "Architecture"
+      ],
+      "gate": "S1-READY",
+      "explanation": "El contrato ejecutable de connectors debe validar sin errores. Que valide no significa que este aprobado por un humano."
+    },
+    {
+      "id": "REQ-CHK-CROSS-CONTRACT",
+      "kind": "machine_check",
+      "ref": "chk-cross-contract",
+      "owner_role": "Architecture",
+      "reviewer_roles": [
+        "Security",
+        "Platform"
+      ],
+      "gate": "S1-READY",
+      "explanation": "El contrato ejecutable de cross_contract debe validar sin errores. Que valide no significa que este aprobado por un humano."
+    },
+    {
+      "id": "REQ-CHK-DFD",
+      "kind": "machine_check",
+      "ref": "chk-dfd",
+      "owner_role": "Architecture",
+      "reviewer_roles": [
+        "Security",
+        "Platform"
+      ],
+      "gate": "S1-READY",
+      "explanation": "El contrato ejecutable de dfd debe validar sin errores. Que valide no significa que este aprobado por un humano."
+    },
+    {
+      "id": "REQ-CHK-EVENTS",
+      "kind": "machine_check",
+      "ref": "chk-events",
+      "owner_role": "Platform",
+      "reviewer_roles": [
+        "Architecture",
+        "Security"
+      ],
+      "gate": "S1-READY",
+      "explanation": "El contrato ejecutable de events debe validar sin errores. Que valide no significa que este aprobado por un humano."
+    },
+    {
+      "id": "REQ-CHK-GOLDEN-HARNESS",
+      "kind": "machine_check",
+      "ref": "chk-golden-harness",
+      "owner_role": "QA",
+      "reviewer_roles": [
+        "Architecture",
+        "Security"
+      ],
+      "gate": "S1-READY",
+      "explanation": "El contrato ejecutable de golden_harness debe validar sin errores. Que valide no significa que este aprobado por un humano."
+    },
+    {
+      "id": "REQ-CHK-IDEMPOTENCY",
+      "kind": "machine_check",
+      "ref": "chk-idempotency",
+      "owner_role": "Platform",
+      "reviewer_roles": [
+        "Architecture",
+        "Security"
+      ],
+      "gate": "S1-READY",
+      "explanation": "El contrato ejecutable de idempotency debe validar sin errores. Que valide no significa que este aprobado por un humano."
+    },
+    {
+      "id": "REQ-CHK-LINEAGE",
+      "kind": "machine_check",
+      "ref": "chk-lineage",
+      "owner_role": "Architecture",
+      "reviewer_roles": [
+        "Security",
+        "Platform"
+      ],
+      "gate": "S1-READY",
+      "explanation": "El contrato ejecutable de lineage debe validar sin errores. Que valide no significa que este aprobado por un humano."
+    },
+    {
+      "id": "REQ-CHK-LOCAL-STACK",
+      "kind": "machine_check",
+      "ref": "chk-local-stack",
+      "owner_role": "Platform",
+      "reviewer_roles": [
+        "Architecture",
+        "Security"
+      ],
+      "gate": "S1-READY",
+      "explanation": "El contrato ejecutable de local_stack debe validar sin errores. Que valide no significa que este aprobado por un humano."
+    },
+    {
+      "id": "REQ-CHK-MIGRATION-READINESS",
+      "kind": "machine_check",
+      "ref": "chk-migration-readiness",
+      "owner_role": "Database Migration Owner",
+      "reviewer_roles": [
+        "Architecture",
+        "Security"
+      ],
+      "gate": "S1-READY",
+      "explanation": "El contrato ejecutable de migration_readiness debe validar sin errores. Que valide no significa que este aprobado por un humano."
+    },
+    {
+      "id": "REQ-CHK-MIGRATION-SPIKE",
+      "kind": "machine_check",
+      "ref": "chk-migration-spike",
+      "owner_role": "Database Migration Owner",
+      "reviewer_roles": [
+        "Architecture",
+        "Security"
+      ],
+      "gate": "S1-READY",
+      "explanation": "El contrato ejecutable de migration_spike debe validar sin errores. Que valide no significa que este aprobado por un humano."
+    },
+    {
+      "id": "REQ-CHK-MUTATION-HARNESS",
+      "kind": "machine_check",
+      "ref": "chk-mutation-harness",
+      "owner_role": "QA",
+      "reviewer_roles": [
+        "Architecture",
+        "Security"
+      ],
+      "gate": "S1-READY",
+      "explanation": "El contrato ejecutable de mutation_harness debe validar sin errores. Que valide no significa que este aprobado por un humano."
+    },
+    {
+      "id": "REQ-CHK-PRIVACY",
+      "kind": "machine_check",
+      "ref": "chk-privacy",
+      "owner_role": "Privacy",
+      "reviewer_roles": [
+        "Legal",
+        "Security"
+      ],
+      "gate": "S1-READY",
+      "explanation": "El contrato ejecutable de privacy debe validar sin errores. Que valide no significa que este aprobado por un humano."
+    },
+    {
+      "id": "REQ-CHK-PROVIDER-EVALUATION",
+      "kind": "machine_check",
+      "ref": "chk-provider-evaluation",
+      "owner_role": "Integrations",
+      "reviewer_roles": [
+        "Security",
+        "Architecture"
+      ],
+      "gate": "S1-READY",
+      "explanation": "El contrato ejecutable de provider_evaluation debe validar sin errores. Que valide no significa que este aprobado por un humano."
+    },
+    {
+      "id": "REQ-CHK-QUALITY-STRATEGY",
+      "kind": "machine_check",
+      "ref": "chk-quality-strategy",
+      "owner_role": "QA",
+      "reviewer_roles": [
+        "Architecture",
+        "Security"
+      ],
+      "gate": "S1-READY",
+      "explanation": "El contrato ejecutable de quality_strategy debe validar sin errores. Que valide no significa que este aprobado por un humano."
+    },
+    {
+      "id": "REQ-CHK-REGION",
+      "kind": "machine_check",
+      "ref": "chk-region",
+      "owner_role": "Architecture",
+      "reviewer_roles": [
+        "Security",
+        "Platform"
+      ],
+      "gate": "S1-READY",
+      "explanation": "El contrato ejecutable de region debe validar sin errores. Que valide no significa que este aprobado por un humano."
+    },
+    {
+      "id": "REQ-CHK-RESEARCH-PROTOCOL",
+      "kind": "machine_check",
+      "ref": "chk-research-protocol",
+      "owner_role": "Product",
+      "reviewer_roles": [
+        "Architecture",
+        "Accounting"
+      ],
+      "gate": "S1-READY",
+      "explanation": "El contrato ejecutable de research debe validar sin errores. Que valide no significa que este aprobado por un humano."
+    },
+    {
+      "id": "REQ-CHK-RUNTIME-CONFIG",
+      "kind": "machine_check",
+      "ref": "chk-runtime-config",
+      "owner_role": "Platform",
+      "reviewer_roles": [
+        "Architecture",
+        "Security"
+      ],
+      "gate": "S1-READY",
+      "explanation": "El contrato ejecutable de runtime_config debe validar sin errores. Que valide no significa que este aprobado por un humano."
+    },
+    {
+      "id": "REQ-CHK-SUPPLY-CHAIN",
+      "kind": "machine_check",
+      "ref": "chk-supply-chain",
+      "owner_role": "Security",
+      "reviewer_roles": [
+        "Architecture",
+        "Platform"
+      ],
+      "gate": "S1-READY",
+      "explanation": "El contrato ejecutable de supply_chain debe validar sin errores. Que valide no significa que este aprobado por un humano."
+    },
+    {
+      "id": "REQ-CHK-TEST-CATALOG",
+      "kind": "machine_check",
+      "ref": "chk-test-catalog",
+      "owner_role": "QA",
+      "reviewer_roles": [
+        "Architecture",
+        "Security"
+      ],
+      "gate": "S1-READY",
+      "explanation": "El contrato ejecutable de test_catalog debe validar sin errores. Que valide no significa que este aprobado por un humano."
+    },
+    {
+      "id": "REQ-CHK-THREAT-MODEL",
+      "kind": "machine_check",
+      "ref": "chk-threat-model",
+      "owner_role": "Security",
+      "reviewer_roles": [
+        "Architecture",
+        "Platform"
+      ],
+      "gate": "S1-READY",
+      "explanation": "El contrato ejecutable de threat debe validar sin errores. Que valide no significa que este aprobado por un humano."
+    },
+    {
+      "id": "REQ-CHK-UX-CONTRACT",
+      "kind": "machine_check",
+      "ref": "chk-ux-contract",
+      "owner_role": "Web/UX",
+      "reviewer_roles": [
+        "Product",
+        "QA"
+      ],
+      "gate": "S1-READY",
+      "explanation": "El contrato ejecutable de ux debe validar sin errores. Que valide no significa que este aprobado por un humano."
+    },
+    {
+      "id": "REQ-CHK-WORK-GRAPH",
+      "kind": "machine_check",
+      "ref": "chk-work-graph",
+      "owner_role": "Integration Steward",
+      "reviewer_roles": [
+        "Architecture",
+        "Security"
+      ],
+      "gate": "S1-READY",
+      "explanation": "El contrato ejecutable de work_graph debe validar sin errores. Que valide no significa que este aprobado por un humano."
+    },
+    {
+      "id": "REQ-CHK-WORKSPACE",
+      "kind": "machine_check",
+      "ref": "chk-workspace",
+      "owner_role": "Platform",
+      "reviewer_roles": [
+        "Architecture",
+        "Security"
+      ],
+      "gate": "S1-READY",
+      "explanation": "El contrato ejecutable de workspace debe validar sin errores. Que valide no significa que este aprobado por un humano."
+    },
+    {
+      "id": "REQ-OWNER-INTEGRATION_OWNER",
+      "kind": "nominal_owner",
+      "ref": "integration_owner",
+      "owner_role": "Founder",
+      "reviewer_roles": [
+        "Product",
+        "Legal"
+      ],
+      "gate": "S1-READY",
+      "explanation": "integration_owner sigue sin persona asignada en CURRENT_PHASE.md. Un gate no lo puede aprobar nadie."
+    },
+    {
+      "id": "REQ-OWNER-PRODUCT_OWNER",
+      "kind": "nominal_owner",
+      "ref": "product_owner",
+      "owner_role": "Founder",
+      "reviewer_roles": [
+        "Product",
+        "Legal"
+      ],
+      "gate": "S1-READY",
+      "explanation": "product_owner sigue sin persona asignada en CURRENT_PHASE.md. Un gate no lo puede aprobar nadie."
+    },
+    {
+      "id": "REQ-OWNER-ACCOUNTING_OWNER",
+      "kind": "nominal_owner",
+      "ref": "accounting_owner",
+      "owner_role": "Founder",
+      "reviewer_roles": [
+        "Product",
+        "Legal"
+      ],
+      "gate": "S1-READY",
+      "explanation": "accounting_owner sigue sin persona asignada en CURRENT_PHASE.md. Un gate no lo puede aprobar nadie."
+    },
+    {
+      "id": "REQ-OWNER-ARCHITECTURE_OWNER",
+      "kind": "nominal_owner",
+      "ref": "architecture_owner",
+      "owner_role": "Founder",
+      "reviewer_roles": [
+        "Product",
+        "Legal"
+      ],
+      "gate": "S1-READY",
+      "explanation": "architecture_owner sigue sin persona asignada en CURRENT_PHASE.md. Un gate no lo puede aprobar nadie."
+    },
+    {
+      "id": "REQ-OWNER-SECURITY_OWNER",
+      "kind": "nominal_owner",
+      "ref": "security_owner",
+      "owner_role": "Founder",
+      "reviewer_roles": [
+        "Product",
+        "Legal"
+      ],
+      "gate": "S1-READY",
+      "explanation": "security_owner sigue sin persona asignada en CURRENT_PHASE.md. Un gate no lo puede aprobar nadie."
+    },
+    {
+      "id": "REQ-OWNER-PRIVACY_OWNER",
+      "kind": "nominal_owner",
+      "ref": "privacy_owner",
+      "owner_role": "Founder",
+      "reviewer_roles": [
+        "Product",
+        "Legal"
+      ],
+      "gate": "S1-READY",
+      "explanation": "privacy_owner sigue sin persona asignada en CURRENT_PHASE.md. Un gate no lo puede aprobar nadie."
+    },
+    {
+      "id": "REQ-OWNER-LEGAL_OWNER",
+      "kind": "nominal_owner",
+      "ref": "legal_owner",
+      "owner_role": "Founder",
+      "reviewer_roles": [
+        "Product",
+        "Legal"
+      ],
+      "gate": "S1-READY",
+      "explanation": "legal_owner sigue sin persona asignada en CURRENT_PHASE.md. Un gate no lo puede aprobar nadie."
+    },
+    {
+      "id": "REQ-ADR-S1",
+      "kind": "adr_set",
+      "owner_role": "Architecture",
+      "reviewer_roles": [
+        "Security",
+        "Platform"
+      ],
+      "gate": "S1-READY",
+      "explanation": "Todos los ADR que adr-readiness.json marca como requeridos para S1 deben estar `ready`. El conjunto se descubre, no se copia: si alguien anade un ADR requerido, aparece solo."
+    },
+    {
+      "id": "REQ-HUMAN-DECISIONS",
+      "kind": "decision_set",
+      "owner_role": "Integration Steward",
+      "reviewer_roles": [
+        "Architecture",
+        "Security"
+      ],
+      "gate": "S1-READY",
+      "explanation": "Toda decision humana que su propia fuente marque expresamente como bloqueante de S1-READY debe quedar resuelta. Las decisiones de DRG, A-02, L-01/02, S-01 o GA siguen visibles, pero no bloquean un sprint estrictamente sintetico."
+    },
+    {
+      "id": "REQ-NO-CONTRADICTION",
+      "kind": "no_contradiction",
+      "owner_role": "Integration Steward",
+      "reviewer_roles": [
+        "Architecture",
+        "Security"
+      ],
+      "gate": "S1-READY",
+      "explanation": "Una contradiccion sobre S1-READY, sus owners, sus ADR requeridos o una decision que declare bloquear S1 no puede resolverse en silencio. Contradicciones de gates posteriores se reportan sin alterar el veredicto de S1."
+    },
+    {
+      "id": "REQ-EVIDENCE-FRESH",
+      "kind": "evidence_freshness",
+      "owner_role": "QA",
+      "reviewer_roles": [
+        "Architecture",
+        "Security"
+      ],
+      "gate": "S1-READY",
+      "explanation": "La evidencia declarada sigue correspondiendo a las fuentes que la produjeron. La frescura se mide por digest, no por reloj: nadie ha decidido una antiguedad maxima y inventarla seria fabricar politica."
+    }
+  ],
+  "evidence_baseline": [
+    {
+      "path": "docs/database/migration-spike.json",
+      "sha256": "781f95184d057bd855d069b3e227be649b993a18cf78d4b6cc84274db02e777e",
+      "produced_by": "FNC-DB-002 contract review; declaration baseline, not runtime evidence"
+    },
+    {
+      "path": "spikes/FNC-DB-002/MANIFEST.json",
+      "sha256": "d257ecbeaaca22c148c15fafa95c7c74deda6711b0a1a962d8b3138841a93671",
+      "produced_by": "FNC-DB-002 manifest review; declaration baseline, not runtime evidence"
+    },
+    {
+      "path": "docs/security/supply-chain.json",
+      "sha256": "7631edf1d01daee5d5b8c11a388cd4daf22185f68e80edae42fb7678d0ecdd7b",
+      "produced_by": "FNC-SUP-001 contract review; declaration baseline, not attestation"
+    },
+    {
+      "path": "docs/testing/mutation-harness.json",
+      "sha256": "aab4e006f8e21e8310c688c1d19e1fd91fbf828bcfe9fd845afa07ca8796c1f5",
+      "produced_by": "FNC-QA-005 registry review; declaration baseline, not runtime evidence"
+    }
+  ],
+  "heavy_checks_not_run_here": [
+    {
+      "id": "migration-spike-runtime",
+      "command": "python -m tools.migration_spike.cli run --suite all",
+      "reason": "levanta PostgreSQL en un contenedor; `evaluate` no arranca contenedores y consume la evidencia declarada en su lugar",
+      "evidence_state": "declared_not_reexecuted"
+    },
+    {
+      "id": "mutation-run",
+      "command": "python -m tools.mutation_harness.cli run",
+      "reason": "126 subprocesos; se consume su evidencia declarada",
+      "evidence_state": "declared_not_reexecuted"
+    }
+  ],
+  "gates": [
+    {
+      "id": "S1-READY",
+      "status": "not_met",
+      "acceptance": "pending_human",
+      "owner_role": "Integration Steward"
+    },
+    {
+      "id": "DRG-00",
+      "status": "not_met",
+      "acceptance": "pending_human",
+      "owner_role": "Legal"
+    },
+    {
+      "id": "DRG-01",
+      "status": "not_met",
+      "acceptance": "pending_human",
+      "owner_role": "Legal"
+    },
+    {
+      "id": "GA-01",
+      "status": "not_met",
+      "acceptance": "pending_human",
+      "owner_role": "Product"
+    },
+    {
+      "id": "L-01",
+      "status": "not_met",
+      "acceptance": "pending_human",
+      "owner_role": "Legal"
+    },
+    {
+      "id": "L-02",
+      "status": "not_met",
+      "acceptance": "pending_human",
+      "owner_role": "Legal"
+    },
+    {
+      "id": "A-02",
+      "status": "not_met",
+      "acceptance": "pending_human",
+      "owner_role": "Architecture"
+    },
+    {
+      "id": "S-01",
+      "status": "not_met",
+      "acceptance": "pending_human",
+      "owner_role": "Security"
+    }
+  ],
+  "anti_promises": [
+    "Este agregador no aprueba nada: solo dice que falta.",
+    "Un validador en verde acredita un contrato ejecutable, no una decision humana.",
+    "Un conteo de requisitos satisfechos no es una nota de aprobacion y no existe.",
+    "Filtrar por owner o por gate produce una vista, nunca un resultado canonico distinto.",
+    "No ejecuta contenedores: la evidencia de infraestructura la produce su propio spike.",
+    "No lee prosa como estado: si un Markdown contradice a un modelo, manda el modelo y la diferencia es un defecto.",
+    "No escribe CURRENT_PHASE, backlog, gates, decisiones ni fichas de tarea."
+  ]
+}

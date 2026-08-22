@@ -31,7 +31,8 @@ El gate evita que un cambio aparentemente documental o de scaffolding debilite l
 12. regeneración byte a byte del corpus golden;
 13. verificación de digests y ejecución de los casos golden adjudicados, después de validar los contratos;
 14. verificación y ejecución aislada de 63 mutaciones contractuales; cualquier survivor crítico bloquea;
-15. 61 pruebas del kernel de autorización dentro de una imagen Node fijada por digest.
+15. validación estructural del spike de migraciones, inventario de supply chain, contrato S1 y diagnóstico de la CLI;
+16. 61 pruebas del kernel de autorización dentro de una imagen Node fijada por digest.
 
 ### PostgreSQL RLS and worker spike
 
@@ -44,6 +45,15 @@ El gate evita que un cambio aparentemente documental o de scaffolding debilite l
 7. elimina contenedores y volúmenes incluso si falla un paso.
 
 El segundo job valida únicamente `spikes/FNC-PLT-001`; no promueve ese código a producto.
+
+### PostgreSQL 17 migration invariants
+
+1. configura Python 3.12 con una action fijada a SHA;
+2. ejecuta las 12 invariantes de `FNC-DB-002` contra PostgreSQL 17 descartable;
+3. exige que ningún caso quede `not_executed`;
+4. elimina únicamente el proyecto Compose `fincilia-db-spike` y su volumen, incluso si falla.
+
+Este carril demuestra comportamiento del laboratorio; no selecciona herramienta ni acepta ADR-002.
 
 ### Local platform lifecycle
 
@@ -100,6 +110,8 @@ python3 -m tools.event_model.validate
 python3 -m tools.idempotency_model.validate
 python3 -m tools.local_stack.validate
 python3 -m tools.migration_readiness.validate
+python3 -m tools.migration_spike.cli validate
+python3 -m tools.migration_spike.cli plan
 python3 -m tools.privacy_model.validate
 python3 -m tools.provider_evaluation.validate
 python3 -m tools.quality_strategy.validate
@@ -107,6 +119,9 @@ python3 -m tools.test_catalog.cli validate
 python3 -m tools.region_decision.validate
 python3 -m tools.research_protocol.validate
 python3 -m tools.runtime_config.validate
+python3 -m tools.supply_chain.cli discover
+python3 -m tools.s1_readiness.cli validate
+python3 -m tools.dev_cli.cli doctor
 python3 -m tools.threat_model.validate
 python3 -m tools.ux_contract.validate
 python3 -m tools.work_graph.validate
@@ -119,6 +134,8 @@ python3 -m unittest tools.golden_harness.test_harness -v
 python3 -m tools.mutation_harness.cli verify
 python3 -m unittest tools.mutation_harness.test_harness -v
 python3 -m tools.mutation_harness.cli run
+python3 -m unittest tools.supply_chain.test_validate tools.migration_spike.test_validate tools.dev_cli.test_cli tools.s1_readiness.test_validate -v
+python3 -m tools.migration_spike.cli run --suite all
 ```
 
 Stack local desde WSL:
@@ -138,7 +155,9 @@ Cuando exista remoto, el administrador debe proteger `main` y exigir los checks:
 
 - `Repository and synthetic-data policy`;
 - `PostgreSQL RLS and worker spike`.
-- `Local platform lifecycle`.
+- `PostgreSQL 17 migration invariants`;
+- `Local platform lifecycle`;
+- `Authorization, event and parser boundary spike`.
 
 También debe impedir push directo, exigir revisión independiente en rutas sensibles y limitar quién puede modificar workflows. Esta configuración externa no se presupone ni puede probarse desde el repositorio.
 

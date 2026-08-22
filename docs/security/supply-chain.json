@@ -1,0 +1,319 @@
+{
+  "schema_version": 1,
+  "task_id": "FNC-SUP-001",
+  "status": "review_pending",
+  "human_acceptance": "pending",
+  "data_ceiling": "synthetic_only",
+  "execution_mode": "contract_only_no_productive_merge",
+  "network_access": false,
+  "executes_discovered_components": false,
+  "aggregate_score_as_gate": false,
+
+  "purpose": "Inventariar de forma reproducible y offline las acciones, imagenes, runtimes, manifests y locks de los que depende un resultado, y separar lo que esta demostrado de lo que solo esta afirmado.",
+
+  "non_goals": [
+    "firmar builds",
+    "generar SBOM",
+    "verificar procedencia",
+    "sustituir el escaner de secretos",
+    "cerrar TM-005"
+  ],
+
+  "digest_semantics": {
+    "proves_artifact_identity": true,
+    "proves_author": false,
+    "proves_signature": false,
+    "proves_provenance": false,
+    "substitutes_independent_verification": false,
+    "note": "Un digest sha256 acredita que los bytes observados son los mismos bytes. No dice quien los produjo, ni con que codigo fuente, ni si esa cadena fue integra. Eso exige firma y attestation verificadas contra una raiz de confianza que este repositorio no posee."
+  },
+
+  "component_types": [
+    "external_build_service",
+    "generated_artifact",
+    "github_action",
+    "lockfile",
+    "oci_image",
+    "package_manifest",
+    "runtime"
+  ],
+
+  "evidence_states": [
+    "digest_pinned",
+    "observed",
+    "provenance_pending",
+    "sbom_pending",
+    "signature_pending",
+    "source_verified_pending"
+  ],
+
+  "discovery_rules": {
+    "workflows": {
+      "include_globs": [".github/workflows/*.yaml", ".github/workflows/*.yml"],
+      "reads": "uses:, image:, *-version:, runs-on: y comandos de instalacion",
+      "normalization": "una linea por referencia; el comentario tras # se conserva como detalle, nunca como pin"
+    },
+    "compose": {
+      "include_globs": [
+        "compose.yaml", "compose.yml", "docker-compose.yaml", "docker-compose.yml",
+        "infra/*/compose.yaml", "infra/*/compose.yml",
+        "spikes/*/compose.yaml", "spikes/*/compose.yml",
+        "apps/*/compose.yaml", "workers/*/compose.yaml"
+      ],
+      "reads": "image:",
+      "normalization": "referencia completa name:tag@sha256:digest"
+    },
+    "package_manifests": {
+      "include_globs": [
+        "package.json", "apps/*/package.json", "apps/*/*/package.json",
+        "packages/*/package.json", "workers/*/package.json",
+        "spikes/*/package.json", "spikes/*/*/package.json"
+      ],
+      "reads": "name, version, scripts de lifecycle, workspaces y recuento de dependencias",
+      "normalization": "el alcance de un manifest es su propio directorio"
+    },
+    "lockfiles": {
+      "include_globs": [
+        "package-lock.json", "npm-shrinkwrap.json", "pnpm-lock.yaml", "yarn.lock",
+        "poetry.lock", "Pipfile.lock",
+        "apps/*/package-lock.json", "apps/*/*/package-lock.json",
+        "packages/*/package-lock.json", "workers/*/package-lock.json",
+        "spikes/*/package-lock.json", "spikes/*/*/package-lock.json",
+        "spikes/*/*/pnpm-lock.yaml", "spikes/*/*/yarn.lock"
+      ],
+      "reads": "lockfileVersion y ecosistema",
+      "normalization": "el alcance de un lockfile es su propio directorio"
+    },
+    "update_monitors": {
+      "include_globs": [".github/dependabot.yml", ".github/dependabot.yaml"],
+      "reads": "package-ecosystem y directory",
+      "normalization": "un par ecosistema:directorio por entrada"
+    }
+  },
+
+  "exclusions": {
+    "directory_names": [
+      ".git", ".mypy_cache", ".pytest_cache", ".ruff_cache", ".venv", "__pycache__",
+      "build", "dist", "node_modules", "site-packages", "vendor", "venv"
+    ],
+    "symlinks": "descartados: seguirlos permitiria inventariar ficheros de fuera del arbol como propios",
+    "rationale": "un fichero vendorizado o cacheado no es una fuente propia; contarlo inflaria el inventario con dependencias transitivas que nadie mantiene aqui"
+  },
+
+  "inventory_completeness": {
+    "watch_globs": [
+      "**/Cargo.toml", "**/Dockerfile", "**/Dockerfile.*", "**/Gemfile",
+      "**/go.mod", "**/pyproject.toml", "**/requirements.txt", "**/requirements-*.txt"
+    ],
+    "rule": "si un fichero coincide con un watch glob y ningun extractor lo entiende, el inventario parece completo mientras le falta un ecosistema entero; eso es un hallazgo, no un silencio"
+  },
+
+  "pin_policy": {
+    "github_action": {
+      "required": "sha_40_hex",
+      "pattern": "^[0-9a-f]{40}$",
+      "rejects": ["tag", "branch", "short_sha", "empty_ref"],
+      "rationale": "un tag puede reapuntarse a otro commit sin cambiar el nombre"
+    },
+    "oci_image": {
+      "required": "name_tag_at_sha256_64_hex",
+      "pattern": "^[a-z0-9][a-z0-9._/-]*:[A-Za-z0-9._-]+@sha256:[0-9a-f]{64}$",
+      "rejects": ["tag_only", "floating_tag", "malformed_digest"],
+      "rationale": "sin digest los bytes pueden cambiar bajo el mismo nombre"
+    },
+    "runtime": {
+      "required": "exact_version",
+      "pattern": "^\\d+(\\.\\d+){1,3}$",
+      "rejects": ["latest", "current", "stable", "main", "head", "lts", "open_range"],
+      "runner_label": "una etiqueta *-latest de runner hosted flota y se reporta; una etiqueta versionada sigue sin ser inmutable y por eso vive como gap declarado, no como pin"
+    }
+  },
+
+  "manifest_lockfile_relation": {
+    "scope": "directorio propio del fichero",
+    "rule": "todo manifest necesita un lockfile hermano; todo lockfile necesita un manifest hermano",
+    "incompatible_duplicates": "dos lockfiles de ecosistemas distintos en el mismo alcance dejan indefinido cual resuelve el arbol"
+  },
+
+  "install_policy": {
+    "bounded_forms": ["npm ci", "pip install -r <file>", "pip install --require-hashes"],
+    "unbounded_forms": ["npm install", "npm i", "pip install <package>", "yarn add"],
+    "lifecycle_scripts": {
+      "names": ["preinstall", "install", "postinstall", "prepare", "prepublish"],
+      "rule": "si algun manifest del repositorio declara lifecycle scripts, todo install de CI debe pasar --ignore-scripts; de lo contrario se ejecuta codigo arbitrario de terceros durante la instalacion"
+    }
+  },
+
+  "scanner_limits": {
+    "yaml": "line_oriented_subset",
+    "unsupported_constructs": ["anchor", "alias", "merge_key"],
+    "behaviour_on_unsupported": "fail_closed_report_as_unscannable",
+    "rationale": "la biblioteca estandar no trae parser de YAML y el encargo prohibe dependencias nuevas; un inventario que pierde referencias en silencio es peor que uno que declara lo que no pudo leer"
+  },
+
+  "ownership": {
+    "github_action": {
+      "owner_role": "Security",
+      "reviewer_roles": ["Platform", "QA"],
+      "risk_refs": ["TM-005"],
+      "gate": "DRG-00",
+      "expected_evidence": ["full_sha_pin", "source_verified_pending", "provenance_pending"]
+    },
+    "oci_image": {
+      "owner_role": "Platform",
+      "reviewer_roles": ["Security", "QA"],
+      "risk_refs": ["TM-005", "TM-006"],
+      "gate": "DRG-00",
+      "expected_evidence": ["digest_pin", "sbom_pending", "signature_pending"]
+    },
+    "runtime": {
+      "owner_role": "Platform",
+      "reviewer_roles": ["Security", "QA"],
+      "risk_refs": ["TM-005"],
+      "gate": "DRG-00",
+      "expected_evidence": ["exact_version"]
+    },
+    "package_manifest": {
+      "owner_role": "Platform",
+      "reviewer_roles": ["Security", "QA"],
+      "risk_refs": ["TM-005"],
+      "gate": "DRG-00",
+      "expected_evidence": ["sibling_lockfile"]
+    },
+    "lockfile": {
+      "owner_role": "Platform",
+      "reviewer_roles": ["Security", "QA"],
+      "risk_refs": ["TM-005"],
+      "gate": "DRG-00",
+      "expected_evidence": ["sibling_manifest", "single_ecosystem_per_scope"]
+    },
+    "generated_artifact": {
+      "owner_role": "Platform",
+      "reviewer_roles": ["Security", "QA"],
+      "risk_refs": ["TM-005"],
+      "gate": "DRG-00",
+      "expected_evidence": ["update_monitor_entry"]
+    },
+    "external_build_service": {
+      "owner_role": "Platform",
+      "reviewer_roles": ["Security", "QA"],
+      "risk_refs": ["TM-005", "TM-006"],
+      "gate": "DRG-00",
+      "expected_evidence": ["bounded_install", "ignore_scripts_when_lifecycle_present"]
+    }
+  },
+
+  "evidence_claims": [
+    {
+      "id": "EVC-SBOM",
+      "state": "sbom_pending",
+      "satisfied": false,
+      "owner_role": "Security",
+      "gate": "DRG-00",
+      "risk_refs": ["TM-005"],
+      "reason": "no existe SBOM generado ni almacenado en el repositorio; sin inventario transitivo no se puede responder que contiene un artefacto"
+    },
+    {
+      "id": "EVC-SIGNATURE",
+      "state": "signature_pending",
+      "satisfied": false,
+      "owner_role": "Security",
+      "gate": "DRG-00",
+      "risk_refs": ["TM-005"],
+      "reason": "ninguna imagen ni release esta firmada, y no hay raiz de confianza declarada contra la que verificar una firma"
+    },
+    {
+      "id": "EVC-PROVENANCE",
+      "state": "provenance_pending",
+      "satisfied": false,
+      "owner_role": "Security",
+      "gate": "DRG-00",
+      "risk_refs": ["TM-005"],
+      "reason": "no hay attestation de build que ligue un artefacto a un commit y a un builder; el digest identifica bytes, no cadena de produccion"
+    },
+    {
+      "id": "EVC-SOURCE-VERIFIED",
+      "state": "source_verified_pending",
+      "satisfied": false,
+      "owner_role": "Security",
+      "gate": "DRG-00",
+      "risk_refs": ["TM-005"],
+      "reason": "el sha de una action se copio del repositorio upstream sin verificacion independiente de que ese commit corresponda al tag anunciado"
+    }
+  ],
+
+  "exceptions": [],
+
+  "exception_contract": {
+    "required_fields": ["id", "component", "rule", "reason", "owner_role", "reviewer_role", "expires_on", "gate", "approved_by_human"],
+    "rule": "una excepcion solo suspende una regla si esta completa y aprobada por un humano; un agente no puede crear ni aprobar excepciones"
+  },
+
+  "tm_005": {
+    "state": "open",
+    "closed_by_this_tool": false,
+    "owner_role": "Security",
+    "gate": "DRG-00",
+    "reason": "TM-005 cubre compromiso de cadena de suministro. Este baseline demuestra que las referencias observadas estan fijadas y que las fuentes estan inventariadas. No genera SBOM, no firma, no verifica attestation y no comprueba la integridad del proveedor. Cerrarlo exige verificacion independiente fuera de este repositorio."
+  },
+
+  "declared_gaps": [
+    {
+      "id": "GAP-SUP-SBOM",
+      "reason": "Sin SBOM no se conoce el arbol transitivo real de ninguna imagen ni de ningun paquete.",
+      "owner_role": "Security",
+      "gate": "DRG-00",
+      "blocks_gate": true
+    },
+    {
+      "id": "GAP-SUP-SIGNING",
+      "reason": "No hay firma de artefactos ni raiz de confianza declarada.",
+      "owner_role": "Security",
+      "gate": "DRG-00",
+      "blocks_gate": true
+    },
+    {
+      "id": "GAP-SUP-PROVENANCE",
+      "reason": "No hay attestation de build; la procedencia no esta demostrada para ningun componente.",
+      "owner_role": "Security",
+      "gate": "DRG-00",
+      "blocks_gate": true
+    },
+    {
+      "id": "GAP-SUP-RUNNER",
+      "reason": "Los runners hosted de GitHub no son artefactos inmutables ni con etiqueta versionada; su contenido cambia sin aviso y no se puede fijar por digest.",
+      "owner_role": "Platform",
+      "gate": "DRG-00",
+      "blocks_gate": true
+    },
+    {
+      "id": "GAP-SUP-TRANSITIVE",
+      "reason": "El lockfile fija versiones y hashes de npm, pero este baseline no los verifica contra el registro ni comprueba que el tarball publicado corresponda al codigo fuente anunciado.",
+      "owner_role": "Platform",
+      "gate": "DRG-00",
+      "blocks_gate": true
+    }
+  ],
+
+  "gates": [
+    {"id": "DRG-00", "status": "not_met", "acceptance": "pending_human", "owner_role": "Security"},
+    {"id": "S1-READY", "status": "not_met", "acceptance": "pending_human", "owner_role": "Integration Steward"}
+  ],
+
+  "unresolved_decisions": [
+    {"id": "UD-SUP-SBOM-TOOL", "question": "Que generador de SBOM se adopta y donde se almacena el resultado", "owner_role": "Security"},
+    {"id": "UD-SUP-SIGNING-ROOT", "question": "Que raiz de confianza y que mecanismo de firma se usan para artefactos propios", "owner_role": "Security"},
+    {"id": "UD-SUP-RUNNER-POLICY", "question": "Si se aceptan runners hosted o se exige runner propio reproducible", "owner_role": "Platform"},
+    {"id": "UD-SUP-UPDATE-CADENCE", "question": "Quien revisa y aprueba las actualizaciones de pins y con que cadencia", "owner_role": "Platform"}
+  ],
+
+  "anti_promises": [
+    "Un inventario en verde prueba que las referencias observadas estan fijadas, no que sean seguras.",
+    "Un digest identifica el artefacto observado; no acredita quien lo produjo ni con que codigo fuente.",
+    "Este baseline no genera SBOM, no firma nada y no verifica ninguna attestation.",
+    "No sustituye al escaner de secretos ni al analisis de vulnerabilidades.",
+    "No lee el arbol transitivo de dependencias: un lockfile fijado puede seguir conteniendo un paquete comprometido.",
+    "El escaner de YAML es un subconjunto orientado a lineas; lo que no puede leer lo declara, no lo omite.",
+    "TM-005 sigue abierto y este validador no puede cerrarlo."
+  ]
+}

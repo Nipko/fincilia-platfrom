@@ -1,0 +1,771 @@
+{
+  "schema_version": 1,
+  "task_id": "FNC-PLT-007",
+  "status": "review_pending",
+  "human_acceptance": "pending",
+  "data_ceiling": "synthetic_only",
+  "writes_gate_or_status": false,
+  "installs_or_updates_dependencies": false,
+  "aggregate_score_as_gate": false,
+  "purpose": "Reducir comandos manuales componiendo contratos que ya existen, sin crear una segunda fuente de verdad sobre gates, estados o secretos.",
+  "non_goals": [
+    "instalar o actualizar dependencias",
+    "purgar, resetear o sembrar datos",
+    "ejecutar migraciones de producto",
+    "tocar cloud, secretos o configuracion",
+    "decidir el estado de ningun gate"
+  ],
+  "exit_codes": {
+    "ok": 0,
+    "check_failed": 1,
+    "invalid_usage": 2,
+    "dependency_missing": 3,
+    "timeout": 4
+  },
+  "environment_policy": {
+    "env_allowlist": [
+      "PATH",
+      "SYSTEMROOT",
+      "COMSPEC",
+      "TEMP",
+      "TMP",
+      "HOME",
+      "USERPROFILE",
+      "LANG",
+      "LC_ALL"
+    ],
+    "inherits_proxies": false,
+    "inherits_tokens": false,
+    "inherits_credentials": false,
+    "shell": false,
+    "note": "El allowlist se filtra otra vez en codigo contra PROXY, TOKEN, SECRET, KEY, PASSWORD y CREDENTIAL, de modo que ampliarlo por descuido en el contrato no basta para filtrar nada."
+  },
+  "stack": {
+    "compose_project": "fincilia-local",
+    "compose_file": "infra/local/compose.yaml",
+    "cwd": ".",
+    "timeout_seconds": 300,
+    "removes_volumes": false,
+    "removes_orphans": false,
+    "purges_data": false,
+    "seeds_real_data": false,
+    "runs_product_migrations": false,
+    "lock_required": true,
+    "note": "`down` es deliberadamente `docker compose down` a secas. Anadir --volumes borraria el volumen local con nombre, y --remove-orphans puede tocar contenedores que otro proyecto dejo colgando."
+  },
+  "degradation": {
+    "doctor_requires_docker": false,
+    "missing_tool_is_diagnosis_not_traceback": true,
+    "note": "doctor, validate y test funcionan sin Docker. Solo `stack` lo necesita, y si falta devuelve un diagnostico estable con exit dependency_missing."
+  },
+  "dependencies": [
+    {
+      "id": "docker_cli",
+      "kind": "external_binary",
+      "required": false,
+      "probe_argv": [
+        "docker",
+        "--version"
+      ],
+      "timeout_seconds": 30,
+      "diagnosis": "El binario `docker` no responde en el PATH de este proceso. Si Docker vive dentro de WSL, ejecuta esta CLI desde WSL: no se atraviesa el limite por ti para no construir un comando que nadie declaro."
+    },
+    {
+      "id": "docker_daemon",
+      "kind": "external_daemon",
+      "required": false,
+      "probe_argv": [
+        "docker",
+        "version",
+        "--format",
+        "{{.Server.Version}}"
+      ],
+      "timeout_seconds": 30,
+      "diagnosis": "El demonio de Docker no responde. `doctor`, `validate` y `test` siguen funcionando; solo `stack` queda bloqueado."
+    },
+    {
+      "id": "docker_compose",
+      "kind": "external_plugin",
+      "required": false,
+      "probe_argv": [
+        "docker",
+        "compose",
+        "version"
+      ],
+      "timeout_seconds": 30,
+      "diagnosis": "El plugin `docker compose` no responde. Sin el no se puede operar el stack local."
+    }
+  ],
+  "expected_paths": [
+    "infra/local/compose.yaml",
+    "docs/platform/runtime-config.json",
+    "docs/testing/test-strategy.json",
+    "tests/golden/synthetic",
+    "tools"
+  ],
+  "evidence_sources": [
+    {
+      "path": "docs/architecture/adr-readiness.json",
+      "what": "readiness de ADR frente a S1"
+    },
+    {
+      "path": "docs/database/migration-spike.json",
+      "what": "invariantes de migracion"
+    },
+    {
+      "path": "docs/database/migration-tooling.json",
+      "what": "evaluacion de tooling"
+    },
+    {
+      "path": "docs/domain/lineage-model.json",
+      "what": "linaje y engine release"
+    },
+    {
+      "path": "docs/platform/runtime-config.json",
+      "what": "configuracion y secretos"
+    },
+    {
+      "path": "docs/privacy/privacy-map.json",
+      "what": "privacidad, retencion y borrado"
+    },
+    {
+      "path": "docs/security/supply-chain.json",
+      "what": "baseline de cadena de suministro"
+    },
+    {
+      "path": "docs/security/threat-model.json",
+      "what": "riesgos y tratamiento"
+    },
+    {
+      "path": "docs/testing/golden-harness.json",
+      "what": "casos golden adjudicados"
+    },
+    {
+      "path": "docs/testing/mutation-harness.json",
+      "what": "mutaciones y supervivientes"
+    },
+    {
+      "path": "docs/testing/test-catalog-model.json",
+      "what": "catalogo y reconciliacion"
+    },
+    {
+      "path": "docs/testing/test-strategy.json",
+      "what": "estrategia de pruebas"
+    }
+  ],
+  "checks": [
+    {
+      "id": "core-adr-readiness",
+      "group": "core",
+      "kind": "validate",
+      "module": "tools.adr_readiness.validate",
+      "argv": [
+        "-m",
+        "tools.adr_readiness.validate"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 120,
+      "max_output_bytes": 262144,
+      "classification": "read_only",
+      "owner_role": "Architecture"
+    },
+    {
+      "id": "core-architecture",
+      "group": "core",
+      "kind": "validate",
+      "module": "tools.architecture_model.validate",
+      "argv": [
+        "-m",
+        "tools.architecture_model.validate"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 120,
+      "max_output_bytes": 262144,
+      "classification": "read_only",
+      "owner_role": "Architecture"
+    },
+    {
+      "id": "core-canonical",
+      "group": "core",
+      "kind": "validate",
+      "module": "tools.canonical_model.validate",
+      "argv": [
+        "-m",
+        "tools.canonical_model.validate"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 120,
+      "max_output_bytes": 262144,
+      "classification": "read_only",
+      "owner_role": "Architecture"
+    },
+    {
+      "id": "core-cross-contract",
+      "group": "core",
+      "kind": "validate",
+      "module": "tools.cross_contract_model.validate",
+      "argv": [
+        "-m",
+        "tools.cross_contract_model.validate"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 120,
+      "max_output_bytes": 262144,
+      "classification": "read_only",
+      "owner_role": "Architecture"
+    },
+    {
+      "id": "core-local-stack",
+      "group": "core",
+      "kind": "validate",
+      "module": "tools.local_stack.validate",
+      "argv": [
+        "-m",
+        "tools.local_stack.validate"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 120,
+      "max_output_bytes": 262144,
+      "classification": "read_only",
+      "owner_role": "Platform"
+    },
+    {
+      "id": "core-runtime-config",
+      "group": "core",
+      "kind": "validate",
+      "module": "tools.runtime_config.validate",
+      "argv": [
+        "-m",
+        "tools.runtime_config.validate"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 120,
+      "max_output_bytes": 262144,
+      "classification": "read_only",
+      "owner_role": "Platform"
+    },
+    {
+      "id": "core-work-graph",
+      "group": "core",
+      "kind": "validate",
+      "module": "tools.work_graph.validate",
+      "argv": [
+        "-m",
+        "tools.work_graph.validate"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 120,
+      "max_output_bytes": 262144,
+      "classification": "read_only",
+      "owner_role": "Integration Steward"
+    },
+    {
+      "id": "core-workspace",
+      "group": "core",
+      "kind": "validate",
+      "module": "tools.workspace_contract.validate",
+      "argv": [
+        "-m",
+        "tools.workspace_contract.validate"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 120,
+      "max_output_bytes": 262144,
+      "classification": "read_only",
+      "owner_role": "Platform"
+    },
+    {
+      "id": "security-privacy",
+      "group": "security",
+      "kind": "validate",
+      "module": "tools.privacy_model.validate",
+      "argv": [
+        "-m",
+        "tools.privacy_model.validate"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 120,
+      "max_output_bytes": 262144,
+      "classification": "read_only",
+      "owner_role": "Privacy"
+    },
+    {
+      "id": "security-region",
+      "group": "security",
+      "kind": "validate",
+      "module": "tools.region_decision.validate",
+      "argv": [
+        "-m",
+        "tools.region_decision.validate"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 120,
+      "max_output_bytes": 262144,
+      "classification": "read_only",
+      "owner_role": "Architecture"
+    },
+    {
+      "id": "security-supply-chain",
+      "group": "security",
+      "kind": "validate",
+      "module": "tools.supply_chain.cli",
+      "argv": [
+        "-m",
+        "tools.supply_chain.cli",
+        "validate"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 180,
+      "max_output_bytes": 524288,
+      "classification": "read_only",
+      "owner_role": "Security",
+      "expected_today": "Falla por diseno: SBOM, firma y procedencia no estan demostradas. Es un gap declarado que bloquea DRG-00, no una regresion."
+    },
+    {
+      "id": "security-threat-model",
+      "group": "security",
+      "kind": "validate",
+      "module": "tools.threat_model.validate",
+      "argv": [
+        "-m",
+        "tools.threat_model.validate"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 120,
+      "max_output_bytes": 262144,
+      "classification": "read_only",
+      "owner_role": "Security"
+    },
+    {
+      "id": "data-completeness",
+      "group": "data",
+      "kind": "validate",
+      "module": "tools.completeness_model.validate",
+      "argv": [
+        "-m",
+        "tools.completeness_model.validate"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 120,
+      "max_output_bytes": 262144,
+      "classification": "read_only",
+      "owner_role": "Accounting"
+    },
+    {
+      "id": "data-connectors",
+      "group": "data",
+      "kind": "validate",
+      "module": "tools.connector_model.validate",
+      "argv": [
+        "-m",
+        "tools.connector_model.validate"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 120,
+      "max_output_bytes": 262144,
+      "classification": "read_only",
+      "owner_role": "Integrations"
+    },
+    {
+      "id": "data-dfd",
+      "group": "data",
+      "kind": "validate",
+      "module": "tools.dfd_model.validate",
+      "argv": [
+        "-m",
+        "tools.dfd_model.validate"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 120,
+      "max_output_bytes": 262144,
+      "classification": "read_only",
+      "owner_role": "Architecture"
+    },
+    {
+      "id": "data-events",
+      "group": "data",
+      "kind": "validate",
+      "module": "tools.event_model.validate",
+      "argv": [
+        "-m",
+        "tools.event_model.validate"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 120,
+      "max_output_bytes": 262144,
+      "classification": "read_only",
+      "owner_role": "Platform"
+    },
+    {
+      "id": "data-idempotency",
+      "group": "data",
+      "kind": "validate",
+      "module": "tools.idempotency_model.validate",
+      "argv": [
+        "-m",
+        "tools.idempotency_model.validate"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 120,
+      "max_output_bytes": 262144,
+      "classification": "read_only",
+      "owner_role": "Platform"
+    },
+    {
+      "id": "data-lineage",
+      "group": "data",
+      "kind": "validate",
+      "module": "tools.lineage_model.validate",
+      "argv": [
+        "-m",
+        "tools.lineage_model.validate"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 120,
+      "max_output_bytes": 262144,
+      "classification": "read_only",
+      "owner_role": "Architecture"
+    },
+    {
+      "id": "data-migration-readiness",
+      "group": "data",
+      "kind": "validate",
+      "module": "tools.migration_readiness.validate",
+      "argv": [
+        "-m",
+        "tools.migration_readiness.validate"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 120,
+      "max_output_bytes": 262144,
+      "classification": "read_only",
+      "owner_role": "Database Migration Owner"
+    },
+    {
+      "id": "data-migration-spike",
+      "group": "data",
+      "kind": "validate",
+      "module": "tools.migration_spike.cli",
+      "argv": [
+        "-m",
+        "tools.migration_spike.cli",
+        "validate"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 120,
+      "max_output_bytes": 262144,
+      "classification": "read_only",
+      "owner_role": "Database Migration Owner"
+    },
+    {
+      "id": "qa-catalog",
+      "group": "qa",
+      "kind": "validate",
+      "module": "tools.test_catalog.cli",
+      "argv": [
+        "-m",
+        "tools.test_catalog.cli",
+        "validate"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 180,
+      "max_output_bytes": 1048576,
+      "classification": "read_only",
+      "owner_role": "QA"
+    },
+    {
+      "id": "qa-golden",
+      "group": "qa",
+      "kind": "validate",
+      "module": "tools.golden_harness.cli",
+      "argv": [
+        "-m",
+        "tools.golden_harness.cli",
+        "verify"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 180,
+      "max_output_bytes": 524288,
+      "classification": "read_only",
+      "owner_role": "QA"
+    },
+    {
+      "id": "qa-mutation",
+      "group": "qa",
+      "kind": "validate",
+      "module": "tools.mutation_harness.cli",
+      "argv": [
+        "-m",
+        "tools.mutation_harness.cli",
+        "verify"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 180,
+      "max_output_bytes": 524288,
+      "classification": "read_only",
+      "owner_role": "QA"
+    },
+    {
+      "id": "qa-strategy",
+      "group": "qa",
+      "kind": "validate",
+      "module": "tools.quality_strategy.validate",
+      "argv": [
+        "-m",
+        "tools.quality_strategy.validate"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 120,
+      "max_output_bytes": 262144,
+      "classification": "read_only",
+      "owner_role": "QA"
+    },
+    {
+      "id": "qa-synthetic-corpus",
+      "group": "qa",
+      "kind": "validate",
+      "module": "tools.synthetic_corpus.cli",
+      "argv": [
+        "-m",
+        "tools.synthetic_corpus.cli",
+        "verify",
+        "--root",
+        "tests/golden/synthetic"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 180,
+      "max_output_bytes": 524288,
+      "classification": "read_only",
+      "owner_role": "QA"
+    },
+    {
+      "id": "test-unit-domain",
+      "group": "unit",
+      "kind": "test",
+      "module": "unittest",
+      "argv": [
+        "-m",
+        "unittest",
+        "tools.canonical_model.test_validate",
+        "tools.completeness_model.test_validate",
+        "tools.idempotency_model.test_validate",
+        "tools.lineage_model.test_validate"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 600,
+      "max_output_bytes": 1048576,
+      "classification": "read_only",
+      "owner_role": "QA"
+    },
+    {
+      "id": "test-unit-new",
+      "group": "unit",
+      "kind": "test",
+      "module": "unittest",
+      "argv": [
+        "-m",
+        "unittest",
+        "tools.supply_chain.test_validate",
+        "tools.migration_spike.test_validate",
+        "tools.dev_cli.test_cli",
+        "tools.s1_readiness.test_validate"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 900,
+      "max_output_bytes": 1048576,
+      "classification": "read_only",
+      "owner_role": "QA"
+    },
+    {
+      "id": "test-unit-platform",
+      "group": "unit",
+      "kind": "test",
+      "module": "unittest",
+      "argv": [
+        "-m",
+        "unittest",
+        "tools.architecture_model.test_validate",
+        "tools.dfd_model.test_validate",
+        "tools.event_model.test_validate",
+        "tools.connector_model.test_validate",
+        "tools.cross_contract_model.test_validate",
+        "tools.local_stack.test_validate",
+        "tools.runtime_config.test_validate",
+        "tools.workspace_contract.test_validate"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 600,
+      "max_output_bytes": 1048576,
+      "classification": "read_only",
+      "owner_role": "QA"
+    },
+    {
+      "id": "test-unit-quality",
+      "group": "unit",
+      "kind": "test",
+      "module": "unittest",
+      "argv": [
+        "-m",
+        "unittest",
+        "tools.quality_strategy.test_validate",
+        "tools.test_catalog.test_validate"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 600,
+      "max_output_bytes": 1048576,
+      "classification": "read_only",
+      "owner_role": "QA"
+    },
+    {
+      "id": "test-unit-security",
+      "group": "unit",
+      "kind": "test",
+      "module": "unittest",
+      "argv": [
+        "-m",
+        "unittest",
+        "tools.threat_model.test_validate",
+        "tools.privacy_model.test_validate",
+        "tools.region_decision.test_validate",
+        "tools.adr_readiness.test_validate"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 600,
+      "max_output_bytes": 1048576,
+      "classification": "read_only",
+      "owner_role": "QA"
+    },
+    {
+      "id": "test-unit-governance",
+      "group": "unit",
+      "kind": "test",
+      "module": "unittest",
+      "argv": [
+        "-m",
+        "unittest",
+        "tools.work_graph.test_validate",
+        "tools.migration_readiness.test_validate"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 600,
+      "max_output_bytes": 1048576,
+      "classification": "read_only",
+      "owner_role": "QA"
+    },
+    {
+      "id": "test-golden-cases",
+      "group": "golden",
+      "kind": "test",
+      "module": "tools.golden_harness.cli",
+      "argv": [
+        "-m",
+        "tools.golden_harness.cli",
+        "run"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 900,
+      "max_output_bytes": 1048576,
+      "classification": "read_only",
+      "owner_role": "QA"
+    },
+    {
+      "id": "test-golden-harness",
+      "group": "golden",
+      "kind": "test",
+      "module": "unittest",
+      "argv": [
+        "-m",
+        "unittest",
+        "tools.golden_harness.test_harness"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 600,
+      "max_output_bytes": 1048576,
+      "classification": "read_only",
+      "owner_role": "QA"
+    },
+    {
+      "id": "test-mutation-harness",
+      "group": "mutation",
+      "kind": "test",
+      "module": "unittest",
+      "argv": [
+        "-m",
+        "unittest",
+        "tools.mutation_harness.test_harness"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 900,
+      "max_output_bytes": 1048576,
+      "classification": "read_only",
+      "owner_role": "QA"
+    },
+    {
+      "id": "test-mutation-run",
+      "group": "mutation",
+      "kind": "test",
+      "module": "tools.mutation_harness.cli",
+      "argv": [
+        "-m",
+        "tools.mutation_harness.cli",
+        "run"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 1800,
+      "max_output_bytes": 4194304,
+      "classification": "read_only",
+      "owner_role": "QA"
+    }
+  ],
+  "command_classification": {
+    "doctor": "read_only",
+    "validate": "read_only",
+    "test": "read_only",
+    "evidence summary": "read_only",
+    "stack status": "read_only",
+    "stack up": "local_reversible",
+    "stack down": "local_reversible"
+  },
+  "output_policy": {
+    "canonical_format": "json",
+    "text_is_a_view_not_a_source": true,
+    "prints_env_file": false,
+    "prints_full_environment": false,
+    "prints_user_paths": false,
+    "output_cap_bytes": 4194304,
+    "truncation_is_failure": true
+  },
+  "gates": [
+    {
+      "id": "S1-READY",
+      "status": "not_met",
+      "acceptance": "pending_human",
+      "owner_role": "Integration Steward"
+    }
+  ],
+  "unresolved_decisions": [
+    {
+      "id": "UD-PLT-CLI-WSL",
+      "question": "Si la CLI debe atravesar WSL para hablar con Docker en Windows, o si se documenta ejecutarla desde WSL",
+      "owner_role": "Platform"
+    },
+    {
+      "id": "UD-PLT-CLI-CI",
+      "question": "Si CI debe invocar esta CLI en vez de enumerar comandos, y quien mantiene entonces la equivalencia",
+      "owner_role": "Platform"
+    },
+    {
+      "id": "UD-PLT-CLI-EXPECTED",
+      "question": "Cadencia de revision de los `expected_today`: un fallo previsto que nadie revisa se vuelve ruido aceptado",
+      "owner_role": "QA"
+    }
+  ],
+  "anti_promises": [
+    "Un `doctor` en verde dice que las herramientas responden, no que el repositorio este correcto.",
+    "Esta CLI no es autoridad sobre ningun gate, estado ni decision: solo lee y ejecuta lo que otros contratos declaran.",
+    "No instala, no actualiza, no purga, no resetea, no siembra datos y no migra nada de producto.",
+    "`stack down` no borra volumenes: si alguien esperaba que dejara la base limpia, no lo hace a proposito.",
+    "Un `expected_today` explica por que un fallo ya se conocia; no lo convierte en aprobado y no altera el exit code.",
+    "No lee ni imprime `.env`, entorno completo ni rutas de usuario innecesarias."
+  ]
+}

@@ -43,17 +43,21 @@ jobs:
           tools.lineage_model.test_validate
           tools.local_stack.test_validate
           tools.migration_readiness.test_validate
+          tools.migration_spike.test_validate
           tools.privacy_model.test_validate
           tools.provider_evaluation.test_validate
           tools.quality_strategy.test_validate
           tools.region_decision.test_validate
           tools.research_protocol.test_validate
           tools.runtime_config.test_validate
+          tools.s1_readiness.test_validate
+          tools.supply_chain.test_validate
           tools.test_catalog.test_validate
           tools.threat_model.test_validate
           tools.ux_contract.test_validate
           tools.work_graph.test_validate
           tools.workspace_contract.test_validate
+          tools.dev_cli.test_cli
           tools.quality_gate.test_repo_policy
           tools.synthetic_corpus.test_corpus -v
       - name: Validate executable architecture model
@@ -84,6 +88,10 @@ jobs:
         run: python -m tools.local_stack.validate
       - name: Validate migration tooling readiness
         run: python -m tools.migration_readiness.validate
+      - name: Validate migration spike contract and deterministic plan
+        run: |
+          python -m tools.migration_spike.cli validate
+          python -m tools.migration_spike.cli plan
       - name: Validate executable privacy model
         run: python -m tools.privacy_model.validate
       - name: Validate provider connectivity evaluation
@@ -98,6 +106,12 @@ jobs:
         run: python -m tools.research_protocol.validate
       - name: Validate runtime configuration contract
         run: python -m tools.runtime_config.validate
+      - name: Discover pinned supply-chain components
+        run: python -m tools.supply_chain.cli discover
+      - name: Validate S1 readiness aggregator contract
+        run: python -m tools.s1_readiness.cli validate
+      - name: Diagnose the safe developer CLI
+        run: python -m tools.dev_cli.cli doctor
       - name: Validate executable threat model
         run: python -m tools.threat_model.validate
       - name: Validate UX prototype contract
@@ -152,6 +166,24 @@ jobs:
       - name: Cleanup
         if: always()
         run: docker compose --profile test down --volumes --remove-orphans
+
+  migration-invariant-spike:
+    name: PostgreSQL 17 migration invariants
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Run all migration invariants against disposable PostgreSQL
+        run: python -m tools.migration_spike.cli run --suite all
+      - name: Cleanup the exact disposable project
+        if: always()
+        working-directory: spikes/FNC-DB-002
+        run: docker compose -p fincilia-db-spike down --volumes --remove-orphans
 
   local-platform:
     name: Local platform lifecycle

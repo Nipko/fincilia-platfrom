@@ -1,0 +1,144 @@
+{
+  "bootstrap": [
+    {
+      "bytes": 2755,
+      "path": "db/init/001_spike_bootstrap.sql",
+      "sha256": "07068518a0647bedf24f369c2751f57a663e2b01e6be60fef8347d2489f2a588"
+    }
+  ],
+  "cases": [
+    {
+      "bytes": 338,
+      "path": "sql/cases/deny_rls_cross_company.sql",
+      "sha256": "fcab91d41f251748fad2a62064643edbacd07aec601a0fad1d0e024ef46a3af6"
+    },
+    {
+      "bytes": 651,
+      "path": "sql/cases/deny_rls_missing_context.sql",
+      "sha256": "3a94e4f989bae838a86940b759802531d220e693777ac605074148ae76da4e3e"
+    },
+    {
+      "bytes": 174,
+      "path": "sql/cases/deny_runtime_alter.sql",
+      "sha256": "cf6cc14aec1a5b95a1f993c5f2edb668a324664cd020ce6e19470f93f54350bf"
+    },
+    {
+      "bytes": 146,
+      "path": "sql/cases/deny_runtime_create.sql",
+      "sha256": "5e28be8fd261905f307fed10540be47c799971f2ec177bccfc13e52d59573a9f"
+    },
+    {
+      "bytes": 106,
+      "path": "sql/cases/deny_runtime_drop.sql",
+      "sha256": "81651833c1e6fb8df55c46f3098d873868a7eefeebecce4a539d49d4b580b9bc"
+    },
+    {
+      "bytes": 134,
+      "path": "sql/cases/deny_runtime_history_update.sql",
+      "sha256": "23f6c0c72f8cda548201c82321dd063ad7e5e8fd3e09ec068ea19ecffb965f33"
+    },
+    {
+      "bytes": 220,
+      "path": "sql/cases/deny_runtime_history_write.sql",
+      "sha256": "99df0071688792b22ab8bbdac137f884eaa095d1d55b584bd98e23b3ecdfbd8a"
+    },
+    {
+      "bytes": 930,
+      "path": "sql/cases/probe_force_rls.sql",
+      "sha256": "d6e6e784c800219ec0e8f071a58bc7da42b000b85cd1234a46706c2a5de9a7f3"
+    },
+    {
+      "bytes": 1213,
+      "path": "sql/cases/probe_head_state.sql",
+      "sha256": "8dfd30d6667b924efb6ea0836285bd4eab04dcf2acfa22c4c78cb64e8483ca19"
+    },
+    {
+      "bytes": 589,
+      "path": "sql/cases/probe_history_count.sql",
+      "sha256": "db9ba01e1ffaac811b55691d07fbf6dc37890f72e2b598914e7ef36a2d780775"
+    },
+    {
+      "bytes": 608,
+      "path": "sql/cases/probe_no_partial_artifact.sql",
+      "sha256": "3823e041c44dfad075eb0cb70f7e2bec3293df070caad583c32cfc7f95409be3"
+    },
+    {
+      "bytes": 1856,
+      "path": "sql/cases/probe_privileges.sql",
+      "sha256": "91f64a56064acf0d4845f86bf5af3ce8526d9ca10a00724c008709825a1eff7a"
+    },
+    {
+      "bytes": 741,
+      "path": "sql/cases/probe_rls_read.sql",
+      "sha256": "947d986e60b4f66a4e8de1782d1e6c93cb6d5cabeebf988447925f45dfba414e"
+    },
+    {
+      "bytes": 534,
+      "path": "sql/cases/probe_rls_seed.sql",
+      "sha256": "be19efe6f8f91a7869b49f7387c5fd3483491753ce855f90ab3a60e23a258fd4"
+    },
+    {
+      "bytes": 416,
+      "path": "sql/cases/probe_runtime_read_history.sql",
+      "sha256": "6bdf82eddbdac3d64cc95f3de73e4b310176a12899572661a0c4e0e052dc53be"
+    }
+  ],
+  "compose_file": "compose.yaml",
+  "compose_project": "fincilia-db-spike",
+  "container_sql_root": "/spike/sql",
+  "data_classification": "synthetic_only",
+  "database": "fincilia_db_spike",
+  "driver": {
+    "bytes": 2244,
+    "path": "sql/apply_one.sql",
+    "sha256": "d6f9ecacf2bc99bbc66ece16c041f14fba59808c259f694b400bf98defb90143"
+  },
+  "failing": [
+    {
+      "bytes": 409,
+      "path": "sql/cases/failing/V0009__partial_failure.sql",
+      "sha256": "ab70e95c65819c8b589ddd30105a4f771871571e9a6c31797ae3bad6dae25bbd"
+    }
+  ],
+  "human_acceptance": "pending",
+  "inventory_rule": "todo fichero .sql bajo spikes/FNC-DB-002 figura aqui con su digest; un fichero no manifestado es un fallo de validacion, no un extra inofensivo",
+  "migrations": [
+    {
+      "bytes": 1119,
+      "name": "create_company_ledger",
+      "path": "sql/migrations/V0001__create_company_ledger.sql",
+      "sha256": "bb3fb8546e9823563734e652f961a41f67581d24d904c146f2312c913cf7daff",
+      "version": "V0001"
+    },
+    {
+      "bytes": 448,
+      "name": "index_company_ledger",
+      "path": "sql/migrations/V0002__index_company_ledger.sql",
+      "sha256": "420e00b76c933675e19bcf23682a570611ce8e5d9f803aa99c557cbd571d8e18",
+      "version": "V0002"
+    },
+    {
+      "bytes": 649,
+      "name": "expand_reference_optional",
+      "path": "sql/migrations/V0003__expand_reference_optional.sql",
+      "sha256": "befcc465588d1078eddbdda0209db23b3cd2ea57a02e19d9d085c04a73d4aa9e",
+      "version": "V0003"
+    }
+  ],
+  "provenance": "escrito a mano dentro del repositorio; sin origen externo, sin red y sin datos de cliente",
+  "roles": {
+    "bootstrap": "fnc_spike_bootstrap",
+    "migrator": "fnc_spike_migrator",
+    "runtime": "fnc_spike_runtime"
+  },
+  "schema_version": 1,
+  "status": "review_pending",
+  "tampered": [
+    {
+      "bytes": 790,
+      "path": "sql/cases/tampered/V0001__create_company_ledger.sql",
+      "sha256": "c94898b04e41833bce10699633ea6bc6d17a90ffb02dd2e14b811e180a0ae689"
+    }
+  ],
+  "task_id": "FNC-DB-002"
+}

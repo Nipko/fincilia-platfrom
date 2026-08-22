@@ -31,6 +31,10 @@ Una celda de implementación vacía significa no implementado. No se rellena con
 | REQ-FNC-064-WORKSPACE | §20–§21 | PLT-006 | `workspace-scaffold.json`, siete componentes | `tools.workspace_contract.test_validate` | S1-READY | Review; product code blocked |
 | REQ-FNC-065-CONFIG | §20, §29 | CFG-001 | `runtime-config.json`, `.env.example` | `tools.runtime_config.test_validate` | CFG-G01..G03 | Review; production disabled |
 | REQ-FNC-066-MIGRATIONS | §23.2 | DB-001 | `migration-tooling.json`, ADR-002 evaluation | `tools.migration_readiness.test_validate` | DB-G01..G04 | Review; tool not selected |
+| REQ-FNC-067-SUPPLY-CHAIN | §29, §54 | SUP-001 | `supply-chain.json`, inventario de pins y gaps de procedencia | `tools.supply_chain.test_validate` | DRG-00 / TM-005 | Review pending; SBOM, firma y procedencia abiertos |
+| REQ-FNC-068-MIGRATION-SPIKE | §23.2 | DB-002 | `migration-spike.json`, PostgreSQL 17 descartable | `tools.migration_spike.test_validate`, carril CI PostgreSQL | ADR-002-MIGRATIONS | Review pending; 12/12 invariantes, ADR no aceptado |
+| REQ-FNC-069-DEVELOPER-CLI | §20, §52 | PLT-007 | `developer-cli.json`, CLI allowlisted | `tools.dev_cli.test_cli` | S1-READY | Review pending |
+| REQ-FNC-070-S1-READINESS | §51–§52 | GAT-003 | `s1-readiness.json`, reporte fail-closed | `tools.s1_readiness.test_validate` | S1-READY | Review pending; 10 blockers, aceptación humana pendiente |
 
 ## Campos al implementar
 

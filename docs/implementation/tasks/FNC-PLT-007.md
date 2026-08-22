@@ -1,10 +1,10 @@
 ---
 task: FNC-PLT-007
 title: CLI segura de desarrollo y diagnóstico local
-status: claimed
+status: review_pending
 implementer: Claude (external principal dev)
 base_sha: 48b21d1
-integration_sha: pending_integration_steward
+integration_sha: see_git_commit_containing_this_task
 gate: S1-READY
 data_ceiling: synthetic_only
 independent_reviewers: [Platform, Security, Developer Experience, QA]
