@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0.0",
+  "task": "FNC-FIN-001",
+  "status": "review_pending",
+  "currency": "COP",
+  "trm": {"cop_per_usd": 3062.96, "date": "2026-08-21", "source": "https://www.superfinanciera.gov.co/CargaDriver/"},
+  "planning_horizon_months": 10,
+  "contingency_percent": 30,
+  "uncontracted_revenue_counted": false,
+  "founder_approved": false,
+  "scenarios": [
+    {"id": "lean", "person_months": 85, "loaded_cost_per_person_month_cop": 18000000, "non_labor_cop": {"cloud_and_environments": 70000000, "legal_privacy_brand": 100000000, "security_and_pentest": 90000000, "devices_and_tools": 50000000, "research_pilots_support": 100000000, "vendors_and_sandboxes": 70000000}},
+    {"id": "base", "person_months": 95, "loaded_cost_per_person_month_cop": 22000000, "non_labor_cop": {"cloud_and_environments": 120000000, "legal_privacy_brand": 180000000, "security_and_pentest": 160000000, "devices_and_tools": 80000000, "research_pilots_support": 160000000, "vendors_and_sandboxes": 130000000}},
+    {"id": "high", "person_months": 105, "loaded_cost_per_person_month_cop": 28000000, "non_labor_cop": {"cloud_and_environments": 220000000, "legal_privacy_brand": 320000000, "security_and_pentest": 280000000, "devices_and_tools": 150000000, "research_pilots_support": 280000000, "vendors_and_sandboxes": 250000000}}
+  ],
+  "phase_release": [
+    {"phase": "F0", "state": "not_released", "requires": ["S1-READY", "founder_budget_approval"]},
+    {"phase": "F1", "state": "not_released", "requires": ["F0_gate", "capital_committed_through_F2_plus_30_percent"]},
+    {"phase": "F2", "state": "not_released", "requires": ["F1_gate", "updated_forecast"]}
+  ],
+  "sensitivity": {"fx_percent": [-25, -10, 0, 10, 25], "person_month_percent": [-10, 0, 10], "non_labor_percent": [-20, 0, 20]},
+  "required_human_inputs": ["loaded_cost_by_role", "employment_and_contractor_mix", "tax_and_benefit_load", "cloud_quotes", "vendor_quotes", "legal_quotes", "security_quotes", "payment_schedule", "cash_on_hand", "committed_capital"]
+}

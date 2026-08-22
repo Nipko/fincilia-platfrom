@@ -92,6 +92,9 @@ Hasta S1-READY solo se admite scaffolding, automatización, pruebas, documentaci
 | FNC-ARC-003 | Paquete A-02 de región, transmisión y subencargados | Review pending | Integration Steward | docs/architecture/REGION_TRANSMISSION_DECISION.md, ADR-020, tools/region_decision, handoff |
 | FNC-ARC-006 | Readiness ejecutable de ADR bloqueantes | Review pending | Integration Steward | docs/architecture/ADR_READINESS.md, adr-readiness.json, tools/adr_readiness, handoff |
 | FNC-INT-001 | Due diligence y RFQ de conectividad read-only | Review pending | Integration Steward | docs/integrations, tools/provider_evaluation, handoff |
+| FNC-FIN-001 | Presupuesto ejecutable F0–F2 y runway | Review pending | Integration Steward | docs/business/BUDGET_F0_F2.md, budget-f0-f2.json, tools/budget_model, handoff |
+| FNC-RES-001 | Protocolo seguro de investigación de cierres | Review pending | Integration Steward | docs/product/RESEARCH_PROTOCOL.md, research-protocol.json, tools/research_protocol, handoff |
+| FNC-BRD-001 | Clearance preliminar y paquete legal de Fincilia | Review pending | Integration Steward | docs/business/BRAND_CLEARANCE_FINCILIA.md, brand-clearance.json, tools/brand_clearance, handoff |
 | FNC-QA-002 | Estrategia ejecutable de pruebas y huecos declarados | Review pending | Claude + Integration Steward | docs/testing/TEST_STRATEGY.md, test-strategy.json, tools/quality_strategy, handoff |
 | FNC-QA-003 | Golden harness adjudicado y fail-closed | Review pending | Claude + Integration Steward | docs/testing/GOLDEN_HARNESS.md, golden-harness.json, tools/golden_harness, tests/golden/harness, handoff |
 | FNC-QA-004 | Catálogo ejecutable y reconciliación dinámica | Claimed | Claude | docs/testing/TEST_CATALOG_MODEL.md, test-catalog-model.json, tools/test_catalog, handoff |
@@ -129,6 +132,9 @@ Solo el Integration Steward modifica esta tabla.
 | 1 | FNC-ARC-003 Decisión de región y transmisión | FNC-ARC-002 | Review pending; decisión humana A-02 pendiente |
 | 1 | FNC-ARC-006 Paquete de ADR bloqueantes | FNC-DOM-001..005, FNC-ARC-001..005 | Review pending; S1-READY continúa not_met |
 | 1 | FNC-INT-001 Cotizaciones comparables de agregadores | FNC-PRD-001 | Review pending; outreach humano y 3 respuestas pendientes |
+| 1 | FNC-FIN-001 Presupuesto F0–F2 +30% | FNC-INT-001, FNC-PLT-005 | Review pending; costos/capital requieren Founder/Finance |
+| 1 | FNC-RES-001 Protocolo 5 firmas/10 cierres | FNC-GOV-001 para ejecutar | Review pending; sesiones reales no autorizadas |
+| 1 | FNC-BRD-001 Clearance jurídico Fincilia | Ninguna para borrador | Review pending; SIC/WIPO y filing pendientes de Legal/Founder |
 | 1 | FNC-QA-002 Estrategia integral de pruebas | FNC-DOM-002..005 | Review pending |
 | 1 | FNC-QA-003 Golden harness determinista | FNC-DAT-002, FNC-DOM-002..005 | Review pending |
 | 1 | FNC-QA-004 Catálogo ejecutable de pruebas | FNC-QA-002/003 | Claimed by Claude |

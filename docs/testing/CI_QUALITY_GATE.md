@@ -88,6 +88,8 @@ Desde la raíz:
 python3 -m tools.quality_gate.cli
 python3 -m tools.architecture_model.validate
 python3 -m tools.adr_readiness.validate
+python3 -m tools.brand_clearance.validate
+python3 -m tools.budget_model.validate
 python3 -m tools.canonical_model.validate
 python3 -m tools.completeness_model.validate
 python3 -m tools.connector_model.validate
@@ -99,10 +101,11 @@ python3 -m tools.privacy_model.validate
 python3 -m tools.provider_evaluation.validate
 python3 -m tools.quality_strategy.validate
 python3 -m tools.region_decision.validate
+python3 -m tools.research_protocol.validate
 python3 -m tools.threat_model.validate
 python3 -m tools.ux_contract.validate
 python3 -m tools.work_graph.validate
-python3 -m unittest tools.architecture_model.test_validate tools.adr_readiness.test_validate tools.canonical_model.test_validate tools.completeness_model.test_validate tools.connector_model.test_validate tools.dfd_model.test_validate tools.event_model.test_validate tools.idempotency_model.test_validate tools.privacy_model.test_validate tools.provider_evaluation.test_validate tools.quality_strategy.test_validate tools.threat_model.test_validate tools.quality_gate.test_repo_policy tools.synthetic_corpus.test_corpus -v
+python3 -m unittest tools.architecture_model.test_validate tools.adr_readiness.test_validate tools.brand_clearance.test_validate tools.budget_model.test_validate tools.canonical_model.test_validate tools.completeness_model.test_validate tools.connector_model.test_validate tools.dfd_model.test_validate tools.event_model.test_validate tools.idempotency_model.test_validate tools.privacy_model.test_validate tools.provider_evaluation.test_validate tools.quality_strategy.test_validate tools.region_decision.test_validate tools.research_protocol.test_validate tools.threat_model.test_validate tools.quality_gate.test_repo_policy tools.synthetic_corpus.test_corpus -v
 python3 -m tools.synthetic_corpus.cli verify --root tests/golden/synthetic
 python3 -m tools.golden_harness.cli verify
 python3 -m tools.golden_harness.cli run

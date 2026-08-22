@@ -1,0 +1,41 @@
+{
+  "schema_version":"1.0.0",
+  "task":"FNC-BRD-001",
+  "status":"review_pending",
+  "evidence_checked_at":"2026-08-21",
+  "legal_clearance":"pending_counsel",
+  "agent_may_file_or_reserve":false,
+  "preferred_name":"Fincilia",
+  "preferred_state":"provisional_pending_legal_clearance",
+  "descriptor_es":"Plataforma de conciliación, cierre y control financiero",
+  "descriptor_en":"Financial reconciliation, close and control platform",
+  "tagline_es":"Coteja datos. Empata movimientos. Cierra con confianza.",
+  "tagline_en":"Compare records. Match transactions. Close with confidence.",
+  "candidates":[
+    {"name":"Fincilia","role":"preferred_mark","meaning":"finanzas + concilia","strengths":["distintiva","extensible","pronunciable_en_es","permite_familia_de_producto"],"risks":["requiere_descriptor_en_ingles","similitud_visual_fonetica_por_buscar","resultado_OCR_IRFIS_FinSicilia","uso_de_Fincilia_como_nombre_personal_en_otros_paises"],"legal_risk":"unknown_pending_search"},
+    {"name":"Cotejo","role":"product_language_only","meaning":"comparación o verificación","strengths":["claridad_en_es","describe_una_funcion"],"risks":["descriptiva","débil_registrabilidad","múltiples_usos_de_software","comprensión_limitada_en_ingles"],"legal_risk":"high_preliminary"},
+    {"name":"Empatar","role":"campaign_language_only","meaning":"hacer coincidir","strengths":["acción_clara_en_LatAm","útil_en_copy"],"risks":["verbo_genérico","fútbol_apuestas_empate","puede_sugerir_estancamiento","débil_en_ingles"],"legal_risk":"medium_high_preliminary"}
+  ],
+  "search_plan":{"jurisdictions":["CO","WIPO_MADRID"],"expansion_checks":["US","EU","MX","BR","CL"],"nice_classes_candidate":[9,35,36,42],"similarity":["exact","phonetic","visual","conceptual","prefix_suffix","translations"],"registries":[
+    {"id":"SIC_CO","url":"https://sipi.sic.gov.co/sipi/Extra/Default.aspx?sid=638915700113909782","state":"pending_manual_legal_search"},
+    {"id":"WIPO_GBD","url":"https://branddb.wipo.int/","state":"pending_manual_legal_search"},
+    {"id":"USPTO","url":"https://tmsearch.uspto.gov/","state":"optional_pending_expansion"},
+    {"id":"EUIPO","url":"https://euipo.europa.eu/eSearch/","state":"optional_pending_expansion"}
+  ]},
+  "channels":[
+    {"channel":"general_web","state":"preliminary_complete","result":"no_exact_financial_software_collision_found_but_not_legal_evidence"},
+    {"channel":"app_store_search","state":"preliminary_complete","result":"no_exact_app_result_observed_search_engine_not_exhaustive"},
+    {"channel":"play_store_search","state":"preliminary_complete","result":"no_exact_app_result_observed_search_engine_not_exhaustive"},
+    {"channel":"domains","state":"pending_registrar_and_legal","result":"no_availability_claim"},
+    {"channel":"social_handles","state":"pending","result":"no_availability_claim"}
+  ],
+  "brand_architecture":["Fincilia Clean","Fincilia Match","Fincilia Close","Fincilia Insights","Fincilia Firm","Fincilia Mobile"],
+  "gates":[
+    {"id":"BRD-G01","state":"not_met","rule":"SIC_exact_and_similarity_search_by_counsel"},
+    {"id":"BRD-G02","state":"not_met","rule":"WIPO_and_relevant_jurisdictions_search"},
+    {"id":"BRD-G03","state":"not_met","rule":"nice_class_scope_approved"},
+    {"id":"BRD-G04","state":"not_met","rule":"domains_and_handles_verified_same_day"},
+    {"id":"BRD-G05","state":"not_met","rule":"founder_approves_filing_budget_and_owner"},
+    {"id":"BRD-G06","state":"not_met","rule":"application_filed_or_counsel_accepts_use_risk"}
+  ]
+}

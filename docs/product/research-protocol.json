@@ -1,0 +1,18 @@
+{
+  "schema_version":"1.0.0",
+  "task":"FNC-RES-001",
+  "status":"review_pending",
+  "data_ceiling":"synthetic_only",
+  "real_sessions_authorized":false,
+  "recording_allowed":false,
+  "artifact_collection_allowed":false,
+  "human_approval":"pending",
+  "sample":{"accounting_firms":5,"close_cycles":10,"independent_smes":5,"minimum_two_cycles_same_process":true},
+  "allowed_now":["synthetic_walkthrough","questionnaire_rehearsal","prototype_test_with_invented_data","recruiting_without_financial_details"],
+  "prohibited_now":["bank_statement","invoice","tax_id","account_number","customer_name","email_export","screen_recording","credentials","otp","dian_certificate","erp_export","transaction_amount","production_screenshot"],
+  "session_contract":{"roles":["moderator","note_taker","participant"],"consent_script_required":true,"stop_rule":"participant_starts_sharing_real_financial_data","notes":"structured_categories_only","free_text":"redact_during_session","retention":"none_until_legal_policy_L-01","remote_tools":"pending_privacy_review"},
+  "research_questions":["current_close_sequence","sources_expected","handoffs_and_roles","exception_categories","time_by_stage_band","rework_frequency_band","evidence_needed_for_approval","change_of_accountant_process","file_format_names_without_files","willingness_to_pay_method_not_price_anchor"],
+  "metrics":["close_lead_time_band","manual_hours_band","exception_count_band","source_count_band","handoff_count_band","rework_events_band","confidence_score_1_5","prototype_task_completion"],
+  "outputs":["aggregated_journey_map","exception_taxonomy","jobs_to_be_done","format_priority_claims_unverified","pricing_interview_notes","hypothesis_decisions"],
+  "gates":[{"id":"RES-G01","state":"not_met","rule":"named_product_privacy_accounting_reviewers"},{"id":"RES-G02","state":"not_met","rule":"consent_and_recruiting_copy_approved"},{"id":"RES-G03","state":"not_met","rule":"retention_and_redaction_policy_approved"},{"id":"RES-G04","state":"not_met","rule":"five_firms_and_ten_cycles_completed"}]
+}

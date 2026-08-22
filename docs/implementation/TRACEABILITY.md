@@ -25,6 +25,9 @@ Una celda de implementación vacía significa no implementado. No se rellena con
 | REQ-FNC-058-REGION | §20, §29, §31 | ARC-003 | ADR-020 y `region-transmission-decision.json` | TST-A02-001 | A-02 | Review; human decision pending |
 | REQ-FNC-059-ADR-READINESS | §51–§52 | ARC-006 | `adr-readiness.json`, inventario ADR y blockers | `tools.adr_readiness.test_validate` | S1-READY | Review; gate not met |
 | REQ-FNC-060-CONNECTIVITY-VENDOR | §25, §44 | INT-001 | `provider-evaluation.json`, due diligence y RFQ | `tools.provider_evaluation.test_validate` | INT-G02..G07 | Review; quotes pending |
+| REQ-FNC-061-CAPITAL | §49–§50 | FIN-001 | `budget-f0-f2.json`, escenarios COP/USD +30% | `tools.budget_model.test_validate` | F0-CAPITAL | Review; founder approval pending |
+| REQ-FNC-062-RESEARCH | §48 F0 | RES-001 | `research-protocol.json`, guion y límites de captura | `tools.research_protocol.test_validate` | RES-G01..G04 | Review; real sessions blocked |
+| REQ-FNC-063-BRAND | §48 F0 | BRD-001 | `brand-clearance.json`, búsqueda y arquitectura de marca | `tools.brand_clearance.test_validate` | BRD-G01..G06 | Review; counsel pending |
 
 ## Campos al implementar
 
