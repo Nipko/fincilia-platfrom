@@ -93,6 +93,7 @@ python3 -m tools.event_model.validate
 python3 -m tools.idempotency_model.validate
 python3 -m tools.local_stack.validate
 python3 -m tools.privacy_model.validate
+python3 -m tools.region_decision.validate
 python3 -m tools.threat_model.validate
 python3 -m tools.ux_contract.validate
 python3 -m tools.work_graph.validate

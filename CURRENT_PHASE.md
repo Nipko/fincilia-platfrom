@@ -89,6 +89,7 @@ Hasta S1-READY solo se admite scaffolding, automatización, pruebas, documentaci
 | FNC-GOV-003 | Grafo ejecutable de trabajo y reservas | Review pending | Integration Steward | docs/implementation/WORK_GRAPH.md, work-graph.json, tools/work_graph, CI, handoff |
 | FNC-PLT-002 | Entorno local mínimo y lifecycle reproducible | Review pending | Integration Steward | infra/local, tools/local_stack, CI, evidencia, handoff |
 | FNC-UX-001 | Arquitectura de información y prototipo accesible | Review pending | Integration Steward | docs/ux, tools/ux_contract, CI, handoff |
+| FNC-ARC-003 | Paquete A-02 de región, transmisión y subencargados | Review pending | Integration Steward | docs/architecture/REGION_TRANSMISSION_DECISION.md, ADR-020, tools/region_decision, handoff |
 
 Solo el Integration Steward modifica esta tabla.
 
@@ -119,6 +120,7 @@ Solo el Integration Steward modifica esta tabla.
 | 1 | FNC-DOM-005 Linaje, overlays y engine release | FNC-DOM-002/004, FNC-PRV-001 | Review pending |
 | 1 | FNC-PLT-005 Spike auth-context, RLS, eventos y parser | FNC-DOM-001, FNC-SEC-001, FNC-ARC-004 | Review pending |
 | 1 | FNC-ARC-006A Reconciliación cross-contract | FNC-ARC-002, FNC-DOM-005, FNC-PRV-001 | Review pending |
+| 1 | FNC-ARC-003 Decisión de región y transmisión | FNC-ARC-002 | Review pending; decisión humana A-02 pendiente |
 
 Draftable significa que un agente puede preparar un borrador, pero no marcarlo Accepted hasta resolver la dependencia.
 

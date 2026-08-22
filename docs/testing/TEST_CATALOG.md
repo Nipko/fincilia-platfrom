@@ -49,6 +49,7 @@
 | TST-CON-001 | Conector tolera replay, cursor, corrección y degradación | FNC-ARC-005 |
 | TST-DRG-001 | Egress IA denegado, acceso auditado y purga reconciliada | FNC-QA-001 |
 | TST-A11Y-001 | Teclado, foco, encabezados y estados no solo por color | FNC-UX-001 |
+| TST-A02-001 | Región, transmisión, stores, gates y selección permanecen fail-closed | FNC-ARC-003 |
 | TST-AI-001 | Redacción fail-closed, abstención, rollback y presupuesto | Fase 4 |
 
 Los tests todavía son especificaciones. Un ID solo cambia a Implemented cuando existe un comando reproducible y evidencia en CI.

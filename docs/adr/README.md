@@ -23,7 +23,7 @@ Los ADR Accepted no se reescriben sustantivamente; una decisión nueva los super
 | 017 | No Kafka/Kubernetes inicial | Planned |
 | 018 | OCR abstraído/fallback | Planned |
 | 019 | OpenTelemetry y audit log | Planned |
-| 020 | Región/transmisión/subencargados | Pending A-02/L-02 |
+| 020 | Región/transmisión/subencargados | Proposed; paquete A-02 en review, decisión humana pendiente |
 | 021 | RPO/RTO/delete ledger/Object Lock | Planned |
 | 022 | Routing/celdas y transferencia | Planned |
 | [023](ADR-023-engine-release.md) | Engine release y reproducibilidad | Accepted |
@@ -37,4 +37,3 @@ Los ADR Accepted no se reescriben sustantivamente; una decisión nueva los super
 - Rejected: evaluado y descartado.
 - Superseded: sustituido por otro ADR.
 - Deprecated: sigue existiendo pero debe retirarse.
-

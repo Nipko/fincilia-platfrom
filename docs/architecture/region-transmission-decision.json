@@ -1,0 +1,175 @@
+{
+  "schema_version": "1.0.0",
+  "task": "FNC-ARC-003",
+  "decision_id": "A-02",
+  "decision_status": "pending_human_review",
+  "human_acceptance": false,
+  "evidence_as_of": "2026-08-21",
+  "default_posture": {
+    "deployment": "local_synthetic_only",
+    "real_data": "forbidden",
+    "external_egress": "deny",
+    "external_ai": "forbidden",
+    "cross_region_replication": "forbidden"
+  },
+  "candidate_locations": [
+    {
+      "id": "LOC-AWS-BR",
+      "provider": "AWS",
+      "region_code": "sa-east-1",
+      "geography": "Brazil",
+      "city_or_state": "Sao Paulo",
+      "availability_zone_fact": "3",
+      "source_ids": ["SRC-AWS-REGIONS"],
+      "selected": false,
+      "legal_suitability": "unknown_requires_legal",
+      "service_matrix_status": "unverified"
+    },
+    {
+      "id": "LOC-AZURE-CL",
+      "provider": "Azure",
+      "region_code": "chilecentral",
+      "geography": "Chile",
+      "city_or_state": "Santiago",
+      "availability_zone_fact": "supported",
+      "source_ids": ["SRC-AZURE-REGIONS"],
+      "selected": false,
+      "legal_suitability": "unknown_requires_legal",
+      "service_matrix_status": "unverified"
+    },
+    {
+      "id": "LOC-AZURE-BR",
+      "provider": "Azure",
+      "region_code": "brazilsouth",
+      "geography": "Brazil",
+      "city_or_state": "Sao Paulo State",
+      "availability_zone_fact": "supported; documented pair is South Central US",
+      "source_ids": ["SRC-AZURE-REGIONS", "SRC-AZURE-PAIRS"],
+      "selected": false,
+      "legal_suitability": "unknown_requires_legal",
+      "service_matrix_status": "unverified"
+    },
+    {
+      "id": "LOC-GCP-CL",
+      "provider": "Google Cloud",
+      "region_code": "southamerica-west1",
+      "geography": "Chile",
+      "city_or_state": "Santiago",
+      "availability_zone_fact": "zones a, b and c documented",
+      "source_ids": ["SRC-GCP-REGIONS"],
+      "selected": false,
+      "legal_suitability": "unknown_requires_legal",
+      "service_matrix_status": "unverified"
+    },
+    {
+      "id": "LOC-GCP-BR",
+      "provider": "Google Cloud",
+      "region_code": "southamerica-east1",
+      "geography": "Brazil",
+      "city_or_state": "Osasco, Sao Paulo",
+      "availability_zone_fact": "zones a, b and c documented",
+      "source_ids": ["SRC-GCP-REGIONS"],
+      "selected": false,
+      "legal_suitability": "unknown_requires_legal",
+      "service_matrix_status": "unverified"
+    }
+  ],
+  "location_inference": {
+    "colombia_full_public_cloud_region_evidenced": false,
+    "scope": "candidate provider primary sources reviewed on evidence_as_of date",
+    "reverify_before_decision": true,
+    "edge_or_local_zone_counts_as_full_region": false
+  },
+  "data_planes": [
+    "postgresql_domain",
+    "object_quarantine",
+    "object_raw",
+    "object_derived",
+    "object_exports",
+    "security_archive_delete_ledger",
+    "backup_and_wal",
+    "queue_and_workflow_history",
+    "secrets_and_kms_metadata",
+    "telemetry_and_support",
+    "identity_and_notifications",
+    "analytics_projection",
+    "ai_gateway_and_provider"
+  ],
+  "service_location_contract": {
+    "required_fields": [
+      "provider_service",
+      "primary_processing_location",
+      "at_rest_location",
+      "backup_location",
+      "disaster_recovery_location",
+      "control_plane_location",
+      "support_access_locations",
+      "subprocessor_locations",
+      "deletion_propagation",
+      "portability_format",
+      "contract_evidence",
+      "technical_evidence"
+    ],
+    "all_planes_state": "unknown_blocks_cloud"
+  },
+  "decision_gates": [
+    {"id":"A02-G01","name":"classify_transfer_transmission_and_roles_per_activity","owner":"Legal","reviewer":"Privacy","state":"not_met","evidence":"signed_legal_matrix"},
+    {"id":"A02-G02","name":"approve_dpa_model_clauses_and_audit_rights","owner":"Legal","reviewer":"Security","state":"not_met","evidence":"executed_contract_or_approved_template"},
+    {"id":"A02-G03","name":"inventory_subprocessors_and_support_locations","owner":"Privacy","reviewer":"Legal","state":"not_met","evidence":"versioned_subprocessor_register"},
+    {"id":"A02-G04","name":"verify_every_data_plane_by_service","owner":"Platform","reviewer":"Privacy","state":"not_met","evidence":"service_location_matrix"},
+    {"id":"A02-G05","name":"verify_backup_dr_and_restore_tombstones","owner":"Platform","reviewer":"Security","state":"not_met","evidence":"tested_dr_design"},
+    {"id":"A02-G06","name":"verify_encryption_keys_secrets_and_privileged_access","owner":"Security","reviewer":"Platform","state":"not_met","evidence":"security_assessment"},
+    {"id":"A02-G07","name":"benchmark_bogota_latency_and_failure_modes","owner":"Platform","reviewer":"Product","state":"not_met","evidence":"reproducible_benchmark"},
+    {"id":"A02-G08","name":"quote_cost_egress_support_and_fx","owner":"Finance","reviewer":"Platform","state":"not_met","evidence":"comparable_quotes_at_full_utilization"},
+    {"id":"A02-G09","name":"prove_portability_exit_and_secure_deletion","owner":"Architecture","reviewer":"Privacy","state":"not_met","evidence":"exit_rehearsal_plan"},
+    {"id":"A02-G10","name":"approve_provider_region_and_residual_risks","owner":"Architecture","reviewer":"Legal","state":"not_met","evidence":"signed_ADR_020"}
+  ],
+  "scoring_policy": {
+    "scores_allowed_before_gates_G01_to_G06": false,
+    "dimensions": [
+      {"id":"legal_privacy","weight":25},
+      {"id":"security_location_control","weight":20},
+      {"id":"service_coverage","weight":20},
+      {"id":"availability_dr","weight":15},
+      {"id":"cost_margin_fx","weight":10},
+      {"id":"latency","weight":5},
+      {"id":"portability_exit","weight":5}
+    ],
+    "winner": null
+  },
+  "architecture_constraints": [
+    "single_primary_region_multi_zone_before_multi_region",
+    "no_cross_region_replication_without_explicit_legal_and_service_review",
+    "edge_locations_never_store_raw_financial_evidence",
+    "global_control_plane_and_support_access_are_location_relevant",
+    "backup_restore_reapplies_delete_ledger_before_service_reopens",
+    "security_archive_remains_separate_from_ordinary_restore",
+    "files_remain_permanent_fallback_independent_of_cloud_connector",
+    "external_ai_requires_separate_company_policy_and_AI_gateway"
+  ],
+  "prohibited_inferences": [
+    "provider_certification_equals_legal_compliance",
+    "region_name_proves_all_service_data_residency",
+    "edge_location_equals_full_region",
+    "same_continent_equals_adequate_country",
+    "region_pair_implies_approved_replication",
+    "encrypted_data_is_outside_personal_data_rules"
+  ],
+  "sources": [
+    {"id":"SRC-SIC-CIRCULAR-001-2026","authority":"SIC Colombia","url":"https://sedeelectronica.sic.gov.co/sites/default/files/normativa/T%C3%ADtulo%20V.%20Circular%20001%20del%209%20de%20enero%20de%202026.%20Publicada%20en%20el%20Diario%20Oficial%20No.%2053.362%20del%2009%20de%20enero%20de%202026.pdf","kind":"regulation","retrieved":"2026-08-21"},
+    {"id":"SRC-SIC-CIRCULAR-003-2025","authority":"SIC Colombia","url":"https://sedeelectronica.sic.gov.co/sites/default/files/normativa/Circular%20Externa%20003%20de%202025.pdf","kind":"model_clauses_instruction","retrieved":"2026-08-21"},
+    {"id":"SRC-SIC-CONCEPT-2026","authority":"SIC Colombia","url":"https://sedeelectronica.sic.gov.co/publicaciones/boletin-juridico/concepto/alcance-de-la-circular-002-de-2025-sobre-transferencias-internacionales-de-datos","kind":"official_legal_concept","retrieved":"2026-08-21"},
+    {"id":"SRC-AWS-REGIONS","authority":"AWS","url":"https://docs.aws.amazon.com/global-infrastructure/latest/regions/aws-regions.html","kind":"provider_region_inventory","retrieved":"2026-08-21"},
+    {"id":"SRC-AZURE-REGIONS","authority":"Microsoft","url":"https://learn.microsoft.com/en-us/azure/reliability/regions-list","kind":"provider_region_inventory","retrieved":"2026-08-21"},
+    {"id":"SRC-AZURE-PAIRS","authority":"Microsoft","url":"https://learn.microsoft.com/en-us/azure/reliability/regions-paired","kind":"provider_region_relationship","retrieved":"2026-08-21"},
+    {"id":"SRC-GCP-REGIONS","authority":"Google Cloud","url":"https://docs.cloud.google.com/compute/docs/regions-zones","kind":"provider_region_inventory","retrieved":"2026-08-21"}
+  ],
+  "open_decisions": [
+    "UD-A02-LEGAL-CLASSIFICATION",
+    "UD-A02-PROVIDER-REGION",
+    "UD-A02-SERVICE-MATRIX",
+    "UD-A02-DR-TOPOLOGY",
+    "UD-A02-SUPPORT-SUBPROCESSORS",
+    "UD-A02-COST-LATENCY-EXIT"
+  ]
+}
