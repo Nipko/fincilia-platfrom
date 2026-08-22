@@ -1,0 +1,13 @@
+{
+  "artifact_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "data_classification": "synthetic",
+  "idempotency_key": "synthetic-import-one",
+  "requested_effect": "draft",
+  "rows": [
+    {
+      "amount": "125000.00",
+      "date": "2026-08-01",
+      "reference": "SYN-001"
+    }
+  ]
+}

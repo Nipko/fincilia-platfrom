@@ -92,3 +92,28 @@ jobs:
       - name: Cleanup
         if: always()
         run: docker compose --profile test down --volumes --remove-orphans
+
+  authorization-event-spike:
+    name: Authorization, event and parser boundary spike
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: spikes/FNC-PLT-005
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Validate Compose
+        run: docker compose config --quiet
+      - name: Start PostgreSQL
+        run: docker compose up -d --wait
+      - name: Typecheck, dependency audit and integration tests
+        run: >-
+          docker compose --profile test run --rm integration-test sh -lc
+          "npm ci --ignore-scripts && npm audit --audit-level=high && npm run typecheck && npm test"
+      - name: Python parser boundary tests
+        working-directory: spikes/FNC-PLT-005/worker
+        run: python3 -m unittest -v
+      - name: Cleanup
+        if: always()
+        run: docker compose --profile test down --volumes --remove-orphans
