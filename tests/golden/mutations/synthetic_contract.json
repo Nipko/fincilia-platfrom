@@ -1,0 +1,14 @@
+{
+  "authority_flag": true,
+  "controls": [
+    "alpha",
+    "beta",
+    "gamma"
+  ],
+  "data_ceiling": "synthetic_only",
+  "engine_version": "1.4.2",
+  "evidence_path": "tests/golden/mutations/synthetic_evidence.json",
+  "human_acceptance": "pending",
+  "note": "Contrato sintetico de laboratorio. No describe ningun sistema real.",
+  "schema_version": 1
+}

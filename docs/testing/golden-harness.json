@@ -523,7 +523,7 @@
         },
         {
           "path": "docs/domain/lineage-model.json",
-          "sha256": "cbb8811636db25d5e8a0fe370218c4469020d10c4efede74bafd7558b63d8054"
+          "sha256": "74e29ff731ddc143fee58176a53c296db1d519dc375f074d1fbf3bf9d1b90258"
         },
         {
           "path": "docs/privacy/privacy-map.json",
@@ -712,7 +712,7 @@
         },
         {
           "path": "docs/testing/TEST_CATALOG.md",
-          "sha256": "a33f531ee54e4bf29df6f09bf4b8dfab9668e1c2350d1fd35b13e0fde1c81d46"
+          "sha256": "fa16a273d5382fe251200aab6a68cda1cb201cd06e711b22b7895e0133f9d808"
         },
         {
           "path": "docs/testing/test-strategy.json",

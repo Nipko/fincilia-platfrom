@@ -1,0 +1,33 @@
+{
+  "data_classification": "synthetic_only",
+  "files": [
+    {
+      "bytes": 358,
+      "path": "tests/golden/mutations/synthetic_contract.json",
+      "sha256": "c5200b509c0a9107483859dba4754b3c5c455af2d3a3ea7373835bbb03b43b05"
+    },
+    {
+      "bytes": 137,
+      "path": "tests/golden/mutations/synthetic_evidence.json",
+      "sha256": "b51b1d122b8345d998ae8dda8e4f486095840bade13710a8b9079fcfc4a26918"
+    },
+    {
+      "bytes": 4652,
+      "path": "tests/golden/mutations/synthetic_validator.py",
+      "sha256": "e0611698143d475b0be994c6f507cb552a3421c53e750141ac586b4cf493025c"
+    }
+  ],
+  "human_acceptance": "pending",
+  "inventory_rule": "todo archivo bajo tests/golden/mutations debe figurar aqui con su digest; un fixture no inventariado es un fallo de prueba",
+  "network_access": false,
+  "owner_role": "QA",
+  "provenance": "generado a mano dentro del repositorio; sin origen externo, sin red y sin datos de cliente",
+  "purpose": "Fixtures sinteticos de laboratorio para el arnes de mutaciones. Ningun archivo describe un sistema, una entidad ni una persona real.",
+  "reviewer_roles": [
+    "Security",
+    "Architecture"
+  ],
+  "schema_version": 1,
+  "status": "review_pending",
+  "task_id": "FNC-QA-005"
+}

@@ -117,6 +117,16 @@ def validate_registry(
     if registry.get("auto_update_expected_allowed") is not False:
         fail("GH-AUTO-UPDATE", "auto_update_expected_allowed",
              "the runner never adjudicates its own expected outputs")
+    adjudication = registry.get("adjudication")
+    if (
+        not isinstance(adjudication, dict)
+        or adjudication.get("runner_can_update_expected") is not False
+        or adjudication.get("runner_can_update_input_digests") is not False
+        or not adjudication.get("authority")
+        or not adjudication.get("procedure")
+    ):
+        fail("GH-ADJUDICATION-AUTHORITY", "adjudication",
+             "expected outputs and input digests require explicit human adjudication")
     if registry.get("network_access") is not False:
         fail("GH-NETWORK", "network_access", "the harness has zero network by contract")
 

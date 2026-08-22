@@ -100,8 +100,8 @@ Hasta S1-READY solo se admite scaffolding, automatización, pruebas, documentaci
 | FNC-DB-001 | Evaluación de tooling de migraciones | Review pending | Integration Steward | docs/database/migration-tooling.json, tools/migration_readiness, handoff |
 | FNC-QA-002 | Estrategia ejecutable de pruebas y huecos declarados | Review pending | Claude + Integration Steward | docs/testing/TEST_STRATEGY.md, test-strategy.json, tools/quality_strategy, handoff |
 | FNC-QA-003 | Golden harness adjudicado y fail-closed | Review pending | Claude + Integration Steward | docs/testing/GOLDEN_HARNESS.md, golden-harness.json, tools/golden_harness, tests/golden/harness, handoff |
-| FNC-QA-004 | Catálogo ejecutable y reconciliación dinámica | Claimed | Claude | docs/testing/TEST_CATALOG_MODEL.md, test-catalog-model.json, tools/test_catalog, handoff |
-| FNC-QA-005 | Arnés determinista de mutaciones | Claimed | Claude | docs/testing/MUTATION_HARNESS.md, mutation-harness.json, tools/mutation_harness, tests/golden/mutations, handoff |
+| FNC-QA-004 | Catálogo ejecutable y reconciliación dinámica | Review pending | Claude + Integration Steward | docs/testing/TEST_CATALOG_MODEL.md, test-catalog-model.json, tools/test_catalog, catálogo, CI, handoff |
+| FNC-QA-005 | Arnés determinista de mutaciones | Review pending | Claude + Integration Steward | docs/testing/MUTATION_HARNESS.md, mutation-harness.json, tools/mutation_harness, tests/golden/mutations, CI, handoff |
 
 Solo el Integration Steward modifica esta tabla.
 
@@ -143,8 +143,8 @@ Solo el Integration Steward modifica esta tabla.
 | 1 | FNC-DB-001 Tooling de migraciones | FNC-PLT-001 | Review pending; spike Flyway no ejecutado |
 | 1 | FNC-QA-002 Estrategia integral de pruebas | FNC-DOM-002..005 | Review pending |
 | 1 | FNC-QA-003 Golden harness determinista | FNC-DAT-002, FNC-DOM-002..005 | Review pending |
-| 1 | FNC-QA-004 Catálogo ejecutable de pruebas | FNC-QA-002/003 | Claimed by Claude |
-| 1 | FNC-QA-005 Mutation harness de validadores | FNC-QA-002/003 | Claimed by Claude |
+| 1 | FNC-QA-004 Catálogo ejecutable de pruebas | FNC-QA-002/003 | Review pending; sin drift bloqueante |
+| 1 | FNC-QA-005 Mutation harness de validadores | FNC-QA-002/003 | Review pending; 63/63 mutaciones muertas |
 
 Draftable significa que un agente puede preparar un borrador, pero no marcarlo Accepted hasta resolver la dependencia.
 

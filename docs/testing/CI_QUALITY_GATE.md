@@ -27,9 +27,11 @@ El gate evita que un cambio aparentemente documental o de scaffolding debilite l
 8. validación de los 13 flujos del DFD y sus contratos de seguridad/privacidad;
 9. validación de cobertura/scoring del threat model y aceptación humana pendiente;
 10. validación dinámica de requisitos de prueba y huecos críticos declarados;
-11. regeneración byte a byte del corpus golden;
-12. verificación de digests y ejecución de los casos golden adjudicados, después de validar los contratos;
-13. 61 pruebas del kernel de autorización dentro de una imagen Node fijada por digest.
+11. reconciliación del catálogo ejecutable: drift alto bloquea y backlog medio sigue visible;
+12. regeneración byte a byte del corpus golden;
+13. verificación de digests y ejecución de los casos golden adjudicados, después de validar los contratos;
+14. verificación y ejecución aislada de 63 mutaciones contractuales; cualquier survivor crítico bloquea;
+15. 61 pruebas del kernel de autorización dentro de una imagen Node fijada por digest.
 
 ### PostgreSQL RLS and worker spike
 
@@ -101,6 +103,7 @@ python3 -m tools.migration_readiness.validate
 python3 -m tools.privacy_model.validate
 python3 -m tools.provider_evaluation.validate
 python3 -m tools.quality_strategy.validate
+python3 -m tools.test_catalog.cli validate
 python3 -m tools.region_decision.validate
 python3 -m tools.research_protocol.validate
 python3 -m tools.runtime_config.validate
@@ -113,6 +116,9 @@ python3 -m tools.synthetic_corpus.cli verify --root tests/golden/synthetic
 python3 -m tools.golden_harness.cli verify
 python3 -m tools.golden_harness.cli run
 python3 -m unittest tools.golden_harness.test_harness -v
+python3 -m tools.mutation_harness.cli verify
+python3 -m unittest tools.mutation_harness.test_harness -v
+python3 -m tools.mutation_harness.cli run
 ```
 
 Stack local desde WSL:

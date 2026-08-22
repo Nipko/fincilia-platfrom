@@ -461,7 +461,20 @@ def validate_model(
             if not path_value:
                 fail("PRV-EVIDENCE-PATH", location, "evidence entry without path")
                 continue
-            if not (repository_root / path_value).exists():
+            raw_path = Path(path_value)
+            root = repository_root.resolve()
+            if raw_path.is_absolute() or ".." in raw_path.parts:
+                fail("PRV-EVIDENCE-PATH", location,
+                     f"evidence path must be canonical and repository-relative: {path_value}")
+                continue
+            candidate = (root / raw_path).resolve()
+            try:
+                candidate.relative_to(root)
+            except ValueError:
+                fail("PRV-EVIDENCE-PATH", location,
+                     f"evidence path escapes the repository: {path_value}")
+                continue
+            if not candidate.is_file():
                 fail("PRV-EVIDENCE-PATH", location, f"evidence path does not exist: {path_value}")
 
     # -- 18 sin duraciones numéricas inventadas ---------------------------

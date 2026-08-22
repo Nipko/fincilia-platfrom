@@ -1415,9 +1415,9 @@
       "scenario": "transformacion que baja tags personales"
     },
     {
-      "expected": "permanecen separados; el linaje no los colapsa",
+      "expected": "two movements remain representable",
       "id": "TST-DED-002",
-      "scenario": "dos movimientos legitimos identicos"
+      "scenario": "two legitimate identical transactions"
     }
   ],
   "retention_binding": {

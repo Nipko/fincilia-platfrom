@@ -346,6 +346,18 @@ class PrivacyModelTest(unittest.TestCase):
         )
         self.assertIn("PRV-EVIDENCE-PATH", self._codes(mutated))
 
+    def test_internal_traversal_evidence_path_is_rejected(self) -> None:
+        mutated = copy.deepcopy(self.model)
+        self._activity(mutated, "PA-01")["evidence"][0]["path"] = (
+            "docs/../docs/architecture/dfd-flows.json"
+        )
+        self.assertIn("PRV-EVIDENCE-PATH", self._codes(mutated))
+
+    def test_absolute_evidence_path_is_rejected_even_when_it_exists(self) -> None:
+        mutated = copy.deepcopy(self.model)
+        self._activity(mutated, "PA-01")["evidence"][0]["path"] = str(DFD_PATH.resolve())
+        self.assertIn("PRV-EVIDENCE-PATH", self._codes(mutated))
+
     # ------------------------------------------------------------------ #
     # negativas añadidas por revisión de integración
     # ------------------------------------------------------------------ #

@@ -51,5 +51,51 @@
 | TST-A11Y-001 | Teclado, foco, encabezados y estados no solo por color | FNC-UX-001 |
 | TST-A02-001 | Región, transmisión, stores, gates y selección permanecen fail-closed | FNC-ARC-003 |
 | TST-AI-001 | Redacción fail-closed, abstención, rollback y presupuesto | Fase 4 |
+| TST-DB-001 | Roles runtime sin superusuario/BYPASSRLS y tablas sensibles con FORCE RLS | FNC-PLT-005 |
+| TST-BAL-001 | Ecuación de saldo conserva moneda, signo y periodo | FNC-DOM-003 |
+| TST-BAL-002 | Estado de conciliación enlaza saldo, partidas y evidencia | FNC-DOM-003 |
+| TST-CLOSE-001 | Diferencia no explicada bloquea cierre salvo excepción autorizada | FNC-DOM-003 |
+| TST-CMP-002 | Completitud desconocida o parcial impide publicación automática | FNC-DOM-003 |
+| TST-EXC-001 | Excepción conserva motivo, actor, aprobación y reverso | FNC-DOM-003 |
+| TST-CON-002 | Conector rechaza firma o autorización inválida | FNC-ARC-005 |
+| TST-CON-003 | Cursor avanza solo tras persistencia confirmada | FNC-ARC-005 |
+| TST-CON-004 | Corrección del proveedor crea revisión y no sobrescribe evidencia | FNC-ARC-005 |
+| TST-CON-005 | IDs reutilizados por proveedor producen conflicto visible | FNC-ARC-005 |
+| TST-CON-006 | Ventana de replay permanece acotada y auditable | FNC-ARC-005 |
+| TST-CON-007 | Backoff respeta deadline y presupuesto total | FNC-ARC-005 |
+| TST-CON-008 | Circuit breaker no se convierte en dueño de reintentos | FNC-ARC-005 |
+| TST-CON-009 | Credenciales nunca llegan a logs, eventos ni stores de negocio | FNC-ARC-005 |
+| TST-CON-010 | Revocación detiene ingesta y tareas posteriores | FNC-ARC-005 |
+| TST-CON-011 | Degradación conserva archivos como canal permanente | FNC-ARC-005 |
+| TST-CON-012 | Movimientos pending y posted no se duplican silenciosamente | FNC-ARC-005 |
+| TST-CON-013 | Cambio de esquema bloquea publicación y abre revisión | FNC-ARC-005 |
+| TST-CON-014 | Conector no cruza empresa, cuenta ni autorización | FNC-ARC-005 |
+| TST-CON-015 | Métricas y errores exponen estado sin filtrar datos financieros | FNC-ARC-005 |
+| TST-DED-003 | Periodos de extracto solapados conservan ambas observaciones | FNC-DOM-004 |
+| TST-DED-004 | Reverso de deduplicación es append-only y conserva evidencia | FNC-DOM-004 |
+| TST-DED-005 | Similitud entre empresas no genera candidato | FNC-DOM-004 |
+| TST-IDEM-002 | Misma clave y mismo payload retorna el resultado original | FNC-DOM-004 |
+| TST-IDEM-003 | Misma clave y payload distinto genera conflicto sin segundo efecto | FNC-DOM-004 |
+| TST-IDEM-004 | Caída tras commit permite entregar outbox sin duplicar dominio | FNC-DOM-004 |
+| TST-IDEM-005 | Worker obsoleto tras expirar lease no puede publicar | FNC-DOM-004 |
+| TST-IDEM-006 | Reutilización de ID del proveedor genera conflicto | FNC-DOM-004 |
+| TST-IDEM-007 | Solo una capa posee cada política de reintento | FNC-DOM-004 |
+| TST-DLQ-001 | Trabajo agotado llega a dead letter minimizada y visible | FNC-ARC-004 |
+| TST-DLQ-002 | Replay reautoriza y conserva clave de idempotencia | FNC-ARC-004 |
+| TST-DLQ-003 | Descartar exige actor, motivo y auditoría | FNC-ARC-004 |
+| TST-EXE-001 | Pérdida de Valkey no pierde estado de dominio o reintento | FNC-ARC-004 |
+| TST-EXE-002 | Historial de workflow nunca es autoridad financiera | FNC-ARC-004 |
+| TST-EXT-001 | Resultado externo desconocido no se reintenta a ciegas | FNC-ARC-004 |
+| TST-ORD-001 | Hueco en secuencia pausa efectos hasta resolver orden | FNC-ARC-004 |
+| TST-OUT-003 | Entrega duplicada produce un solo efecto visible | FNC-ARC-004 |
+| TST-OUT-004 | Mismo event ID con digest distinto genera conflicto | FNC-ARC-004 |
+| TST-OUT-005 | Caída del consumidor revierte recibo y efecto juntos | FNC-ARC-004 |
+| TST-RET-002 | Adaptador y circuit breaker no programan reintentos | FNC-ARC-004 |
+| TST-RET-003 | Intentos consumen presupuesto temporal y de costo | FNC-ARC-004 |
+| TST-RET-004 | Fencing token obsoleto no puede publicar | FNC-ARC-004 |
+| TST-RET-005 | Retry-After del proveedor no excede presupuesto | FNC-ARC-004 |
+| TST-SCH-001 | Esquema desconocido o incompatible no produce efecto | FNC-ARC-004 |
+| TST-TEN-002 | Evento o dead letter no puede cruzar empresa | FNC-ARC-004 |
+| TST-MUT-001 | Mutación contractual debe producir exactamente los hallazgos esperados | FNC-QA-005 |
 
 Los tests todavía son especificaciones. Un ID solo cambia a Implemented cuando existe un comando reproducible y evidencia en CI.

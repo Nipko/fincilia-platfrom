@@ -372,6 +372,16 @@ class GoldenHarnessTest(unittest.TestCase):
         auto["auto_update_expected_allowed"] = True
         self.assertIn("GH-AUTO-UPDATE", self._codes(auto))
 
+    def test_runner_cannot_claim_adjudication_authority(self) -> None:
+        for field in ("runner_can_update_expected", "runner_can_update_input_digests"):
+            mutated = copy.deepcopy(self.registry)
+            mutated["adjudication"][field] = True
+            self.assertIn("GH-ADJUDICATION-AUTHORITY", self._codes(mutated), field)
+
+        missing = copy.deepcopy(self.registry)
+        missing.pop("adjudication")
+        self.assertIn("GH-ADJUDICATION-AUTHORITY", self._codes(missing))
+
     def test_agent_cannot_accept_the_registry(self) -> None:
         mutated = copy.deepcopy(self.registry)
         mutated["human_acceptance"] = "accepted"

@@ -49,6 +49,7 @@ jobs:
           tools.region_decision.test_validate
           tools.research_protocol.test_validate
           tools.runtime_config.test_validate
+          tools.test_catalog.test_validate
           tools.threat_model.test_validate
           tools.ux_contract.test_validate
           tools.work_graph.test_validate
@@ -89,6 +90,8 @@ jobs:
         run: python -m tools.provider_evaluation.validate
       - name: Validate executable quality strategy
         run: python -m tools.quality_strategy.validate
+      - name: Reconcile executable test catalogue
+        run: python -m tools.test_catalog.cli validate
       - name: Validate region and transmission decision packet
         run: python -m tools.region_decision.validate
       - name: Validate safe research protocol
@@ -111,6 +114,12 @@ jobs:
         run: python -m tools.golden_harness.cli run
       - name: Test golden harness controls
         run: python -m unittest tools.golden_harness.test_harness -v
+      - name: Verify mutation registry
+        run: python -m tools.mutation_harness.cli verify
+      - name: Test mutation harness controls
+        run: python -m unittest tools.mutation_harness.test_harness -v
+      - name: Run contract mutations
+        run: python -m tools.mutation_harness.cli run
       - name: Authorization kernel tests in pinned Node
         run: >-
           docker run --rm

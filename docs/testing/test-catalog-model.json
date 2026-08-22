@@ -1,0 +1,411 @@
+{
+  "aggregate_id_policy": {
+    "expand_ranges": false,
+    "range_counts_as": "single_mention_anchor",
+    "range_syntax_examples": [
+      "TST-CON-001..015",
+      "TST-LIN-001 a TST-LIN-006"
+    ],
+    "rationale": "Expandir un rango narrativo inventaria cobertura que nadie escribio."
+  },
+  "anti_promises": [
+    "Un run verde prueba que el inventario es coherente, no que las pruebas existan.",
+    "Un identificador en el catalogo no demuestra que exista codigo que lo ejecute.",
+    "Un identificador implementado no demuestra que la prueba sea correcta ni suficiente.",
+    "La reconciliacion no acredita cobertura de riesgo: eso lo declara test-strategy.json.",
+    "Este modelo no edita TEST_CATALOG.md y no cierra ninguna decision humana."
+  ],
+  "blocking_note": "Un hallazgo alto o critico bloquea porque describe trazabilidad rota o integridad de identificadores. Los medios e informativos son backlog declarado y no se cuentan como drift.",
+  "blocking_severities": [
+    "critical",
+    "high"
+  ],
+  "data_ceiling": "synthetic_only",
+  "definition_vs_mention": {
+    "comment_or_prose_is_mention": true,
+    "definition_requires": "una posicion estructural declarada por un extractor de clase contract_definition o catalog_row",
+    "incompatible_definitions_are_a_conflict": true,
+    "mention_never_counts_as_definition": true,
+    "mention_never_counts_as_implementation": true,
+    "same_id_in_several_compatible_sources_is_not_duplicate": true
+  },
+  "evidence_sources": {
+    "note": "Una evidencia que no identifica comando, version, digest y resultado no acredita nada.",
+    "paths": [
+      "docs/testing/golden-harness.json"
+    ],
+    "requirements": [
+      "command",
+      "runtime_version",
+      "input_digest",
+      "result"
+    ]
+  },
+  "extractors": [
+    {
+      "applies_to_suffix": ".mjs",
+      "id": "javascript_test_name",
+      "reads": "test('TST-XXX-NNN ...') en suites .mjs",
+      "source_class": "implementation",
+      "version": "1"
+    },
+    {
+      "applies_to_suffix": ".json",
+      "id": "json_harness_test_refs",
+      "reads": "$.cases[].test_refs[]",
+      "source_class": "reference",
+      "version": "1"
+    },
+    {
+      "applies_to_suffix": ".json",
+      "id": "json_mutation_test_refs",
+      "reads": "$.mutations[].test_refs[]",
+      "source_class": "reference",
+      "version": "1"
+    },
+    {
+      "applies_to_suffix": ".json",
+      "id": "json_required_test_scenarios",
+      "reads": "$.required_test_scenarios[]",
+      "source_class": "contract_definition",
+      "version": "1"
+    },
+    {
+      "applies_to_suffix": ".json",
+      "id": "json_required_tests_objects",
+      "reads": "$.required_tests[] con objetos {id, scenario, expected}",
+      "source_class": "contract_definition",
+      "version": "1"
+    },
+    {
+      "applies_to_suffix": ".json",
+      "id": "json_required_tests_strings",
+      "reads": "$.required_tests[] como lista de cadenas",
+      "source_class": "contract_definition",
+      "version": "1"
+    },
+    {
+      "applies_to_suffix": ".json",
+      "id": "json_strategy_test_ids",
+      "reads": "$.risk_control_matrix[].test_ids[]",
+      "source_class": "reference",
+      "version": "1"
+    },
+    {
+      "applies_to_suffix": ".md",
+      "id": "markdown_catalog_row",
+      "reads": "fila de tabla | TST-... | descripcion | tarea |",
+      "source_class": "catalog_row",
+      "version": "1"
+    },
+    {
+      "applies_to_suffix": ".md",
+      "id": "markdown_narrative_mention",
+      "reads": "cualquier TST- en prosa fuera de una fila de catalogo",
+      "source_class": "mention",
+      "version": "1"
+    },
+    {
+      "applies_to_suffix": ".py",
+      "id": "python_test_method_name",
+      "reads": "def test_..._TST_XXX_NNN_...",
+      "source_class": "implementation",
+      "version": "1"
+    }
+  ],
+  "file_allowlist": {
+    "deterministic_order": "sorted_by_posix_path",
+    "excluded_path_globs": [
+      "docs/implementation/assignments/**",
+      "docs/implementation/handoffs/**",
+      "docs/testing/TEST_CATALOG_MODEL.md"
+    ],
+    "excluded_directory_names": [
+      ".git",
+      "__pycache__",
+      "node_modules",
+      ".venv",
+      "venv",
+      ".mypy_cache",
+      ".pytest_cache",
+      ".ruff_cache",
+      "dist",
+      "build",
+      ".idea",
+      ".vscode"
+    ],
+    "excluded_suffixes": [
+      ".pyc",
+      ".pyo",
+      ".so",
+      ".dll",
+      ".exe",
+      ".lock",
+      ".png",
+      ".jpg"
+    ],
+    "follow_symlinks": false,
+    "include_globs": [
+      "docs/**/*.json",
+      "docs/**/*.md",
+      "tools/**/*.py",
+      "tests/golden/**/*.json",
+      "tests/golden/**/*.md",
+      "spikes/**/*.mjs"
+    ]
+  },
+  "finding_rules": [
+    {
+      "classification": "traceability_drift",
+      "description": "Un contrato ejecutable exige la prueba y el catalogo no la documenta.",
+      "gate": "S1-READY",
+      "id": "TCM-CONTRACT-NOT-IN-CATALOG",
+      "owner_role": "QA",
+      "severity": "high"
+    },
+    {
+      "classification": "planned_backlog",
+      "description": "Un contrato exige la prueba y ninguna implementacion la materializa.",
+      "gate": "S1-READY",
+      "id": "TCM-CONTRACT-NOT-IMPLEMENTED",
+      "owner_role": "QA",
+      "severity": "medium"
+    },
+    {
+      "classification": "planned_backlog",
+      "description": "Especificacion runtime documentada sin contrato ni implementacion. No es drift: es backlog declarado.",
+      "gate": "S1-READY",
+      "id": "TCM-CATALOG-PLANNED",
+      "owner_role": "QA",
+      "severity": "informational"
+    },
+    {
+      "classification": "integrity_error",
+      "description": "Dos contratos definen la misma ID con texto divergente. La divergencia es mecanicamente detectable; decidir cual contrato es autoritativo es una adjudicacion humana, no una inferencia del validador.",
+      "gate": "S1-READY",
+      "id": "TCM-DEFINITION-CONFLICT",
+      "owner_role": "Architecture",
+      "severity": "high"
+    },
+    {
+      "classification": "integrity_error",
+      "description": "Identificador que no respeta la sintaxis canonica.",
+      "gate": "S1-READY",
+      "id": "TCM-ID-MALFORMED",
+      "owner_role": "QA",
+      "severity": "critical"
+    },
+    {
+      "classification": "integrity_error",
+      "description": "Namespace no declarado en la politica de identificadores.",
+      "gate": "S1-READY",
+      "id": "TCM-NAMESPACE-UNKNOWN",
+      "owner_role": "QA",
+      "severity": "high"
+    },
+    {
+      "classification": "hygiene",
+      "description": "Citado o mencionado, pero definido por ningun contrato ni fila de catalogo.",
+      "gate": "S1-READY",
+      "id": "TCM-ORPHAN",
+      "owner_role": "QA",
+      "severity": "medium"
+    }
+  ],
+  "gates": [
+    {
+      "acceptance": "pending_human",
+      "id": "S1-READY",
+      "owner_role": "Integration Steward",
+      "status": "not_met"
+    },
+    {
+      "acceptance": "pending_human",
+      "id": "DRG-00",
+      "owner_role": "Legal",
+      "status": "not_met"
+    },
+    {
+      "acceptance": "pending_human",
+      "id": "DRG-01",
+      "owner_role": "Legal",
+      "status": "not_met"
+    },
+    {
+      "acceptance": "pending_human",
+      "id": "GA-01",
+      "owner_role": "Product",
+      "status": "not_met"
+    }
+  ],
+  "human_acceptance": "pending",
+  "id_syntax": {
+    "case_sensitive": true,
+    "namespaces": [
+      "A02",
+      "A11Y",
+      "AI",
+      "AUTH",
+      "BAL",
+      "CI",
+      "CLOSE",
+      "CMP",
+      "CON",
+      "DB",
+      "DED",
+      "DLQ",
+      "DRG",
+      "EXC",
+      "EXE",
+      "EXT",
+      "IDEM",
+      "INB",
+      "LIN",
+      "LOCAL",
+      "META",
+      "MON",
+      "MUT",
+      "ORD",
+      "OUT",
+      "OVR",
+      "PAR",
+      "PRV",
+      "RET",
+      "RLS",
+      "SCH",
+      "TEN",
+      "XCON"
+    ],
+    "pattern": "TST-[A-Z0-9]{2,8}-[0-9]{3}",
+    "suffix_allowed_in_test_names": true,
+    "suffix_note": "TST-TEN-001-P01 materializa TST-TEN-001; el sufijo identifica el caso concreto y no crea un identificador nuevo."
+  },
+  "projection_contract": {
+    "consumer": "Integration Steward",
+    "note": "La proyeccion es una propuesta de datos. Editar el catalogo es una decision humana y esta fuera de las rutas de esta tarea.",
+    "output": "machine_readable_diff",
+    "target_document": "docs/testing/TEST_CATALOG.md",
+    "writes_test_catalog": false
+  },
+  "provenance_requirements": {
+    "all_provenances_retained": true,
+    "digest": true,
+    "extractor_id": true,
+    "extractor_version": true,
+    "note": "Una ID compatible en varias fuentes conserva todas sus procedencias; perder una haria invisible el origen de un conflicto futuro.",
+    "path": true,
+    "stable_locator": true
+  },
+  "purpose": "Descubrir y clasificar los identificadores de prueba del repositorio distinguiendo requisito contractual, especificacion planeada e implementacion, sin mantener una segunda lista manual.",
+  "reconciliation": {
+    "axes": [
+      "contract",
+      "catalog",
+      "implementation",
+      "evidence"
+    ],
+    "catalog_without_contract": "planned_backlog",
+    "contract_absent_from_catalog": "traceability_drift",
+    "definition_without_implementation": "planned_backlog",
+    "implementation_without_definition": "orphan"
+  },
+  "reporting": {
+    "note": "Un porcentaje global ocultaria justo el hallazgo critico.",
+    "per_finding_breakdown_required": true,
+    "per_owner_and_gate_breakdown_required": true,
+    "per_state_breakdown_required": true,
+    "single_aggregate_score_as_gate": false
+  },
+  "retirement_policy": {
+    "silent_removal_allowed": false,
+    "superseded_by_or_reason_required": true,
+    "tombstone_required": true
+  },
+  "schema_version": 1,
+  "source_classes": [
+    {
+      "definition": "un contrato ejecutable declara la prueba como obligatoria",
+      "id": "contract_definition",
+      "is_definition": true,
+      "precedence": 0
+    },
+    {
+      "definition": "una fila autoritativa de TEST_CATALOG.md documenta la prueba",
+      "id": "catalog_row",
+      "is_definition": true,
+      "precedence": 1
+    },
+    {
+      "definition": "un nombre de test materializa el identificador",
+      "id": "implementation",
+      "is_definition": false,
+      "precedence": 2
+    },
+    {
+      "definition": "un contrato cita la prueba sin declararla obligatoria",
+      "id": "reference",
+      "is_definition": false,
+      "precedence": 3
+    },
+    {
+      "definition": "prosa narrativa; nunca cuenta como definicion ni implementacion",
+      "id": "mention",
+      "is_definition": false,
+      "precedence": 4
+    }
+  ],
+  "states": [
+    "contract_required",
+    "catalog_planned",
+    "implemented",
+    "evidenced",
+    "waived_pending_human",
+    "orphan",
+    "conflict"
+  ],
+  "status": "review_pending",
+  "task_id": "FNC-QA-004",
+  "tombstones": [],
+  "unresolved_decisions": [
+    {
+      "blocks": [
+        "S1-READY"
+      ],
+      "id": "UD-QA-CATALOG-OWNER",
+      "owner_role": "QA",
+      "question": "Quien reconcilia TEST_CATALOG.md con los contratos y con que cadencia.",
+      "reviewer_roles": [
+        "Integration Steward",
+        "Architecture"
+      ],
+      "state": "pending_human"
+    },
+    {
+      "blocks": [
+        "S1-READY"
+      ],
+      "id": "UD-QA-CATALOG-FORMAT",
+      "owner_role": "QA",
+      "question": "Si el catalogo debe pasar a formato estructurado en vez de tabla Markdown.",
+      "reviewer_roles": [
+        "Architecture"
+      ],
+      "state": "pending_human"
+    },
+    {
+      "blocks": [
+        "DRG-01"
+      ],
+      "id": "UD-QA-RUNTIME-BACKLOG",
+      "owner_role": "QA",
+      "question": "Que IDs de runtime planeados se convierten en requisito contractual y cuando.",
+      "reviewer_roles": [
+        "Security",
+        "Accounting",
+        "Platform"
+      ],
+      "state": "pending_human"
+    }
+  ],
+  "waivers": []
+}

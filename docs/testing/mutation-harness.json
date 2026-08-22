@@ -1,0 +1,3709 @@
+{
+  "anti_promises": [
+    "Un run en verde prueba que el arnes y sus expectativas son coherentes, no que el producto sea seguro.",
+    "Una mutacion muerta prueba que existe una regla, no que la regla sea la correcta.",
+    "El harness no verifica base de datos, red, despliegue ni proveedor externo alguno.",
+    "Ninguna nota agregada sustituye la lectura de los supervivientes y los gaps declarados."
+  ],
+  "data_ceiling": "synthetic_only",
+  "declared_gaps": [
+    {
+      "blocks_gate": true,
+      "evidence_ref": "EV-QA-MUTATION-GAP",
+      "gate": "DRG-01",
+      "owner_role": "Backend",
+      "reason": "Requiere PostgreSQL real con RLS activo; no hay base de datos en E0 y una mutacion de contrato no prueba el aislamiento de filas.",
+      "risk_id": "TM-002"
+    },
+    {
+      "blocks_gate": true,
+      "evidence_ref": "EV-QA-MUTATION-GAP",
+      "gate": "DRG-00",
+      "owner_role": "Security",
+      "reason": "La cadena de suministro y la firma de artefactos se verifican en CI e infraestructura, no en un contrato JSON mutable. Las mutaciones de data_ceiling cubren la declaracion, no el perimetro.",
+      "risk_id": "TM-005"
+    },
+    {
+      "blocks_gate": true,
+      "evidence_ref": "EV-QA-MUTATION-GAP",
+      "gate": "DRG-01",
+      "owner_role": "Platform",
+      "reason": "El aislamiento de red y de runtime del worker exige despliegue real; el harness solo puede mutar la declaracion, no el perimetro.",
+      "risk_id": "TM-006"
+    },
+    {
+      "blocks_gate": true,
+      "evidence_ref": "EV-QA-MUTATION-GAP",
+      "gate": "L-02",
+      "owner_role": "AI Platform",
+      "reason": "La superficie de IA esta deshabilitada por contrato; solo se puede mutar la bandera global, no el comportamiento de un proveedor inexistente.",
+      "risk_id": "TM-010"
+    }
+  ],
+  "determinism": {
+    "digest_excludes": [
+      "duration",
+      "interpreter_patch_version",
+      "hostname",
+      "timestamp"
+    ],
+    "digest_inputs": [
+      "registry_digest",
+      "mutation_digest",
+      "target",
+      "target_sha256",
+      "expectation",
+      "baseline_exit_code",
+      "mutated_exit_code",
+      "observed_finding_codes",
+      "outcome"
+    ],
+    "rationale": "un replay identico debe producir el mismo digest"
+  },
+  "environment_policy": {
+    "argv_only": true,
+    "cwd": "temporary_copy_only",
+    "env_allowlist": [
+      "PATH",
+      "SYSTEMROOT",
+      "COMSPEC",
+      "TEMP",
+      "TMP",
+      "LANG",
+      "LC_ALL"
+    ],
+    "manifest_contains_full_environment": false,
+    "manifest_contains_raw_payload": false,
+    "proxy_variables_inherited": false,
+    "secrets_inherited": false,
+    "shell": false
+  },
+  "execution_mode": "contract_only_no_productive_merge",
+  "gates": [
+    {
+      "acceptance": "pending_human",
+      "id": "S1-READY",
+      "owner_role": "Integration Steward",
+      "status": "not_met"
+    },
+    {
+      "acceptance": "pending_human",
+      "id": "DRG-00",
+      "owner_role": "Security",
+      "status": "not_met"
+    },
+    {
+      "acceptance": "pending_human",
+      "id": "DRG-01",
+      "owner_role": "Security",
+      "status": "not_met"
+    },
+    {
+      "acceptance": "pending_human",
+      "id": "L-02",
+      "owner_role": "Legal",
+      "status": "not_met"
+    }
+  ],
+  "global_score_as_gate": false,
+  "human_acceptance": "pending",
+  "known_survivors": [],
+  "mutates_source_tree": false,
+  "mutations": [
+    {
+      "control_refs": [
+        "DOM-FINANCE-SCOPE"
+      ],
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-MUTATION",
+      "expectation": {
+        "exit_code": 1,
+        "finding_codes": [
+          "DOM-FINANCE-SCOPE"
+        ],
+        "kind": "expect_findings"
+      },
+      "gate": "DRG-01",
+      "independence": {
+        "mode": "independent",
+        "rationale": "regla distinta con codigo de hallazgo propio"
+      },
+      "max_output_bytes": 262144,
+      "mutation_id": "MUT-CAN-001",
+      "operator": "flip_boolean",
+      "operator_params": {
+        "expected_current": true,
+        "pointer": "/entities/13/company_scoped"
+      },
+      "owner_role": "Architecture",
+      "precondition": {
+        "baseline_must_be_clean": true,
+        "single_change": true,
+        "target_digest_must_match": true
+      },
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "Accounting",
+        "Security"
+      ],
+      "risk_refs": [
+        "TM-001"
+      ],
+      "state": "active",
+      "target": "docs/domain/canonical-model.json",
+      "target_sha256": "6df752d46d513575dd1d825f80e4d5a2af657abe8ed1ae409e0e620174d65523",
+      "test_refs": [
+        "TST-MUT-001"
+      ],
+      "timeout_seconds": 120,
+      "title": "company_scoped se apaga en money_movement",
+      "validator": "canonical_model"
+    },
+    {
+      "control_refs": [
+        "DOM-MONEY-TYPE"
+      ],
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-MUTATION",
+      "expectation": {
+        "exit_code": 1,
+        "finding_codes": [
+          "DOM-MONEY-TYPE"
+        ],
+        "kind": "expect_findings"
+      },
+      "gate": "S1-READY",
+      "independence": {
+        "mode": "independent",
+        "rationale": "regla distinta con codigo de hallazgo propio"
+      },
+      "max_output_bytes": 262144,
+      "mutation_id": "MUT-CAN-002",
+      "operator": "flip_boolean",
+      "operator_params": {
+        "expected_current": true,
+        "pointer": "/logical_types/5/float_forbidden"
+      },
+      "owner_role": "Accounting",
+      "precondition": {
+        "baseline_must_be_clean": true,
+        "single_change": true,
+        "target_digest_must_match": true
+      },
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "Architecture",
+        "QA"
+      ],
+      "risk_refs": [
+        "TM-007"
+      ],
+      "state": "active",
+      "target": "docs/domain/canonical-model.json",
+      "target_sha256": "6df752d46d513575dd1d825f80e4d5a2af657abe8ed1ae409e0e620174d65523",
+      "test_refs": [
+        "TST-MUT-001"
+      ],
+      "timeout_seconds": 120,
+      "title": "el dinero deja de prohibir coma flotante",
+      "validator": "canonical_model"
+    },
+    {
+      "control_refs": [
+        "DOM-MONEY-JSON"
+      ],
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-MUTATION",
+      "expectation": {
+        "exit_code": 1,
+        "finding_codes": [
+          "DOM-MONEY-JSON"
+        ],
+        "kind": "expect_findings"
+      },
+      "gate": "S1-READY",
+      "independence": {
+        "mode": "independent",
+        "rationale": "regla distinta con codigo de hallazgo propio"
+      },
+      "max_output_bytes": 262144,
+      "mutation_id": "MUT-CAN-003",
+      "operator": "replace_scalar",
+      "operator_params": {
+        "expected_current": "string",
+        "new_value": "number",
+        "pointer": "/logical_types/5/json_representation"
+      },
+      "owner_role": "Accounting",
+      "precondition": {
+        "baseline_must_be_clean": true,
+        "single_change": true,
+        "target_digest_must_match": true
+      },
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "Architecture",
+        "QA"
+      ],
+      "risk_refs": [
+        "TM-007"
+      ],
+      "state": "active",
+      "target": "docs/domain/canonical-model.json",
+      "target_sha256": "6df752d46d513575dd1d825f80e4d5a2af657abe8ed1ae409e0e620174d65523",
+      "test_refs": [
+        "TST-MUT-001"
+      ],
+      "timeout_seconds": 120,
+      "title": "el dinero se serializa como numero JSON",
+      "validator": "canonical_model"
+    },
+    {
+      "control_refs": [
+        "DOM-COMPANY-FIELD"
+      ],
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-MUTATION",
+      "expectation": {
+        "exit_code": 1,
+        "finding_codes": [
+          "DOM-COMPANY-FIELD"
+        ],
+        "kind": "expect_findings"
+      },
+      "gate": "DRG-01",
+      "independence": {
+        "mode": "independent",
+        "rationale": "regla distinta con codigo de hallazgo propio"
+      },
+      "max_output_bytes": 262144,
+      "mutation_id": "MUT-CAN-004",
+      "operator": "flip_boolean",
+      "operator_params": {
+        "expected_current": false,
+        "pointer": "/entities/13/fields/1/nullable"
+      },
+      "owner_role": "Architecture",
+      "precondition": {
+        "baseline_must_be_clean": true,
+        "single_change": true,
+        "target_digest_must_match": true
+      },
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "QA",
+        "Security"
+      ],
+      "risk_refs": [
+        "TM-001"
+      ],
+      "state": "active",
+      "target": "docs/domain/canonical-model.json",
+      "target_sha256": "6df752d46d513575dd1d825f80e4d5a2af657abe8ed1ae409e0e620174d65523",
+      "test_refs": [
+        "TST-MUT-001"
+      ],
+      "timeout_seconds": 120,
+      "title": "company_id pasa a admitir nulo",
+      "validator": "canonical_model"
+    },
+    {
+      "control_refs": [
+        "DOM-REQUIRED-FIELD"
+      ],
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-MUTATION",
+      "expectation": {
+        "exit_code": 1,
+        "finding_codes": [
+          "DOM-REQUIRED-FIELD"
+        ],
+        "kind": "expect_findings"
+      },
+      "gate": "S1-READY",
+      "independence": {
+        "mode": "independent",
+        "rationale": "regla distinta con codigo de hallazgo propio"
+      },
+      "max_output_bytes": 262144,
+      "mutation_id": "MUT-CAN-005",
+      "operator": "delete_key",
+      "operator_params": {
+        "pointer": "/entities/13/fields/7"
+      },
+      "owner_role": "Accounting",
+      "precondition": {
+        "baseline_must_be_clean": true,
+        "single_change": true,
+        "target_digest_must_match": true
+      },
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "Architecture",
+        "QA"
+      ],
+      "risk_refs": [
+        "TM-007"
+      ],
+      "state": "active",
+      "target": "docs/domain/canonical-model.json",
+      "target_sha256": "6df752d46d513575dd1d825f80e4d5a2af657abe8ed1ae409e0e620174d65523",
+      "test_refs": [
+        "TST-MUT-001"
+      ],
+      "timeout_seconds": 120,
+      "title": "desaparece el campo direction del movimiento",
+      "validator": "canonical_model"
+    },
+    {
+      "control_refs": [
+        "QS-DETERMINISM"
+      ],
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-MUTATION",
+      "expectation": {
+        "exit_code": 0,
+        "kind": "expect_no_findings",
+        "rationale": "reordenar sin cambio semantico no puede alterar el veredicto"
+      },
+      "gate": "S1-READY",
+      "independence": {
+        "mode": "independent",
+        "rationale": "regla distinta con codigo de hallazgo propio"
+      },
+      "max_output_bytes": 262144,
+      "mutation_id": "MUT-CAN-006",
+      "operator": "reorder_list",
+      "operator_params": {
+        "pointer": "/entities"
+      },
+      "owner_role": "QA",
+      "precondition": {
+        "baseline_must_be_clean": true,
+        "single_change": true,
+        "target_digest_must_match": true
+      },
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "Architecture",
+        "Security"
+      ],
+      "risk_refs": [
+        "TM-013"
+      ],
+      "state": "active",
+      "target": "docs/domain/canonical-model.json",
+      "target_sha256": "6df752d46d513575dd1d825f80e4d5a2af657abe8ed1ae409e0e620174d65523",
+      "test_refs": [
+        "TST-META-001"
+      ],
+      "timeout_seconds": 120,
+      "title": "control metamorfico: reordenar entidades no cambia nada",
+      "validator": "canonical_model"
+    },
+    {
+      "control_refs": [
+        "CMP-AUTO-MATCH"
+      ],
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-MUTATION",
+      "expectation": {
+        "exit_code": 1,
+        "finding_codes": [
+          "CMP-AUTO-MATCH"
+        ],
+        "kind": "expect_findings"
+      },
+      "gate": "S1-READY",
+      "independence": {
+        "mode": "independent",
+        "rationale": "regla distinta con codigo de hallazgo propio"
+      },
+      "max_output_bytes": 262144,
+      "mutation_id": "MUT-CMP-001",
+      "operator": "flip_boolean",
+      "operator_params": {
+        "expected_current": false,
+        "pointer": "/eligibility/unknown/auto_match"
+      },
+      "owner_role": "Accounting",
+      "precondition": {
+        "baseline_must_be_clean": true,
+        "single_change": true,
+        "target_digest_must_match": true
+      },
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "Architecture",
+        "QA"
+      ],
+      "risk_refs": [
+        "TM-007"
+      ],
+      "state": "active",
+      "target": "docs/domain/completeness-balances.json",
+      "target_sha256": "f23babddc0806770b2c2d1dac2d40768266c450dfadb097d758e28a193e606c9",
+      "test_refs": [
+        "TST-MUT-001"
+      ],
+      "timeout_seconds": 120,
+      "title": "Unknown se vuelve elegible para auto-match",
+      "validator": "completeness_model"
+    },
+    {
+      "control_refs": [
+        "CMP-MONEY"
+      ],
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-MUTATION",
+      "expectation": {
+        "exit_code": 1,
+        "finding_codes": [
+          "CMP-MONEY"
+        ],
+        "kind": "expect_findings"
+      },
+      "gate": "S1-READY",
+      "independence": {
+        "mode": "independent",
+        "rationale": "regla distinta con codigo de hallazgo propio"
+      },
+      "max_output_bytes": 262144,
+      "mutation_id": "MUT-CMP-002",
+      "operator": "flip_boolean",
+      "operator_params": {
+        "expected_current": true,
+        "pointer": "/float_forbidden"
+      },
+      "owner_role": "Accounting",
+      "precondition": {
+        "baseline_must_be_clean": true,
+        "single_change": true,
+        "target_digest_must_match": true
+      },
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "Architecture",
+        "QA"
+      ],
+      "risk_refs": [
+        "TM-007"
+      ],
+      "state": "active",
+      "target": "docs/domain/completeness-balances.json",
+      "target_sha256": "f23babddc0806770b2c2d1dac2d40768266c450dfadb097d758e28a193e606c9",
+      "test_refs": [
+        "TST-MUT-001"
+      ],
+      "timeout_seconds": 120,
+      "title": "la completitud deja de prohibir float",
+      "validator": "completeness_model"
+    },
+    {
+      "control_refs": [
+        "CMP-CLOSE-CONDITIONS"
+      ],
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-MUTATION",
+      "expectation": {
+        "exit_code": 1,
+        "finding_codes": [
+          "CMP-CLOSE-CONDITIONS"
+        ],
+        "kind": "expect_findings"
+      },
+      "gate": "S1-READY",
+      "independence": {
+        "mode": "independent",
+        "rationale": "regla distinta con codigo de hallazgo propio"
+      },
+      "max_output_bytes": 262144,
+      "mutation_id": "MUT-CMP-003",
+      "operator": "delete_key",
+      "operator_params": {
+        "pointer": "/close_readiness_gate/required_conditions/1"
+      },
+      "owner_role": "Accounting",
+      "precondition": {
+        "baseline_must_be_clean": true,
+        "single_change": true,
+        "target_digest_must_match": true
+      },
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "Architecture",
+        "QA"
+      ],
+      "risk_refs": [
+        "TM-007"
+      ],
+      "state": "active",
+      "target": "docs/domain/completeness-balances.json",
+      "target_sha256": "f23babddc0806770b2c2d1dac2d40768266c450dfadb097d758e28a193e606c9",
+      "test_refs": [
+        "TST-MUT-001"
+      ],
+      "timeout_seconds": 120,
+      "title": "se elimina una condicion de la compuerta de cierre",
+      "validator": "completeness_model"
+    },
+    {
+      "control_refs": [
+        "CMP-ASSESSMENT-STATES"
+      ],
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-MUTATION",
+      "expectation": {
+        "exit_code": 1,
+        "finding_codes": [
+          "CMP-ASSESSMENT-STATES"
+        ],
+        "kind": "expect_findings"
+      },
+      "gate": "S1-READY",
+      "independence": {
+        "mode": "independent",
+        "rationale": "regla distinta con codigo de hallazgo propio"
+      },
+      "max_output_bytes": 262144,
+      "mutation_id": "MUT-CMP-004",
+      "operator": "delete_key",
+      "operator_params": {
+        "pointer": "/assessment_states/2"
+      },
+      "owner_role": "Accounting",
+      "precondition": {
+        "baseline_must_be_clean": true,
+        "single_change": true,
+        "target_digest_must_match": true
+      },
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "Architecture",
+        "QA"
+      ],
+      "risk_refs": [
+        "TM-007"
+      ],
+      "state": "active",
+      "target": "docs/domain/completeness-balances.json",
+      "target_sha256": "f23babddc0806770b2c2d1dac2d40768266c450dfadb097d758e28a193e606c9",
+      "test_refs": [
+        "TST-MUT-001"
+      ],
+      "timeout_seconds": 120,
+      "title": "desaparece el estado unknown de evaluacion",
+      "validator": "completeness_model"
+    },
+    {
+      "control_refs": [
+        "CMP-ACCEPTANCE"
+      ],
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-MUTATION",
+      "expectation": {
+        "exit_code": 1,
+        "finding_codes": [
+          "CMP-ACCEPTANCE"
+        ],
+        "kind": "expect_findings"
+      },
+      "gate": "S1-READY",
+      "independence": {
+        "mode": "independent",
+        "rationale": "regla distinta con codigo de hallazgo propio"
+      },
+      "max_output_bytes": 262144,
+      "mutation_id": "MUT-CMP-005",
+      "operator": "replace_scalar",
+      "operator_params": {
+        "expected_current": "pending",
+        "new_value": "accepted",
+        "pointer": "/human_acceptance"
+      },
+      "owner_role": "QA",
+      "precondition": {
+        "baseline_must_be_clean": true,
+        "single_change": true,
+        "target_digest_must_match": true
+      },
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "Accounting",
+        "Architecture"
+      ],
+      "risk_refs": [
+        "TM-015"
+      ],
+      "state": "active",
+      "target": "docs/domain/completeness-balances.json",
+      "target_sha256": "f23babddc0806770b2c2d1dac2d40768266c450dfadb097d758e28a193e606c9",
+      "test_refs": [
+        "TST-MUT-001"
+      ],
+      "timeout_seconds": 120,
+      "title": "el agente marca aceptada la decision humana",
+      "validator": "completeness_model"
+    },
+    {
+      "control_refs": [
+        "QS-DETERMINISM"
+      ],
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-MUTATION",
+      "expectation": {
+        "exit_code": 0,
+        "kind": "expect_no_findings",
+        "rationale": "reordenar sin cambio semantico no puede alterar el veredicto"
+      },
+      "gate": "S1-READY",
+      "independence": {
+        "mode": "independent",
+        "rationale": "regla distinta con codigo de hallazgo propio"
+      },
+      "max_output_bytes": 262144,
+      "mutation_id": "MUT-CMP-006",
+      "operator": "reorder_list",
+      "operator_params": {
+        "pointer": "/control_types"
+      },
+      "owner_role": "QA",
+      "precondition": {
+        "baseline_must_be_clean": true,
+        "single_change": true,
+        "target_digest_must_match": true
+      },
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "Accounting",
+        "Architecture"
+      ],
+      "risk_refs": [
+        "TM-013"
+      ],
+      "state": "active",
+      "target": "docs/domain/completeness-balances.json",
+      "target_sha256": "f23babddc0806770b2c2d1dac2d40768266c450dfadb097d758e28a193e606c9",
+      "test_refs": [
+        "TST-META-001"
+      ],
+      "timeout_seconds": 120,
+      "title": "control metamorfico: reordenar tipos de control no cambia nada",
+      "validator": "completeness_model"
+    },
+    {
+      "control_refs": [
+        "CON-SECURITY"
+      ],
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-MUTATION",
+      "expectation": {
+        "exit_code": 1,
+        "finding_codes": [
+          "CON-SECURITY"
+        ],
+        "kind": "expect_findings"
+      },
+      "gate": "DRG-01",
+      "independence": {
+        "group_id": "EQG-CON-EGRESS-PERIMETER",
+        "mode": "equivalence_group",
+        "rationale": "misma regla observada por varias banderas; cuenta como un control"
+      },
+      "max_output_bytes": 262144,
+      "mutation_id": "MUT-CON-001",
+      "operator": "flip_boolean",
+      "operator_params": {
+        "expected_current": true,
+        "pointer": "/security_contract/egress_allowlist_versioned"
+      },
+      "owner_role": "Security",
+      "precondition": {
+        "baseline_must_be_clean": true,
+        "single_change": true,
+        "target_digest_must_match": true
+      },
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "Platform",
+        "QA"
+      ],
+      "risk_refs": [
+        "TM-012"
+      ],
+      "state": "active",
+      "target": "docs/contracts/connectors/connector-contract.json",
+      "target_sha256": "08a940adeae02f8ca2ca209082443f96f3e03425d8700e4e8d15b31e6ad56e89",
+      "test_refs": [
+        "TST-MUT-001"
+      ],
+      "timeout_seconds": 120,
+      "title": "el allowlist de egress deja de estar versionado",
+      "validator": "connector_model"
+    },
+    {
+      "control_refs": [
+        "CON-SECURITY"
+      ],
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-MUTATION",
+      "expectation": {
+        "exit_code": 1,
+        "finding_codes": [
+          "CON-SECURITY"
+        ],
+        "kind": "expect_findings"
+      },
+      "gate": "DRG-01",
+      "independence": {
+        "group_id": "EQG-CON-EGRESS-PERIMETER",
+        "mode": "equivalence_group",
+        "rationale": "misma regla observada por varias banderas; cuenta como un control"
+      },
+      "max_output_bytes": 262144,
+      "mutation_id": "MUT-CON-002",
+      "operator": "flip_boolean",
+      "operator_params": {
+        "expected_current": true,
+        "pointer": "/security_contract/ssrf_private_ranges_and_redirects_blocked"
+      },
+      "owner_role": "Security",
+      "precondition": {
+        "baseline_must_be_clean": true,
+        "single_change": true,
+        "target_digest_must_match": true
+      },
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "Platform",
+        "QA"
+      ],
+      "risk_refs": [
+        "TM-012"
+      ],
+      "state": "active",
+      "target": "docs/contracts/connectors/connector-contract.json",
+      "target_sha256": "08a940adeae02f8ca2ca209082443f96f3e03425d8700e4e8d15b31e6ad56e89",
+      "test_refs": [
+        "TST-MUT-001"
+      ],
+      "timeout_seconds": 120,
+      "title": "dejan de bloquearse rangos privados y redirecciones",
+      "validator": "connector_model"
+    },
+    {
+      "control_refs": [
+        "CON-SECURITY"
+      ],
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-MUTATION",
+      "expectation": {
+        "exit_code": 1,
+        "finding_codes": [
+          "CON-SECURITY"
+        ],
+        "kind": "expect_findings"
+      },
+      "gate": "DRG-01",
+      "independence": {
+        "group_id": "EQG-CON-EGRESS-PERIMETER",
+        "mode": "equivalence_group",
+        "rationale": "misma regla observada por varias banderas; cuenta como un control"
+      },
+      "max_output_bytes": 262144,
+      "mutation_id": "MUT-CON-003",
+      "operator": "flip_boolean",
+      "operator_params": {
+        "expected_current": true,
+        "pointer": "/security_contract/worker_direct_internet_forbidden"
+      },
+      "owner_role": "Security",
+      "precondition": {
+        "baseline_must_be_clean": true,
+        "single_change": true,
+        "target_digest_must_match": true
+      },
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "Platform",
+        "QA"
+      ],
+      "risk_refs": [
+        "TM-012"
+      ],
+      "state": "active",
+      "target": "docs/contracts/connectors/connector-contract.json",
+      "target_sha256": "08a940adeae02f8ca2ca209082443f96f3e03425d8700e4e8d15b31e6ad56e89",
+      "test_refs": [
+        "TST-MUT-001"
+      ],
+      "timeout_seconds": 120,
+      "title": "el worker puede salir directo a internet",
+      "validator": "connector_model"
+    },
+    {
+      "control_refs": [
+        "CON-CREDENTIALS"
+      ],
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-MUTATION",
+      "expectation": {
+        "exit_code": 1,
+        "finding_codes": [
+          "CON-CREDENTIALS"
+        ],
+        "kind": "expect_findings"
+      },
+      "gate": "DRG-01",
+      "independence": {
+        "mode": "independent",
+        "rationale": "regla distinta con codigo de hallazgo propio"
+      },
+      "max_output_bytes": 262144,
+      "mutation_id": "MUT-CON-004",
+      "operator": "flip_boolean",
+      "operator_params": {
+        "expected_current": false,
+        "pointer": "/platform_receives_bank_credentials"
+      },
+      "owner_role": "Security",
+      "precondition": {
+        "baseline_must_be_clean": true,
+        "single_change": true,
+        "target_digest_must_match": true
+      },
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "Legal",
+        "Platform"
+      ],
+      "risk_refs": [
+        "TM-004"
+      ],
+      "state": "active",
+      "target": "docs/contracts/connectors/connector-contract.json",
+      "target_sha256": "08a940adeae02f8ca2ca209082443f96f3e03425d8700e4e8d15b31e6ad56e89",
+      "test_refs": [
+        "TST-MUT-001"
+      ],
+      "timeout_seconds": 120,
+      "title": "la plataforma acepta credenciales bancarias",
+      "validator": "connector_model"
+    },
+    {
+      "control_refs": [
+        "CON-SCOPE"
+      ],
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-MUTATION",
+      "expectation": {
+        "exit_code": 1,
+        "finding_codes": [
+          "CON-SCOPE"
+        ],
+        "kind": "expect_findings"
+      },
+      "gate": "DRG-01",
+      "independence": {
+        "mode": "independent",
+        "rationale": "regla distinta con codigo de hallazgo propio"
+      },
+      "max_output_bytes": 262144,
+      "mutation_id": "MUT-CON-005",
+      "operator": "flip_boolean",
+      "operator_params": {
+        "expected_current": false,
+        "pointer": "/payments_enabled"
+      },
+      "owner_role": "Product",
+      "precondition": {
+        "baseline_must_be_clean": true,
+        "single_change": true,
+        "target_digest_must_match": true
+      },
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "Legal",
+        "Security"
+      ],
+      "risk_refs": [
+        "TM-004"
+      ],
+      "state": "active",
+      "target": "docs/contracts/connectors/connector-contract.json",
+      "target_sha256": "08a940adeae02f8ca2ca209082443f96f3e03425d8700e4e8d15b31e6ad56e89",
+      "test_refs": [
+        "TST-MUT-001"
+      ],
+      "timeout_seconds": 120,
+      "title": "se habilitan pagos fuera del alcance E0",
+      "validator": "connector_model"
+    },
+    {
+      "control_refs": [
+        "CON-DATA"
+      ],
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-MUTATION",
+      "expectation": {
+        "exit_code": 1,
+        "finding_codes": [
+          "CON-DATA"
+        ],
+        "kind": "expect_findings"
+      },
+      "gate": "DRG-00",
+      "independence": {
+        "mode": "independent",
+        "rationale": "regla distinta con codigo de hallazgo propio"
+      },
+      "max_output_bytes": 262144,
+      "mutation_id": "MUT-CON-006",
+      "operator": "replace_scalar",
+      "operator_params": {
+        "expected_current": "synthetic_only",
+        "new_value": "production",
+        "pointer": "/data_ceiling"
+      },
+      "owner_role": "Security",
+      "precondition": {
+        "baseline_must_be_clean": true,
+        "single_change": true,
+        "target_digest_must_match": true
+      },
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "Legal",
+        "QA"
+      ],
+      "risk_refs": [
+        "TM-005"
+      ],
+      "state": "active",
+      "target": "docs/contracts/connectors/connector-contract.json",
+      "target_sha256": "08a940adeae02f8ca2ca209082443f96f3e03425d8700e4e8d15b31e6ad56e89",
+      "test_refs": [
+        "TST-MUT-001"
+      ],
+      "timeout_seconds": 120,
+      "title": "el techo de datos del conector sube a produccion",
+      "validator": "connector_model"
+    },
+    {
+      "control_refs": [
+        "CON-ACCEPTANCE"
+      ],
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-MUTATION",
+      "expectation": {
+        "exit_code": 1,
+        "finding_codes": [
+          "CON-ACCEPTANCE"
+        ],
+        "kind": "expect_findings"
+      },
+      "gate": "S1-READY",
+      "independence": {
+        "mode": "independent",
+        "rationale": "regla distinta con codigo de hallazgo propio"
+      },
+      "max_output_bytes": 262144,
+      "mutation_id": "MUT-CON-007",
+      "operator": "replace_scalar",
+      "operator_params": {
+        "expected_current": "pending",
+        "new_value": "accepted",
+        "pointer": "/human_acceptance"
+      },
+      "owner_role": "QA",
+      "precondition": {
+        "baseline_must_be_clean": true,
+        "single_change": true,
+        "target_digest_must_match": true
+      },
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "Product",
+        "Security"
+      ],
+      "risk_refs": [
+        "TM-015"
+      ],
+      "state": "active",
+      "target": "docs/contracts/connectors/connector-contract.json",
+      "target_sha256": "08a940adeae02f8ca2ca209082443f96f3e03425d8700e4e8d15b31e6ad56e89",
+      "test_refs": [
+        "TST-MUT-001"
+      ],
+      "timeout_seconds": 120,
+      "title": "el agente acepta el contrato de conectores",
+      "validator": "connector_model"
+    },
+    {
+      "control_refs": [
+        "EVT-RETRY-LAYERS"
+      ],
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-MUTATION",
+      "expectation": {
+        "exit_code": 1,
+        "finding_codes": [
+          "EVT-RETRY-LAYERS"
+        ],
+        "kind": "expect_findings"
+      },
+      "gate": "S1-READY",
+      "independence": {
+        "mode": "independent",
+        "rationale": "regla distinta con codigo de hallazgo propio"
+      },
+      "max_output_bytes": 262144,
+      "mutation_id": "MUT-EVT-001",
+      "operator": "flip_boolean",
+      "operator_params": {
+        "expected_current": false,
+        "pointer": "/retry_policy_contract/adapter_schedules_retry"
+      },
+      "owner_role": "Platform",
+      "precondition": {
+        "baseline_must_be_clean": true,
+        "single_change": true,
+        "target_digest_must_match": true
+      },
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "Architecture",
+        "QA"
+      ],
+      "risk_refs": [
+        "TM-009"
+      ],
+      "state": "active",
+      "target": "docs/architecture/events-retries.json",
+      "target_sha256": "85b6798618ba228ba605b2ff85a4d892bf828cd91fe1f8453d5ac788ee749124",
+      "test_refs": [
+        "TST-MUT-001"
+      ],
+      "timeout_seconds": 120,
+      "title": "el adaptador tambien programa reintentos",
+      "validator": "event_model"
+    },
+    {
+      "control_refs": [
+        "EVT-DLQ-IMMUTABLE"
+      ],
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-MUTATION",
+      "expectation": {
+        "exit_code": 1,
+        "finding_codes": [
+          "EVT-DLQ-IMMUTABLE"
+        ],
+        "kind": "expect_findings"
+      },
+      "gate": "DRG-01",
+      "independence": {
+        "mode": "independent",
+        "rationale": "regla distinta con codigo de hallazgo propio"
+      },
+      "max_output_bytes": 262144,
+      "mutation_id": "MUT-EVT-002",
+      "operator": "flip_boolean",
+      "operator_params": {
+        "expected_current": true,
+        "pointer": "/dead_letter_contract/raw_payload_forbidden"
+      },
+      "owner_role": "Platform",
+      "precondition": {
+        "baseline_must_be_clean": true,
+        "single_change": true,
+        "target_digest_must_match": true
+      },
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "QA",
+        "Security"
+      ],
+      "risk_refs": [
+        "TM-014"
+      ],
+      "state": "active",
+      "target": "docs/architecture/events-retries.json",
+      "target_sha256": "85b6798618ba228ba605b2ff85a4d892bf828cd91fe1f8453d5ac788ee749124",
+      "test_refs": [
+        "TST-MUT-001"
+      ],
+      "timeout_seconds": 120,
+      "title": "la DLQ admite payload crudo",
+      "validator": "event_model"
+    },
+    {
+      "control_refs": [
+        "EVT-EXTERNAL-SCOPE"
+      ],
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-MUTATION",
+      "expectation": {
+        "exit_code": 1,
+        "finding_codes": [
+          "EVT-EXTERNAL-SCOPE"
+        ],
+        "kind": "expect_findings"
+      },
+      "gate": "DRG-01",
+      "independence": {
+        "mode": "independent",
+        "rationale": "regla distinta con codigo de hallazgo propio"
+      },
+      "max_output_bytes": 262144,
+      "mutation_id": "MUT-EVT-003",
+      "operator": "flip_boolean",
+      "operator_params": {
+        "expected_current": false,
+        "pointer": "/external_effect_contract/payments_enabled"
+      },
+      "owner_role": "Platform",
+      "precondition": {
+        "baseline_must_be_clean": true,
+        "single_change": true,
+        "target_digest_must_match": true
+      },
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "Product",
+        "Security"
+      ],
+      "risk_refs": [
+        "TM-004"
+      ],
+      "state": "active",
+      "target": "docs/architecture/events-retries.json",
+      "target_sha256": "85b6798618ba228ba605b2ff85a4d892bf828cd91fe1f8453d5ac788ee749124",
+      "test_refs": [
+        "TST-MUT-001"
+      ],
+      "timeout_seconds": 120,
+      "title": "se habilitan pagos en el contrato de efectos externos",
+      "validator": "event_model"
+    },
+    {
+      "control_refs": [
+        "EVT-AUTHORIZATION"
+      ],
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-MUTATION",
+      "expectation": {
+        "exit_code": 1,
+        "finding_codes": [
+          "EVT-AUTHORIZATION"
+        ],
+        "kind": "expect_findings"
+      },
+      "gate": "DRG-01",
+      "independence": {
+        "mode": "independent",
+        "rationale": "regla distinta con codigo de hallazgo propio"
+      },
+      "max_output_bytes": 262144,
+      "mutation_id": "MUT-EVT-004",
+      "operator": "flip_boolean",
+      "operator_params": {
+        "expected_current": true,
+        "pointer": "/authorization_contract/revalidate_before_publish_or_external_effect"
+      },
+      "owner_role": "Security",
+      "precondition": {
+        "baseline_must_be_clean": true,
+        "single_change": true,
+        "target_digest_must_match": true
+      },
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "Platform",
+        "QA"
+      ],
+      "risk_refs": [
+        "TM-003"
+      ],
+      "state": "active",
+      "target": "docs/architecture/events-retries.json",
+      "target_sha256": "85b6798618ba228ba605b2ff85a4d892bf828cd91fe1f8453d5ac788ee749124",
+      "test_refs": [
+        "TST-MUT-001"
+      ],
+      "timeout_seconds": 120,
+      "title": "no se revalida autorizacion antes de publicar",
+      "validator": "event_model"
+    },
+    {
+      "control_refs": [
+        "EVT-FINANCIAL-AUTHORITY"
+      ],
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-MUTATION",
+      "expectation": {
+        "exit_code": 1,
+        "finding_codes": [
+          "EVT-FINANCIAL-AUTHORITY"
+        ],
+        "kind": "expect_findings"
+      },
+      "gate": "S1-READY",
+      "independence": {
+        "mode": "independent",
+        "rationale": "regla distinta con codigo de hallazgo propio"
+      },
+      "max_output_bytes": 262144,
+      "mutation_id": "MUT-EVT-005",
+      "operator": "flip_boolean",
+      "operator_params": {
+        "expected_current": false,
+        "pointer": "/execution_truth_contract/queue_message_financial_authority"
+      },
+      "owner_role": "Platform",
+      "precondition": {
+        "baseline_must_be_clean": true,
+        "single_change": true,
+        "target_digest_must_match": true
+      },
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "Accounting",
+        "QA"
+      ],
+      "risk_refs": [
+        "TM-007"
+      ],
+      "state": "active",
+      "target": "docs/architecture/events-retries.json",
+      "target_sha256": "85b6798618ba228ba605b2ff85a4d892bf828cd91fe1f8453d5ac788ee749124",
+      "test_refs": [
+        "TST-MUT-001"
+      ],
+      "timeout_seconds": 120,
+      "title": "el mensaje en cola pasa a ser autoridad financiera",
+      "validator": "event_model"
+    },
+    {
+      "control_refs": [
+        "EVT-DATA-CEILING"
+      ],
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-MUTATION",
+      "expectation": {
+        "exit_code": 1,
+        "finding_codes": [
+          "EVT-DATA-CEILING"
+        ],
+        "kind": "expect_findings"
+      },
+      "gate": "DRG-00",
+      "independence": {
+        "mode": "independent",
+        "rationale": "regla distinta con codigo de hallazgo propio"
+      },
+      "max_output_bytes": 262144,
+      "mutation_id": "MUT-EVT-006",
+      "operator": "replace_scalar",
+      "operator_params": {
+        "expected_current": "synthetic_only",
+        "new_value": "production",
+        "pointer": "/data_ceiling"
+      },
+      "owner_role": "Platform",
+      "precondition": {
+        "baseline_must_be_clean": true,
+        "single_change": true,
+        "target_digest_must_match": true
+      },
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "QA",
+        "Security"
+      ],
+      "risk_refs": [
+        "TM-005"
+      ],
+      "state": "active",
+      "target": "docs/architecture/events-retries.json",
+      "target_sha256": "85b6798618ba228ba605b2ff85a4d892bf828cd91fe1f8453d5ac788ee749124",
+      "test_refs": [
+        "TST-MUT-001"
+      ],
+      "timeout_seconds": 120,
+      "title": "el techo de datos de eventos sube a produccion",
+      "validator": "event_model"
+    },
+    {
+      "control_refs": [
+        "QS-DETERMINISM"
+      ],
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-MUTATION",
+      "expectation": {
+        "exit_code": 0,
+        "kind": "expect_no_findings",
+        "rationale": "reordenar sin cambio semantico no puede alterar el veredicto"
+      },
+      "gate": "S1-READY",
+      "independence": {
+        "mode": "independent",
+        "rationale": "regla distinta con codigo de hallazgo propio"
+      },
+      "max_output_bytes": 262144,
+      "mutation_id": "MUT-EVT-007",
+      "operator": "reorder_list",
+      "operator_params": {
+        "pointer": "/work_classes"
+      },
+      "owner_role": "QA",
+      "precondition": {
+        "baseline_must_be_clean": true,
+        "single_change": true,
+        "target_digest_must_match": true
+      },
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "Architecture",
+        "Platform"
+      ],
+      "risk_refs": [
+        "TM-013"
+      ],
+      "state": "active",
+      "target": "docs/architecture/events-retries.json",
+      "target_sha256": "85b6798618ba228ba605b2ff85a4d892bf828cd91fe1f8453d5ac788ee749124",
+      "test_refs": [
+        "TST-META-001"
+      ],
+      "timeout_seconds": 120,
+      "title": "control metamorfico: reordenar clases de trabajo no cambia nada",
+      "validator": "event_model"
+    },
+    {
+      "control_refs": [
+        "GH-INPUT-HASH"
+      ],
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-MUTATION",
+      "expectation": {
+        "exit_code": 1,
+        "finding_codes": [
+          "GH-INPUT-HASH"
+        ],
+        "kind": "expect_findings"
+      },
+      "gate": "S1-READY",
+      "independence": {
+        "mode": "independent",
+        "rationale": "regla distinta con codigo de hallazgo propio"
+      },
+      "max_output_bytes": 262144,
+      "mutation_id": "MUT-GHR-001",
+      "operator": "replace_scalar",
+      "operator_params": {
+        "expected_current": "133dd7788f136415684dd802248d660bf0bedf062553b13b61143368645cfa93",
+        "new_value": "0000000000000000000000000000000000000000000000000000000000000000",
+        "pointer": "/cases/0/inputs/0/sha256"
+      },
+      "owner_role": "QA",
+      "precondition": {
+        "baseline_must_be_clean": true,
+        "single_change": true,
+        "target_digest_must_match": true
+      },
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "Architecture",
+        "Security"
+      ],
+      "risk_refs": [
+        "TM-011"
+      ],
+      "state": "active",
+      "target": "docs/testing/golden-harness.json",
+      "target_sha256": "b287a468eab4032e0ab0a538dbf7480b7563c4beb175059aaf55df07a78820fd",
+      "test_refs": [
+        "TST-MUT-001"
+      ],
+      "timeout_seconds": 120,
+      "title": "se altera el digest declarado de un input adjudicado",
+      "validator": "golden_harness"
+    },
+    {
+      "control_refs": [
+        "GH-INPUT-PATH"
+      ],
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-MUTATION",
+      "expectation": {
+        "exit_code": 1,
+        "finding_codes": [
+          "GH-INPUT-PATH"
+        ],
+        "kind": "expect_findings"
+      },
+      "gate": "S1-READY",
+      "independence": {
+        "mode": "independent",
+        "rationale": "regla distinta con codigo de hallazgo propio"
+      },
+      "max_output_bytes": 262144,
+      "mutation_id": "MUT-GHR-002",
+      "operator": "path_traversal_internal",
+      "operator_params": {
+        "expected_current": "docs/architecture/module-boundaries.json",
+        "pointer": "/cases/0/inputs/0/path"
+      },
+      "owner_role": "Security",
+      "precondition": {
+        "baseline_must_be_clean": true,
+        "single_change": true,
+        "target_digest_must_match": true
+      },
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "Platform",
+        "QA"
+      ],
+      "risk_refs": [
+        "TM-011"
+      ],
+      "state": "active",
+      "target": "docs/testing/golden-harness.json",
+      "target_sha256": "b287a468eab4032e0ab0a538dbf7480b7563c4beb175059aaf55df07a78820fd",
+      "test_refs": [
+        "TST-MUT-001"
+      ],
+      "timeout_seconds": 120,
+      "title": "un input pasa a escribirse con traversal interno",
+      "validator": "golden_harness"
+    },
+    {
+      "control_refs": [
+        "GH-AUTO-UPDATE"
+      ],
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-MUTATION",
+      "expectation": {
+        "exit_code": 1,
+        "finding_codes": [
+          "GH-AUTO-UPDATE"
+        ],
+        "kind": "expect_findings"
+      },
+      "gate": "S1-READY",
+      "independence": {
+        "mode": "independent",
+        "rationale": "regla distinta con codigo de hallazgo propio"
+      },
+      "max_output_bytes": 262144,
+      "mutation_id": "MUT-GHR-003",
+      "operator": "flip_boolean",
+      "operator_params": {
+        "expected_current": false,
+        "pointer": "/auto_update_expected_allowed"
+      },
+      "owner_role": "QA",
+      "precondition": {
+        "baseline_must_be_clean": true,
+        "single_change": true,
+        "target_digest_must_match": true
+      },
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "Accounting",
+        "Security"
+      ],
+      "risk_refs": [
+        "TM-013"
+      ],
+      "state": "active",
+      "target": "docs/testing/golden-harness.json",
+      "target_sha256": "b287a468eab4032e0ab0a538dbf7480b7563c4beb175059aaf55df07a78820fd",
+      "test_refs": [
+        "TST-MUT-001"
+      ],
+      "timeout_seconds": 120,
+      "title": "el runner puede autoactualizar lo esperado",
+      "validator": "golden_harness"
+    },
+    {
+      "control_refs": [
+        "GH-NETWORK"
+      ],
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-MUTATION",
+      "expectation": {
+        "exit_code": 1,
+        "finding_codes": [
+          "GH-NETWORK"
+        ],
+        "kind": "expect_findings"
+      },
+      "gate": "DRG-00",
+      "independence": {
+        "mode": "independent",
+        "rationale": "regla distinta con codigo de hallazgo propio"
+      },
+      "max_output_bytes": 262144,
+      "mutation_id": "MUT-GHR-004",
+      "operator": "flip_boolean",
+      "operator_params": {
+        "expected_current": false,
+        "pointer": "/network_access"
+      },
+      "owner_role": "Security",
+      "precondition": {
+        "baseline_must_be_clean": true,
+        "single_change": true,
+        "target_digest_must_match": true
+      },
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "Platform",
+        "QA"
+      ],
+      "risk_refs": [
+        "TM-005"
+      ],
+      "state": "active",
+      "target": "docs/testing/golden-harness.json",
+      "target_sha256": "b287a468eab4032e0ab0a538dbf7480b7563c4beb175059aaf55df07a78820fd",
+      "test_refs": [
+        "TST-MUT-001"
+      ],
+      "timeout_seconds": 120,
+      "title": "el harness golden declara acceso a red",
+      "validator": "golden_harness"
+    },
+    {
+      "control_refs": [
+        "GH-HUMAN-ACCEPTANCE"
+      ],
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-MUTATION",
+      "expectation": {
+        "exit_code": 1,
+        "finding_codes": [
+          "GH-HUMAN-ACCEPTANCE"
+        ],
+        "kind": "expect_findings"
+      },
+      "gate": "S1-READY",
+      "independence": {
+        "mode": "independent",
+        "rationale": "regla distinta con codigo de hallazgo propio"
+      },
+      "max_output_bytes": 262144,
+      "mutation_id": "MUT-GHR-005",
+      "operator": "replace_scalar",
+      "operator_params": {
+        "expected_current": "pending",
+        "new_value": "accepted",
+        "pointer": "/human_acceptance"
+      },
+      "owner_role": "QA",
+      "precondition": {
+        "baseline_must_be_clean": true,
+        "single_change": true,
+        "target_digest_must_match": true
+      },
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "Accounting",
+        "Security"
+      ],
+      "risk_refs": [
+        "TM-015"
+      ],
+      "state": "active",
+      "target": "docs/testing/golden-harness.json",
+      "target_sha256": "b287a468eab4032e0ab0a538dbf7480b7563c4beb175059aaf55df07a78820fd",
+      "test_refs": [
+        "TST-MUT-001"
+      ],
+      "timeout_seconds": 120,
+      "title": "el agente acepta el registro golden",
+      "validator": "golden_harness"
+    },
+    {
+      "control_refs": [
+        "GH-ADJUDICATION-AUTHORITY"
+      ],
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-MUTATION",
+      "expectation": {
+        "exit_code": 1,
+        "finding_codes": [
+          "GH-ADJUDICATION-AUTHORITY"
+        ],
+        "kind": "expect_findings"
+      },
+      "gate": "S1-READY",
+      "independence": {
+        "mode": "independent",
+        "rationale": "regla distinta con codigo de hallazgo propio"
+      },
+      "max_output_bytes": 262144,
+      "mutation_id": "MUT-GHR-006",
+      "operator": "flip_boolean",
+      "operator_params": {
+        "expected_current": false,
+        "pointer": "/adjudication/runner_can_update_expected"
+      },
+      "owner_role": "QA",
+      "precondition": {
+        "baseline_must_be_clean": true,
+        "single_change": true,
+        "target_digest_must_match": true
+      },
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "Accounting",
+        "Security"
+      ],
+      "risk_refs": [
+        "TM-013"
+      ],
+      "state": "active",
+      "target": "docs/testing/golden-harness.json",
+      "target_sha256": "b287a468eab4032e0ab0a538dbf7480b7563c4beb175059aaf55df07a78820fd",
+      "test_refs": [
+        "TST-MUT-001"
+      ],
+      "timeout_seconds": 120,
+      "title": "el runner se declara autoridad de adjudicacion",
+      "validator": "golden_harness"
+    },
+    {
+      "control_refs": [
+        "QS-DETERMINISM"
+      ],
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-MUTATION",
+      "expectation": {
+        "exit_code": 0,
+        "kind": "expect_no_findings",
+        "rationale": "reordenar sin cambio semantico no puede alterar el veredicto"
+      },
+      "gate": "S1-READY",
+      "independence": {
+        "mode": "independent",
+        "rationale": "regla distinta con codigo de hallazgo propio"
+      },
+      "max_output_bytes": 262144,
+      "mutation_id": "MUT-GHR-007",
+      "operator": "reorder_list",
+      "operator_params": {
+        "pointer": "/cases"
+      },
+      "owner_role": "QA",
+      "precondition": {
+        "baseline_must_be_clean": true,
+        "single_change": true,
+        "target_digest_must_match": true
+      },
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "Architecture",
+        "Security"
+      ],
+      "risk_refs": [
+        "TM-013"
+      ],
+      "state": "active",
+      "target": "docs/testing/golden-harness.json",
+      "target_sha256": "b287a468eab4032e0ab0a538dbf7480b7563c4beb175059aaf55df07a78820fd",
+      "test_refs": [
+        "TST-META-001"
+      ],
+      "timeout_seconds": 120,
+      "title": "control metamorfico: reordenar casos no cambia nada",
+      "validator": "golden_harness"
+    },
+    {
+      "control_refs": [
+        "IDM-BUSINESS-COMPOSITE",
+        "IDM-FORBIDDEN-UNIQUE"
+      ],
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-MUTATION",
+      "expectation": {
+        "exit_code": 1,
+        "finding_codes": [
+          "IDM-BUSINESS-COMPOSITE",
+          "IDM-FORBIDDEN-UNIQUE"
+        ],
+        "kind": "expect_findings"
+      },
+      "gate": "S1-READY",
+      "independence": {
+        "mode": "independent",
+        "rationale": "regla distinta con codigo de hallazgo propio"
+      },
+      "max_output_bytes": 262144,
+      "mutation_id": "MUT-IDM-001",
+      "operator": "delete_key",
+      "operator_params": {
+        "pointer": "/forbidden_hard_uniqueness/0"
+      },
+      "owner_role": "Accounting",
+      "precondition": {
+        "baseline_must_be_clean": true,
+        "single_change": true,
+        "target_digest_must_match": true
+      },
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "Platform",
+        "QA"
+      ],
+      "risk_refs": [
+        "TM-008"
+      ],
+      "state": "active",
+      "target": "docs/domain/idempotency-dedupe.json",
+      "target_sha256": "c9960eb7df6fe335a6830750599b31770bd8d1281598902075116142d08a4a5c",
+      "test_refs": [
+        "TST-MUT-001"
+      ],
+      "timeout_seconds": 120,
+      "title": "desaparece la prohibicion del composite UNIQUE de negocio",
+      "validator": "idempotency_model"
+    },
+    {
+      "control_refs": [
+        "IDM-FINGERPRINT-PRIVACY"
+      ],
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-MUTATION",
+      "expectation": {
+        "exit_code": 1,
+        "finding_codes": [
+          "IDM-FINGERPRINT-PRIVACY"
+        ],
+        "kind": "expect_findings"
+      },
+      "gate": "DRG-01",
+      "independence": {
+        "mode": "independent",
+        "rationale": "regla distinta con codigo de hallazgo propio"
+      },
+      "max_output_bytes": 262144,
+      "mutation_id": "MUT-IDM-002",
+      "operator": "flip_boolean",
+      "operator_params": {
+        "expected_current": false,
+        "pointer": "/fingerprint_policy/raw_values_in_logs"
+      },
+      "owner_role": "Security",
+      "precondition": {
+        "baseline_must_be_clean": true,
+        "single_change": true,
+        "target_digest_must_match": true
+      },
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "Platform",
+        "QA"
+      ],
+      "risk_refs": [
+        "TM-014"
+      ],
+      "state": "active",
+      "target": "docs/domain/idempotency-dedupe.json",
+      "target_sha256": "c9960eb7df6fe335a6830750599b31770bd8d1281598902075116142d08a4a5c",
+      "test_refs": [
+        "TST-MUT-001"
+      ],
+      "timeout_seconds": 120,
+      "title": "se permiten valores crudos en logs de fingerprint",
+      "validator": "idempotency_model"
+    },
+    {
+      "control_refs": [
+        "IDM-INBOX-PRECHECK"
+      ],
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-MUTATION",
+      "expectation": {
+        "exit_code": 1,
+        "finding_codes": [
+          "IDM-INBOX-PRECHECK"
+        ],
+        "kind": "expect_findings"
+      },
+      "gate": "S1-READY",
+      "independence": {
+        "mode": "independent",
+        "rationale": "regla distinta con codigo de hallazgo propio"
+      },
+      "max_output_bytes": 262144,
+      "mutation_id": "MUT-IDM-003",
+      "operator": "flip_boolean",
+      "operator_params": {
+        "expected_current": false,
+        "pointer": "/inbox_state_machine/application_precheck_is_authority"
+      },
+      "owner_role": "Platform",
+      "precondition": {
+        "baseline_must_be_clean": true,
+        "single_change": true,
+        "target_digest_must_match": true
+      },
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "Accounting",
+        "QA"
+      ],
+      "risk_refs": [
+        "TM-009"
+      ],
+      "state": "active",
+      "target": "docs/domain/idempotency-dedupe.json",
+      "target_sha256": "c9960eb7df6fe335a6830750599b31770bd8d1281598902075116142d08a4a5c",
+      "test_refs": [
+        "TST-MUT-001"
+      ],
+      "timeout_seconds": 120,
+      "title": "el precheck de aplicacion pasa a ser autoridad",
+      "validator": "idempotency_model"
+    },
+    {
+      "control_refs": [
+        "IDM-COMPANY-SCOPE"
+      ],
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-MUTATION",
+      "expectation": {
+        "exit_code": 1,
+        "finding_codes": [
+          "IDM-COMPANY-SCOPE"
+        ],
+        "kind": "expect_findings"
+      },
+      "gate": "DRG-01",
+      "independence": {
+        "mode": "independent",
+        "rationale": "regla distinta con codigo de hallazgo propio"
+      },
+      "max_output_bytes": 262144,
+      "mutation_id": "MUT-IDM-004",
+      "operator": "flip_boolean",
+      "operator_params": {
+        "expected_current": true,
+        "pointer": "/security_contract/cross_company_candidate_forbidden"
+      },
+      "owner_role": "Security",
+      "precondition": {
+        "baseline_must_be_clean": true,
+        "single_change": true,
+        "target_digest_must_match": true
+      },
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "Accounting",
+        "Platform"
+      ],
+      "risk_refs": [
+        "TM-001"
+      ],
+      "state": "active",
+      "target": "docs/domain/idempotency-dedupe.json",
+      "target_sha256": "c9960eb7df6fe335a6830750599b31770bd8d1281598902075116142d08a4a5c",
+      "test_refs": [
+        "TST-MUT-001"
+      ],
+      "timeout_seconds": 120,
+      "title": "se permite candidato de dedupe entre companias",
+      "validator": "idempotency_model"
+    },
+    {
+      "control_refs": [
+        "IDM-CONCURRENCY-FORBIDDEN"
+      ],
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-MUTATION",
+      "expectation": {
+        "exit_code": 1,
+        "finding_codes": [
+          "IDM-CONCURRENCY-FORBIDDEN"
+        ],
+        "kind": "expect_findings"
+      },
+      "gate": "S1-READY",
+      "independence": {
+        "mode": "independent",
+        "rationale": "regla distinta con codigo de hallazgo propio"
+      },
+      "max_output_bytes": 262144,
+      "mutation_id": "MUT-IDM-005",
+      "operator": "delete_key",
+      "operator_params": {
+        "pointer": "/concurrency_contract/forbidden_as_sole_correctness/1"
+      },
+      "owner_role": "Platform",
+      "precondition": {
+        "baseline_must_be_clean": true,
+        "single_change": true,
+        "target_digest_must_match": true
+      },
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "Architecture",
+        "QA"
+      ],
+      "risk_refs": [
+        "TM-009"
+      ],
+      "state": "active",
+      "target": "docs/domain/idempotency-dedupe.json",
+      "target_sha256": "c9960eb7df6fe335a6830750599b31770bd8d1281598902075116142d08a4a5c",
+      "test_refs": [
+        "TST-MUT-001"
+      ],
+      "timeout_seconds": 120,
+      "title": "el lock de cache deja de estar prohibido como correccion unica",
+      "validator": "idempotency_model"
+    },
+    {
+      "control_refs": [
+        "IDM-DATA-CEILING"
+      ],
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-MUTATION",
+      "expectation": {
+        "exit_code": 1,
+        "finding_codes": [
+          "IDM-DATA-CEILING"
+        ],
+        "kind": "expect_findings"
+      },
+      "gate": "DRG-00",
+      "independence": {
+        "mode": "independent",
+        "rationale": "regla distinta con codigo de hallazgo propio"
+      },
+      "max_output_bytes": 262144,
+      "mutation_id": "MUT-IDM-006",
+      "operator": "replace_scalar",
+      "operator_params": {
+        "expected_current": "synthetic_only",
+        "new_value": "production",
+        "pointer": "/data_ceiling"
+      },
+      "owner_role": "Platform",
+      "precondition": {
+        "baseline_must_be_clean": true,
+        "single_change": true,
+        "target_digest_must_match": true
+      },
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "QA",
+        "Security"
+      ],
+      "risk_refs": [
+        "TM-005"
+      ],
+      "state": "active",
+      "target": "docs/domain/idempotency-dedupe.json",
+      "target_sha256": "c9960eb7df6fe335a6830750599b31770bd8d1281598902075116142d08a4a5c",
+      "test_refs": [
+        "TST-MUT-001"
+      ],
+      "timeout_seconds": 120,
+      "title": "el techo de datos de idempotencia sube a produccion",
+      "validator": "idempotency_model"
+    },
+    {
+      "control_refs": [
+        "QS-DETERMINISM"
+      ],
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-MUTATION",
+      "expectation": {
+        "exit_code": 0,
+        "kind": "expect_no_findings",
+        "rationale": "reordenar sin cambio semantico no puede alterar el veredicto"
+      },
+      "gate": "S1-READY",
+      "independence": {
+        "mode": "independent",
+        "rationale": "regla distinta con codigo de hallazgo propio"
+      },
+      "max_output_bytes": 262144,
+      "mutation_id": "MUT-IDM-007",
+      "operator": "reorder_list",
+      "operator_params": {
+        "pointer": "/identity_layers"
+      },
+      "owner_role": "QA",
+      "precondition": {
+        "baseline_must_be_clean": true,
+        "single_change": true,
+        "target_digest_must_match": true
+      },
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "Architecture",
+        "Platform"
+      ],
+      "risk_refs": [
+        "TM-013"
+      ],
+      "state": "active",
+      "target": "docs/domain/idempotency-dedupe.json",
+      "target_sha256": "c9960eb7df6fe335a6830750599b31770bd8d1281598902075116142d08a4a5c",
+      "test_refs": [
+        "TST-META-001"
+      ],
+      "timeout_seconds": 120,
+      "title": "control metamorfico: reordenar capas de identidad no cambia nada",
+      "validator": "idempotency_model"
+    },
+    {
+      "control_refs": [
+        "PAR-RELEASE-APPROVAL"
+      ],
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-MUTATION",
+      "expectation": {
+        "exit_code": 1,
+        "finding_codes": [
+          "PAR-RELEASE-APPROVAL"
+        ],
+        "kind": "expect_findings"
+      },
+      "gate": "S1-READY",
+      "independence": {
+        "mode": "independent",
+        "rationale": "regla distinta con codigo de hallazgo propio"
+      },
+      "max_output_bytes": 262144,
+      "mutation_id": "MUT-LIN-001",
+      "operator": "flip_boolean",
+      "operator_params": {
+        "expected_current": false,
+        "pointer": "/engine_release_contract/approval/agent_can_self_approve"
+      },
+      "owner_role": "QA",
+      "precondition": {
+        "baseline_must_be_clean": true,
+        "single_change": true,
+        "target_digest_must_match": true
+      },
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "Architecture",
+        "Security"
+      ],
+      "risk_refs": [
+        "TM-015"
+      ],
+      "state": "active",
+      "target": "docs/domain/lineage-model.json",
+      "target_sha256": "74e29ff731ddc143fee58176a53c296db1d519dc375f074d1fbf3bf9d1b90258",
+      "test_refs": [
+        "TST-MUT-001"
+      ],
+      "timeout_seconds": 120,
+      "title": "el agente puede autoaprobar un engine release",
+      "validator": "lineage_model"
+    },
+    {
+      "control_refs": [
+        "PAR-NO-LATEST"
+      ],
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-MUTATION",
+      "expectation": {
+        "exit_code": 1,
+        "finding_codes": [
+          "PAR-NO-LATEST"
+        ],
+        "kind": "expect_findings"
+      },
+      "gate": "S1-READY",
+      "independence": {
+        "mode": "independent",
+        "rationale": "regla distinta con codigo de hallazgo propio"
+      },
+      "max_output_bytes": 262144,
+      "mutation_id": "MUT-LIN-002",
+      "operator": "delete_key",
+      "operator_params": {
+        "pointer": "/reproducibility_manifest/floating_version_tokens_forbidden/0"
+      },
+      "owner_role": "Platform",
+      "precondition": {
+        "baseline_must_be_clean": true,
+        "single_change": true,
+        "target_digest_must_match": true
+      },
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "Architecture",
+        "QA"
+      ],
+      "risk_refs": [
+        "TM-011"
+      ],
+      "state": "active",
+      "target": "docs/domain/lineage-model.json",
+      "target_sha256": "74e29ff731ddc143fee58176a53c296db1d519dc375f074d1fbf3bf9d1b90258",
+      "test_refs": [
+        "TST-MUT-001"
+      ],
+      "timeout_seconds": 120,
+      "title": "latest deja de ser un token prohibido",
+      "validator": "lineage_model"
+    },
+    {
+      "control_refs": [
+        "LIN-EDGE-CROSS-COMPANY"
+      ],
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-MUTATION",
+      "expectation": {
+        "exit_code": 1,
+        "finding_codes": [
+          "LIN-EDGE-CROSS-COMPANY"
+        ],
+        "kind": "expect_findings"
+      },
+      "gate": "DRG-01",
+      "independence": {
+        "mode": "independent",
+        "rationale": "regla distinta con codigo de hallazgo propio"
+      },
+      "max_output_bytes": 262144,
+      "mutation_id": "MUT-LIN-003",
+      "operator": "flip_boolean",
+      "operator_params": {
+        "expected_current": true,
+        "pointer": "/edge_contract/cross_company_forbidden"
+      },
+      "owner_role": "Security",
+      "precondition": {
+        "baseline_must_be_clean": true,
+        "single_change": true,
+        "target_digest_must_match": true
+      },
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "Accounting",
+        "Architecture"
+      ],
+      "risk_refs": [
+        "TM-001"
+      ],
+      "state": "active",
+      "target": "docs/domain/lineage-model.json",
+      "target_sha256": "74e29ff731ddc143fee58176a53c296db1d519dc375f074d1fbf3bf9d1b90258",
+      "test_refs": [
+        "TST-MUT-001"
+      ],
+      "timeout_seconds": 120,
+      "title": "se permite arista de linaje entre companias",
+      "validator": "lineage_model"
+    },
+    {
+      "control_refs": [
+        "LIN-PATH-AVERAGE"
+      ],
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-MUTATION",
+      "expectation": {
+        "exit_code": 1,
+        "finding_codes": [
+          "LIN-PATH-AVERAGE"
+        ],
+        "kind": "expect_findings"
+      },
+      "gate": "S1-READY",
+      "independence": {
+        "mode": "independent",
+        "rationale": "regla distinta con codigo de hallazgo propio"
+      },
+      "max_output_bytes": 262144,
+      "mutation_id": "MUT-LIN-004",
+      "operator": "flip_boolean",
+      "operator_params": {
+        "expected_current": false,
+        "pointer": "/required_paths/0/average_coverage_allowed"
+      },
+      "owner_role": "QA",
+      "precondition": {
+        "baseline_must_be_clean": true,
+        "single_change": true,
+        "target_digest_must_match": true
+      },
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "Accounting",
+        "Architecture"
+      ],
+      "risk_refs": [
+        "TM-013"
+      ],
+      "state": "active",
+      "target": "docs/domain/lineage-model.json",
+      "target_sha256": "74e29ff731ddc143fee58176a53c296db1d519dc375f074d1fbf3bf9d1b90258",
+      "test_refs": [
+        "TST-MUT-001"
+      ],
+      "timeout_seconds": 120,
+      "title": "la cobertura de linaje admite promedio",
+      "validator": "lineage_model"
+    },
+    {
+      "control_refs": [
+        "OVR-SOD"
+      ],
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-MUTATION",
+      "expectation": {
+        "exit_code": 1,
+        "finding_codes": [
+          "OVR-SOD"
+        ],
+        "kind": "expect_findings"
+      },
+      "gate": "DRG-01",
+      "independence": {
+        "mode": "independent",
+        "rationale": "regla distinta con codigo de hallazgo propio"
+      },
+      "max_output_bytes": 262144,
+      "mutation_id": "MUT-LIN-005",
+      "operator": "replace_scalar",
+      "operator_params": {
+        "expected_current": "author_cannot_approve",
+        "new_value": "author_can_approve",
+        "pointer": "/critical_overlay_fields/0/sod_rule"
+      },
+      "owner_role": "Security",
+      "precondition": {
+        "baseline_must_be_clean": true,
+        "single_change": true,
+        "target_digest_must_match": true
+      },
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "Accounting",
+        "QA"
+      ],
+      "risk_refs": [
+        "TM-004"
+      ],
+      "state": "active",
+      "target": "docs/domain/lineage-model.json",
+      "target_sha256": "74e29ff731ddc143fee58176a53c296db1d519dc375f074d1fbf3bf9d1b90258",
+      "test_refs": [
+        "TST-MUT-001"
+      ],
+      "timeout_seconds": 120,
+      "title": "el autor de un overlay critico puede aprobarlo",
+      "validator": "lineage_model"
+    },
+    {
+      "control_refs": [
+        "LIN-RAW-IN-LOGS"
+      ],
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-MUTATION",
+      "expectation": {
+        "exit_code": 1,
+        "finding_codes": [
+          "LIN-RAW-IN-LOGS"
+        ],
+        "kind": "expect_findings"
+      },
+      "gate": "DRG-01",
+      "independence": {
+        "mode": "independent",
+        "rationale": "regla distinta con codigo de hallazgo propio"
+      },
+      "max_output_bytes": 262144,
+      "mutation_id": "MUT-LIN-006",
+      "operator": "flip_boolean",
+      "operator_params": {
+        "expected_current": true,
+        "pointer": "/edge_contract/raw_value_fields_forbidden"
+      },
+      "owner_role": "Security",
+      "precondition": {
+        "baseline_must_be_clean": true,
+        "single_change": true,
+        "target_digest_must_match": true
+      },
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "Platform",
+        "QA"
+      ],
+      "risk_refs": [
+        "TM-014"
+      ],
+      "state": "active",
+      "target": "docs/domain/lineage-model.json",
+      "target_sha256": "74e29ff731ddc143fee58176a53c296db1d519dc375f074d1fbf3bf9d1b90258",
+      "test_refs": [
+        "TST-MUT-001"
+      ],
+      "timeout_seconds": 120,
+      "title": "las aristas admiten campos de valor crudo",
+      "validator": "lineage_model"
+    },
+    {
+      "control_refs": [
+        "LIN-SCHEMA-MATCH"
+      ],
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-MUTATION",
+      "expectation": {
+        "exit_code": 1,
+        "finding_codes": [
+          "LIN-SCHEMA-MATCH"
+        ],
+        "kind": "expect_findings"
+      },
+      "gate": "S1-READY",
+      "independence": {
+        "mode": "independent",
+        "rationale": "regla distinta con codigo de hallazgo propio"
+      },
+      "max_output_bytes": 262144,
+      "mutation_id": "MUT-LIN-007",
+      "operator": "float_version_token",
+      "operator_params": {
+        "expected_current": "0.1.0",
+        "pointer": "/canonical_schema_version",
+        "token": "latest"
+      },
+      "owner_role": "Architecture",
+      "precondition": {
+        "baseline_must_be_clean": true,
+        "single_change": true,
+        "target_digest_must_match": true
+      },
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "Platform",
+        "QA"
+      ],
+      "risk_refs": [
+        "TM-011"
+      ],
+      "state": "active",
+      "target": "docs/domain/lineage-model.json",
+      "target_sha256": "74e29ff731ddc143fee58176a53c296db1d519dc375f074d1fbf3bf9d1b90258",
+      "test_refs": [
+        "TST-MUT-001"
+      ],
+      "timeout_seconds": 120,
+      "title": "la version de esquema canonico se degrada a token flotante",
+      "validator": "lineage_model"
+    },
+    {
+      "control_refs": [
+        "LIN-GATE-STATUS"
+      ],
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-MUTATION",
+      "expectation": {
+        "exit_code": 1,
+        "finding_codes": [
+          "LIN-GATE-STATUS"
+        ],
+        "kind": "expect_findings"
+      },
+      "gate": "S1-READY",
+      "independence": {
+        "mode": "independent",
+        "rationale": "regla distinta con codigo de hallazgo propio"
+      },
+      "max_output_bytes": 262144,
+      "mutation_id": "MUT-LIN-008",
+      "operator": "replace_scalar",
+      "operator_params": {
+        "expected_current": "not_met",
+        "new_value": "met",
+        "pointer": "/gates/0/status"
+      },
+      "owner_role": "QA",
+      "precondition": {
+        "baseline_must_be_clean": true,
+        "single_change": true,
+        "target_digest_must_match": true
+      },
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "Architecture",
+        "Security"
+      ],
+      "risk_refs": [
+        "TM-015"
+      ],
+      "state": "active",
+      "target": "docs/domain/lineage-model.json",
+      "target_sha256": "74e29ff731ddc143fee58176a53c296db1d519dc375f074d1fbf3bf9d1b90258",
+      "test_refs": [
+        "TST-MUT-001"
+      ],
+      "timeout_seconds": 120,
+      "title": "el agente marca cumplida una compuerta de linaje",
+      "validator": "lineage_model"
+    },
+    {
+      "control_refs": [
+        "QS-DETERMINISM"
+      ],
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-MUTATION",
+      "expectation": {
+        "exit_code": 0,
+        "kind": "expect_no_findings",
+        "rationale": "reordenar sin cambio semantico no puede alterar el veredicto"
+      },
+      "gate": "S1-READY",
+      "independence": {
+        "mode": "independent",
+        "rationale": "regla distinta con codigo de hallazgo propio"
+      },
+      "max_output_bytes": 262144,
+      "mutation_id": "MUT-LIN-009",
+      "operator": "reorder_list",
+      "operator_params": {
+        "pointer": "/critical_overlay_fields"
+      },
+      "owner_role": "QA",
+      "precondition": {
+        "baseline_must_be_clean": true,
+        "single_change": true,
+        "target_digest_must_match": true
+      },
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "Accounting",
+        "Architecture"
+      ],
+      "risk_refs": [
+        "TM-013"
+      ],
+      "state": "active",
+      "target": "docs/domain/lineage-model.json",
+      "target_sha256": "74e29ff731ddc143fee58176a53c296db1d519dc375f074d1fbf3bf9d1b90258",
+      "test_refs": [
+        "TST-META-001"
+      ],
+      "timeout_seconds": 120,
+      "title": "control metamorfico: reordenar campos criticos no cambia nada",
+      "validator": "lineage_model"
+    },
+    {
+      "control_refs": [
+        "PRV-EXTERNAL-AI-GLOBAL"
+      ],
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-MUTATION",
+      "expectation": {
+        "exit_code": 1,
+        "finding_codes": [
+          "PRV-EXTERNAL-AI-GLOBAL"
+        ],
+        "kind": "expect_findings"
+      },
+      "gate": "L-02",
+      "independence": {
+        "mode": "independent",
+        "rationale": "regla distinta con codigo de hallazgo propio"
+      },
+      "max_output_bytes": 262144,
+      "mutation_id": "MUT-PRV-001",
+      "operator": "flip_boolean",
+      "operator_params": {
+        "expected_current": false,
+        "pointer": "/external_ai_enabled"
+      },
+      "owner_role": "Legal",
+      "precondition": {
+        "baseline_must_be_clean": true,
+        "single_change": true,
+        "target_digest_must_match": true
+      },
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "AI Platform",
+        "Security"
+      ],
+      "risk_refs": [
+        "TM-010"
+      ],
+      "state": "active",
+      "target": "docs/privacy/privacy-map.json",
+      "target_sha256": "ebbf237503179202d588ccb1703f4080a7805cba17dc362b90956feb856d2331",
+      "test_refs": [
+        "TST-MUT-001"
+      ],
+      "timeout_seconds": 120,
+      "title": "se habilita IA externa de forma global",
+      "validator": "privacy_model"
+    },
+    {
+      "control_refs": [
+        "PRV-STORE-AUTHORITY"
+      ],
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-MUTATION",
+      "expectation": {
+        "exit_code": 1,
+        "finding_codes": [
+          "PRV-STORE-AUTHORITY"
+        ],
+        "kind": "expect_findings"
+      },
+      "gate": "S1-READY",
+      "independence": {
+        "mode": "independent",
+        "rationale": "regla distinta con codigo de hallazgo propio"
+      },
+      "max_output_bytes": 262144,
+      "mutation_id": "MUT-PRV-002",
+      "operator": "flip_boolean",
+      "operator_params": {
+        "expected_current": false,
+        "pointer": "/stores/5/financial_authority"
+      },
+      "owner_role": "Architecture",
+      "precondition": {
+        "baseline_must_be_clean": true,
+        "single_change": true,
+        "target_digest_must_match": true
+      },
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "Accounting",
+        "Security"
+      ],
+      "risk_refs": [
+        "TM-007"
+      ],
+      "state": "active",
+      "target": "docs/privacy/privacy-map.json",
+      "target_sha256": "ebbf237503179202d588ccb1703f4080a7805cba17dc362b90956feb856d2331",
+      "test_refs": [
+        "TST-MUT-001"
+      ],
+      "timeout_seconds": 120,
+      "title": "la cache efimera pasa a ser autoridad financiera",
+      "validator": "privacy_model"
+    },
+    {
+      "control_refs": [
+        "PRV-LEGAL-HOLD"
+      ],
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-MUTATION",
+      "expectation": {
+        "exit_code": 1,
+        "finding_codes": [
+          "PRV-LEGAL-HOLD"
+        ],
+        "kind": "expect_findings"
+      },
+      "gate": "DRG-01",
+      "independence": {
+        "mode": "independent",
+        "rationale": "regla distinta con codigo de hallazgo propio"
+      },
+      "max_output_bytes": 262144,
+      "mutation_id": "MUT-PRV-003",
+      "operator": "flip_boolean",
+      "operator_params": {
+        "expected_current": false,
+        "pointer": "/deletion_state_machine/legal_hold_silent_activation"
+      },
+      "owner_role": "Legal",
+      "precondition": {
+        "baseline_must_be_clean": true,
+        "single_change": true,
+        "target_digest_must_match": true
+      },
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "QA",
+        "Security"
+      ],
+      "risk_refs": [
+        "TM-014"
+      ],
+      "state": "active",
+      "target": "docs/privacy/privacy-map.json",
+      "target_sha256": "ebbf237503179202d588ccb1703f4080a7805cba17dc362b90956feb856d2331",
+      "test_refs": [
+        "TST-MUT-001"
+      ],
+      "timeout_seconds": 120,
+      "title": "el legal hold puede activarse en silencio",
+      "validator": "privacy_model"
+    },
+    {
+      "control_refs": [
+        "PRV-PROHIBITED-CLASS",
+        "PRV-STORE-CLASS-CONFLICT"
+      ],
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-MUTATION",
+      "expectation": {
+        "exit_code": 1,
+        "finding_codes": [
+          "PRV-PROHIBITED-CLASS",
+          "PRV-STORE-CLASS-CONFLICT"
+        ],
+        "kind": "expect_findings"
+      },
+      "gate": "DRG-01",
+      "independence": {
+        "mode": "independent",
+        "rationale": "regla distinta con codigo de hallazgo propio"
+      },
+      "max_output_bytes": 262144,
+      "mutation_id": "MUT-PRV-004",
+      "operator": "insert_element",
+      "operator_params": {
+        "index": 0,
+        "pointer": "/stores/5/allowed_classifications",
+        "value": "prohibited"
+      },
+      "owner_role": "Security",
+      "precondition": {
+        "baseline_must_be_clean": true,
+        "single_change": true,
+        "target_digest_must_match": true
+      },
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "Legal",
+        "Platform"
+      ],
+      "risk_refs": [
+        "TM-014"
+      ],
+      "state": "active",
+      "target": "docs/privacy/privacy-map.json",
+      "target_sha256": "ebbf237503179202d588ccb1703f4080a7805cba17dc362b90956feb856d2331",
+      "test_refs": [
+        "TST-MUT-001"
+      ],
+      "timeout_seconds": 120,
+      "title": "la cache admite clasificacion prohibida",
+      "validator": "privacy_model"
+    },
+    {
+      "control_refs": [
+        "PRV-DATA-CEILING"
+      ],
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-MUTATION",
+      "expectation": {
+        "exit_code": 1,
+        "finding_codes": [
+          "PRV-DATA-CEILING"
+        ],
+        "kind": "expect_findings"
+      },
+      "gate": "DRG-00",
+      "independence": {
+        "mode": "independent",
+        "rationale": "regla distinta con codigo de hallazgo propio"
+      },
+      "max_output_bytes": 262144,
+      "mutation_id": "MUT-PRV-005",
+      "operator": "replace_scalar",
+      "operator_params": {
+        "expected_current": "synthetic_only",
+        "new_value": "production",
+        "pointer": "/data_ceiling"
+      },
+      "owner_role": "Legal",
+      "precondition": {
+        "baseline_must_be_clean": true,
+        "single_change": true,
+        "target_digest_must_match": true
+      },
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "QA",
+        "Security"
+      ],
+      "risk_refs": [
+        "TM-005"
+      ],
+      "state": "active",
+      "target": "docs/privacy/privacy-map.json",
+      "target_sha256": "ebbf237503179202d588ccb1703f4080a7805cba17dc362b90956feb856d2331",
+      "test_refs": [
+        "TST-MUT-001"
+      ],
+      "timeout_seconds": 120,
+      "title": "el techo de datos de privacidad sube a produccion",
+      "validator": "privacy_model"
+    },
+    {
+      "control_refs": [
+        "PRV-EVIDENCE-PATH"
+      ],
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-MUTATION",
+      "expectation": {
+        "exit_code": 1,
+        "finding_codes": [
+          "PRV-EVIDENCE-PATH"
+        ],
+        "kind": "expect_findings"
+      },
+      "gate": "S1-READY",
+      "independence": {
+        "mode": "independent",
+        "rationale": "regla distinta con codigo de hallazgo propio"
+      },
+      "max_output_bytes": 262144,
+      "mutation_id": "MUT-PRV-006",
+      "operator": "path_traversal_internal",
+      "operator_params": {
+        "expected_current": "docs/architecture/dfd-flows.json",
+        "pointer": "/processing_activities/0/evidence/0/path"
+      },
+      "owner_role": "Security",
+      "precondition": {
+        "baseline_must_be_clean": true,
+        "single_change": true,
+        "target_digest_must_match": true
+      },
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "Legal",
+        "QA"
+      ],
+      "risk_refs": [
+        "TM-011"
+      ],
+      "state": "active",
+      "target": "docs/privacy/privacy-map.json",
+      "target_sha256": "ebbf237503179202d588ccb1703f4080a7805cba17dc362b90956feb856d2331",
+      "test_refs": [
+        "TST-MUT-001"
+      ],
+      "timeout_seconds": 120,
+      "title": "una evidencia de privacidad pasa a ruta no canonica con traversal interno",
+      "validator": "privacy_model"
+    },
+    {
+      "control_refs": [
+        "QS-DETERMINISM"
+      ],
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-MUTATION",
+      "expectation": {
+        "exit_code": 0,
+        "kind": "expect_no_findings",
+        "rationale": "reordenar sin cambio semantico no puede alterar el veredicto"
+      },
+      "gate": "S1-READY",
+      "independence": {
+        "mode": "independent",
+        "rationale": "regla distinta con codigo de hallazgo propio"
+      },
+      "max_output_bytes": 262144,
+      "mutation_id": "MUT-PRV-007",
+      "operator": "reorder_list",
+      "operator_params": {
+        "pointer": "/processing_activities"
+      },
+      "owner_role": "QA",
+      "precondition": {
+        "baseline_must_be_clean": true,
+        "single_change": true,
+        "target_digest_must_match": true
+      },
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "Legal",
+        "Security"
+      ],
+      "risk_refs": [
+        "TM-013"
+      ],
+      "state": "active",
+      "target": "docs/privacy/privacy-map.json",
+      "target_sha256": "ebbf237503179202d588ccb1703f4080a7805cba17dc362b90956feb856d2331",
+      "test_refs": [
+        "TST-META-001"
+      ],
+      "timeout_seconds": 120,
+      "title": "control metamorfico: reordenar actividades de tratamiento no cambia nada",
+      "validator": "privacy_model"
+    },
+    {
+      "control_refs": [
+        "QS-PROTECTED-SKIP"
+      ],
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-MUTATION",
+      "expectation": {
+        "exit_code": 1,
+        "finding_codes": [
+          "QS-PROTECTED-SKIP"
+        ],
+        "kind": "expect_findings"
+      },
+      "gate": "S1-READY",
+      "independence": {
+        "group_id": "EQG-QS-PROTECTED-DOMAIN",
+        "mode": "equivalence_group",
+        "rationale": "misma regla observada por varias banderas; cuenta como un control"
+      },
+      "max_output_bytes": 262144,
+      "mutation_id": "MUT-QST-001",
+      "operator": "flip_boolean",
+      "operator_params": {
+        "expected_current": false,
+        "pointer": "/flake_policy/protected_domain_quarantine_allowed"
+      },
+      "owner_role": "QA",
+      "precondition": {
+        "baseline_must_be_clean": true,
+        "single_change": true,
+        "target_digest_must_match": true
+      },
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "Accounting",
+        "Security"
+      ],
+      "risk_refs": [
+        "TM-013"
+      ],
+      "state": "active",
+      "target": "docs/testing/test-strategy.json",
+      "target_sha256": "e4b51336066b9bed3b69dff8d86d5d14b4397de61ebc9f96699a13404aeb5ab7",
+      "test_refs": [
+        "TST-MUT-001"
+      ],
+      "timeout_seconds": 120,
+      "title": "se permite cuarentena en dominio protegido",
+      "validator": "quality_strategy"
+    },
+    {
+      "control_refs": [
+        "QS-PROTECTED-SKIP"
+      ],
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-MUTATION",
+      "expectation": {
+        "exit_code": 1,
+        "finding_codes": [
+          "QS-PROTECTED-SKIP"
+        ],
+        "kind": "expect_findings"
+      },
+      "gate": "S1-READY",
+      "independence": {
+        "group_id": "EQG-QS-PROTECTED-DOMAIN",
+        "mode": "equivalence_group",
+        "rationale": "misma regla observada por varias banderas; cuenta como un control"
+      },
+      "max_output_bytes": 262144,
+      "mutation_id": "MUT-QST-002",
+      "operator": "flip_boolean",
+      "operator_params": {
+        "expected_current": false,
+        "pointer": "/flake_policy/known_failure_counts_as_pass"
+      },
+      "owner_role": "QA",
+      "precondition": {
+        "baseline_must_be_clean": true,
+        "single_change": true,
+        "target_digest_must_match": true
+      },
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "Accounting",
+        "Security"
+      ],
+      "risk_refs": [
+        "TM-013"
+      ],
+      "state": "active",
+      "target": "docs/testing/test-strategy.json",
+      "target_sha256": "e4b51336066b9bed3b69dff8d86d5d14b4397de61ebc9f96699a13404aeb5ab7",
+      "test_refs": [
+        "TST-MUT-001"
+      ],
+      "timeout_seconds": 120,
+      "title": "un fallo conocido cuenta como aprobado",
+      "validator": "quality_strategy"
+    },
+    {
+      "control_refs": [
+        "QS-AVERAGE-COVERAGE"
+      ],
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-MUTATION",
+      "expectation": {
+        "exit_code": 1,
+        "finding_codes": [
+          "QS-AVERAGE-COVERAGE"
+        ],
+        "kind": "expect_findings"
+      },
+      "gate": "S1-READY",
+      "independence": {
+        "mode": "independent",
+        "rationale": "regla distinta con codigo de hallazgo propio"
+      },
+      "max_output_bytes": 262144,
+      "mutation_id": "MUT-QST-003",
+      "operator": "flip_boolean",
+      "operator_params": {
+        "expected_current": false,
+        "pointer": "/coverage_policy/aggregate_percentage_as_gate"
+      },
+      "owner_role": "QA",
+      "precondition": {
+        "baseline_must_be_clean": true,
+        "single_change": true,
+        "target_digest_must_match": true
+      },
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "Accounting",
+        "Architecture"
+      ],
+      "risk_refs": [
+        "TM-013"
+      ],
+      "state": "active",
+      "target": "docs/testing/test-strategy.json",
+      "target_sha256": "e4b51336066b9bed3b69dff8d86d5d14b4397de61ebc9f96699a13404aeb5ab7",
+      "test_refs": [
+        "TST-MUT-001"
+      ],
+      "timeout_seconds": 120,
+      "title": "un porcentaje agregado se vuelve compuerta",
+      "validator": "quality_strategy"
+    },
+    {
+      "control_refs": [
+        "QS-GATE-STATUS"
+      ],
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-MUTATION",
+      "expectation": {
+        "exit_code": 1,
+        "finding_codes": [
+          "QS-GATE-STATUS"
+        ],
+        "kind": "expect_findings"
+      },
+      "gate": "S1-READY",
+      "independence": {
+        "mode": "independent",
+        "rationale": "regla distinta con codigo de hallazgo propio"
+      },
+      "max_output_bytes": 262144,
+      "mutation_id": "MUT-QST-004",
+      "operator": "replace_scalar",
+      "operator_params": {
+        "expected_current": "not_met",
+        "new_value": "met",
+        "pointer": "/gates/0/status"
+      },
+      "owner_role": "QA",
+      "precondition": {
+        "baseline_must_be_clean": true,
+        "single_change": true,
+        "target_digest_must_match": true
+      },
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "Architecture",
+        "Security"
+      ],
+      "risk_refs": [
+        "TM-015"
+      ],
+      "state": "active",
+      "target": "docs/testing/test-strategy.json",
+      "target_sha256": "e4b51336066b9bed3b69dff8d86d5d14b4397de61ebc9f96699a13404aeb5ab7",
+      "test_refs": [
+        "TST-MUT-001"
+      ],
+      "timeout_seconds": 120,
+      "title": "el agente marca cumplida una compuerta de estrategia",
+      "validator": "quality_strategy"
+    },
+    {
+      "control_refs": [
+        "QS-MUTATION"
+      ],
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-MUTATION",
+      "expectation": {
+        "exit_code": 1,
+        "finding_codes": [
+          "QS-MUTATION"
+        ],
+        "kind": "expect_findings"
+      },
+      "gate": "S1-READY",
+      "independence": {
+        "mode": "independent",
+        "rationale": "regla distinta con codigo de hallazgo propio"
+      },
+      "max_output_bytes": 262144,
+      "mutation_id": "MUT-QST-005",
+      "operator": "flip_boolean",
+      "operator_params": {
+        "expected_current": true,
+        "pointer": "/mutation_policy/required"
+      },
+      "owner_role": "QA",
+      "precondition": {
+        "baseline_must_be_clean": true,
+        "single_change": true,
+        "target_digest_must_match": true
+      },
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "Architecture",
+        "Security"
+      ],
+      "risk_refs": [
+        "TM-013"
+      ],
+      "state": "active",
+      "target": "docs/testing/test-strategy.json",
+      "target_sha256": "e4b51336066b9bed3b69dff8d86d5d14b4397de61ebc9f96699a13404aeb5ab7",
+      "test_refs": [
+        "TST-MUT-001"
+      ],
+      "timeout_seconds": 120,
+      "title": "la politica de mutacion deja de ser obligatoria",
+      "validator": "quality_strategy"
+    },
+    {
+      "control_refs": [
+        "QS-DATA-CEILING"
+      ],
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-MUTATION",
+      "expectation": {
+        "exit_code": 1,
+        "finding_codes": [
+          "QS-DATA-CEILING"
+        ],
+        "kind": "expect_findings"
+      },
+      "gate": "DRG-00",
+      "independence": {
+        "mode": "independent",
+        "rationale": "regla distinta con codigo de hallazgo propio"
+      },
+      "max_output_bytes": 262144,
+      "mutation_id": "MUT-QST-006",
+      "operator": "replace_scalar",
+      "operator_params": {
+        "expected_current": "synthetic_only",
+        "new_value": "production",
+        "pointer": "/data_ceiling"
+      },
+      "owner_role": "QA",
+      "precondition": {
+        "baseline_must_be_clean": true,
+        "single_change": true,
+        "target_digest_must_match": true
+      },
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "Legal",
+        "Security"
+      ],
+      "risk_refs": [
+        "TM-005"
+      ],
+      "state": "active",
+      "target": "docs/testing/test-strategy.json",
+      "target_sha256": "e4b51336066b9bed3b69dff8d86d5d14b4397de61ebc9f96699a13404aeb5ab7",
+      "test_refs": [
+        "TST-MUT-001"
+      ],
+      "timeout_seconds": 120,
+      "title": "el techo de datos de la estrategia sube a produccion",
+      "validator": "quality_strategy"
+    },
+    {
+      "control_refs": [
+        "QS-DETERMINISM"
+      ],
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-MUTATION",
+      "expectation": {
+        "exit_code": 0,
+        "kind": "expect_no_findings",
+        "rationale": "reordenar sin cambio semantico no puede alterar el veredicto"
+      },
+      "gate": "S1-READY",
+      "independence": {
+        "mode": "independent",
+        "rationale": "regla distinta con codigo de hallazgo propio"
+      },
+      "max_output_bytes": 262144,
+      "mutation_id": "MUT-QST-007",
+      "operator": "reorder_list",
+      "operator_params": {
+        "pointer": "/risk_control_matrix"
+      },
+      "owner_role": "QA",
+      "precondition": {
+        "baseline_must_be_clean": true,
+        "single_change": true,
+        "target_digest_must_match": true
+      },
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "Accounting",
+        "Architecture"
+      ],
+      "risk_refs": [
+        "TM-013"
+      ],
+      "state": "active",
+      "target": "docs/testing/test-strategy.json",
+      "target_sha256": "e4b51336066b9bed3b69dff8d86d5d14b4397de61ebc9f96699a13404aeb5ab7",
+      "test_refs": [
+        "TST-META-001"
+      ],
+      "timeout_seconds": 120,
+      "title": "control metamorfico: reordenar la matriz de riesgo no cambia nada",
+      "validator": "quality_strategy"
+    }
+  ],
+  "network_access": false,
+  "non_goals": [
+    "verificar infraestructura real",
+    "sustituir pruebas de integracion",
+    "aceptar salidas esperadas",
+    "declarar seguridad o exactitud contable por una nota de mutacion"
+  ],
+  "outcome_policy": {
+    "blocking_severities": [
+      "critical",
+      "high"
+    ],
+    "equivalent_requires_human_review": true,
+    "generic_nonzero_is_not_killed": true,
+    "outcomes": [
+      "killed",
+      "survived",
+      "invalid",
+      "equivalent_pending_review",
+      "error"
+    ],
+    "skipped_is_not_killed": true,
+    "timeout_is_not_killed": true,
+    "truncation_is_not_killed": true
+  },
+  "purpose": "Demostrar que los controles ejecutables reaccionan ante cambios peligrosos.",
+  "required_tests": [
+    {
+      "id": "TST-MUT-001",
+      "scenario": "Una mutacion declarada sobre un contrato ejecutable produce exactamente los codigos de hallazgo esperados; un exit no-cero generico, un timeout o una salida truncada no cuentan como control acreditado."
+    },
+    {
+      "id": "TST-META-001",
+      "scenario": "Reordenar una estructura sin cambio semantico no altera el veredicto del validador; si lo altera, el validador es sensible al orden."
+    }
+  ],
+  "risk_severity": {
+    "TM-001": "critical",
+    "TM-003": "critical",
+    "TM-004": "critical",
+    "TM-005": "high",
+    "TM-007": "critical",
+    "TM-008": "high",
+    "TM-009": "high",
+    "TM-010": "high",
+    "TM-011": "high",
+    "TM-012": "critical",
+    "TM-013": "high",
+    "TM-014": "high",
+    "TM-015": "high"
+  },
+  "schema_version": 1,
+  "status": "review_pending",
+  "task_id": "FNC-QA-005",
+  "unresolved_decisions": [
+    {
+      "id": "UD-QA-MUT-BUDGET",
+      "owner_role": "QA",
+      "question": "Cadencia y presupuesto de ejecucion del harness en CI"
+    },
+    {
+      "id": "UD-QA-MUT-SURVIVOR",
+      "owner_role": "QA",
+      "question": "Quien adjudica un superviviente: arreglar el validador o aceptar el riesgo"
+    },
+    {
+      "id": "UD-QA-MUT-EQUIVALENCE",
+      "owner_role": "Architecture",
+      "question": "Criterio para declarar una mutacion equivalente sin revision caso a caso"
+    }
+  ],
+  "validators": [
+    {
+      "argv": [
+        "-m",
+        "tools.canonical_model.validate"
+      ],
+      "copy_paths": [
+        "docs/architecture/module-boundaries.json",
+        "docs/domain/canonical-model.json"
+      ],
+      "id": "canonical_model",
+      "module": "tools.canonical_model.validate",
+      "purpose": "Modelo canonico: escala Decimal, direccion, company scope e inmutabilidad.",
+      "runtime": "python",
+      "runtime_minimum_minor": "3.11"
+    },
+    {
+      "argv": [
+        "-m",
+        "tools.completeness_model.validate"
+      ],
+      "copy_paths": [
+        "docs/architecture/module-boundaries.json",
+        "docs/domain/canonical-model.json",
+        "docs/domain/completeness-balances.json",
+        "docs/security/threat-model.json"
+      ],
+      "id": "completeness_model",
+      "module": "tools.completeness_model.validate",
+      "purpose": "Completitud, Unknown y compuerta de cierre contable.",
+      "runtime": "python",
+      "runtime_minimum_minor": "3.11"
+    },
+    {
+      "argv": [
+        "-m",
+        "tools.connector_model.validate"
+      ],
+      "copy_paths": [
+        "docs/architecture/dfd-flows.json",
+        "docs/architecture/events-retries.json",
+        "docs/contracts/connectors/connector-contract.json",
+        "docs/contracts/connectors/connector-manifest.schema.json",
+        "docs/domain/TENANCY_MODEL.md",
+        "docs/domain/completeness-balances.json",
+        "docs/domain/idempotency-dedupe.json",
+        "docs/privacy/PRIVACY_MAP.md",
+        "docs/privacy/privacy-map.json",
+        "docs/security/RBAC_ABAC_SOD.md",
+        "docs/security/threat-model.json",
+        "docs/testing/SYNTHETIC_DATA_POLICY.md",
+        "spikes/FNC-SEC-001/test/tenancy.test.mjs"
+      ],
+      "id": "connector_model",
+      "module": "tools.connector_model.validate",
+      "purpose": "Contrato de conectores: egress, SSRF, credenciales y alcance E0.",
+      "runtime": "python",
+      "runtime_minimum_minor": "3.11"
+    },
+    {
+      "argv": [
+        "-m",
+        "tools.event_model.validate"
+      ],
+      "copy_paths": [
+        "docs/architecture/dfd-flows.json",
+        "docs/architecture/events-retries.json",
+        "docs/architecture/module-boundaries.json",
+        "docs/domain/idempotency-dedupe.json",
+        "docs/security/threat-model.json"
+      ],
+      "id": "event_model",
+      "module": "tools.event_model.validate",
+      "purpose": "Eventos, propiedad del retry, DLQ y efectos externos.",
+      "runtime": "python",
+      "runtime_minimum_minor": "3.11"
+    },
+    {
+      "argv": [
+        "-m",
+        "tools.golden_harness.cli",
+        "verify"
+      ],
+      "copy_paths": [
+        "docs/architecture/cross-contract-vocabulary.json",
+        "docs/architecture/dfd-flows.json",
+        "docs/architecture/events-retries.json",
+        "docs/architecture/module-boundaries.json",
+        "docs/contracts/connectors/connector-contract.json",
+        "docs/contracts/connectors/connector-manifest.schema.json",
+        "docs/domain/canonical-model.json",
+        "docs/domain/completeness-balances.json",
+        "docs/domain/idempotency-dedupe.json",
+        "docs/domain/lineage-model.json",
+        "docs/privacy/privacy-map.json",
+        "docs/security/threat-model.json",
+        "docs/testing/TEST_CATALOG.md",
+        "docs/testing/golden-harness.json",
+        "docs/testing/test-strategy.json",
+        "tests/golden/harness/MANIFEST.json",
+        "tests/golden/harness/sample_case_input.json",
+        "tests/golden/synthetic/manifest.json"
+      ],
+      "id": "golden_harness",
+      "module": "tools.golden_harness.cli",
+      "purpose": "Registro golden adjudicado: digests de input, rutas y autoridad de adjudicacion.",
+      "runtime": "python",
+      "runtime_minimum_minor": "3.11"
+    },
+    {
+      "argv": [
+        "-m",
+        "tools.idempotency_model.validate"
+      ],
+      "copy_paths": [
+        "docs/architecture/dfd-flows.json",
+        "docs/architecture/module-boundaries.json",
+        "docs/domain/canonical-model.json",
+        "docs/domain/idempotency-dedupe.json"
+      ],
+      "id": "idempotency_model",
+      "module": "tools.idempotency_model.validate",
+      "purpose": "Identidad, dedupe y ausencia de composite UNIQUE peligroso.",
+      "runtime": "python",
+      "runtime_minimum_minor": "3.11"
+    },
+    {
+      "argv": [
+        "-m",
+        "tools.lineage_model.validate"
+      ],
+      "copy_paths": [
+        "docs/architecture/dfd-flows.json",
+        "docs/architecture/module-boundaries.json",
+        "docs/domain/canonical-model.json",
+        "docs/domain/idempotency-dedupe.json",
+        "docs/domain/lineage-model.json",
+        "docs/privacy/privacy-map.json",
+        "docs/security/threat-model.json"
+      ],
+      "id": "lineage_model",
+      "module": "tools.lineage_model.validate",
+      "purpose": "Linaje, overlays, engine release y reproducibilidad.",
+      "runtime": "python",
+      "runtime_minimum_minor": "3.11"
+    },
+    {
+      "argv": [
+        "-m",
+        "tools.privacy_model.validate"
+      ],
+      "copy_paths": [
+        "docs/architecture/dfd-flows.json",
+        "docs/domain/TENANCY_MODEL.md",
+        "docs/privacy/PRIVACY_MAP.md",
+        "docs/privacy/privacy-map.json",
+        "docs/security/RBAC_ABAC_SOD.md",
+        "docs/security/threat-model.json",
+        "docs/testing/SYNTHETIC_DATA_POLICY.md",
+        "spikes/FNC-SEC-001/test/tenancy.test.mjs"
+      ],
+      "id": "privacy_model",
+      "module": "tools.privacy_model.validate",
+      "purpose": "Tratamiento, autoridad de almacen, IA externa y borrado.",
+      "runtime": "python",
+      "runtime_minimum_minor": "3.11"
+    },
+    {
+      "argv": [
+        "-m",
+        "tools.quality_strategy.validate"
+      ],
+      "copy_paths": [
+        "docs/architecture/cross-contract-vocabulary.json",
+        "docs/architecture/events-retries.json",
+        "docs/architecture/module-boundaries.json",
+        "docs/contracts/connectors/connector-contract.json",
+        "docs/domain/completeness-balances.json",
+        "docs/domain/idempotency-dedupe.json",
+        "docs/domain/lineage-model.json",
+        "docs/security/threat-model.json",
+        "docs/testing/TEST_CATALOG.md",
+        "docs/testing/test-strategy.json"
+      ],
+      "id": "quality_strategy",
+      "module": "tools.quality_strategy.validate",
+      "purpose": "Estrategia de pruebas: dominios protegidos, cobertura y gates.",
+      "runtime": "python",
+      "runtime_minimum_minor": "3.11"
+    }
+  ]
+}
