@@ -9,14 +9,17 @@ prueba de caso feliz encuentra.
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import time
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, File, Request, UploadFile
 from pydantic import BaseModel, ConfigDict, Field
 
+from fincilia_contracts.ingestion import MAX_UPLOAD_BYTES, RejectedUpload, admit
 from fincilia_contracts.tenancy import TenantContext
 from fincilia_platform.identity import AuthenticationError
+from fincilia_platform.objects import ObjectStoreError, object_key
 from fincilia_platform.tokens import issue
 
 from . import repository
@@ -65,6 +68,23 @@ class AuditEvent(BaseModel):
     outcome: str
     occurred_at: str
     detail: dict
+
+
+class ArtifactSummary(BaseModel):
+    artifact_id: str
+    filename: str
+    byte_size: int
+    content_sha256: str
+    media_type: str
+    zone: str
+    status: str
+    findings: list[dict]
+    uploaded_at: str
+    already_present: bool = False
+
+
+class ArtifactDetail(ArtifactSummary):
+    runs: list[dict]
 
 
 def principal_dependency(request: Request) -> Principal:
@@ -206,3 +226,140 @@ async def read_audit(request: Request, company_id: str, limit: int = 50,
                           subject_id=principal.subject_id) as connection:
         events = repository.list_audit(connection, limit=limit)
     return [AuditEvent(**event) for event in events]
+
+
+# --------------------------------------------------------------------------- #
+# Documentos
+# --------------------------------------------------------------------------- #
+
+async def _read_bounded(upload: UploadFile) -> bytes:
+    """Lee con techo. Se corta **mientras** se lee, no despues.
+
+    Comprobar el tamano al final es comprobarlo cuando el fichero ya esta entero
+    en memoria: quien quiera tumbar el proceso solo tiene que mandar algo enorme.
+    """
+    chunks: list[bytes] = []
+    total = 0
+    while True:
+        chunk = await upload.read(64 * 1024)
+        if not chunk:
+            break
+        total += len(chunk)
+        if total > MAX_UPLOAD_BYTES:
+            raise ProblemError(problem(
+                "file-too-large", "File too large", 413,
+                f"the upload exceeds the {MAX_UPLOAD_BYTES} byte ceiling"))
+        chunks.append(chunk)
+    return b"".join(chunks)
+
+
+@router.post("/companies/{company_id}/documents", response_model=ArtifactSummary,
+             tags=["documents"])
+async def upload_document(request: Request, company_id: str,
+                          file: UploadFile = File(...),
+                          principal: Principal = Depends(principal_dependency),
+                          ) -> ArtifactSummary:
+    context = company_context(request, principal, company_id)
+    require(context, "document.upload")
+    database = request.app.state.database
+    store = request.app.state.object_store
+
+    payload = await _read_bounded(file)
+    filename = (file.filename or "sin-nombre").strip()[:255]
+    fingerprint = hashlib.sha256(payload).hexdigest()
+
+    # Idempotencia por contenido: los mismos bytes en la misma empresa son la
+    # misma entrega. No hace falta que el cliente mande una clave de idempotencia
+    # que puede equivocarse o repetirse entre ficheros distintos.
+    with database.session(company_id=context.company_id,
+                          subject_id=principal.subject_id) as connection:
+        existing = repository.find_artifact_by_content(connection, fingerprint)
+    if existing is not None:
+        return ArtifactSummary(**existing.as_dict(), already_present=True)
+
+    rejection: str | None = None
+    try:
+        admission = admit(payload, filename)
+    except RejectedUpload as error:
+        rejection = str(error)
+    if rejection is not None:
+        with database.session(company_id=context.company_id,
+                              subject_id=principal.subject_id) as connection:
+            repository.record_audit(
+                connection, subject_id=principal.subject_id,
+                company_id=context.company_id, action="document.upload",
+                resource_kind="document", resource_ref=fingerprint,
+                outcome="denied", detail={"reason": rejection})
+        # Lo rechazado no se guarda: no llego a ser evidencia de nada, y
+        # conservarlo solo anadiria superficie que alguien tendria que custodiar.
+        raise ProblemError(problem(
+            "unsupported-document", "Document not accepted", 415, rejection))
+
+    key = object_key(context.company_id, admission.content_sha256)
+    try:
+        stored = store.put(
+            admission.zone, key, payload, content_type=admission.media_type,
+            metadata={"company": context.company_id,
+                      "sha256": admission.content_sha256})
+    except ObjectStoreError as error:
+        logger.error("object store refused the upload: %s", error)
+        raise ProblemError(problem(
+            "storage-unavailable", "Storage unavailable", 503,
+            "the evidence store did not accept the file")) from None
+
+    status = "stored" if admission.promoted else "quarantined"
+    with database.session(company_id=context.company_id,
+                          subject_id=principal.subject_id) as connection:
+        artifact = repository.insert_artifact(
+            connection, company_id=context.company_id, filename=filename,
+            byte_size=admission.byte_size, content_sha256=admission.content_sha256,
+            media_type=admission.media_type, zone=admission.zone,
+            object_key=stored.key, status=status,
+            findings=[item.as_dict() for item in admission.findings],
+            uploaded_by=principal.subject_id)
+        # Solo se procesa lo que salio de cuarentena. Encolar un fichero con un
+        # secreto dentro seria pasearlo por un proceso mas.
+        if admission.promoted:
+            repository.enqueue_run(connection, company_id=context.company_id,
+                                   artifact_id=artifact.artifact_id, kind="profile")
+        repository.record_audit(
+            connection, subject_id=principal.subject_id,
+            company_id=context.company_id, action="document.upload",
+            resource_kind="document", resource_ref=artifact.artifact_id,
+            outcome="allowed",
+            detail={"zone": admission.zone, "media_type": admission.media_type,
+                    "findings": len(admission.findings)})
+    return ArtifactSummary(**artifact.as_dict())
+
+
+@router.get("/companies/{company_id}/documents", response_model=list[ArtifactSummary],
+            tags=["documents"])
+async def list_documents(request: Request, company_id: str, limit: int = 50,
+                         principal: Principal = Depends(principal_dependency),
+                         ) -> list[ArtifactSummary]:
+    context = company_context(request, principal, company_id)
+    require(context, "document.read")
+    database = request.app.state.database
+    with database.session(company_id=context.company_id,
+                          subject_id=principal.subject_id) as connection:
+        artifacts = repository.list_artifacts(connection, limit=limit)
+    return [ArtifactSummary(**item.as_dict()) for item in artifacts]
+
+
+@router.get("/companies/{company_id}/documents/{artifact_id}",
+            response_model=ArtifactDetail, tags=["documents"])
+async def read_document(request: Request, company_id: str, artifact_id: str,
+                        principal: Principal = Depends(principal_dependency),
+                        ) -> ArtifactDetail:
+    context = company_context(request, principal, company_id)
+    require(context, "document.read")
+    database = request.app.state.database
+    with database.session(company_id=context.company_id,
+                          subject_id=principal.subject_id) as connection:
+        artifact = repository.find_artifact_by_id(connection, artifact_id)
+        if artifact is None:
+            # Ni 404 ni mensaje distinto: un codigo que separa «no existe» de «no
+            # puedes» convierte la API en un buscador de documentos ajenos.
+            raise forbidden()
+        runs = repository.list_runs(connection, artifact_id)
+    return ArtifactDetail(**artifact.as_dict(), runs=runs)

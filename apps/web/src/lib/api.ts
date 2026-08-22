@@ -141,3 +141,41 @@ export function fetchAudit(token: string, companyId: string): Promise<AuditEvent
     { token },
   );
 }
+
+export type ArtifactSummary = {
+  artifact_id: string;
+  filename: string;
+  byte_size: number;
+  content_sha256: string;
+  media_type: string;
+  zone: string;
+  status: string;
+  findings: { kind: string; location: string; detail: string }[];
+  uploaded_at: string;
+  already_present: boolean;
+};
+
+export function fetchDocuments(
+  token: string,
+  companyId: string,
+): Promise<ArtifactSummary[]> {
+  return request<ArtifactSummary[]>(
+    `/api/v1/companies/${encodeURIComponent(companyId)}/documents?limit=50`,
+    { token },
+  );
+}
+
+export function uploadDocument(
+  token: string,
+  companyId: string,
+  file: File,
+): Promise<ArtifactSummary> {
+  const body = new FormData();
+  body.append('file', file, file.name);
+  // Sin `content-type` a mano: lo pone `fetch` con el `boundary` que corresponde,
+  // y escribirlo aqui produce un cuerpo que el servidor no sabe partir.
+  return request<ArtifactSummary>(
+    `/api/v1/companies/${encodeURIComponent(companyId)}/documents`,
+    { method: 'POST', body, token },
+  );
+}

@@ -19,6 +19,7 @@ import valkey
 
 from fincilia_platform.db import Database
 from fincilia_platform.identity import Credential, LocalIdentityProvider
+from fincilia_platform.objects import S3ObjectStore
 from fincilia_platform.settings import ApiSettings, get_api_settings
 from fincilia_platform.probes import Probe, build_probes, ensure_buckets
 from fincilia_contracts.errors import ProblemDetail, problem
@@ -78,6 +79,7 @@ async def lifespan(app: FastAPI):
     app.state.throttle = AttemptThrottle(
         valkey.Valkey.from_url(settings.cache_url, socket_connect_timeout=2,
                                socket_timeout=2))
+    app.state.object_store = S3ObjectStore(settings)
     app.state.probes = build_probes(settings, expected_head=expected_schema_head())
     if settings.env == "local":
         # Solo en local. En cualquier otro entorno las zonas de evidencia las crea

@@ -40,7 +40,17 @@ docker compose -f infra/local/compose.yaml -p fincilia-local run --rm --no-deps 
 | `FINCILIA_API_BASE_URL` | base de la API; sin ella el proceso no arranca, en vez de adivinar un `localhost` que en un contenedor no existe |
 | `FINCILIA_WEB_SECURE_COOKIES` | `true` solo con origen https; una cookie `secure` sobre http no se guarda |
 
+## Que se puede hacer hoy
+
+Entrar, ver la firma y las empresas con acceso vigente, abrir una y ver sus roles,
+sus permisos, sus documentos y su auditoria; y subir un extracto o un soporte, si
+el rol incluye `document.upload`.
+
+El formulario de subida solo aparece cuando el servidor dice que ese permiso
+esta. No es la comprobacion: la comprobacion la hace la API y volveria a denegar.
+Ocultarlo evita ofrecer una accion que va a fallar.
+
 ## Lo que todavia no hay
 
-Mapping, conciliacion, reglas, informes y cierre. Esta interfaz llega hasta ver
-empresas, roles, permisos y auditoria.
+Mapping, conciliacion, reglas, informes y cierre. La interfaz llega hasta la
+evidencia almacenada; lo que se hace con ella todavia no existe.

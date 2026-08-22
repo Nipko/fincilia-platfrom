@@ -1,8 +1,16 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
-import { ApiError, fetchAudit, fetchCompany, type AuditEvent } from '@/lib/api';
+import {
+  ApiError,
+  fetchAudit,
+  fetchCompany,
+  fetchDocuments,
+  type ArtifactSummary,
+  type AuditEvent,
+} from '@/lib/api';
 import { readSession } from '@/lib/session';
+import { UploadForm } from './upload';
 
 export const dynamic = 'force-dynamic';
 
@@ -46,6 +54,11 @@ export default async function CompanyPage({
       );
     }
     throw error;
+  }
+
+  let documents: ArtifactSummary[] = [];
+  if (company.permissions.includes('document.read')) {
+    documents = await fetchDocuments(session.token, companyId);
   }
 
   // La web no decide: pregunta al servidor si el permiso esta, y si no esta, no
@@ -96,6 +109,58 @@ export default async function CompanyPage({
           ))}
         </div>
       </section>
+
+      <h2>Documentos</h2>
+      {company.permissions.includes('document.upload') ? (
+        <div className="card">
+          <UploadForm companyId={companyId} />
+          <p className="meta">
+            CSV, PDF o libro de calculo, hasta 25 MB. El tipo se decide por los
+            primeros bytes, no por la extension, y un fichero con datos sensibles se
+            queda en cuarentena en vez de pasar a la zona de evidencia.
+          </p>
+        </div>
+      ) : null}
+
+      {documents.length === 0 ? (
+        <p className="card">Todavia no hay documentos en esta empresa.</p>
+      ) : (
+        <div className="card scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Fichero</th>
+                <th>Tipo</th>
+                <th>Tamano</th>
+                <th>Zona</th>
+                <th>Huella</th>
+              </tr>
+            </thead>
+            <tbody>
+              {documents.map((document) => (
+                <tr key={document.artifact_id}>
+                  <td>{document.filename}</td>
+                  <td className="outcome">{document.media_type}</td>
+                  <td className="when">{document.byte_size.toLocaleString('es-CO')} B</td>
+                  <td>
+                    <span
+                      className={`outcome ${document.zone === 'quarantine' ? 'denied' : ''}`}
+                    >
+                      {document.zone}
+                    </span>
+                    {document.findings.length > 0 ? (
+                      <div className="meta">
+                        {document.findings.map((finding) => finding.kind).join(', ')}
+                      </div>
+                    ) : null}
+                  </td>
+                  <td className="when">{document.content_sha256.slice(0, 12)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       <h2>Registro de auditoria</h2>
       {auditVisible ? (

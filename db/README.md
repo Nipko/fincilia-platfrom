@@ -73,6 +73,22 @@ son código de producto:
 | Forward-only | no hay `down`; un fallo se corrige con una migración nueva |
 | Finales de línea normalizados antes del hash | un checkout en Windows no puede producir otro checksum del mismo contenido |
 
+## Lo que el esquema garantiza sobre la evidencia
+
+| Tabla | Invariante | Cómo se sostiene |
+|---|---|---|
+| `source_artifact` | una entrega es un hecho, no se corrige | `GRANT SELECT, INSERT` y `REVOKE UPDATE, DELETE` para el rol runtime |
+| `source_artifact` | los mismos bytes son la misma entrega | `UNIQUE (company_id, content_sha256)` |
+| `source_artifact` | lo que está en cuarentena no puede decir que está almacenado | `CHECK` que acopla `zone` y `status` |
+| `processing_run` | un trabajo terminado tiene principio y fin, y el fin no precede al principio | `CHECK` sobre la línea temporal |
+| `processing_run` | fallar exige decir por qué | `CHECK` que exige `error_code` sólo al fallar |
+| `audit_event` | append-only también por privilegio | `GRANT SELECT, INSERT` y nada más |
+
+`ALTER DEFAULT PRIVILEGES` de V0001 concede `UPDATE` a toda tabla nueva del
+esquema, así que quitarlo es un acto explícito en cada migración que crea una
+tabla append-only. Un privilegio heredado por defecto es justo el que nadie
+recuerda revisar.
+
 ## Roles
 
 El runtime **no** es propietario, ni superusuario, ni `BYPASSRLS`.

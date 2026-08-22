@@ -103,6 +103,32 @@ TOKEN=$(curl -s -X POST http://127.0.0.1:58080/api/v1/auth/session   -H 'content
 curl -s http://127.0.0.1:58080/api/v1/me -H "Authorization: Bearer $TOKEN" | jq
 ```
 
+### Subir un documento
+
+Con la sesión abierta, en la página de una empresa. Sólo si el rol incluye
+`document.upload`: Ana puede, Carla no.
+
+Lo que ocurre con los bytes, en orden:
+
+1. **Techo mientras se lee**, no después. Comprobar el tamaño al final es
+   comprobarlo cuando el fichero ya está entero en memoria.
+2. **El tipo lo deciden los primeros bytes**, nunca la extensión. Un ejecutable
+   renombrado a `.csv` se rechaza; un CSV llamado `.txt` entra, y la discrepancia
+   queda registrada.
+3. **Idempotencia por contenido.** Los mismos bytes en la misma empresa son la
+   misma entrega, aunque el fichero se llame distinto. No hace falta que el
+   cliente mande una clave de idempotencia que puede equivocarse.
+4. **Cuarentena antes que zona de evidencia.** Si aparece una tarjeta que pasa
+   Luhn, una clave privada o una credencial, el fichero se conserva en
+   `quarantine` y **no** se promueve a `raw` ni se encola para procesar. Se
+   conserva en vez de borrarse: borrar la evidencia de un incidente es la peor
+   forma de responder a uno.
+5. **El artefacto es inmutable.** El rol runtime tiene `INSERT` y `SELECT` sobre
+   `source_artifact`, y no `UPDATE` ni `DELETE`.
+
+Un hallazgo dice **qué tipo** y **en qué línea**, jamás el valor: contener un
+secreto no puede consistir en copiarlo a un sitio con menos protección.
+
 Bajar sin perder datos:
 
 ```bash

@@ -255,3 +255,18 @@ footer.ceiling {
 .hint code {
   font-family: var(--mono);
 }
+
+form.upload {
+  display: grid;
+  gap: 0.75rem;
+  max-width: 32rem;
+}
+
+form.upload input[type='file'] {
+  padding: 0.4rem;
+}
+
+.notice.ok {
+  background: var(--accent-soft);
+  color: var(--accent);
+}

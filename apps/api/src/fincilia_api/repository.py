@@ -12,6 +12,7 @@ cliente se compara contra el contexto autorizado antes de llegar hasta aqui.
 from __future__ import annotations
 
 import json
+import re
 import uuid
 from dataclasses import dataclass
 
@@ -20,6 +21,8 @@ import psycopg
 from fincilia_platform.identity import Credential
 
 MAX_AUDIT_DETAIL_BYTES = 4096
+UUID_SHAPE = re.compile(
+    r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
 
 
 @dataclass(frozen=True)
@@ -220,3 +223,129 @@ def list_audit(connection: psycopg.Connection, *, limit: int = 50) -> list[dict]
     return [{"audit_event_id": row[0], "action": row[1], "resource_kind": row[2],
              "resource_ref": row[3], "outcome": row[4],
              "occurred_at": row[5].isoformat(), "detail": row[6]} for row in rows]
+
+
+# --------------------------------------------------------------------------- #
+# Artefactos de origen
+# --------------------------------------------------------------------------- #
+
+@dataclass(frozen=True)
+class Artifact:
+    artifact_id: str
+    company_id: str
+    filename: str
+    byte_size: int
+    content_sha256: str
+    media_type: str
+    zone: str
+    object_key: str
+    status: str
+    findings: list
+    uploaded_by: str
+    uploaded_at: str
+
+    def as_dict(self) -> dict:
+        payload = {key: getattr(self, key) for key in
+                   ("artifact_id", "filename", "byte_size", "content_sha256",
+                    "media_type", "zone", "status", "findings", "uploaded_at")}
+        return payload
+
+
+ARTIFACT_COLUMNS = ("artifact_id::text, company_id::text, filename, byte_size, "
+                    "content_sha256, media_type, zone, object_key, status, findings, "
+                    "uploaded_by::text, uploaded_at")
+
+
+def _artifact(row) -> Artifact:
+    values = list(row)
+    values[11] = values[11].isoformat()
+    return Artifact(*values)
+
+
+def find_artifact_by_content(connection: psycopg.Connection,
+                             content_sha256: str) -> Artifact | None:
+    """Busca por contenido dentro del alcance ya fijado.
+
+    No recibe `company_id`: la politica ya acota la busqueda, y pasarlo invitaria
+    a filtrar en Python lo que filtra la base.
+    """
+    with connection.cursor() as cursor:
+        cursor.execute(
+            f"SELECT {ARTIFACT_COLUMNS} FROM fincilia.source_artifact "
+            "WHERE content_sha256 = %s", (content_sha256,))
+        row = cursor.fetchone()
+    return _artifact(row) if row else None
+
+
+def insert_artifact(connection: psycopg.Connection, *, company_id: str,
+                    filename: str, byte_size: int, content_sha256: str,
+                    media_type: str, zone: str, object_key: str, status: str,
+                    findings: list, uploaded_by: str) -> Artifact:
+    artifact_id = new_id()
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "INSERT INTO fincilia.source_artifact (artifact_id, company_id, filename, "
+            "byte_size, content_sha256, media_type, zone, object_key, status, "
+            "findings, uploaded_by) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s) "
+            f"RETURNING {ARTIFACT_COLUMNS}",
+            (artifact_id, company_id, filename, byte_size, content_sha256, media_type,
+             zone, object_key, status,
+             json.dumps(findings, ensure_ascii=False, sort_keys=True), uploaded_by))
+        row = cursor.fetchone()
+    return _artifact(row)
+
+
+def list_artifacts(connection: psycopg.Connection, *, limit: int = 50) -> list[Artifact]:
+    bounded = max(1, min(int(limit), 200))
+    with connection.cursor() as cursor:
+        cursor.execute(
+            f"SELECT {ARTIFACT_COLUMNS} FROM fincilia.source_artifact "
+            "ORDER BY uploaded_at DESC, artifact_id LIMIT %s", (bounded,))
+        return [_artifact(row) for row in cursor.fetchall()]
+
+
+def enqueue_run(connection: psycopg.Connection, *, company_id: str,
+                artifact_id: str, kind: str) -> str | None:
+    """Encola un trabajo. `None` si ya habia uno para ese artefacto y tipo.
+
+    La unicidad la pone `uq_run_attempt`, no una comprobacion previa: entre mirar
+    y escribir cabe otra peticion.
+    """
+    run_id = new_id()
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "INSERT INTO fincilia.processing_run (run_id, company_id, artifact_id, kind) "
+            "VALUES (%s, %s, %s, %s) "
+            "ON CONFLICT (artifact_id, kind, attempt) DO NOTHING RETURNING run_id::text",
+            (run_id, company_id, artifact_id, kind))
+        row = cursor.fetchone()
+    return row[0] if row else None
+
+
+def list_runs(connection: psycopg.Connection, artifact_id: str) -> list[dict]:
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT run_id::text, kind, status, attempt, queued_at, finished_at, "
+            "result, error_code FROM fincilia.processing_run "
+            "WHERE artifact_id = %s ORDER BY queued_at", (artifact_id,))
+        rows = cursor.fetchall()
+    return [{"run_id": row[0], "kind": row[1], "status": row[2], "attempt": row[3],
+             "queued_at": row[4].isoformat(),
+             "finished_at": row[5].isoformat() if row[5] else None,
+             "result": row[6], "error_code": row[7]} for row in rows]
+
+
+def find_artifact_by_id(connection: psycopg.Connection,
+                        artifact_id: str) -> Artifact | None:
+    if not UUID_SHAPE.match(artifact_id or ""):
+        # Un identificador con otra forma no llega a la base: `uuid = texto` es
+        # un error de tipo, y un 500 diria que la cadena viajo mas lejos de lo
+        # que deberia.
+        return None
+    with connection.cursor() as cursor:
+        cursor.execute(
+            f"SELECT {ARTIFACT_COLUMNS} FROM fincilia.source_artifact "
+            "WHERE artifact_id = %s", (artifact_id,))
+        row = cursor.fetchone()
+    return _artifact(row) if row else None
