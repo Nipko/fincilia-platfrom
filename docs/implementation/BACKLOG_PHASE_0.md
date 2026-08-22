@@ -81,6 +81,8 @@ FNC-GAT-001 es la única tarea que puede autorizar el primer artefacto real de i
 | FNC-DOM-004 | A2 | DOM-002 | Evidencia/movimiento/dedupe e idempotencia segura |
 | FNC-DOM-005 | A2/A5 | DOM-002 | Linaje, overlays y engine release |
 | FNC-DOM-006 | A2/A5 | DOM-003 | Especificación ejecutable de completitud y saldos |
+| FNC-DOM-007 | A2/A5 | DOM-004 | Especificación ejecutable de identidad, idempotencia y dedupe |
+| FNC-DB-004 | A2/A4 | DOM-007, DB-002 | Spike PostgreSQL de reclamo concurrente, outbox y lease |
 | FNC-ARC-004 | A2 | ARC-001, DOM-002 | Eventos, outbox, retries, DLQ e idempotencia |
 | FNC-ARC-005 | A2 | ARC-004 | Contrato de conector con archivos como fallback |
 | FNC-ARC-006 | A2 | DOM-001..005, ARC-001..005 | ADR bloqueantes aceptados |

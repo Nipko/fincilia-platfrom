@@ -36,6 +36,7 @@ jobs:
           tools.canonical_model.test_validate
           tools.completeness_model.test_validate
           tools.completeness_engine.test_engine
+          tools.dedupe_engine.test_engine
           tools.connector_model.test_validate
           tools.cross_contract_model.test_validate
           tools.dfd_model.test_validate
