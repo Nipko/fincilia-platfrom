@@ -1,0 +1,121 @@
+{
+  "schema_version": "1.0.0",
+  "task": "FNC-INT-001",
+  "status": "review_pending",
+  "evidence_checked_at": "2026-08-21",
+  "data_ceiling": "synthetic_only",
+  "production_connections_allowed": false,
+  "human_acceptance": "pending",
+  "agent_may_select_vendor": false,
+  "platform_never_receives_bank_credentials": true,
+  "permanent_fallback": "file_ingestion",
+  "required_candidates": ["file_ingestion", "bancolombia_direct", "prometeo", "belvo"],
+  "scoring": {
+    "weights": {
+      "verified_business_coverage": 25,
+      "security_and_consent": 20,
+      "data_quality_and_completeness": 15,
+      "reliability_and_support": 15,
+      "total_cost": 15,
+      "portability_and_exit": 10
+    },
+    "minimum_evidence": ["named_institutions", "business_account_types", "access_method", "history_depth", "refresh_or_webhooks", "sla", "security_pack", "dpa_and_subprocessors", "quote", "exit_terms"],
+    "winner": null
+  },
+  "candidates": [
+    {
+      "id": "file_ingestion",
+      "kind": "permanent_fallback",
+      "countries": ["CO"],
+      "business_coverage": "format_by_format",
+      "coverage_evidence": "internal_contract",
+      "access_method": "customer_upload_or_authorized_mailbox",
+      "credential_posture": "no_bank_credentials",
+      "sandbox": "synthetic_fixtures",
+      "production_state": "blocked_until_product_gates",
+      "quote_state": "not_applicable",
+      "sla_state": "internal_slo_pending_human",
+      "score": null,
+      "gaps": ["real_format_ranking_after_DRG-00", "operational_slo"],
+      "sources": ["docs/contracts/connectors/connector-contract.json"]
+    },
+    {
+      "id": "bancolombia_direct",
+      "kind": "bank_direct_api",
+      "countries": ["CO"],
+      "business_coverage": "candidate_not_contractually_verified",
+      "coverage_evidence": "public_bank_documentation",
+      "access_method": "oauth_consent_and_bank_api_subject_to_product",
+      "credential_posture": "bank_or_authorization_server_only",
+      "sandbox": "available_after_access_approval",
+      "production_state": "commercial_agreement_and_credentials_required",
+      "quote_state": "pending_human_request",
+      "sla_state": "unknown_pending_quote",
+      "score": null,
+      "gaps": ["exact_product_and_resources", "eligible_business_accounts", "history_depth", "refresh_and_webhooks", "pricing", "sla", "support", "contract", "production_authorization"],
+      "sources": [
+        "https://soportedevs.bancolombia.com/hc/es-419/articles/22036835683860--C%C3%B3mo-solicitar-el-paso-a-producci%C3%B3n-con-los-productos-de-APIs",
+        "https://soportedevs.bancolombia.com/hc/es-419/sections/29354404515476--C%C3%B3mo-consumir-los-productos-API-de-Open-Banking",
+        "https://www.bancolombia.com/wcm/connect/22a8e090-05a5-47e7-8a26-c2b98cfa756e/Politica_vinculacion_Terceros_Receptores_de_Datos_Bancolombia_V1.pdf?MOD=AJPERES"
+      ]
+    },
+    {
+      "id": "prometeo",
+      "kind": "aggregator",
+      "countries": ["CO"],
+      "business_coverage": "candidate_not_contractually_verified",
+      "coverage_evidence": "public_endpoint_and_sandbox_documentation",
+      "access_method": "unknown_per_institution_requires_written_matrix",
+      "credential_posture": "hosted_redirect_or_widget_required_no_platform_capture",
+      "sandbox": "documented_with_fictitious_data",
+      "production_state": "contract_and_DRG_gates_required",
+      "quote_state": "pending_human_request",
+      "sla_state": "unknown_pending_quote",
+      "score": null,
+      "gaps": ["named_colombian_business_banks", "api_vs_credentials_per_bank", "pending_vs_posted", "stable_ids", "history_depth", "refresh_and_webhooks", "pricing", "sla", "status_history", "dpa", "subprocessors", "exit_terms"],
+      "sources": [
+        "https://docs.prometeoapi.com/reference/getmovements",
+        "https://docs.prometeoapi.com/docs/comienza-la-integraci%C3%B3n-en-sandbox",
+        "https://docs.prometeoapi.com/docs/ambientes"
+      ]
+    },
+    {
+      "id": "belvo",
+      "kind": "aggregator_benchmark",
+      "countries": [],
+      "business_coverage": "not_publicly_supported_for_colombia_banking",
+      "coverage_evidence": "current_public_product_documentation",
+      "access_method": "not_applicable_until_written_coverage",
+      "credential_posture": "must_be_confirmed_if_coverage_is_offered",
+      "sandbox": "available_for_documented_products",
+      "production_state": "not_a_colombia_banking_candidate_on_public_evidence",
+      "quote_state": "conditional_request_for_written_coverage",
+      "sla_state": "not_applicable_until_coverage",
+      "score": null,
+      "gaps": ["written_2026_colombia_matrix", "business_accounts", "access_method", "resources", "pricing", "sla", "contract"],
+      "sources": [
+        "https://developers.belvo.com/es/apis/belvoopenapispec/section/introduccion/informacion-disponible-y-metodos-de-pago",
+        "https://developers.belvo.com/es/developer_resources/resources-available-institutions"
+      ]
+    }
+  ],
+  "rfq": {
+    "minimum_comparable_quotes": 3,
+    "received_quotes": 0,
+    "targets": ["bancolombia_direct", "prometeo", "belvo"],
+    "human_outreach_required": true,
+    "outreach_authorized": false,
+    "comparison_currency": "COP",
+    "tax_treatment": "separate",
+    "fx_scenarios_percent": [-25, -10, 0, 10, 25]
+  },
+  "gates": [
+    {"id": "INT-G01", "state": "met", "rule": "permanent_file_fallback_defined"},
+    {"id": "INT-G02", "state": "not_met", "rule": "three_comparable_written_quotes"},
+    {"id": "INT-G03", "state": "not_met", "rule": "named_business_coverage_verified"},
+    {"id": "INT-G04", "state": "not_met", "rule": "security_privacy_legal_review"},
+    {"id": "INT-G05", "state": "not_met", "rule": "sandbox_evaluation_with_synthetic_data"},
+    {"id": "INT-G06", "state": "not_met", "rule": "margin_at_full_utilization"},
+    {"id": "INT-G07", "state": "not_met", "rule": "exit_and_file_contingency_tested"}
+  ]
+}
