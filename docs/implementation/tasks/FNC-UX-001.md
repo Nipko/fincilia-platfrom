@@ -5,7 +5,7 @@ epic: FNC-EP-007
 phase: F0
 iteration: E0
 type: design
-status: draftable
+status: review_pending
 priority: P1
 accountable_owner: UNASSIGNED
 agent_lane: A6
@@ -14,7 +14,9 @@ plan_refs: [§5–§13, §54.5]
 dependencies: [FNC-PRD-001]
 gate: S1-READY
 allowed_data: synthetic
-file_scope: [docs/ux/INFORMATION_ARCHITECTURE.md, docs/ux/prototypes]
+implementer: Integration Steward
+base_sha: 3989ea3
+file_scope: [docs/ux/INFORMATION_ARCHITECTURE.md, docs/ux/prototypes, tools/ux_contract, docs/implementation/handoffs/FNC-UX-001.md]
 forbidden_scope: [apps, real-data]
 ---
 
@@ -30,4 +32,4 @@ Prototipo navegable de Portafolio, Importación, Conciliación, Cierre y Solicit
 - Teclado, foco, encabezados y estados no dependientes solo de color.
 - Móvil se limita a captura, solicitudes y decisiones simples.
 - Mapping masivo y cierre final permanecen web.
-
+- Un validador reproducible comprueba estructura, estados, límites móvil/web y controles básicos de accesibilidad.

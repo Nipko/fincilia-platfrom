@@ -41,6 +41,7 @@ jobs:
           tools.local_stack.test_validate
           tools.privacy_model.test_validate
           tools.threat_model.test_validate
+          tools.ux_contract.test_validate
           tools.work_graph.test_validate
           tools.quality_gate.test_repo_policy
           tools.synthetic_corpus.test_corpus -v
@@ -68,6 +69,8 @@ jobs:
         run: python -m tools.privacy_model.validate
       - name: Validate executable threat model
         run: python -m tools.threat_model.validate
+      - name: Validate UX prototype contract
+        run: python -m tools.ux_contract.validate
       - name: Validate executable work graph
         run: python -m tools.work_graph.validate
       - name: Verify synthetic corpus byte for byte

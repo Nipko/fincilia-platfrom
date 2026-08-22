@@ -88,6 +88,7 @@ Hasta S1-READY solo se admite scaffolding, automatización, pruebas, documentaci
 | FNC-ARC-006A | Stores, clasificación y engine release cross-contract | Review pending | Integration Steward | docs/architecture/CROSS_CONTRACT_VOCABULARY.md, tools/cross_contract_model, ADR-023, CI, handoff |
 | FNC-GOV-003 | Grafo ejecutable de trabajo y reservas | Review pending | Integration Steward | docs/implementation/WORK_GRAPH.md, work-graph.json, tools/work_graph, CI, handoff |
 | FNC-PLT-002 | Entorno local mínimo y lifecycle reproducible | Review pending | Integration Steward | infra/local, tools/local_stack, CI, evidencia, handoff |
+| FNC-UX-001 | Arquitectura de información y prototipo accesible | Review pending | Integration Steward | docs/ux, tools/ux_contract, CI, handoff |
 
 Solo el Integration Steward modifica esta tabla.
 
@@ -106,7 +107,7 @@ Solo el Integration Steward modifica esta tabla.
 | 0 | FNC-DAT-001 Taxonomía y política de datos | PRD provisional | Review pending |
 | 0 | FNC-PLT-001 Spike y decisión de stack | Gobierno | Review pending |
 | 0 | FNC-PLT-002 Entorno local reproducible | FNC-PLT-001 | Review pending |
-| 0 | FNC-UX-001 Arquitectura de información | PRD provisional | Draftable |
+| 0 | FNC-UX-001 Arquitectura de información | PRD provisional | Review pending |
 | 0 | FNC-DAT-002 Corpus y golden harness sintético | FNC-DAT-001 provisional | Review pending |
 | 0 | FNC-PLT-003 CI sintético y policy gate | FNC-PLT-001, FNC-DAT-002 | Review pending |
 | 1 | FNC-DOM-002 Modelo canónico financiero | FNC-DOM-001, FNC-DAT-001 | Review pending |

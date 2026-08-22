@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Fincilia — prototipo sintético</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#main-content">Saltar al contenido</a>
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="Navegación principal">
+      <a class="brand" href="#portfolio" aria-label="Fincilia, ir a Portafolio">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i></span>
+        <span>Fincilia</span>
+      </a>
+      <p class="product-label">Cierre con evidencia</p>
+      <nav>
+        <a href="#portfolio" data-route="portfolio"><span aria-hidden="true">◫</span> Portafolio</a>
+        <a href="#import" data-route="import"><span aria-hidden="true">⇩</span> Importación</a>
+        <a href="#reconcile" data-route="reconcile"><span aria-hidden="true">⇄</span> Conciliación</a>
+        <a href="#close" data-route="close"><span aria-hidden="true">✓</span> Cierre</a>
+        <a href="#signals" data-route="signals"><span aria-hidden="true">◇</span> Señales</a>
+        <a href="#reports" data-route="reports"><span aria-hidden="true">▤</span> Informes</a>
+        <a href="#mobile" data-route="mobile"><span aria-hidden="true">▯</span> Solicitud móvil</a>
+      </nav>
+      <div class="data-ceiling"><span aria-hidden="true">●</span> Datos sintéticos</div>
+    </aside>
+
+    <div class="workspace">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Firma Demo Norte · 8 empresas autorizadas</p>
+          <h1 id="page-title">Portafolio</h1>
+        </div>
+        <div class="top-actions">
+          <label for="ui-state">Simular estado</label>
+          <select id="ui-state">
+            <option value="ready">Operativo</option>
+            <option value="empty">Vacío</option>
+            <option value="error">Error</option>
+            <option value="degraded">Degradado</option>
+            <option value="partial">Parcial</option>
+            <option value="ambiguous">Ambiguo</option>
+          </select>
+          <button class="avatar" type="button" aria-label="Abrir menú de cuenta">LM</button>
+        </div>
+      </header>
+
+      <main id="main-content" tabindex="-1">
+        <div id="state-banner" class="state-banner" role="status" aria-live="polite" hidden></div>
+
+        <section class="page" data-page="portfolio" aria-labelledby="portfolio-heading">
+          <div class="page-heading">
+            <div><p class="eyebrow">Cierre de julio de 2026</p><h2 id="portfolio-heading">Dónde intervenir hoy</h2></div>
+            <button class="primary" type="button">Nueva importación</button>
+          </div>
+          <div class="metric-grid">
+            <article><span>Empresas al día</span><strong>5 de 8</strong><small>62,5 % del portafolio</small></article>
+            <article><span>Dinero sin explicar</span><strong>COP 8.420.000</strong><small>3 empresas requieren revisión</small></article>
+            <article><span>Fuentes pendientes</span><strong>4</strong><small>2 vencen hoy</small></article>
+            <article><span>Señales abiertas</span><strong>7</strong><small>1 de severidad alta</small></article>
+          </div>
+          <div class="panel">
+            <div class="panel-title"><div><h3>Empresas priorizadas</h3><p>Ordenadas por impacto y fecha límite, no por productividad individual.</p></div><button type="button" class="quiet">Filtrar</button></div>
+            <div class="company-list" role="list">
+              <button class="company-row" type="button" role="listitem" data-go="import">
+                <span class="company-icon">CA</span><span><strong>Comercio Andino Demo</strong><small>Julio · vence hoy</small></span>
+                <span class="status status-partial">△ Parcial</span><span><strong>COP 6.840.000</strong><small>sin explicar</small></span><span aria-hidden="true">→</span>
+              </button>
+              <button class="company-row" type="button" role="listitem" data-go="reconcile">
+                <span class="company-icon violet">RM</span><span><strong>Retail Montaña Demo</strong><small>Julio · vence en 2 días</small></span>
+                <span class="status status-review">◌ Revisión</span><span><strong>COP 1.580.000</strong><small>sin explicar</small></span><span aria-hidden="true">→</span>
+              </button>
+              <button class="company-row" type="button" role="listitem" data-go="close">
+                <span class="company-icon green">TS</span><span><strong>Taller Solar Demo</strong><small>Julio · listo para revisar</small></span>
+                <span class="status status-ready">✓ Preparado</span><span><strong>COP 0</strong><small>diferencia</small></span><span aria-hidden="true">→</span>
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <section class="page" data-page="import" aria-labelledby="import-heading" hidden>
+          <div class="page-heading"><div><p class="eyebrow">Comercio Andino Demo · Banco Demo 01</p><h2 id="import-heading">Import Studio</h2></div><span class="status status-partial">△ Revisión requerida</span></div>
+          <div class="stage-tabs" role="tablist" aria-label="Etapas de datos">
+            <button type="button" role="tab" aria-selected="true" data-stage="original">1 · Original</button>
+            <button type="button" role="tab" aria-selected="false" data-stage="extraction">2 · Extracción fiel</button>
+            <button type="button" role="tab" aria-selected="false" data-stage="clean">3 · Dataset limpio</button>
+            <button type="button" role="tab" aria-selected="false" data-stage="canonical">4 · Esquema canónico</button>
+          </div>
+          <div class="lineage-layout">
+            <article class="document-panel">
+              <div class="panel-title"><div><h3 id="stage-title">Original inmutable</h3><p id="stage-description">extracto_demo_julio.xlsx · SHA-256 fijado · versión 1</p></div><span class="tag">XLSX</span></div>
+              <div class="sheet-toolbar"><span>Hoja: Movimientos</span><span>Filas 1–8 de 1.284</span></div>
+              <div class="table-scroll">
+                <table>
+                  <caption>Vista sintética del archivo original</caption>
+                  <thead><tr><th scope="col">#</th><th scope="col">A</th><th scope="col">B</th><th scope="col">C</th><th scope="col">D</th></tr></thead>
+                  <tbody>
+                    <tr><th scope="row">1</th><td colspan="4" class="noise">BANCO DEMO · EXTRACTO CLIENTE</td></tr>
+                    <tr><th scope="row">2</th><td>FECHA</td><td>DESCRIPCIÓN</td><td>DÉBITO</td><td>CRÉDITO</td></tr>
+                    <tr><th scope="row">3</th><td><button class="cell selected" type="button" data-locator="Movimientos!A3" data-value="03/04/26">03/04/26</button></td><td>PAGO PASARELA DEMO</td><td></td><td>6.840.000,00</td></tr>
+                    <tr><th scope="row">4</th><td>05/07/26</td><td>COMISIÓN</td><td>186.420,00</td><td></td></tr>
+                    <tr><th scope="row">5</th><td colspan="4" class="noise">Página 1 de 42 · contenido a ignorar</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </article>
+            <aside class="inspector" aria-labelledby="inspector-title">
+              <p class="eyebrow">Linaje del valor</p><h3 id="inspector-title">Celda seleccionada</h3>
+              <dl><div><dt>Origen</dt><dd id="locator">Movimientos!A3</dd></div><div><dt>Valor original</dt><dd id="raw-value">03/04/26</dd></div><div><dt>Tipo inferido</dt><dd>Fecha · 2 opciones</dd></div><div><dt>Confianza</dt><dd>No aplicable hasta confirmar locale</dd></div></dl>
+              <div class="ambiguity"><strong>◇ Interpretación ambigua</strong><p>3 de abril o 4 de marzo de 2026. El periodo del archivo no basta para resolverlo.</p><button type="button" class="secondary">Confirmar interpretación</button></div>
+            </aside>
+          </div>
+        </section>
+
+        <section class="page" data-page="reconcile" aria-labelledby="reconcile-heading" hidden>
+          <div class="page-heading"><div><p class="eyebrow">Comercio Andino Demo · julio 2026</p><h2 id="reconcile-heading">Conciliación por evidencia</h2></div><button class="secondary" type="button">Ver excepciones</button></div>
+          <div class="equation" aria-label="Ecuación de liquidación"><span><small>Ventas brutas</small><strong>COP 12.000.000</strong></span><b>−</b><span><small>Comisiones</small><strong>COP 360.000</strong></span><b>−</b><span><small>Retenciones</small><strong>COP 240.000</strong></span><b>=</b><span class="result"><small>Abono esperado</small><strong>COP 11.400.000</strong></span></div>
+          <div class="split-panels"><article class="panel"><div class="panel-title"><div><h3>Propuesta explicable</h3><p>1 liquidación · 24 pagos · 2 deducciones</p></div><span class="status status-review">◌ Revisión</span></div><ul class="evidence-list"><li><span>Referencia exacta de liquidación</span><strong>Coincide</strong></li><li><span>Ecuación de monto neto</span><strong>COP 0 diferencia</strong></li><li><span>Ventana temporal</span><strong>1 día</strong></li><li><span>Conflicto</span><strong>Otro abono similar</strong></li></ul><div class="button-row"><button class="secondary" type="button">Rechazar</button><button class="primary" type="button">Confirmar con razón</button></div></article><article class="panel"><h3>Evidencia vinculada</h3><div class="evidence-card"><span class="tag">BANCO</span><strong>Abono COP 11.400.000</strong><small>Movimientos!D38 · versión 1</small></div><div class="evidence-card"><span class="tag">PASARELA</span><strong>Liquidación SET-DEMO-0719</strong><small>Liquidaciones!A220:G246 · versión 2</small></div></article></div>
+        </section>
+
+        <section class="page" data-page="close" aria-labelledby="close-heading" hidden>
+          <div class="page-heading"><div><p class="eyebrow">Taller Solar Demo · julio 2026</p><h2 id="close-heading">Sala de cierre</h2></div><span class="status status-ready">✓ Preparado para revisión</span></div>
+          <ol class="close-steps"><li class="done"><strong>Fuentes completas</strong><small>6 de 6 verificadas</small></li><li class="done"><strong>Saldos conciliados</strong><small>Diferencia exacta COP 0</small></li><li class="current"><strong>Revisión independiente</strong><small>Esperando a revisor autorizado</small></li><li><strong>Snapshot</strong><small>No generado</small></li></ol>
+          <div class="panel warning"><h3>Separación de funciones</h3><p>Preparó: Laura Demo. La misma persona no puede aprobar este ciclo.</p><button class="secondary" type="button">Asignar revisor</button></div>
+        </section>
+
+        <section class="page" data-page="signals" aria-labelledby="signals-heading" hidden>
+          <div class="page-heading"><div><p class="eyebrow">Inconsistencias, no acusaciones</p><h2 id="signals-heading">Señales para investigar</h2></div><button class="secondary" type="button">Configurar digest</button></div>
+          <div class="panel"><div class="signal-row"><span class="severity high">Alta</span><div><h3>Cuenta de destino nueva</h3><p>Primera aparición en 12 meses sintéticos · exposición COP 4.200.000 · confiabilidad media</p></div><button class="quiet" type="button">Abrir caso</button></div><div class="signal-row"><span class="severity medium">Media</span><div><h3>Fee fuera del rango observado</h3><p>4,8 % frente a mediana 3,1 % · requiere verificar contrato</p></div><button class="quiet" type="button">Revisar</button></div></div>
+        </section>
+
+        <section class="page" data-page="reports" aria-labelledby="reports-heading" hidden>
+          <div class="page-heading"><div><p class="eyebrow">Snapshots reproducibles</p><h2 id="reports-heading">Informes</h2></div><button class="primary" type="button">Crear borrador</button></div>
+          <div class="panel"><table><caption>Informes sintéticos disponibles</caption><thead><tr><th scope="col">Informe</th><th scope="col">Empresa</th><th scope="col">Periodo</th><th scope="col">Versión</th><th scope="col">Estado</th></tr></thead><tbody><tr><td>Cierre y evidencia</td><td>Taller Solar Demo</td><td>Julio 2026</td><td>Snapshot 3</td><td><span class="status status-ready">✓ Reproducible</span></td></tr><tr><td>Dinero no explicado</td><td>Comercio Andino Demo</td><td>Julio 2026</td><td>Borrador 5</td><td><span class="status status-partial">△ Parcial</span></td></tr></tbody></table></div>
+        </section>
+
+        <section class="page mobile-page" data-page="mobile" aria-labelledby="mobile-heading" hidden>
+          <div class="page-heading"><div><p class="eyebrow">Companion, no escritorio reducido</p><h2 id="mobile-heading">Solicitud móvil</h2></div></div>
+          <div class="phone" aria-label="Vista simulada de aplicación móvil"><div class="phone-top"><span>9:41</span><span aria-hidden="true">● ◔</span></div><div class="phone-body"><p class="eyebrow">Comercio Andino Demo</p><h3>Falta soporte de comisión</h3><span class="status status-partial">△ Bloquea el cierre</span><p>Adjunta el soporte correspondiente a la liquidación sintética del 19 de julio.</p><div class="request-meta"><span>Vence hoy</span><span>Asignada a ti</span></div><button class="primary full" type="button">Adjuntar evidencia</button><button class="secondary full" type="button">No tengo este soporte</button><p class="mobile-note">El mapping y el cierre final continúan en web.</p></div></div>
+        </section>
+      </main>
+    </div>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>

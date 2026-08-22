@@ -17,7 +17,9 @@ class WorkGraphTests(unittest.TestCase):
         report, findings = validate_repository(ROOT)
         self.assertEqual([], findings)
         self.assertGreaterEqual(report["task_count"], 40)
-        self.assertIn("FNC-UX-001", report["next_candidates"])
+        self.assertEqual(sorted(set(report["next_candidates"])), report["next_candidates"])
+        self.assertNotIn("FNC-GOV-001", report["next_candidates"])
+        self.assertNotIn("FNC-GOV-003", report["next_candidates"])
 
     def test_duplicate_backlog_task_bites(self) -> None:
         text = "## E0\n| FNC-GOV-001 | A0 | — | Ready | x |\n| FNC-GOV-001 | A0 | — | Ready | x |"

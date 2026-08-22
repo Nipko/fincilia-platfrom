@@ -70,6 +70,18 @@
         "tests/golden/harness",
         "docs/implementation/handoffs/FNC-QA-003.md"
       ]
+    },
+    {
+      "task": "FNC-ARC-003",
+      "holder": "Integration Steward",
+      "paths": [
+        "docs/architecture/REGION_TRANSMISSION_DECISION.md",
+        "docs/architecture/region-transmission-decision.json",
+        "tools/region_decision",
+        "docs/implementation/tasks/FNC-ARC-003.md",
+        "docs/implementation/handoffs/FNC-ARC-003.md",
+        "docs/implementation/decision_requests/FNC-ARC-003-A02.md"
+      ]
     }
   ]
 }
