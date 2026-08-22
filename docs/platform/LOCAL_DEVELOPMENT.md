@@ -36,6 +36,23 @@ curl -s http://127.0.0.1:58080/health/ready
   {"name":"object_storage","status":"up","detail":"4 buckets"}]}
 ```
 
+### Aplicar el esquema
+
+El stack arranca sano con la base vacía: `/health/ready` sólo dice que PostgreSQL
+responde. Para que exista esquema hay que migrar, **a mano y una vez**:
+
+```bash
+docker compose -f infra/local/compose.yaml -p fincilia-local --profile migrate run --rm migrate
+```
+
+```json
+{"applied": ["V0001"], "head": "V0001", "mutated": true, "ok": true}
+```
+
+Repetirlo devuelve `"mutated": false`. Las migraciones no corren en el arranque de
+la API a propósito: un servicio que migra al arrancar migra una vez por réplica, y
+convierte un despliegue en un cambio de esquema. Detalle en [`db/README.md`](../../db/README.md).
+
 Bajar sin perder datos:
 
 ```bash
@@ -143,6 +160,12 @@ python -m unittest tools.local_stack.test_validate
 docker compose -f infra/local/compose.yaml -p fincilia-local run --rm --no-deps \
   api python -m unittest discover -s /app/tests -t /app/tests
 
+# Esquema: plan sin base, y aislamiento contra PostgreSQL real
+docker compose -f infra/local/compose.yaml -p fincilia-local --profile migrate   run --rm migrate python -m unittest discover -s /app/db/tests -t /app
+
+# Contrato del fichero de migraciones
+python -m unittest tools.migration_readiness.test_validate
+
 # Ciclo de vida de persistencia (perfil test)
 docker compose -f infra/local/compose.yaml -p fincilia-local --profile test \
   run --rm lifecycle-test initial
@@ -169,8 +192,12 @@ responde a otra pregunta.
 ## 7. Límites honestos
 
 1. Un stack sano dice que los servicios responden, **no** que el producto sea
-   correcto.
-2. Todo dato es sintético. `real_data_enabled` sigue apagado por contrato.
-3. No hay despliegue, ni cloud, ni proveedor externo, ni pagos.
-4. El `.env.example` contiene ejemplos seguros; las credenciales reales no viven en
+   correcto. Y arranca igual de sano con la base sin migrar.
+2. El esquema local está habilitado por `local_build` en
+   `docs/database/migration-tooling.json`, que es un alcance **solo local**: no
+   acepta ADR-002, no selecciona herramienta, no aprueba S1 ni autoriza ningún
+   entorno compartido.
+3. Todo dato es sintético. `real_data_enabled` sigue apagado por contrato.
+4. No hay despliegue, ni cloud, ni proveedor externo, ni pagos.
+5. El `.env.example` contiene ejemplos seguros; las credenciales reales no viven en
    el repositorio ni en la imagen.

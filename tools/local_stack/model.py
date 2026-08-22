@@ -36,7 +36,10 @@ HEALTHCHECK_KEY = re.compile(r"(?m)^    healthcheck:\s*$")
 # Servicios que guardan o sirven estado y nunca publican puerto al host.
 NEVER_PUBLISHED = ("postgres", "valkey")
 # Servicios de larga vida: todos menos los de un solo uso, que van por perfil.
-ONE_SHOT_PROFILES = ("test",)
+ONE_SHOT_PROFILES = ("test", "migrate")
+# El migrador se invoca a mano. Un stack que migra en `up` migra una vez por
+# replica y convierte un despliegue en un cambio de esquema.
+MIGRATE_ENTRYPOINT = "db.migrate.apply"
 
 
 @dataclass(frozen=True, order=True)
@@ -111,7 +114,17 @@ def validate_compose(text: str) -> list[Finding]:
             findings.append(Finding(
                 "LOCAL-NETWORK-MEMBERSHIP",
                 f"{name} does not declare which network it joins"))
+        if MIGRATE_ENTRYPOINT in block and "profiles:" not in block:
+            findings.append(Finding(
+                "LOCAL-MIGRATE-PROFILE",
+                f"{name} applies migrations and declares no profile; it would run on "
+                "every `up`, once per replica, without anyone deciding to migrate"))
 
+    if not any(MIGRATE_ENTRYPOINT in block for block in services.values()):
+        findings.append(Finding(
+            "LOCAL-MIGRATE-MISSING",
+            "no service applies migrations; the documented path would start an API "
+            "against an empty schema and only fail at the first query"))
     if "internal: true" not in text:
         findings.append(Finding("LOCAL-INTERNAL-NETWORK",
                                 "no internal network denies external routing"))

@@ -221,7 +221,22 @@ jobs:
           docker compose up -d --wait postgres
           FINCILIA_LOCAL_LIFECYCLE_MODE=persisted docker compose --profile test run --rm lifecycle-test
       - name: Build product images
-        run: docker compose build api worker
+        run: docker compose --profile migrate build api worker migrate
+
+      - name: Apply migrations
+        run: >-
+          docker compose --profile migrate run --rm migrate
+          | tee /dev/stderr | grep -q '"head": "V0001"'
+
+      - name: Applying twice changes nothing
+        run: >-
+          docker compose --profile migrate run --rm migrate
+          | tee /dev/stderr | grep -q '"mutated": false'
+
+      - name: Schema tests against real PostgreSQL
+        run: >-
+          docker compose --profile migrate run --rm migrate
+          python -m unittest discover -s /app/db/tests -t /app -v
 
       - name: Start the full local stack
         run: docker compose up -d --wait

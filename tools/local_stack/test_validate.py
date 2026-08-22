@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import unittest
 from pathlib import Path
 
@@ -12,6 +13,25 @@ BOOTSTRAP = (ROOT / "infra/local/db/init/001_bootstrap.sql").read_text(encoding=
 
 def codes(findings) -> set[str]:
     return {item.code for item in findings}
+
+
+SERVICE_HEAD = re.compile(r"(?m)^  (?P<name>[a-z][a-z0-9-]*):$")
+
+
+def service_block(text: str, name: str) -> str:
+    """Bloque exacto de un servicio.
+
+    Anclar una mutacion en «el servicio que va justo antes de X» deja de morder
+    en cuanto alguien inserta un servicio en medio: es exactamente lo que paso
+    al anadir `migrate`.
+    """
+    heads = list(SERVICE_HEAD.finditer(text))
+    for index, match in enumerate(heads):
+        if match.group("name") != name:
+            continue
+        end = heads[index + 1].start() if index + 1 < len(heads) else len(text)
+        return text[match.start():end]
+    raise AssertionError(f"{name} is not a service in compose.yaml")
 
 
 class LocalStackContractTests(unittest.TestCase):
@@ -57,16 +77,32 @@ class LocalStackContractTests(unittest.TestCase):
         self.assertIn("LOCAL-DATA-EXPOSED", codes(validate_compose(mutated)))
 
     def test_putting_the_worker_on_a_routable_network_bites(self) -> None:
-        labels = ("    labels:\n      com.fincilia.data-class: synthetic_only\n"
-                  "      com.fincilia.environment: local\n")
-        marker = ("    networks:\n      - fincilia_local_private\n" + labels
-                  + "\n  lifecycle-test:")
-        self.assertIn(marker, COMPOSE)
-        mutated = COMPOSE.replace(
-            marker,
-            "    networks:\n      - fincilia_local_private\n      - fincilia_local_edge\n"
-            + labels + "\n  lifecycle-test:", 1)
+        block = service_block(COMPOSE, "worker")
+        self.assertIn("      - fincilia_local_private\n", block)
+        mutated = COMPOSE.replace(block, block.replace(
+            "      - fincilia_local_private\n",
+            "      - fincilia_local_private\n      - fincilia_local_edge\n", 1), 1)
         self.assertIn("LOCAL-WORKER-EGRESS", codes(validate_compose(mutated)))
+
+    def test_the_egress_rule_targets_the_worker_and_not_any_service(self) -> None:
+        # Si la regla mordiera por el fichero entero, dar salida al `migrate`
+        # tambien la disparararia y no probaria nada sobre el worker.
+        block = service_block(COMPOSE, "migrate")
+        mutated = COMPOSE.replace(block, block.replace(
+            "      - fincilia_local_private\n",
+            "      - fincilia_local_private\n      - fincilia_local_edge\n", 1), 1)
+        self.assertNotIn("LOCAL-WORKER-EGRESS", codes(validate_compose(mutated)))
+
+    def test_a_migrator_without_a_profile_bites(self) -> None:
+        block = service_block(COMPOSE, "migrate")
+        self.assertIn('profiles: ["migrate"]', block)
+        mutated = COMPOSE.replace(block, block.replace(
+            '    profiles: ["migrate"]\n', "", 1), 1)
+        self.assertIn("LOCAL-MIGRATE-PROFILE", codes(validate_compose(mutated)))
+
+    def test_a_stack_that_never_migrates_bites(self) -> None:
+        mutated = COMPOSE.replace("db.migrate.apply", "db.migrate.noop")
+        self.assertIn("LOCAL-MIGRATE-MISSING", codes(validate_compose(mutated)))
 
     def test_a_service_without_a_declared_network_bites(self) -> None:
         mutated = COMPOSE.replace(

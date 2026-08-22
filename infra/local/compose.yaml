@@ -183,6 +183,40 @@ services:
       com.fincilia.data-class: synthetic_only
       com.fincilia.environment: local
 
+  migrate:
+    # Perfil propio: las migraciones NO corren al arrancar la API.
+    # `startup_auto_migrate` es false en el contrato, y un servicio que migra al
+    # arrancar migra tantas veces como replicas tenga.
+    profiles: ["migrate"]
+    build:
+      context: ../..
+      dockerfile: apps/api/Dockerfile
+    command:
+      - python
+      - -m
+      - db.migrate.apply
+      - --dsn
+      - postgresql://${FINCILIA_LOCAL_DB_MIGRATOR_USER:-fincilia_migrator}:${FINCILIA_LOCAL_MIGRATOR_PASSWORD:-fincilia_local_migrator_only}@postgres:5432/${FINCILIA_LOCAL_DB_NAME:-fincilia_local}
+    environment:
+      # Las pruebas de aislamiento necesitan los dos roles para comprobar que el
+      # runtime ve menos que el migrator. Este servicio es de un solo uso y no
+      # atiende trafico, asi que llevar ambos DSN no amplia superficie.
+      FINCILIA_MIGRATOR_URL: postgresql://${FINCILIA_LOCAL_DB_MIGRATOR_USER:-fincilia_migrator}:${FINCILIA_LOCAL_MIGRATOR_PASSWORD:-fincilia_local_migrator_only}@postgres:5432/${FINCILIA_LOCAL_DB_NAME:-fincilia_local}
+      FINCILIA_DATABASE_URL: postgresql://${FINCILIA_LOCAL_DB_APP_USER:-fincilia_app}:${FINCILIA_LOCAL_APP_PASSWORD:-fincilia_local_app_only}@postgres:5432/${FINCILIA_LOCAL_DB_NAME:-fincilia_local}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp
+    networks:
+      - fincilia_local_private
+    labels:
+      com.fincilia.data-class: synthetic_only
+      com.fincilia.environment: local
+
   lifecycle-test:
     profiles: ["test"]
     image: postgres:17.11-alpine3.24@sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73
