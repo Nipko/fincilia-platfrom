@@ -7,7 +7,9 @@ de una base vacía al estado que espera la API.
 db/
 ├── migrate/apply.py   aplicador: una transacción por migración, lock, checksum
 ├── migrations/        V####__nombre.sql, banda reservada V0001-V0999
-└── tests/             plan (sin base) y aislamiento (contra PostgreSQL real)
+├── seed/local.py      firma y empresas de demo, idempotente y determinista
+└── tests/             todo lo que exige PostgreSQL real: plan, aislamiento y
+                       el recorrido de autorización de la API
 ~~~
 
 ## Alcance: local, sintético, y nada más
@@ -41,6 +43,21 @@ sin base de datos:
 ~~~bash
 python -m db.migrate.apply --plan-only
 ~~~
+
+## Sembrar
+
+~~~bash
+docker compose -f infra/local/compose.yaml -p fincilia-local --profile migrate   run --rm migrate python -m db.seed.local
+~~~
+
+Una firma, dos empresas y cuatro usuarios, todo sintético. Los identificadores
+salen de `uuid5` sobre un espacio de nombres fijo: resembrar no duplica nada y un
+enlace a una empresa sigue funcionando después de recrear el volumen. Se niega a
+correr si `FINCILIA_REAL_DATA_ENABLED` está encendido.
+
+Aprovisionar también declara sobre qué empresa actúa: con `FORCE ROW LEVEL
+SECURITY` no hay vía privilegiada que se salte la política, ni siquiera para el
+propietario del esquema.
 
 ## Invariantes que sostiene el aplicador
 

@@ -46,6 +46,10 @@ CREATE TABLE IF NOT EXISTS fincilia.schema_history (
   applied_by  text NOT NULL DEFAULT current_user,
   status      text NOT NULL CHECK (status = 'applied')
 );
+-- La sonda de esquema de la API lee esta tabla para decir contra que version
+-- corre. Sin este GRANT, `ready` reporta la base «caida» por un permiso, que es
+-- un diagnostico peor que no tener sonda.
+GRANT SELECT ON fincilia.schema_history TO fincilia_app;
 """
 
 

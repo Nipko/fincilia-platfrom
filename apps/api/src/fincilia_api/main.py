@@ -15,9 +15,18 @@ from typing import Any
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
+import valkey
+
+from fincilia_platform.db import Database
+from fincilia_platform.identity import Credential, LocalIdentityProvider
 from fincilia_platform.settings import ApiSettings, get_api_settings
 from fincilia_platform.probes import Probe, build_probes, ensure_buckets
 from fincilia_contracts.errors import ProblemDetail, problem
+
+from . import repository
+from .routes import router
+from .security import ProblemError
+from .throttle import AttemptThrottle
 
 API_VERSION = "0.1.0"
 PROBLEM_MEDIA_TYPE = "application/problem+json"
@@ -30,20 +39,56 @@ def _problem_response(detail: ProblemDetail) -> JSONResponse:
                         media_type=PROBLEM_MEDIA_TYPE)
 
 
+def expected_schema_head() -> str | None:
+    """Cabeza que espera **esta imagen**, leida de las migraciones que lleva dentro.
+
+    Comparar la base contra una constante escrita a mano se desincroniza el dia
+    que alguien anade una migracion y no toca la constante. Comparar contra los
+    ficheros que viajan en la imagen no puede desincronizarse.
+    """
+    try:
+        from db.migrate.apply import discover
+    except ImportError:
+        return None
+    try:
+        plan = discover()
+    except Exception:  # noqa: BLE001 - un plan ilegible no tumba el arranque
+        logger.warning("migration plan unreadable; the schema probe will not pin a head")
+        return None
+    return plan[-1].version if plan else None
+
+
+def build_identity_provider(settings: ApiSettings, database: Database):
+    """Proveedor local tras la interfaz. Sustituirlo no toca dominio ni rutas."""
+    def lookup(username: str) -> Credential | None:
+        with database.session() as connection:
+            return repository.find_credential(connection, username)
+    return LocalIdentityProvider(lookup, real_data_enabled=settings.real_data_enabled)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings: ApiSettings = app.state.settings
     logging.basicConfig(level=settings.log_level.upper(),
                         format="%(asctime)s %(levelname)s %(name)s %(message)s")
     logger.info("starting %s in %s", settings.service_name, settings.env)
-    app.state.probes = build_probes(settings)
+    database = Database(settings)
+    app.state.database = database
+    app.state.identity_provider = build_identity_provider(settings, database)
+    app.state.throttle = AttemptThrottle(
+        valkey.Valkey.from_url(settings.cache_url, socket_connect_timeout=2,
+                               socket_timeout=2))
+    app.state.probes = build_probes(settings, expected_head=expected_schema_head())
     if settings.env == "local":
         # Solo en local. En cualquier otro entorno las zonas de evidencia las crea
         # la infraestructura y el servicio no tiene permiso para hacerlo.
         created = ensure_buckets(settings)
         logger.info("object storage ready; created=%s", created or "none")
-    yield
-    logger.info("stopping %s", settings.service_name)
+    try:
+        yield
+    finally:
+        database.close()
+        logger.info("stopping %s", settings.service_name)
 
 
 def create_app(settings: ApiSettings | None = None,
@@ -61,6 +106,10 @@ def create_app(settings: ApiSettings | None = None,
     app.state.settings = resolved
     if probes is not None:
         app.state.probes = probes
+
+    @app.exception_handler(ProblemError)
+    async def _problem_error(_request: Request, error: ProblemError) -> JSONResponse:
+        return _problem_response(error.problem)
 
     @app.exception_handler(ValueError)
     async def _value_error(_request: Request, error: ValueError) -> JSONResponse:
@@ -106,6 +155,7 @@ def create_app(settings: ApiSettings | None = None,
             "auth_token_ttl_seconds": resolved.auth_token_ttl_seconds,
         }
 
+    app.include_router(router)
     return app
 
 

@@ -53,6 +53,37 @@ Repetirlo devuelve `"mutated": false`. Las migraciones no corren en el arranque 
 la API a propósito: un servicio que migra al arrancar migra una vez por réplica, y
 convierte un despliegue en un cambio de esquema. Detalle en [`db/README.md`](../../db/README.md).
 
+### Sembrar la demo y entrar
+
+```bash
+docker compose -f infra/local/compose.yaml -p fincilia-local --profile migrate run --rm migrate python -m db.seed.local
+```
+
+Crea una firma (**Contadores Andes SAS**) y dos empresas sintéticas
+(**Panaderia La Espiga SAS** y **Transportes Andinos SAS**), con cuatro usuarios
+locales. Es idempotente y determinista: repetirlo devuelve `"mutated": false`, y
+los identificadores son los mismos en cualquier máquina.
+
+| Usuario | Rol en Espiga | Rol en Andinos |
+|---|---|---|
+| `sofia@demo.local` | owner | owner |
+| `ana@demo.local` | preparer | preparer |
+| `beto@demo.local` | reviewer | — |
+| `carla@demo.local` | — | auditor |
+
+La contraseña de todos es `fincilia-demo-only`, o lo que diga
+`FINCILIA_LOCAL_DEMO_SECRET`. **Es sintética**: no abre nada más que este stack, y
+la tabla `local_credential` sólo existe en el entorno local.
+
+Ana prepara y Beto revisa a propósito: nadie propone y confirma la misma
+conciliación. La segregación de funciones se ve en los permisos que devuelve el
+servidor, no en una nota del manual.
+
+```bash
+TOKEN=$(curl -s -X POST http://127.0.0.1:58080/api/v1/auth/session   -H 'content-type: application/json'   -d '{"username":"ana@demo.local","secret":"fincilia-demo-only"}' | jq -r .token)
+curl -s http://127.0.0.1:58080/api/v1/me -H "Authorization: Bearer $TOKEN" | jq
+```
+
 Bajar sin perder datos:
 
 ```bash
@@ -181,6 +212,9 @@ docker compose -f infra/local/compose.yaml -p fincilia-local --profile test \
 | `/health/ready` da 503 | el cuerpo nombra la dependencia caída y por qué |
 | la API no arranca | casi siempre configuración: el error de pydantic nombra el campo |
 | el worker sale con 1 | no alcanzó alguna dependencia en 30 s; no se declara sano si no puede trabajar |
+| `/health/ready` dice `schema: down` | falta migrar, o la imagen espera otra cabeza que la base |
+| `401` con token recién emitido | los permisos de esa empresa cambiaron después de emitirlo; vuelve a entrar |
+| `403` en una empresa que existe | no hay concesión viva, o la delegación de la firma está revocada |
 | puerto ocupado | cambia `FINCILIA_LOCAL_API_PORT` o `FINCILIA_LOCAL_OBJECT_PORT` en `.env` |
 
 `/health/live` no toca ninguna dependencia: si consultara la base, un fallo de red
@@ -192,7 +226,8 @@ responde a otra pregunta.
 ## 7. Límites honestos
 
 1. Un stack sano dice que los servicios responden, **no** que el producto sea
-   correcto. Y arranca igual de sano con la base sin migrar.
+   correcto. Con la base sin migrar, `/health/live` sigue en 200 y `/health/ready`
+   da 503 nombrando el esquema.
 2. El esquema local está habilitado por `local_build` en
    `docs/database/migration-tooling.json`, que es un alcance **solo local**: no
    acepta ADR-002, no selecciona herramienta, no aprueba S1 ni autoriza ningún

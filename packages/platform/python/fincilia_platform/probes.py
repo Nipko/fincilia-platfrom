@@ -83,6 +83,49 @@ class DatabaseProbe:
         return _timed(self.name, action)
 
 
+class SchemaProbe:
+    """Cabeza de migracion aplicada.
+
+    Sin esta sonda, el stack arranca «sano» contra una base vacia y el primer
+    fallo llega en la primera consulta de negocio, con un error de tabla
+    inexistente que no dice que faltaba migrar. Aqui la respuesta es explicita:
+    `ready` da 503 y el cuerpo nombra el problema.
+
+    Solo lee `schema_history`, que no lleva RLS ni datos de negocio.
+    """
+
+    name = "schema"
+
+    def __init__(self, settings: Settings, *, expected_head: str | None = None) -> None:
+        self._dsn = str(settings.database_url)
+        self._timeout = int(PROBE_TIMEOUT_SECONDS)
+        self._expected = expected_head
+
+    def probe(self) -> ProbeResult:
+        started = time.perf_counter()
+        try:
+            with psycopg.connect(self._dsn, connect_timeout=self._timeout) as connection:
+                with connection.cursor() as cursor:
+                    cursor.execute(
+                        "SELECT max(version) FROM fincilia.schema_history "
+                        "WHERE status = 'applied'")
+                    row = cursor.fetchone()
+        except psycopg.errors.UndefinedTable:
+            return ProbeResult(self.name, "down", "no schema history: never migrated")
+        except Exception as error:  # noqa: BLE001 - una sonda nunca propaga
+            return ProbeResult(self.name, "down", _safe_reason(error))
+        head = row[0] if row else None
+        elapsed = int((time.perf_counter() - started) * 1000)
+        if head is None:
+            return ProbeResult(self.name, "down", "schema history is empty", elapsed)
+        if self._expected is not None and head != self._expected:
+            # Una cabeza distinta de la esperada no es un aviso: la imagen y la
+            # base no son la misma version del producto.
+            return ProbeResult(self.name, "down",
+                               f"head {head}, image expects {self._expected}", elapsed)
+        return ProbeResult(self.name, "up", f"head {head}", elapsed)
+
+
 class CacheProbe:
     name = "valkey"
 
@@ -142,8 +185,10 @@ class ObjectStoreProbe:
         return result
 
 
-def build_probes(settings: Settings) -> tuple[Probe, ...]:
-    return (DatabaseProbe(settings), CacheProbe(settings), ObjectStoreProbe(settings))
+def build_probes(settings: Settings, *,
+                 expected_head: str | None = None) -> tuple[Probe, ...]:
+    return (DatabaseProbe(settings), SchemaProbe(settings, expected_head=expected_head),
+            CacheProbe(settings), ObjectStoreProbe(settings))
 
 
 def probe_all(settings: Settings) -> tuple[ProbeResult, ...]:
