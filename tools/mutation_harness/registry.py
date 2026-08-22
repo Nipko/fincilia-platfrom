@@ -59,6 +59,18 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+def sha256_adjudicated_input(path: Path) -> str:
+    """Hash reviewed text portably and preserve exact binary bytes."""
+    payload = path.read_bytes()
+    try:
+        text = payload.decode("utf-8")
+    except UnicodeDecodeError:
+        canonical = payload
+    else:
+        canonical = text.replace("\r\n", "\n").replace("\r", "\n").encode("utf-8")
+    return hashlib.sha256(canonical).hexdigest()
+
+
 def registry_digest(registry: dict[str, Any]) -> str:
     return sha256_text(canonical_json(registry))
 
@@ -111,6 +123,9 @@ def validate_registry(registry: dict[str, Any], root: Path) -> list[MutationRegi
     if registry.get("global_score_as_gate") is not False:
         fail("MH-GLOBAL-SCORE", "global_score_as_gate",
              "a single mutation score is never an approval")
+    if registry.get("target_digest_policy") != "utf8_lf_else_bytes":
+        fail("MH-TARGET-DIGEST-POLICY", "target_digest_policy",
+             "target digests canonicalise UTF-8 line endings and preserve binary bytes")
 
     validators = registry.get("validators", [])
     validator_ids: set[str] = set()
@@ -192,7 +207,7 @@ def validate_registry(registry: dict[str, Any], root: Path) -> list[MutationRegi
                 if not SHA256_PATTERN.match(str(declared)):
                     fail("MH-TARGET-HASH", location, "target_sha256 is not a sha256 digest")
                 else:
-                    actual = sha256_file(absolute)
+                    actual = sha256_adjudicated_input(absolute)
                     if actual != declared:
                         fail("MH-TARGET-HASH", location,
                              f"adjudicated digest drifted: recorded {declared}, actual {actual}")

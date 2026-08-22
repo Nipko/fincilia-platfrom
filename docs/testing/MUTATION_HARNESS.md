@@ -192,6 +192,10 @@ Las mutaciones de `data_ceiling` sobre seis contratos tocan la **declaración** 
 
 ## 9. Determinismo y replay
 
+El `target_sha256` aplica la política explícita `utf8_lf_else_bytes`: normaliza
+CRLF/CR a LF para texto UTF-8 y conserva los bytes exactos para binarios. El mismo
+texto adjudicado mantiene así su identidad entre checkouts Windows y Linux.
+
 El `deterministic_result_digest` de cada caso cubre registro, mutación, target y su digest,
 expectativa, exit codes y códigos observados. **Excluye** duración, versión parche del
 intérprete, hostname y timestamp: ninguno de ellos cambia el resultado, y meterlos haría que

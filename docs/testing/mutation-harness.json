@@ -106,6 +106,7 @@
     }
   ],
   "global_score_as_gate": false,
+  "target_digest_policy": "utf8_lf_else_bytes",
   "human_acceptance": "pending",
   "known_survivors": [],
   "mutates_source_tree": false,
@@ -1530,7 +1531,7 @@
       ],
       "state": "active",
       "target": "docs/testing/golden-harness.json",
-      "target_sha256": "a271a7e929a2caafbed4acea4817fe7faaccf653f72fd30319b1e0d3ce8a26b8",
+      "target_sha256": "bd3ec09e01c24304c14b77042eeece6853a7712416a8816ef75a9415635418a9",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -1583,7 +1584,7 @@
       ],
       "state": "active",
       "target": "docs/testing/golden-harness.json",
-      "target_sha256": "a271a7e929a2caafbed4acea4817fe7faaccf653f72fd30319b1e0d3ce8a26b8",
+      "target_sha256": "bd3ec09e01c24304c14b77042eeece6853a7712416a8816ef75a9415635418a9",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -1636,7 +1637,7 @@
       ],
       "state": "active",
       "target": "docs/testing/golden-harness.json",
-      "target_sha256": "a271a7e929a2caafbed4acea4817fe7faaccf653f72fd30319b1e0d3ce8a26b8",
+      "target_sha256": "bd3ec09e01c24304c14b77042eeece6853a7712416a8816ef75a9415635418a9",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -1689,7 +1690,7 @@
       ],
       "state": "active",
       "target": "docs/testing/golden-harness.json",
-      "target_sha256": "a271a7e929a2caafbed4acea4817fe7faaccf653f72fd30319b1e0d3ce8a26b8",
+      "target_sha256": "bd3ec09e01c24304c14b77042eeece6853a7712416a8816ef75a9415635418a9",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -1743,7 +1744,7 @@
       ],
       "state": "active",
       "target": "docs/testing/golden-harness.json",
-      "target_sha256": "a271a7e929a2caafbed4acea4817fe7faaccf653f72fd30319b1e0d3ce8a26b8",
+      "target_sha256": "bd3ec09e01c24304c14b77042eeece6853a7712416a8816ef75a9415635418a9",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -1796,7 +1797,7 @@
       ],
       "state": "active",
       "target": "docs/testing/golden-harness.json",
-      "target_sha256": "a271a7e929a2caafbed4acea4817fe7faaccf653f72fd30319b1e0d3ce8a26b8",
+      "target_sha256": "bd3ec09e01c24304c14b77042eeece6853a7712416a8816ef75a9415635418a9",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -1846,7 +1847,7 @@
       ],
       "state": "active",
       "target": "docs/testing/golden-harness.json",
-      "target_sha256": "a271a7e929a2caafbed4acea4817fe7faaccf653f72fd30319b1e0d3ce8a26b8",
+      "target_sha256": "bd3ec09e01c24304c14b77042eeece6853a7712416a8816ef75a9415635418a9",
       "test_refs": [
         "TST-META-001"
       ],
@@ -2268,7 +2269,7 @@
       ],
       "state": "active",
       "target": "docs/domain/lineage-model.json",
-      "target_sha256": "74e29ff731ddc143fee58176a53c296db1d519dc375f074d1fbf3bf9d1b90258",
+      "target_sha256": "9f15239a13d4cb112f7624409e62a5646bfd15376d11d9c35d3fca6a3438204c",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -2320,7 +2321,7 @@
       ],
       "state": "active",
       "target": "docs/domain/lineage-model.json",
-      "target_sha256": "74e29ff731ddc143fee58176a53c296db1d519dc375f074d1fbf3bf9d1b90258",
+      "target_sha256": "9f15239a13d4cb112f7624409e62a5646bfd15376d11d9c35d3fca6a3438204c",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -2373,7 +2374,7 @@
       ],
       "state": "active",
       "target": "docs/domain/lineage-model.json",
-      "target_sha256": "74e29ff731ddc143fee58176a53c296db1d519dc375f074d1fbf3bf9d1b90258",
+      "target_sha256": "9f15239a13d4cb112f7624409e62a5646bfd15376d11d9c35d3fca6a3438204c",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -2426,7 +2427,7 @@
       ],
       "state": "active",
       "target": "docs/domain/lineage-model.json",
-      "target_sha256": "74e29ff731ddc143fee58176a53c296db1d519dc375f074d1fbf3bf9d1b90258",
+      "target_sha256": "9f15239a13d4cb112f7624409e62a5646bfd15376d11d9c35d3fca6a3438204c",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -2480,7 +2481,7 @@
       ],
       "state": "active",
       "target": "docs/domain/lineage-model.json",
-      "target_sha256": "74e29ff731ddc143fee58176a53c296db1d519dc375f074d1fbf3bf9d1b90258",
+      "target_sha256": "9f15239a13d4cb112f7624409e62a5646bfd15376d11d9c35d3fca6a3438204c",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -2533,7 +2534,7 @@
       ],
       "state": "active",
       "target": "docs/domain/lineage-model.json",
-      "target_sha256": "74e29ff731ddc143fee58176a53c296db1d519dc375f074d1fbf3bf9d1b90258",
+      "target_sha256": "9f15239a13d4cb112f7624409e62a5646bfd15376d11d9c35d3fca6a3438204c",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -2587,7 +2588,7 @@
       ],
       "state": "active",
       "target": "docs/domain/lineage-model.json",
-      "target_sha256": "74e29ff731ddc143fee58176a53c296db1d519dc375f074d1fbf3bf9d1b90258",
+      "target_sha256": "9f15239a13d4cb112f7624409e62a5646bfd15376d11d9c35d3fca6a3438204c",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -2641,7 +2642,7 @@
       ],
       "state": "active",
       "target": "docs/domain/lineage-model.json",
-      "target_sha256": "74e29ff731ddc143fee58176a53c296db1d519dc375f074d1fbf3bf9d1b90258",
+      "target_sha256": "9f15239a13d4cb112f7624409e62a5646bfd15376d11d9c35d3fca6a3438204c",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -2691,7 +2692,7 @@
       ],
       "state": "active",
       "target": "docs/domain/lineage-model.json",
-      "target_sha256": "74e29ff731ddc143fee58176a53c296db1d519dc375f074d1fbf3bf9d1b90258",
+      "target_sha256": "9f15239a13d4cb112f7624409e62a5646bfd15376d11d9c35d3fca6a3438204c",
       "test_refs": [
         "TST-META-001"
       ],
@@ -2744,7 +2745,7 @@
       ],
       "state": "active",
       "target": "docs/privacy/privacy-map.json",
-      "target_sha256": "ebbf237503179202d588ccb1703f4080a7805cba17dc362b90956feb856d2331",
+      "target_sha256": "5d927d5e6bb58ca971ae3361800664e4383fb8f63d7e56d644fba852b80d0970",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -2797,7 +2798,7 @@
       ],
       "state": "active",
       "target": "docs/privacy/privacy-map.json",
-      "target_sha256": "ebbf237503179202d588ccb1703f4080a7805cba17dc362b90956feb856d2331",
+      "target_sha256": "5d927d5e6bb58ca971ae3361800664e4383fb8f63d7e56d644fba852b80d0970",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -2850,7 +2851,7 @@
       ],
       "state": "active",
       "target": "docs/privacy/privacy-map.json",
-      "target_sha256": "ebbf237503179202d588ccb1703f4080a7805cba17dc362b90956feb856d2331",
+      "target_sha256": "5d927d5e6bb58ca971ae3361800664e4383fb8f63d7e56d644fba852b80d0970",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -2906,7 +2907,7 @@
       ],
       "state": "active",
       "target": "docs/privacy/privacy-map.json",
-      "target_sha256": "ebbf237503179202d588ccb1703f4080a7805cba17dc362b90956feb856d2331",
+      "target_sha256": "5d927d5e6bb58ca971ae3361800664e4383fb8f63d7e56d644fba852b80d0970",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -2960,7 +2961,7 @@
       ],
       "state": "active",
       "target": "docs/privacy/privacy-map.json",
-      "target_sha256": "ebbf237503179202d588ccb1703f4080a7805cba17dc362b90956feb856d2331",
+      "target_sha256": "5d927d5e6bb58ca971ae3361800664e4383fb8f63d7e56d644fba852b80d0970",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -3013,7 +3014,7 @@
       ],
       "state": "active",
       "target": "docs/privacy/privacy-map.json",
-      "target_sha256": "ebbf237503179202d588ccb1703f4080a7805cba17dc362b90956feb856d2331",
+      "target_sha256": "5d927d5e6bb58ca971ae3361800664e4383fb8f63d7e56d644fba852b80d0970",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -3063,7 +3064,7 @@
       ],
       "state": "active",
       "target": "docs/privacy/privacy-map.json",
-      "target_sha256": "ebbf237503179202d588ccb1703f4080a7805cba17dc362b90956feb856d2331",
+      "target_sha256": "5d927d5e6bb58ca971ae3361800664e4383fb8f63d7e56d644fba852b80d0970",
       "test_refs": [
         "TST-META-001"
       ],
@@ -3117,7 +3118,7 @@
       ],
       "state": "active",
       "target": "docs/testing/test-strategy.json",
-      "target_sha256": "e4b51336066b9bed3b69dff8d86d5d14b4397de61ebc9f96699a13404aeb5ab7",
+      "target_sha256": "69d2acd5dcd90cdd9ad70e31a77f77d6042933095d3a672d1497c913e57566c8",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -3171,7 +3172,7 @@
       ],
       "state": "active",
       "target": "docs/testing/test-strategy.json",
-      "target_sha256": "e4b51336066b9bed3b69dff8d86d5d14b4397de61ebc9f96699a13404aeb5ab7",
+      "target_sha256": "69d2acd5dcd90cdd9ad70e31a77f77d6042933095d3a672d1497c913e57566c8",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -3224,7 +3225,7 @@
       ],
       "state": "active",
       "target": "docs/testing/test-strategy.json",
-      "target_sha256": "e4b51336066b9bed3b69dff8d86d5d14b4397de61ebc9f96699a13404aeb5ab7",
+      "target_sha256": "69d2acd5dcd90cdd9ad70e31a77f77d6042933095d3a672d1497c913e57566c8",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -3278,7 +3279,7 @@
       ],
       "state": "active",
       "target": "docs/testing/test-strategy.json",
-      "target_sha256": "e4b51336066b9bed3b69dff8d86d5d14b4397de61ebc9f96699a13404aeb5ab7",
+      "target_sha256": "69d2acd5dcd90cdd9ad70e31a77f77d6042933095d3a672d1497c913e57566c8",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -3331,7 +3332,7 @@
       ],
       "state": "active",
       "target": "docs/testing/test-strategy.json",
-      "target_sha256": "e4b51336066b9bed3b69dff8d86d5d14b4397de61ebc9f96699a13404aeb5ab7",
+      "target_sha256": "69d2acd5dcd90cdd9ad70e31a77f77d6042933095d3a672d1497c913e57566c8",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -3385,7 +3386,7 @@
       ],
       "state": "active",
       "target": "docs/testing/test-strategy.json",
-      "target_sha256": "e4b51336066b9bed3b69dff8d86d5d14b4397de61ebc9f96699a13404aeb5ab7",
+      "target_sha256": "69d2acd5dcd90cdd9ad70e31a77f77d6042933095d3a672d1497c913e57566c8",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -3435,7 +3436,7 @@
       ],
       "state": "active",
       "target": "docs/testing/test-strategy.json",
-      "target_sha256": "e4b51336066b9bed3b69dff8d86d5d14b4397de61ebc9f96699a13404aeb5ab7",
+      "target_sha256": "69d2acd5dcd90cdd9ad70e31a77f77d6042933095d3a672d1497c913e57566c8",
       "test_refs": [
         "TST-META-001"
       ],

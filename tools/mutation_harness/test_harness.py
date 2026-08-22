@@ -62,6 +62,7 @@ def lab_registry(mode: str = "strict") -> dict:
         "network_access": False,
         "mutates_source_tree": False,
         "global_score_as_gate": False,
+        "target_digest_policy": "utf8_lf_else_bytes",
         "risk_severity": {"TM-013": "high"},
         "validators": [{
             "id": "synthetic",
@@ -253,6 +254,28 @@ class RegistryTests(unittest.TestCase):
     def test_reg_04_a_drifted_target_digest_is_refused(self) -> None:
         self.registry["mutations"][0]["target_sha256"] = "a" * 64
         self.assertIn("MH-TARGET-HASH", self.codes(self.registry))
+
+    def test_reg_04b_utf8_target_digest_is_identical_for_lf_and_crlf(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            lf = Path(directory) / "lf.json"
+            crlf = Path(directory) / "crlf.json"
+            lf.write_bytes(b'{"value": 1}\n')
+            crlf.write_bytes(b'{"value": 1}\r\n')
+            self.assertEqual(registry.sha256_adjudicated_input(lf),
+                             registry.sha256_adjudicated_input(crlf))
+
+    def test_reg_04c_binary_target_digest_remains_byte_exact(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            first = Path(directory) / "first.bin"
+            second = Path(directory) / "second.bin"
+            first.write_bytes(b"\xff\r\n")
+            second.write_bytes(b"\xff\n")
+            self.assertNotEqual(registry.sha256_adjudicated_input(first),
+                                registry.sha256_adjudicated_input(second))
+
+    def test_reg_04d_digest_policy_is_explicit_and_closed(self) -> None:
+        self.registry["target_digest_policy"] = "raw_bytes"
+        self.assertIn("MH-TARGET-DIGEST-POLICY", self.codes(self.registry))
 
     def test_reg_05_a_target_outside_the_copied_inputs_is_refused(self) -> None:
         other = "docs/security/threat-model.json"

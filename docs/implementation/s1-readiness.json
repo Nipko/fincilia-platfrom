@@ -1183,7 +1183,7 @@
     },
     {
       "path": "docs/testing/mutation-harness.json",
-      "sha256": "797fa85ee098230bc6d16939ce6a408666a436b3431b0a163cd5ad76e08dcd15",
+      "sha256": "08d3b6a09587e9493b4e3b9cebae12ba0b55d64a33997e72ef8df5c9615cdee8",
       "produced_by": "FNC-QA-005 registry review; declaration baseline, not runtime evidence"
     }
   ],
