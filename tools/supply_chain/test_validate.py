@@ -500,10 +500,51 @@ class NegativeInvariantTests(SyntheticTreeMixin, unittest.TestCase):
 
     # Fuentes no inventariadas y límites del escáner.
     def test_neg_17_a_new_ecosystem_without_an_extractor_is_reported(self) -> None:
+        # Rust y Go están en `watch_globs` y no tienen extractor: son exactamente el
+        # caso de «el inventario parece completo y le falta un ecosistema entero».
+        for relative, body in (("workers/parser/Cargo.toml", '[package]\nname = "p"\n'),
+                               ("workers/parser/go.mod", "module fincilia/parser\n")):
+            with self.subTest(relative=relative), tempfile.TemporaryDirectory() as directory:
+                tree = self.tree(Path(directory))
+                write(tree / relative, body)
+                self.assertIn("SUP-SOURCE-NOT-INVENTORIED", self.codes(self.scan(tree)))
+
+    def test_neg_17b_an_ecosystem_with_an_extractor_is_inventoried(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             tree = self.tree(Path(directory))
-            write(tree / "workers/document/requirements.txt", "requests==2.31.0\n")
-            self.assertIn("SUP-SOURCE-NOT-INVENTORIED", self.codes(self.scan(tree)))
+            write(tree / "apps/api/requirements.in", "fastapi==0.115.6\n")
+            write(tree / "apps/api/requirements.txt",
+                  "fastapi==0.115.6 \\\n    --hash=sha256:" + "a" * 64 + "\n")
+            codes = self.codes(self.scan(tree))
+            self.assertNotIn("SUP-SOURCE-NOT-INVENTORIED", codes)
+            self.assertNotIn("SUP-LOCKFILE-NO-HASHES", codes)
+
+    def test_neg_17c_a_python_lockfile_without_hashes_bites(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            tree = self.tree(Path(directory))
+            write(tree / "apps/api/requirements.in", "fastapi==0.115.6\n")
+            write(tree / "apps/api/requirements.txt", "fastapi==0.115.6\n")
+            self.assertIn("SUP-LOCKFILE-NO-HASHES", self.codes(self.scan(tree)))
+
+    def test_neg_17d_an_unpinned_dockerfile_base_bites(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            tree = self.tree(Path(directory))
+            write(tree / "apps/api/Dockerfile", 'FROM python:3.12-slim\nCMD ["true"]\n')
+            self.assertIn("SUP-IMAGE-UNPINNED", self.codes(self.scan(tree)))
+
+    def test_neg_17e_a_digest_only_base_is_accepted(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            tree = self.tree(Path(directory))
+            write(tree / "apps/api/Dockerfile",
+                  "FROM python@sha256:" + "d" * 64 + '\nCMD ["true"]\n')
+            self.assertNotIn("SUP-IMAGE-UNPINNED", self.codes(self.scan(tree)))
+
+    def test_neg_17f_a_manifest_without_dependencies_needs_no_lockfile(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            tree = self.tree(Path(directory))
+            write(tree / "packages/shared/python/pyproject.toml",
+                  '[project]\nname = "shared"\ndependencies = []\n')
+            self.assertNotIn("SUP-MANIFEST-NO-LOCKFILE", self.codes(self.scan(tree)))
 
     def test_neg_18_unsupported_yaml_is_reported_instead_of_silently_missed(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

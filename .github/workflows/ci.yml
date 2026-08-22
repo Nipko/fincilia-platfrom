@@ -62,6 +62,10 @@ jobs:
           tools.dev_cli.test_cli
           tools.quality_gate.test_repo_policy
           tools.synthetic_corpus.test_corpus -v
+      - name: Shared product contracts
+        run: >-
+          python -m unittest discover
+          -s packages/contracts/python -t packages/contracts/python
       - name: Validate executable architecture model
         run: python -m tools.architecture_model.validate
       - name: Validate ADR readiness packet
@@ -216,6 +220,23 @@ jobs:
           docker compose start postgres
           docker compose up -d --wait postgres
           FINCILIA_LOCAL_LIFECYCLE_MODE=persisted docker compose --profile test run --rm lifecycle-test
+      - name: Build product images
+        run: docker compose build api worker
+
+      - name: Start the full local stack
+        run: docker compose up -d --wait
+
+      - name: API contract tests inside the image
+        run: >-
+          docker compose run --rm --no-deps api
+          python -m unittest discover -s /app/tests -t /app/tests
+
+      - name: Health endpoints answer from the host
+        run: |
+          curl -fsS http://127.0.0.1:58080/health/live > /dev/null
+          curl -fsS http://127.0.0.1:58080/health/ready | tee /dev/stderr | grep -q '"status":"ready"'
+          curl -fsS http://127.0.0.1:58080/health/config | grep -q '"data_ceiling":"synthetic_only"'
+
       - name: Cleanup exact local project
         if: always()
         run: docker compose --profile test down --volumes --remove-orphans

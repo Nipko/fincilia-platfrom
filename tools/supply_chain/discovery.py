@@ -39,6 +39,16 @@ IMAGE_PATTERN = re.compile(
 INLINE_IMAGE_PATTERN = re.compile(
     r"(?<![\w./:@-])(?P<ref>[a-z0-9][a-z0-9._/-]*:[A-Za-z0-9._-]+@sha256:[0-9a-f]{64})"
 )
+# `FROM base@sha256:...` en un Dockerfile, ignorando `AS etapa`.
+DOCKERFILE_FROM = re.compile(
+    r"^\s*FROM\s+(?P<ref>\S+)(?:\s+[Aa][Ss]\s+\S+)?\s*$")
+# `paquete==1.2.3` en un requirements pinneado.
+PINNED_REQUIREMENT = re.compile(
+    r"(?m)^(?P<name>[A-Za-z0-9._-]+)(?P<extras>\[[^\]]*\])?=="
+    r"(?P<version>[A-Za-z0-9.*+!_-]+)")
+# `--hash=sha256:...`
+REQUIREMENT_HASH = re.compile(r"--hash=sha256:[0-9a-f]{64}")
+
 # `python-version: "3.12"` / `node-version: 22.20.0`
 RUNTIME_PATTERN = re.compile(
     r"^\s*(?P<key>[a-z][a-z0-9-]*-version):\s*(?P<quote>['\"]?)(?P<value>[^\s'\"#]+)(?P=quote)\s*(?:#.*)?$"
@@ -49,7 +59,11 @@ RUNS_ON_PATTERN = re.compile(
 )
 
 SHA40 = re.compile(r"^[0-9a-f]{40}$")
-OCI_DIGEST = re.compile(r"^(?P<name>[a-z0-9][a-z0-9._/-]*):(?P<tag>[A-Za-z0-9._-]+)@sha256:(?P<digest>[0-9a-f]{64})$")
+# `nombre:tag@sha256:...` y tambien `nombre@sha256:...`. La segunda forma no
+# lleva tag y es MAS fija, no menos: no hay etiqueta que alguien pueda mover.
+OCI_DIGEST = re.compile(
+    r"^(?P<name>[a-z0-9][a-z0-9._/-]*)(?::(?P<tag>[A-Za-z0-9._-]+))?"
+    r"@sha256:(?P<digest>[0-9a-f]{64})$")
 SEMVER_EXACT = re.compile(r"^\d+(\.\d+){1,3}$")
 RUNNER_EXACT = re.compile(r"^[a-z0-9]+(-[0-9]+\.[0-9]+)$")
 
@@ -286,6 +300,68 @@ def extract_runtimes(text: str, relative: Path, digest: str) -> list[Component]:
     return components
 
 
+
+def extract_dockerfile_base(root: Path, relative: Path, digest: str) -> list[Component]:
+    """`FROM` de un Dockerfile. Una base sin digest es una base que puede cambiar."""
+    text = read_text(root, relative)
+    if text is None:
+        return []
+    components: list[Component] = []
+    for number, line in enumerate(text.splitlines(), start=1):
+        match = DOCKERFILE_FROM.match(line.split("#", 1)[0])
+        if not match:
+            continue
+        reference = match.group("ref")
+        if reference.startswith("$"):
+            # `FROM $ARG` no se puede resolver leyendo el fichero; se declara.
+            components.append(Component(
+                component_type="oci_image", identifier=reference, reference=reference,
+                path=relative.as_posix(), line=number, source_digest=digest,
+                attributes=(("form", "dockerfile_build_arg"),)))
+            continue
+        components.append(Component(
+            component_type="oci_image",
+            identifier=reference.split("@", 1)[0].split(":", 1)[0],
+            reference=reference, path=relative.as_posix(), line=number,
+            source_digest=digest, attributes=(("form", "dockerfile_from"),)))
+    return components
+
+
+def extract_python_manifest(root: Path, relative: Path, digest: str) -> list[Component]:
+    """`requirements.in` o `pyproject.toml`: lo que alguien pidio, no lo resuelto."""
+    text = read_text(root, relative)
+    if text is None:
+        return []
+    direct = len(PINNED_REQUIREMENT.findall(text)) if relative.suffix == ".in" else 0
+    return [Component(
+        component_type="package_manifest",
+        identifier=relative.as_posix(),
+        reference=relative.name,
+        path=relative.as_posix(), line=1, source_digest=digest,
+        attributes=(("ecosystem", "python"),
+                    ("lifecycle_scripts", ""),
+                    ("workspaces", "no"),
+                    ("declared_dependencies", str(direct))))]
+
+
+def extract_python_lockfile(root: Path, relative: Path, digest: str) -> list[Component]:
+    """`requirements.txt` resuelto. Se anota si trae hashes y cuantos pines tiene."""
+    text = read_text(root, relative)
+    if text is None:
+        return []
+    pins = PINNED_REQUIREMENT.findall(text)
+    hashed = bool(REQUIREMENT_HASH.search(text))
+    return [Component(
+        component_type="lockfile",
+        identifier=relative.as_posix(),
+        reference=relative.name,
+        path=relative.as_posix(), line=1, source_digest=digest,
+        detail=str(len(pins)),
+        attributes=(("ecosystem", "python"),
+                    ("scope", relative.parent.as_posix()),
+                    ("hashes", "yes" if hashed else "no")))]
+
+
 def extract_manifests(root: Path, relative: Path, digest: str) -> list[Component]:
     """`package.json`: nombre, workspaces y scripts de lifecycle declarados."""
     text = read_text(root, relative)
@@ -433,9 +509,13 @@ def discover(model: dict[str, Any], root: Path) -> dict[str, Any]:
     manifest_files = scan("package_manifests")
     lockfile_files = scan("lockfiles")
     monitor_files = scan("update_monitors")
+    dockerfiles = scan("dockerfiles")
+    python_manifests = scan("python_manifests")
+    python_lockfiles = scan("python_lockfiles")
 
     every = sorted({*workflow_files, *compose_files, *manifest_files,
-                    *lockfile_files, *monitor_files},
+                    *lockfile_files, *monitor_files, *dockerfiles,
+                    *python_manifests, *python_lockfiles},
                    key=lambda item: item.as_posix())
 
     for relative in every:
@@ -470,6 +550,12 @@ def discover(model: dict[str, Any], root: Path) -> dict[str, Any]:
             components.extend(extract_lockfiles(root, relative, digest))
         if relative in monitor_files:
             components.extend(extract_update_monitors(root, relative, digest))
+        if relative in dockerfiles:
+            components.extend(extract_dockerfile_base(root, relative, digest))
+        if relative in python_manifests:
+            components.extend(extract_python_manifest(root, relative, digest))
+        if relative in python_lockfiles:
+            components.extend(extract_python_lockfile(root, relative, digest))
 
     ordered = sorted(components)
     return {

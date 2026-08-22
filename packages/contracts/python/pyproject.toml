@@ -1,0 +1,13 @@
+[project]
+name = "fincilia-contracts"
+version = "0.1.0"
+description = "Contratos compartidos del producto Fincilia"
+requires-python = ">=3.12"
+dependencies = []
+
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["fincilia_contracts*"]
