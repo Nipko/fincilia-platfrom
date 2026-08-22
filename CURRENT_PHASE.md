@@ -86,6 +86,7 @@ Hasta S1-READY solo se admite scaffolding, automatización, pruebas, documentaci
 | FNC-DOM-005 | Linaje por campo, overlays y engine release | Review pending | Claude + Integration Steward | docs/domain/LINEAGE_SPEC.md, lineage-model.json, tools/lineage_model, CI, handoff |
 | FNC-PLT-005 | Auth-context, RLS, outbox/inbox y parser sintético | Review pending | Integration Steward | spikes/FNC-PLT-005, CI, evidencia, handoff |
 | FNC-ARC-006A | Stores, clasificación y engine release cross-contract | Review pending | Integration Steward | docs/architecture/CROSS_CONTRACT_VOCABULARY.md, tools/cross_contract_model, ADR-023, CI, handoff |
+| FNC-GOV-003 | Grafo ejecutable de trabajo y reservas | Review pending | Integration Steward | docs/implementation/WORK_GRAPH.md, work-graph.json, tools/work_graph, CI, handoff |
 
 Solo el Integration Steward modifica esta tabla.
 
@@ -94,6 +95,7 @@ Solo el Integration Steward modifica esta tabla.
 | Ola | Tarea | Dependencia | Estado |
 |---:|---|---|---|
 | 0 | FNC-GOV-001 Owners humanos y RACI | Ninguna | Blocked: founder |
+| 0 | FNC-GOV-003 Grafo ejecutable de trabajo | FNC-GOV-002 | Review pending |
 | 0 | FNC-PRD-001 PRD general y wedge | FNC-GOV-001 para aprobación | Review pending |
 | 0 | FNC-DOM-001 Modelo tenancy | PRD provisional | Review pending |
 | 0 | FNC-ARC-001 C4 contexto/contenedores | FNC-DOM-001 | Review pending |

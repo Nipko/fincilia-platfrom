@@ -1,0 +1,86 @@
+{
+  "schema_version": "1.0.0",
+  "task": "FNC-GOV-003",
+  "sources": {
+    "backlog": "docs/implementation/BACKLOG_PHASE_0.md",
+    "current_phase": "CURRENT_PHASE.md",
+    "decisions": "docs/implementation/DECISION_LOG.md",
+    "traceability": "docs/implementation/TRACEABILITY.md",
+    "task_directory": "docs/implementation/tasks",
+    "handoff_directory": "docs/implementation/handoffs"
+  },
+  "states": [
+    "proposed",
+    "draftable",
+    "ready",
+    "claimed",
+    "in_progress",
+    "review_pending",
+    "done",
+    "blocked"
+  ],
+  "artifact_available_states": ["review_pending", "done"],
+  "aggregate_dependencies": [
+    {
+      "task": "FNC-GAT-001",
+      "section": "DRG-00 — corpus real de investigación",
+      "exclude": ["FNC-GAT-001"]
+    },
+    {
+      "task": "FNC-GAT-002",
+      "section": "Fase 0 restante",
+      "exclude": ["FNC-GAT-002"]
+    }
+  ],
+  "human_gates": [
+    {
+      "task": "FNC-GOV-001",
+      "required_roles": ["Founder"],
+      "agent_may_accept": false
+    },
+    {
+      "task": "FNC-GAT-001",
+      "required_roles": ["Legal", "Security", "Product"],
+      "agent_may_accept": false
+    },
+    {
+      "task": "FNC-GAT-002",
+      "required_roles": ["Product", "Architecture", "Security", "Accounting"],
+      "agent_may_accept": false
+    }
+  ],
+  "active_reservations": [
+    {
+      "task": "FNC-QA-002",
+      "holder": "Claude external principal dev",
+      "paths": [
+        "docs/testing/TEST_STRATEGY.md",
+        "docs/testing/test-strategy.json",
+        "tools/quality_strategy",
+        "docs/implementation/handoffs/FNC-QA-002.md"
+      ]
+    },
+    {
+      "task": "FNC-QA-003",
+      "holder": "Claude external principal dev",
+      "paths": [
+        "docs/testing/GOLDEN_HARNESS.md",
+        "docs/testing/golden-harness.json",
+        "tools/golden_harness",
+        "tests/golden/harness",
+        "docs/implementation/handoffs/FNC-QA-003.md"
+      ]
+    },
+    {
+      "task": "FNC-PLT-002",
+      "holder": "Integration Steward",
+      "paths": [
+        "infra/local",
+        "tools/local_stack",
+        "docs/implementation/tasks/FNC-PLT-002.md",
+        "docs/implementation/handoffs/FNC-PLT-002.md",
+        "docs/implementation/evidence/FNC-PLT-002"
+      ]
+    }
+  ]
+}
