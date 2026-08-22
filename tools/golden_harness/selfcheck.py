@@ -12,7 +12,7 @@ import argparse
 import json
 from pathlib import Path
 
-from tools.golden_harness.registry import resolve_inside, sha256_file
+from tools.golden_harness.registry import resolve_inside, sha256_adjudicated_input
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -31,7 +31,7 @@ def main(argv: list[str] | None = None) -> int:
     print(json.dumps(
         {
             "ok": True,
-            "fixture_sha256": sha256_file(resolved),
+            "fixture_sha256": sha256_adjudicated_input(resolved),
             "record_count": len(document.get("records", [])),
             "data_classification": document.get("data_classification"),
         },

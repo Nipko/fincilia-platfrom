@@ -34,6 +34,10 @@ REQUIRED_CASE_FIELDS = {
     "oracle", "result_affecting_versions", "state", "evidence_ref", "consumer_gates",
 }
 SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
+TEXT_INPUT_EXTENSIONS = frozenset({
+    ".js", ".json", ".md", ".mjs", ".py", ".sql", ".toml", ".ts", ".tsx",
+    ".txt", ".yaml", ".yml",
+})
 
 
 @dataclass(frozen=True, order=True)
@@ -60,6 +64,24 @@ def sha256_file(path: Path) -> str:
         for chunk in iter(lambda: handle.read(65536), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def sha256_adjudicated_input(path: Path) -> str:
+    """Hash estable entre checkouts Windows y Linux para inputs textuales.
+
+    Git puede materializar el mismo blob textual como CRLF o LF según el checkout.
+    La adjudicación compara contenido lógico UTF-8 con LF; extensiones binarias o
+    texto no UTF-8 conservan bytes exactos.
+    """
+    payload = path.read_bytes()
+    if path.suffix.lower() in TEXT_INPUT_EXTENSIONS:
+        try:
+            text = payload.decode("utf-8")
+        except UnicodeDecodeError:
+            pass
+        else:
+            payload = text.replace("\r\n", "\n").replace("\r", "\n").encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
 
 
 def case_digest(case: dict[str, Any]) -> str:
@@ -117,6 +139,13 @@ def validate_registry(
     if registry.get("auto_update_expected_allowed") is not False:
         fail("GH-AUTO-UPDATE", "auto_update_expected_allowed",
              "the runner never adjudicates its own expected outputs")
+    if registry.get("input_digest_policy") != {
+        "binary": "exact_bytes",
+        "text_encoding": "utf-8",
+        "text_line_endings": "lf",
+    }:
+        fail("GH-INPUT-DIGEST-POLICY", "input_digest_policy",
+             "text inputs must canonicalise UTF-8 line endings to LF; binary stays exact")
     adjudication = registry.get("adjudication")
     if (
         not isinstance(adjudication, dict)
@@ -230,7 +259,7 @@ def validate_registry(
             if not resolved.is_file():
                 fail("GH-INPUT-MISSING", input_location, f"input does not exist: {raw_path}")
                 continue
-            actual = sha256_file(resolved)
+            actual = sha256_adjudicated_input(resolved)
             if actual != declared:
                 fail("GH-INPUT-HASH", input_location,
                      f"adjudicated digest drifted: recorded {declared}, actual {actual}")

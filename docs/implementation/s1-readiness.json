@@ -1173,7 +1173,7 @@
     },
     {
       "path": "spikes/FNC-DB-002/MANIFEST.json",
-      "sha256": "dac9f52175a0f1c0873ead605c958e0b9aa38521eab3f56f7160b0c503b01836",
+      "sha256": "c2c29c0fa5fd696cec4b9ca6f81ac378b1be235d28ea2a482eb9f7d485ae14d4",
       "produced_by": "FNC-DB-002 manifest review; declaration baseline, not runtime evidence"
     },
     {
@@ -1183,7 +1183,7 @@
     },
     {
       "path": "docs/testing/mutation-harness.json",
-      "sha256": "aab4e006f8e21e8310c688c1d19e1fd91fbf828bcfe9fd845afa07ca8796c1f5",
+      "sha256": "797fa85ee098230bc6d16939ce6a408666a436b3431b0a163cd5ad76e08dcd15",
       "produced_by": "FNC-QA-005 registry review; declaration baseline, not runtime evidence"
     }
   ],

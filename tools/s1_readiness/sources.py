@@ -56,11 +56,17 @@ class Observation:
 
 
 def sha256_file(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(65536), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
+    payload = path.read_bytes()
+    if path.suffix.lower() in {
+        ".json", ".md", ".py", ".sql", ".toml", ".yaml", ".yml",
+    }:
+        try:
+            text = payload.decode("utf-8")
+        except UnicodeDecodeError:
+            pass
+        else:
+            payload = text.replace("\r\n", "\n").replace("\r", "\n").encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
 
 
 def safe_relative(raw: str) -> bool:

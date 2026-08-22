@@ -46,6 +46,7 @@ from tools.s1_readiness.sources import (
     read_front_matter,
     resolve_inside,
     safe_relative,
+    sha256_file,
 )
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -364,6 +365,14 @@ class SourceReadingTests(unittest.TestCase):
         self.assertGreater(collected["observation_count"]
                            if "observation_count" in collected
                            else len(collected["observations"]), 100)
+
+    def test_src_12_source_digest_is_stable_across_checkout_line_endings(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            windows, linux = root / "windows.json", root / "linux.json"
+            windows.write_bytes(b'{\r\n  "ok": true\r\n}\r\n')
+            linux.write_bytes(b'{\n  "ok": true\n}\n')
+            self.assertEqual(sha256_file(windows), sha256_file(linux))
 
 
 # --------------------------------------------------------------------------- #

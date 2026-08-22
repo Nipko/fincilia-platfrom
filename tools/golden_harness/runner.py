@@ -20,7 +20,7 @@ from tools.golden_harness.registry import (
     case_digest,
     registry_digest,
     resolve_inside,
-    sha256_file,
+    sha256_adjudicated_input,
     sha256_text,
 )
 
@@ -180,7 +180,7 @@ def _manifest(
         raw_path = item.get("path")
         resolved = resolve_inside(repository_root, raw_path) if raw_path else None
         if resolved is not None and resolved.is_file():
-            input_digests[raw_path] = sha256_file(resolved)
+            input_digests[raw_path] = sha256_adjudicated_input(resolved)
 
     deterministic_material = {
         "registry_digest": registry_digest(registry),

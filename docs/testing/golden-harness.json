@@ -6,6 +6,11 @@
     "runner_can_update_input_digests": false
   },
   "auto_update_expected_allowed": false,
+  "input_digest_policy": {
+    "binary": "exact_bytes",
+    "text_encoding": "utf-8",
+    "text_line_endings": "lf"
+  },
   "cases": [
     {
       "argv": [
@@ -523,11 +528,11 @@
         },
         {
           "path": "docs/domain/lineage-model.json",
-          "sha256": "74e29ff731ddc143fee58176a53c296db1d519dc375f074d1fbf3bf9d1b90258"
+          "sha256": "9f15239a13d4cb112f7624409e62a5646bfd15376d11d9c35d3fca6a3438204c"
         },
         {
           "path": "docs/privacy/privacy-map.json",
-          "sha256": "ebbf237503179202d588ccb1703f4080a7805cba17dc362b90956feb856d2331"
+          "sha256": "5d927d5e6bb58ca971ae3361800664e4383fb8f63d7e56d644fba852b80d0970"
         },
         {
           "path": "docs/security/threat-model.json",
@@ -590,7 +595,7 @@
         },
         {
           "path": "docs/privacy/privacy-map.json",
-          "sha256": "ebbf237503179202d588ccb1703f4080a7805cba17dc362b90956feb856d2331"
+          "sha256": "5d927d5e6bb58ca971ae3361800664e4383fb8f63d7e56d644fba852b80d0970"
         },
         {
           "path": "docs/security/threat-model.json",
@@ -716,7 +721,7 @@
         },
         {
           "path": "docs/testing/test-strategy.json",
-          "sha256": "e4b51336066b9bed3b69dff8d86d5d14b4397de61ebc9f96699a13404aeb5ab7"
+          "sha256": "69d2acd5dcd90cdd9ad70e31a77f77d6042933095d3a672d1497c913e57566c8"
         }
       ],
       "max_output_bytes": 262144,
@@ -826,7 +831,7 @@
       "inputs": [
         {
           "path": "tests/golden/harness/MANIFEST.json",
-          "sha256": "4c36ae1cd600c56204a7fcf7d49d6cc0e41644156902dba821e12f1fc25ef231"
+          "sha256": "620bc2fbec291ba920d1d18bd22e3b98e3b422b493970de541555ecefa602f29"
         },
         {
           "path": "tests/golden/harness/sample_case_input.json",

@@ -9,6 +9,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -18,6 +19,7 @@ from tools.golden_harness.registry import (
     case_digest,
     registry_digest,
     resolve_inside,
+    sha256_adjudicated_input,
     sha256_file,
     validate_registry,
 )
@@ -74,7 +76,26 @@ class GoldenHarnessTest(unittest.TestCase):
             for item in case["inputs"]:
                 path = resolve_inside(ROOT, item["path"])
                 self.assertIsNotNone(path, item["path"])
-                self.assertEqual(item["sha256"], sha256_file(path), item["path"])
+                self.assertEqual(item["sha256"], sha256_adjudicated_input(path),
+                                 item["path"])
+
+    def test_text_input_digest_is_stable_across_windows_and_linux_newlines(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            windows, linux = root / "windows.json", root / "linux.json"
+            windows.write_bytes(b'{\r\n  "ok": true\r\n}\r\n')
+            linux.write_bytes(b'{\n  "ok": true\n}\n')
+            self.assertEqual(sha256_adjudicated_input(windows),
+                             sha256_adjudicated_input(linux))
+
+    def test_binary_input_digest_keeps_exact_bytes(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            first, second = root / "first.bin", root / "second.bin"
+            first.write_bytes(b"a\r\nb")
+            second.write_bytes(b"a\nb")
+            self.assertNotEqual(sha256_adjudicated_input(first),
+                                sha256_adjudicated_input(second))
 
     def test_replay_of_the_same_case_yields_the_same_digest(self) -> None:
         case = self._case(self.registry, FAST_CASE)

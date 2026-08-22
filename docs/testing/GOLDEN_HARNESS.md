@@ -64,6 +64,11 @@ estructurado, versiones que afectan al resultado, estado y gate consumidor.
 
 **Veintiuna claves obligatorias.** Falta una y el caso no valida.
 
+Para que la misma adjudicación funcione en Windows y Linux, los inputs textuales UTF-8
+se canonicalizan a finales de línea LF antes del SHA-256. Los inputs binarios o el texto
+no UTF-8 conservan bytes exactos. Esta política vive en `input_digest_policy`; cambiarla
+es un cambio de contrato, no una decisión automática del runner.
+
 ---
 
 ## 4. Reglas de ejecución
