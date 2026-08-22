@@ -148,7 +148,7 @@ def looks_textual(head: bytes) -> bool:
     except UnicodeDecodeError:
         pass
     # Latin-1 decodifica cualquier byte, asi que no sirve como prueba. Se exige
-    # que casi todo sea imprimible.
+    # que la practica totalidad sea imprimible.
     printable = sum(1 for byte in head if 9 <= byte <= 13 or 32 <= byte <= 126
                     or 160 <= byte <= 255)
     return bool(head) and printable / len(head) > 0.95

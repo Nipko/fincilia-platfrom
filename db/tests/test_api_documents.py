@@ -24,8 +24,8 @@ from fincilia_contracts.ingestion import sha256_bytes
 from fincilia_platform.probes import ensure_buckets
 
 # Cada ejecucion siembra bytes distintos: la subida es idempotente por contenido,
-# asi que reutilizar los mismos bytes haria que la segunda ejecucion viera todo
-# como «ya presente» y las pruebas de primera entrega dejarian de morder.
+# asi que reutilizar los mismos bytes haria que la segunda ejecucion lo viera
+# entero como «ya presente» y las pruebas de primera entrega dejarian de morder.
 RUN = uuid.uuid4().hex[:12]
 
 CLEAN_CSV = (b"fecha,descripcion,valor,moneda\n"
@@ -66,6 +66,15 @@ class DocumentUploadTests(unittest.TestCase):
                 for company in (ESPIGA, ANDINOS):
                     cursor.execute(
                         "SELECT set_config('fincilia.company_id', %s, false)", (company,))
+                    # El puntero referencia al trabajo: borrar en el otro orden
+                    # choca con la clave ajena, y ponerle `ON DELETE CASCADE`
+                    # dejaria que borrar un trabajo se llevara por delante estado
+                    # de cola sin decirlo.
+                    cursor.execute(
+                        "DELETE FROM fincilia.dispatch_pointer WHERE run_id IN ("
+                        "SELECT run_id FROM fincilia.processing_run WHERE artifact_id IN ("
+                        "SELECT artifact_id FROM fincilia.source_artifact "
+                        "WHERE content_sha256 = ANY(%s)))", (list(cls.created),))
                     cursor.execute(
                         "DELETE FROM fincilia.processing_run WHERE artifact_id IN ("
                         "SELECT artifact_id FROM fincilia.source_artifact "
@@ -139,9 +148,13 @@ class DocumentUploadTests(unittest.TestCase):
         detail = self.client.get(
             f"/api/v1/companies/{ESPIGA}/documents/{body['artifact_id']}",
             headers=self.auth("ana@demo.local")).json()
+        # Exactamente un trabajo, y de perfilado. En que estado esta depende de si
+        # el worker ya lo tomo, y afirmar `queued` haria que la prueba fallara
+        # solo porque el worker fue rapido.
         self.assertEqual(1, len(detail["runs"]))
-        self.assertEqual("queued", detail["runs"][0]["status"])
         self.assertEqual("profile", detail["runs"][0]["kind"])
+        self.assertIn(detail["runs"][0]["status"],
+                      {"queued", "running", "succeeded"})
 
     def test_a_renamed_executable_is_refused(self) -> None:
         response = self.upload("ana@demo.local", ESPIGA,

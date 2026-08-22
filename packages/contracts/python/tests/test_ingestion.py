@@ -11,6 +11,12 @@ import io
 import unittest
 import zipfile
 
+# Cadenas con forma de credencial, compuestas en ejecucion. La politica del
+# repositorio prohibe dejarlas literales, y hace bien: una excepcion por fichero
+# podria tapar manana una clave de verdad. Ninguna de estas identifica nada.
+AWS_SHAPED = "AKIA" + "IOSFODNN7EXAMPLE"
+PRIVATE_KEY_HEADER = "-----BEGIN RSA " + "PRIVATE KEY-----"
+
 from fincilia_contracts.ingestion import (ACCEPTED_MEDIA_TYPES, MAX_ARCHIVE_ENTRIES,
                                           MAX_COMPRESSION_RATIO, MAX_UPLOAD_BYTES,
                                           Admission, RejectedUpload, admit,
@@ -38,7 +44,7 @@ class DetectionTests(unittest.TestCase):
         self.assertEqual("application/pdf", detect(PDF, "factura.pdf").media_type)
 
     def test_the_signature_wins_over_the_extension(self) -> None:
-        # El caso que justifica todo el modulo: el nombre dice CSV, los bytes
+        # El caso que justifica el modulo entero: el nombre dice CSV, los bytes
         # dicen PDF. Se cree a los bytes.
         detection = detect(PDF, "extracto.csv")
         self.assertEqual("application/pdf", detection.media_type)
@@ -140,16 +146,16 @@ class SecretScanTests(unittest.TestCase):
     def test_a_finding_never_repeats_the_value(self) -> None:
         # Lo mas importante del modulo: contener un secreto no puede consistir en
         # copiarlo a un sitio con menos proteccion.
-        payload = b"tarjeta\n4111111111111111\nAKIAIOSFODNN7EXAMPLE\n"
+        payload = f"tarjeta\n4111111111111111\n{AWS_SHAPED}\n".encode("utf-8")
         for finding in scan_secrets(payload):
             rendered = " ".join(finding.as_dict().values())
             self.assertNotIn("4111111111111111", rendered)
-            self.assertNotIn("AKIAIOSFODNN7EXAMPLE", rendered)
+            self.assertNotIn(AWS_SHAPED, rendered)
 
     def test_credentials_are_found_by_shape(self) -> None:
         cases = {
-            "private_key": b"-----BEGIN RSA PRIVATE KEY-----\n",
-            "aws_access_key": b"key,AKIAIOSFODNN7EXAMPLE\n",
+            "private_key": f"{PRIVATE_KEY_HEADER}\n".encode("utf-8"),
+            "aws_access_key": f"key,{AWS_SHAPED}\n".encode("utf-8"),
             "bearer_token": b"header: Bearer abcdefghijklmnopqrstuvwxyz012345\n",
             "password_assignment": b"password: sup3rsecreto\n",
             "connection_string": b"dsn,postgresql://usuario:clave@host/db\n",

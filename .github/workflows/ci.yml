@@ -258,6 +258,11 @@ jobs:
           docker compose run --rm --no-deps api
           python -m unittest discover -s /app/tests -t /app/tests
 
+      - name: Worker job tests against real PostgreSQL and object storage
+        run: >-
+          docker compose run --rm --no-deps worker
+          python -m unittest discover -s /app/tests -t /app/tests -v
+
       # `build web` ya ejecuta `typecheck` y `build` dentro de la imagen: si el
       # tipo no cuadra, la imagen no existe. Falta el lint, que no bloquea el
       # arranque y por eso se pide aparte.

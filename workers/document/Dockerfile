@@ -14,6 +14,7 @@ RUN pip install --no-cache-dir --require-hashes --no-deps -r /app/requirements.t
 COPY packages/contracts/python /app/packages/contracts/python
 COPY packages/platform/python /app/packages/platform/python
 COPY workers/document/src /app/src
+COPY workers/document/tests /app/tests
 
 RUN useradd --system --uid 10002 --create-home fincilia
 USER 10002

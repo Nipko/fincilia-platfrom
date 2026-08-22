@@ -129,6 +129,29 @@ Lo que ocurre con los bytes, en orden:
 Un hallazgo dice **qué tipo** y **en qué línea**, jamás el valor: contener un
 secreto no puede consistir en copiarlo a un sitio con menos protección.
 
+### Qué hace el worker con lo que subiste
+
+Lo que llega a `raw` se encola para perfilar. El worker toma el trabajo, lee el
+fichero y guarda su **forma**: separador, codificación, si trae cabecera, cuántas
+filas, y de qué tipo parece cada columna. El resultado aparece en la página del
+documento.
+
+El perfil **no lleva ni un valor del fichero**. Cuenta y mide; nunca transcribe.
+Si llevara ejemplos, sería una copia parcial del documento viviendo donde vive el
+metadato, con otras reglas de acceso y otra vida útil.
+
+Y ante una ambigüedad de dinero o de fecha, **no adivina**. `1.234` puede ser mil
+doscientos treinta y cuatro o uno coma doscientos treinta y cuatro; `02/01/2026`
+puede ser el 2 de enero o el 1 de febrero. La columna queda marcada como
+ambigua y la decisión espera a una persona. Basta con que **una** fila del
+fichero sea inequívoca (`15/03/2026`) para resolver la columna entera: un banco
+no cambia de formato a mitad de un extracto.
+
+Un trabajo nunca se queda a medias. Si el fichero no se deja leer, si el objeto
+no está, o si el resultado no se puede guardar, la ejecución queda `failed` con
+un código. Un trabajo colgado en `running` no lo reintenta nadie y no aparece en
+ninguna lista.
+
 Bajar sin perder datos:
 
 ```bash
@@ -151,7 +174,7 @@ docker compose -f infra/local/compose.yaml -p fincilia-local down --volumes
 | `valkey` | `valkey/valkey:8.1-alpine@sha256:e0eb7c48…` | — | caché, locks efímeros, progreso |
 | `objectstore` | `minio/minio:RELEASE.2025-04-22@sha256:a1ea29fa…` | `127.0.0.1:59000`, consola `59001` | zonas de evidencia |
 | `api` | construida de `apps/api/Dockerfile` | `127.0.0.1:58080` | FastAPI |
-| `worker` | construida de `workers/document/Dockerfile` | — | procesamiento de documentos |
+| `worker` | construida de `workers/document/Dockerfile` | — | perfila documentos; sin salida a internet |
 | `web` | construida de `apps/web/Dockerfile` | `127.0.0.1:53000` | Next.js; nunca autoriza |
 
 Toda imagen está fijada **por digest**. Una etiqueta puede reapuntarse a otros
@@ -244,6 +267,10 @@ docker compose -f infra/local/compose.yaml -p fincilia-local run --rm --no-deps 
 # Esquema: plan sin base, y aislamiento contra PostgreSQL real
 docker compose -f infra/local/compose.yaml -p fincilia-local --profile migrate   run --rm migrate python -m unittest discover -s /app/db/tests -t /app
 
+# Worker: toma de trabajos y perfilado, contra PostgreSQL y MinIO reales
+docker compose -f infra/local/compose.yaml -p fincilia-local \
+  run --rm --no-deps worker python -m unittest discover -s /app/tests -t /app/tests
+
 # Contrato del fichero de migraciones
 python -m unittest tools.migration_readiness.test_validate
 
@@ -264,6 +291,7 @@ docker compose -f infra/local/compose.yaml -p fincilia-local --profile test \
 | el worker sale con 1 | no alcanzó alguna dependencia en 30 s; no se declara sano si no puede trabajar |
 | `/health/ready` dice `schema: down` | falta migrar, o la imagen espera otra cabeza que la base |
 | `401` con token recién emitido | los permisos de esa empresa cambiaron después de emitirlo; vuelve a entrar |
+| un documento sin perfil | mira su ejecución: `queued` es que el worker no ha llegado, `failed` trae el motivo |
 | `403` en una empresa que existe | no hay concesión viva, o la delegación de la firma está revocada |
 | puerto ocupado | cambia `FINCILIA_LOCAL_API_PORT` o `FINCILIA_LOCAL_OBJECT_PORT` en `.env` |
 

@@ -172,5 +172,22 @@
       "product_migrations_allowed",
       "deployment_to_shared_environment"
     ]
-  }
+  },
+  "rls_exemptions": [
+    {
+      "table": "fincilia.dispatch_pointer",
+      "reason": "un planificador entre empresas necesita saber que empresa tiene trabajo pendiente antes de poder fijar su contexto de RLS",
+      "carries": "identifiers_and_timestamps_only",
+      "columns_allowed": [
+        "run_id",
+        "company_id",
+        "kind",
+        "queued_at",
+        "claimed_at",
+        "claimed_by"
+      ],
+      "owner_role": "Security",
+      "gate": "DRG-01"
+    }
+  ]
 }

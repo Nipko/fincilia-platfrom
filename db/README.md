@@ -83,11 +83,31 @@ son código de producto:
 | `processing_run` | un trabajo terminado tiene principio y fin, y el fin no precede al principio | `CHECK` sobre la línea temporal |
 | `processing_run` | fallar exige decir por qué | `CHECK` que exige `error_code` sólo al fallar |
 | `audit_event` | append-only también por privilegio | `GRANT SELECT, INSERT` y nada más |
+| `dispatch_pointer` | sólo identificadores y marcas de tiempo | excepción de RLS declarada y con columnas fijadas por el validador |
 
 `ALTER DEFAULT PRIVILEGES` de V0001 concede `UPDATE` a toda tabla nueva del
 esquema, así que quitarlo es un acto explícito en cada migración que crea una
 tabla append-only. Un privilegio heredado por defecto es justo el que nadie
 recuerda revisar.
+
+## La única tabla sin RLS, y por qué
+
+`fincilia.dispatch_pointer` no lleva RLS. Es deliberado y está **declarado** en
+`docs/database/migration-tooling.json`, con motivo, dueño y gate.
+
+El problema que resuelve es de arranque en frío: un planificador que trabaja para
+varias empresas necesita saber qué empresa tiene trabajo pendiente **antes** de
+poder fijar su contexto, y con `FORCE ROW LEVEL SECURITY` leer sin contexto no
+devuelve nada. Las alternativas eran dar `BYPASSRLS` al worker —que convierte el
+aislamiento en una promesa— o abrir `processing_run` a un contexto especial, que
+es lo mismo con otro nombre y además abre la fila entera, porque RLS es por fila
+y no por columna.
+
+Lo que se ve por esta vía es «la empresa X tiene un trabajo pendiente». No hay
+nombre de fichero, ni tipo, ni tamaño, ni importe, ni sujeto. `tools/migration_readiness`
+comprueba que las columnas siguen siendo exactamente las declaradas: añadir aquí
+un dato de negocio deja de ser invisible y vuelve a exigir una revisión. Y si la
+tabla llegara a tener RLS, la excepción se marca como obsoleta y bloquea.
 
 ## Roles
 

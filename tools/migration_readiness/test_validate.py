@@ -1,7 +1,7 @@
 from __future__ import annotations
 import copy,json,tempfile,unittest
 from pathlib import Path
-from .validate import ROOT,validate_migrations,validate_repository
+from .validate import ROOT,validate_exemptions,validate_migrations,validate_repository
 M=json.loads((ROOT/"docs/database/migration-tooling.json").read_text(encoding="utf-8"))
 V1=(ROOT/"db/migrations/V0001__identity_and_tenancy.sql").read_text(encoding="utf-8")
 class MigrationTest(unittest.TestCase):
@@ -39,15 +39,15 @@ class MigrationTest(unittest.TestCase):
   m=copy.deepcopy(M);m["local_build"]["s1_approved"]=True;self.bite(m,"DB-LOCAL-SCHEMA")
 
  # ---- migraciones del repositorio --------------------------------------- #
- def scratch(self,name:str,body:str):
+ def scratch(self,name:str,body:str,exemptions=None):
   """Un arbol minimo: el validador mira ficheros, no una base levantada."""
   root=Path(tempfile.mkdtemp())
   (root/"db"/"migrations").mkdir(parents=True);(root/"db"/"migrate").mkdir(parents=True)
   (root/"db"/"migrate"/"apply.py").write_text("", encoding="utf-8")
   (root/"db"/"migrations"/name).write_text(body, encoding="utf-8")
-  return {x.code for x in validate_migrations(root)}
+  return {x.code for x in validate_migrations(root,exemptions)}
  def test_the_real_migration_directory_is_clean(self):
-  self.assertEqual([],validate_migrations(ROOT))
+  self.assertEqual([],validate_migrations(ROOT,M["rls_exemptions"]))
  def test_an_unnumbered_file_bites(self):
   self.assertIn("DB-MIGRATION-NAME",self.scratch("fix.sql","SELECT 1;"))
  def test_a_readme_is_allowed(self):
@@ -88,6 +88,57 @@ class MigrationTest(unittest.TestCase):
     self.assertIn(f"ALTER TABLE fincilia.{table} FORCE ROW LEVEL SECURITY;",V1)
  def test_removing_force_from_the_real_migration_bites(self):
   self.assertIn("DB-MIGRATION-FORCE",self.scratch("V0001__x.sql",V1.replace("ALTER TABLE fincilia.audit_event FORCE ROW LEVEL SECURITY;","",1)))
+
+ # ---- excepciones de RLS declaradas ------------------------------------- #
+ def test_the_only_exemption_is_the_dispatch_pointer(self):
+  self.assertEqual(["fincilia.dispatch_pointer"],[x["table"] for x in M["rls_exemptions"]])
+ def test_the_exemption_carries_no_business_data(self):
+  item=M["rls_exemptions"][0]
+  self.assertEqual("identifiers_and_timestamps_only",item["carries"])
+  self.assertTrue(item["owner_role"] and item["gate"])
+ def test_an_undeclared_table_without_rls_still_bites(self):
+  # La excepcion no es una puerta abierta: solo vale para la tabla declarada.
+  body='CREATE TABLE fincilia.otra_tabla (\n  run_id uuid PRIMARY KEY,\n  company_id uuid NOT NULL,\n  kind text NOT NULL,\n  queued_at timestamptz NOT NULL,\n  claimed_at timestamptz,\n  claimed_by text\n);\n'
+  codes=self.scratch("V0001__x.sql",body,[json.loads('{"table":"fincilia.dispatch_pointer","reason":"un planificador entre empresas necesita saber que empresa tiene trabajo","carries":"identifiers_and_timestamps_only","columns_allowed":["run_id","company_id","kind","queued_at","claimed_at","claimed_by"],"owner_role":"Security","gate":"DRG-01"}')])
+  self.assertIn("DB-MIGRATION-FORCE",codes)
+ def test_a_declared_exemption_passes(self):
+  codes=self.scratch("V0001__x.sql",'CREATE TABLE fincilia.dispatch_pointer (\n  run_id uuid PRIMARY KEY,\n  company_id uuid NOT NULL,\n  kind text NOT NULL,\n  queued_at timestamptz NOT NULL,\n  claimed_at timestamptz,\n  claimed_by text\n);\n',[json.loads('{"table":"fincilia.dispatch_pointer","reason":"un planificador entre empresas necesita saber que empresa tiene trabajo","carries":"identifiers_and_timestamps_only","columns_allowed":["run_id","company_id","kind","queued_at","claimed_at","claimed_by"],"owner_role":"Security","gate":"DRG-01"}')])
+  self.assertEqual(set(),codes)
+ def test_adding_an_undeclared_column_to_an_exempt_table_bites(self):
+  # Lo que hace util la excepcion: anadir aqui un importe o un nombre de
+  # fichero deja de ser invisible y vuelve a exigir una revision.
+  body='CREATE TABLE fincilia.dispatch_pointer (\n  run_id uuid PRIMARY KEY,\n  company_id uuid NOT NULL,\n  kind text NOT NULL,\n  queued_at timestamptz NOT NULL,\n  claimed_at timestamptz,\n  claimed_by text,\n  filename text\n);\n'
+  codes=self.scratch("V0001__x.sql",body,[json.loads('{"table":"fincilia.dispatch_pointer","reason":"un planificador entre empresas necesita saber que empresa tiene trabajo","carries":"identifiers_and_timestamps_only","columns_allowed":["run_id","company_id","kind","queued_at","claimed_at","claimed_by"],"owner_role":"Security","gate":"DRG-01"}')])
+  self.assertIn("DB-RLS-EXEMPTION-COLUMNS",codes)
+ def test_an_exemption_for_a_table_that_now_has_rls_is_stale(self):
+  body='CREATE TABLE fincilia.dispatch_pointer (\n  run_id uuid PRIMARY KEY,\n  company_id uuid NOT NULL,\n  kind text NOT NULL,\n  queued_at timestamptz NOT NULL,\n  claimed_at timestamptz,\n  claimed_by text\n);\n'+"ALTER TABLE fincilia.dispatch_pointer ENABLE ROW LEVEL SECURITY;"
+  codes=self.scratch("V0001__x.sql",body,[json.loads('{"table":"fincilia.dispatch_pointer","reason":"un planificador entre empresas necesita saber que empresa tiene trabajo","carries":"identifiers_and_timestamps_only","columns_allowed":["run_id","company_id","kind","queued_at","claimed_at","claimed_by"],"owner_role":"Security","gate":"DRG-01"}')])
+  self.assertIn("DB-RLS-EXEMPTION-STALE",codes)
+ def test_an_exemption_for_a_table_nobody_creates_is_stale(self):
+  codes=self.scratch("V0001__x.sql","SELECT 1;",[json.loads('{"table":"fincilia.dispatch_pointer","reason":"un planificador entre empresas necesita saber que empresa tiene trabajo","carries":"identifiers_and_timestamps_only","columns_allowed":["run_id","company_id","kind","queued_at","claimed_at","claimed_by"],"owner_role":"Security","gate":"DRG-01"}')])
+  self.assertIn("DB-RLS-EXEMPTION-STALE",codes)
+ def test_an_exemption_without_a_real_reason_bites(self):
+  item=json.loads('{"table":"fincilia.dispatch_pointer","reason":"un planificador entre empresas necesita saber que empresa tiene trabajo","carries":"identifiers_and_timestamps_only","columns_allowed":["run_id","company_id","kind","queued_at","claimed_at","claimed_by"],"owner_role":"Security","gate":"DRG-01"}');item["reason"]="porque si"
+  self.assertIn("DB-RLS-EXEMPTION-REASON",{x.code for x in validate_exemptions([item])})
+ def test_an_exemption_that_claims_to_carry_data_bites(self):
+  item=json.loads('{"table":"fincilia.dispatch_pointer","reason":"un planificador entre empresas necesita saber que empresa tiene trabajo","carries":"identifiers_and_timestamps_only","columns_allowed":["run_id","company_id","kind","queued_at","claimed_at","claimed_by"],"owner_role":"Security","gate":"DRG-01"}');item["carries"]="whatever_is_needed"
+  self.assertIn("DB-RLS-EXEMPTION-PAYLOAD",{x.code for x in validate_exemptions([item])})
+ def test_an_exemption_without_an_owner_bites(self):
+  item=json.loads('{"table":"fincilia.dispatch_pointer","reason":"un planificador entre empresas necesita saber que empresa tiene trabajo","carries":"identifiers_and_timestamps_only","columns_allowed":["run_id","company_id","kind","queued_at","claimed_at","claimed_by"],"owner_role":"Security","gate":"DRG-01"}');item["owner_role"]=""
+  self.assertIn("DB-RLS-EXEMPTION-OWNER",{x.code for x in validate_exemptions([item])})
+ def test_an_unknown_exemption_key_bites(self):
+  item=json.loads('{"table":"fincilia.dispatch_pointer","reason":"un planificador entre empresas necesita saber que empresa tiene trabajo","carries":"identifiers_and_timestamps_only","columns_allowed":["run_id","company_id","kind","queued_at","claimed_at","claimed_by"],"owner_role":"Security","gate":"DRG-01"}');item["forever"]=True
+  self.assertIn("DB-RLS-EXEMPTION-SCHEMA",{x.code for x in validate_exemptions([item])})
+ def test_a_duplicated_exemption_bites(self):
+  item=json.loads('{"table":"fincilia.dispatch_pointer","reason":"un planificador entre empresas necesita saber que empresa tiene trabajo","carries":"identifiers_and_timestamps_only","columns_allowed":["run_id","company_id","kind","queued_at","claimed_at","claimed_by"],"owner_role":"Security","gate":"DRG-01"}')
+  self.assertIn("DB-RLS-EXEMPTION-SCHEMA",{x.code for x in validate_exemptions([item,dict(item)])})
+ def test_a_comment_explaining_what_was_not_done_does_not_bite(self):
+  # El comentario de V0004 explica por que NO se dio BYPASSRLS. Si la regla
+  # mirara comentarios, documentar bien penalizaria.
+  body="-- Dar BYPASSRLS al worker: descartada." + '\n' + "SELECT 1;"
+  self.assertNotIn("DB-MIGRATION-PRIVILEGE",self.scratch("V0001__x.sql",body))
+ def test_a_real_bypassrls_grant_still_bites(self):
+  self.assertIn("DB-MIGRATION-PRIVILEGE",self.scratch("V0001__x.sql","ALTER ROLE r BYPASSRLS;"))
  def test_a_missing_migrator_bites(self):
   root=Path(tempfile.mkdtemp());(root/"db"/"migrations").mkdir(parents=True)
   self.assertIn("DB-LOCAL-MIGRATOR",{x.code for x in validate_migrations(root)})

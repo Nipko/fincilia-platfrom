@@ -33,6 +33,14 @@ FIRM_NAME = "Contadores Andes SAS"
 COMPANIES = (
     {"key": "espiga", "legal_name": "Panaderia La Espiga SAS", "country_code": "CO"},
     {"key": "andinos", "legal_name": "Transportes Andinos SAS", "country_code": "CO"},
+    # Dos empresas para que las pruebas escriban en algun sitio sin ensuciar la
+    # demo. **Nadie tiene concesion sobre ellas**, asi que ningun usuario las ve:
+    # `authorize` exige delegacion, membresia y concesion vivas, y aqui falta la
+    # tercera. El residuo de una prueba no puede aparecer en la pantalla de nadie.
+    {"key": "sandbox_a", "legal_name": "Banco de Pruebas Uno SAS",
+     "country_code": "CO"},
+    {"key": "sandbox_b", "legal_name": "Banco de Pruebas Dos SAS",
+     "country_code": "CO"},
 )
 # El aprovisionador es un principal de servicio, no una persona: hace falta
 # alguien que conceda el primer rol, y `ck_grant_not_self` impide que el dueno se

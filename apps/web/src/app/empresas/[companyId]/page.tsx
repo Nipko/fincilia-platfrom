@@ -139,7 +139,13 @@ export default async function CompanyPage({
             <tbody>
               {documents.map((document) => (
                 <tr key={document.artifact_id}>
-                  <td>{document.filename}</td>
+                  <td>
+                    <Link
+                      href={`/empresas/${companyId}/documentos/${document.artifact_id}`}
+                    >
+                      {document.filename}
+                    </Link>
+                  </td>
                   <td className="outcome">{document.media_type}</td>
                   <td className="when">{document.byte_size.toLocaleString('es-CO')} B</td>
                   <td>

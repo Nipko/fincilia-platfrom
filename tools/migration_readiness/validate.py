@@ -21,8 +21,28 @@ DESTRUCTIVE=re.compile(r"(?i)\b(DROP\s+(TABLE|COLUMN|SCHEMA)|TRUNCATE)\b")
 class Finding:
  code:str;subject:str;detail:str
  def as_dict(self):return self.__dict__
+EXEMPTION_KEYS={"table","reason","carries","columns_allowed","owner_role","gate"}
+COLUMN=re.compile(r"(?m)^  (?P<name>[a-z][a-z0-9_]*)\s")
+NEWLINE=chr(10)
+def validate_exemptions(items):
+ f=[]
+ if not isinstance(items,list):return [Finding("DB-RLS-EXEMPTION-SCHEMA","rls_exemptions","not a list")]
+ for item in items:
+  if not isinstance(item,dict) or set(item)!=EXEMPTION_KEYS:f.append(Finding("DB-RLS-EXEMPTION-SCHEMA",str((item or {}).get("table")),"unexpected keys"));continue
+  # Una excepcion sin motivo escrito y sin dueno es una excepcion que nadie
+  # revisa: se exige que ambas cosas existan y digan algo.
+  if len(str(item["reason"]))<40:f.append(Finding("DB-RLS-EXEMPTION-REASON",str(item["table"]),"the reason must say why, not just that"))
+  if item["carries"]!="identifiers_and_timestamps_only":f.append(Finding("DB-RLS-EXEMPTION-PAYLOAD",str(item["table"]),str(item["carries"])))
+  if not item["owner_role"] or not item["gate"]:f.append(Finding("DB-RLS-EXEMPTION-OWNER",str(item["table"]),"an exemption needs an owner and a gate"))
+ tables=[x.get("table") for x in items if isinstance(x,dict)]
+ if len(tables)!=len(set(tables)):f.append(Finding("DB-RLS-EXEMPTION-SCHEMA","rls_exemptions","duplicate table"))
+ return f
+def exempt_columns(exemptions,qualified):
+ for item in exemptions:
+  if isinstance(item,dict) and item.get("table")==qualified:return set(item.get("columns_allowed") or [])
+ return None
 def validate_model(m:dict[str,Any]):
- f=[];keys={"schema_version","task","status","data_ceiling","adr_002_state","selected_tool","preferred_for_spike","human_acceptance","product_migrations_allowed","criteria","candidates","spike_matrix","production_policy","gates","local_build"}
+ f=[];keys={"schema_version","task","status","data_ceiling","adr_002_state","selected_tool","preferred_for_spike","human_acceptance","product_migrations_allowed","criteria","candidates","spike_matrix","production_policy","gates","local_build","rls_exemptions"}
  if set(m)!=keys:return [Finding("DB-SCHEMA","model","unexpected keys")]
  if m["data_ceiling"]!="synthetic_only" or m["adr_002_state"]!="proposed" or m["selected_tool"] is not None or m["human_acceptance"]!="pending" or m["product_migrations_allowed"] is not False:f.append(Finding("DB-HUMAN","model","decision prematurely accepted"))
  required={"plain_sql","versioned_order","content_checksum","transaction_by_default","concurrency_lock","strict_out_of_order","dry_run_or_plan","separate_migrator_role","postgresql_17","blank_replay_upgrade_tests","immutable_applied_migrations","forward_only_production","expand_contract"}
@@ -40,6 +60,7 @@ def validate_model(m:dict[str,Any]):
  if p!={"down_migrations":"forbidden_as_normal_rollback","rollback":"forward_fix_or_application_rollback_with_compatible_schema","applied_file_edit":"forbidden","migration_actor":"dedicated_non_runtime_role","startup_auto_migrate":False,"security_definer":"forbidden_without_review"}:f.append(Finding("DB-POLICY","production_policy","unsafe policy"))
  if any(g.get("state")!="not_met" for g in m["gates"]):f.append(Finding("DB-GATE","gates","premature gate"))
  f.extend(validate_local_build(m["local_build"]))
+ f.extend(validate_exemptions(m["rls_exemptions"]))
  return f
 def validate_local_build(b:Any):
  f=[]
@@ -53,7 +74,8 @@ def validate_local_build(b:Any):
  # los incluyera.
  if b["local_product_build_allowed"] is True and not NEVER_IMPLIED.issubset(set(b["does_not_imply"])):f.append(Finding("DB-LOCAL-IMPLIES","local_build","enabling the local build must spell out what it still does not authorise"))
  return f
-def validate_migrations(root:Path):
+def validate_migrations(root:Path,exemptions=None):
+ exemptions=exemptions or []
  f=[];directory=root/MIGRATIONS
  if not (root/MIGRATOR).is_file():
   f.append(Finding("DB-LOCAL-MIGRATOR","repository","the declared migrator does not exist"))
@@ -69,20 +91,39 @@ def validate_migrations(root:Path):
   number=int(match.group("number"))
   if not 1<=number<=999:f.append(Finding("DB-MIGRATION-BAND",name,"outside the reserved V0001-V0999 band"))
   text=path.read_text(encoding="utf-8")
-  if DESTRUCTIVE.search(text):f.append(Finding("DB-MIGRATION-DESTRUCTIVE",name,"destructive DDL needs expand/contract and review, not a migration"))
-  if "SECURITY DEFINER" in text:f.append(Finding("DB-MIGRATION-DEFINER",name,"SECURITY DEFINER is forbidden without review"))
-  if "BYPASSRLS" in text or "SUPERUSER" in text:f.append(Finding("DB-MIGRATION-PRIVILEGE",name,"a migration must not grant a role that escapes RLS"))
+  # Las reglas textuales miran lo que se ejecuta, no lo que se explica. Un
+  # comentario que dice por que NO se hizo algo no puede disparar la regla
+  # contra ese algo.
+  code=NEWLINE.join(line for line in text.splitlines()
+                    if not line.lstrip().startswith("--"))
+  if DESTRUCTIVE.search(code):f.append(Finding("DB-MIGRATION-DESTRUCTIVE",name,"destructive DDL needs expand/contract and review, not a migration"))
+  if "SECURITY DEFINER" in code:f.append(Finding("DB-MIGRATION-DEFINER",name,"SECURITY DEFINER is forbidden without review"))
+  if "BYPASSRLS" in code or "SUPERUSER" in code:f.append(Finding("DB-MIGRATION-PRIVILEGE",name,"a migration must not grant a role that escapes RLS"))
+  declared={str(x.get("table")) for x in exemptions if isinstance(x,dict)}
   for table in CREATE_TABLE.finditer(text):
    qualified=table.group("name")
    if "company_id" not in table.group("body"):continue
+   if qualified in declared:
+    # Excepcion declarada. Se comprueba que las columnas siguen siendo las que
+    # se aprobaron: anadir aqui un importe o un nombre de fichero deja de ser
+    # invisible y vuelve a exigir una revision.
+    allowed=exempt_columns(exemptions,qualified) or set()
+    found={c.group("name") for c in COLUMN.finditer(table.group("body"))}
+    extra=sorted(found-allowed)
+    if extra:f.append(Finding("DB-RLS-EXEMPTION-COLUMNS",qualified,f"undeclared columns {extra}"))
+    if f"ALTER TABLE {qualified} ENABLE ROW LEVEL SECURITY;" in text:f.append(Finding("DB-RLS-EXEMPTION-STALE",qualified,"the table has RLS; the exemption is stale and should be removed"))
+    continue
    # Una tabla con `company_id` sin RLS forzada es una fuga silenciosa: la
    # consulta correcta devuelve filas de otra empresa y nadie ve un error.
    if f"ALTER TABLE {qualified} ENABLE ROW LEVEL SECURITY;" not in text:f.append(Finding("DB-MIGRATION-RLS",qualified,"company-scoped table without ENABLE ROW LEVEL SECURITY"))
    if f"ALTER TABLE {qualified} FORCE ROW LEVEL SECURITY;" not in text:f.append(Finding("DB-MIGRATION-FORCE",qualified,"without FORCE the owner is exempt and the isolation is only apparent"))
+ created={m.group("name") for path in sorted(directory.glob("*.sql")) for m in CREATE_TABLE.finditer(path.read_text(encoding="utf-8"))}
+ for item in exemptions:
+  if isinstance(item,dict) and item.get("table") not in created:f.append(Finding("DB-RLS-EXEMPTION-STALE",str(item.get("table")),"declared exemption for a table no migration creates"))
  return f
 def validate_repository(o=None,root:Path|None=None):
- base=root or ROOT;m=o or json.loads((base/MODEL).read_text(encoding="utf-8"));f=validate_model(m)+validate_migrations(base)
- return {"preferred_for_spike":m.get("preferred_for_spike"),"selected_tool":m.get("selected_tool"),"spike_tests_not_run":sum(x.get("state")=="not_run" for x in m.get("spike_matrix",[])),"local_product_build_allowed":(m.get("local_build") or {}).get("local_product_build_allowed"),"migrations":sorted(p.name for p in (base/MIGRATIONS).glob("*.sql"))},f
+ base=root or ROOT;m=o or json.loads((base/MODEL).read_text(encoding="utf-8"));f=validate_model(m)+validate_migrations(base,m.get("rls_exemptions"))
+ return {"preferred_for_spike":m.get("preferred_for_spike"),"selected_tool":m.get("selected_tool"),"spike_tests_not_run":sum(x.get("state")=="not_run" for x in m.get("spike_matrix",[])),"local_product_build_allowed":(m.get("local_build") or {}).get("local_product_build_allowed"),"migrations":sorted(p.name for p in (base/MIGRATIONS).glob("*.sql")),"rls_exemptions":[str(x.get("table")) for x in (m.get("rls_exemptions") or []) if isinstance(x,dict)]},f
 def main():
  r,f=validate_repository();print(json.dumps({"ok":not f,"report":r,"errors":[x.as_dict() for x in f]},indent=2,sort_keys=True));return 0 if not f else 1
 if __name__=="__main__":raise SystemExit(main())

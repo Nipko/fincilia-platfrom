@@ -320,7 +320,15 @@ def enqueue_run(connection: psycopg.Connection, *, company_id: str,
             "ON CONFLICT (artifact_id, kind, attempt) DO NOTHING RETURNING run_id::text",
             (run_id, company_id, artifact_id, kind))
         row = cursor.fetchone()
-    return row[0] if row else None
+        if row is None:
+            return None
+        # El puntero se escribe en la misma transaccion que el trabajo. Si fueran
+        # dos, un fallo entre medias dejaria un trabajo que ningun worker ve.
+        cursor.execute(
+            "INSERT INTO fincilia.dispatch_pointer (run_id, company_id, kind) "
+            "VALUES (%s, %s, %s) ON CONFLICT (run_id) DO NOTHING",
+            (row[0], company_id, kind))
+    return row[0]
 
 
 def list_runs(connection: psycopg.Connection, artifact_id: str) -> list[dict]:

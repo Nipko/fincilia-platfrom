@@ -179,3 +179,53 @@ export function uploadDocument(
     { method: 'POST', body, token },
   );
 }
+
+export type ProcessingRun = {
+  run_id: string;
+  kind: string;
+  status: string;
+  attempt: number;
+  queued_at: string;
+  finished_at: string | null;
+  result: Record<string, unknown>;
+  error_code: string | null;
+};
+
+export type ArtifactDetail = ArtifactSummary & { runs: ProcessingRun[] };
+
+export type ColumnProfile = {
+  index: number;
+  header: string;
+  non_empty: number;
+  empty: number;
+  min_length: number;
+  max_length: number;
+  inferred_type: string;
+  type_confidence: number;
+  ambiguous: boolean;
+};
+
+export type TableProfile = {
+  encoding: string;
+  delimiter: string;
+  has_header: boolean;
+  row_count: number;
+  column_count: number;
+  ragged_rows: number;
+  truncated: boolean;
+  needs_decision: string[];
+  columns: ColumnProfile[];
+};
+
+export function fetchDocument(
+  token: string,
+  companyId: string,
+  artifactId: string,
+): Promise<ArtifactDetail> {
+  const company = encodeURIComponent(companyId);
+  const artifact = encodeURIComponent(artifactId);
+  return request<ArtifactDetail>(
+    `/api/v1/companies/${company}/documents/${artifact}`,
+    { token },
+  );
+}
