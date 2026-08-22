@@ -1,10 +1,11 @@
 ---
 task: FNC-DOM-005
 title: Linaje por campo, overlays y engine release reproducible
-status: claimed
-implementer: Claude (external agent)
+status: review_pending
+implementer: Claude (external agent) + Integration Steward
 base_sha: a43bc1c
-integration_sha: pending_integration_steward
+base_sha_verified: true
+integration_base_sha: 5fb0220
 gate: S1-READY
 data_ceiling: synthetic_only
 independent_reviewers: [Data, Accounting, Architecture, Security, Privacy]
@@ -16,15 +17,17 @@ Convertir ADR-005, ADR-006 y ADR-023 en un contrato ejecutable que garantice lin
 completo por campo/decisión, overlays append-only y reproducción fijada por release y
 manifest; ningún resultado usa `latest` ni reescribe históricos.
 
-## Rutas exclusivas reservadas para Claude
+## Rutas entregadas
 
 - `docs/domain/LINEAGE_SPEC.md`
 - `docs/domain/lineage-model.json`
 - `tools/lineage_model/**`
 - `docs/implementation/handoffs/FNC-DOM-005.md`
+- `docs/implementation/evidence/FNC-DOM-005/README.md`
+- Integración en CI, estado de fase, trazabilidad y catálogo de pruebas.
 
-Claude no modifica esta ficha ni archivos centrales. El Integration Steward integra CI,
-estado, backlog, trazabilidad y test catalog después del handoff.
+Claude no modificó los archivos centrales. El Integration Steward realizó su integración
+después del handoff.
 
 ## Dependencias
 

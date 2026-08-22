@@ -1,0 +1,1552 @@
+{
+  "canonical_binding": {
+    "entities_requiring_lineage": [
+      "account_balance",
+      "artifact_version",
+      "counterparty",
+      "dataset_version",
+      "document",
+      "external_reference",
+      "financial_account",
+      "ledger_entry",
+      "ledger_line",
+      "money_movement",
+      "movement_evidence_link",
+      "obligation",
+      "processing_run",
+      "raw_record",
+      "reference_dataset_version",
+      "settlement",
+      "source_artifact",
+      "source_record"
+    ],
+    "extraction_rule": "entities_with_lineage_required_true_are_derived_dynamically",
+    "parallel_list_maintained": false,
+    "source": "docs/domain/canonical-model.json"
+  },
+  "canonical_schema_version": "0.1.0",
+  "critical_overlay_fields": [
+    {
+      "field_risk_class": "critical",
+      "id": "amount",
+      "requires_independent_review": true,
+      "sod_rule": "author_cannot_approve"
+    },
+    {
+      "field_risk_class": "critical",
+      "id": "currency",
+      "requires_independent_review": true,
+      "sod_rule": "author_cannot_approve"
+    },
+    {
+      "field_risk_class": "critical",
+      "id": "direction",
+      "requires_independent_review": true,
+      "sod_rule": "author_cannot_approve"
+    },
+    {
+      "field_risk_class": "critical",
+      "id": "financial_account_identifier",
+      "requires_independent_review": true,
+      "sod_rule": "author_cannot_approve"
+    },
+    {
+      "field_risk_class": "critical",
+      "id": "tax_identity",
+      "requires_independent_review": true,
+      "sod_rule": "author_cannot_approve"
+    },
+    {
+      "field_risk_class": "critical",
+      "id": "accounting_date",
+      "requires_independent_review": true,
+      "sod_rule": "author_cannot_approve"
+    },
+    {
+      "field_risk_class": "critical",
+      "id": "posting_date",
+      "requires_independent_review": true,
+      "sod_rule": "author_cannot_approve"
+    },
+    {
+      "field_risk_class": "critical",
+      "id": "value_date",
+      "requires_independent_review": true,
+      "sod_rule": "author_cannot_approve"
+    }
+  ],
+  "data_ceiling": "synthetic_only",
+  "edge_contract": {
+    "append_only": true,
+    "cross_company_forbidden": true,
+    "digest_only": true,
+    "mutable_after_write": false,
+    "nullable_fields": [
+      "model_version_id",
+      "overlay_id",
+      "recipe_step_id",
+      "recipe_version_id",
+      "rule_version_id"
+    ],
+    "raw_value_fields_forbidden": true,
+    "required_fields": [
+      "actor_id",
+      "actor_kind",
+      "audit_event_ref",
+      "canonical_schema_version",
+      "company_id",
+      "edge_id",
+      "engine_release_id",
+      "from_node_id",
+      "from_node_type",
+      "model_version_id",
+      "occurred_at",
+      "operation",
+      "overlay_id",
+      "processing_run_id",
+      "recipe_step_id",
+      "recipe_version_id",
+      "reference_dataset_version_ids",
+      "rule_version_id",
+      "to_node_id",
+      "to_node_type",
+      "workload_identity"
+    ]
+  },
+  "edge_operations": [
+    {
+      "id": "derived_from",
+      "meaning": "el valor destino se calculo a partir del origen",
+      "requires_transform_reference": true,
+      "value_flows": true
+    },
+    {
+      "id": "decided_using",
+      "meaning": "una decision consumio el origen como insumo sin derivar su valor",
+      "requires_transform_reference": false,
+      "value_flows": false
+    },
+    {
+      "id": "included_in_snapshot",
+      "meaning": "el origen quedo sellado dentro de un snapshot inmutable",
+      "requires_transform_reference": false,
+      "value_flows": false
+    },
+    {
+      "id": "overlay_applied",
+      "meaning": "un overlay aprobado cambio el valor efectivo del destino",
+      "requires_transform_reference": false,
+      "value_flows": true
+    },
+    {
+      "id": "superseded_by",
+      "meaning": "el destino es una version posterior del origen",
+      "requires_transform_reference": false,
+      "value_flows": false
+    },
+    {
+      "id": "redacted_from",
+      "meaning": "el destino es una minimizacion versionada del origen",
+      "requires_transform_reference": true,
+      "value_flows": true
+    }
+  ],
+  "engine_release_contract": {
+    "approval": {
+      "agent_can_self_approve": false,
+      "approval_ref_required_for_approved": true,
+      "authority": "human_platform_owner",
+      "separate_from_build": true
+    },
+    "classification_rules": {
+      "affects_results_requires": [
+        "adjudicated_corpus_manifest",
+        "independent_review",
+        "result_diff_report"
+      ],
+      "neutral_requires": [
+        "byte_for_byte_equivalence_proof",
+        "declared_equivalence_scope"
+      ],
+      "neutral_without_equivalence_proof": "reclassified_as_affects_results"
+    },
+    "classification_values": [
+      "neutral",
+      "affects_results"
+    ],
+    "component_kinds": [
+      "parser",
+      "ocr",
+      "model",
+      "rule_set",
+      "reference_dataset_binding"
+    ],
+    "component_required_fields": [
+      "component_id",
+      "component_kind",
+      "digest",
+      "version"
+    ],
+    "entity": "engine_release",
+    "immutable_after_approval": true,
+    "initial_state": "draft",
+    "owner_module": "platform",
+    "owner_role": "Platform",
+    "required_fields": [
+      "approval_ref",
+      "artifact_digests",
+      "attestation_ref",
+      "build_provenance_ref",
+      "build_timestamp",
+      "builder_identity",
+      "canonical_schema_compatibility",
+      "classification",
+      "dependency_lock_digest",
+      "engine_release_id",
+      "evaluation_corpus_manifest_ref",
+      "evaluation_report_ref",
+      "included_components",
+      "sbom_digest",
+      "sbom_format",
+      "sbom_format_version",
+      "semver",
+      "signature_ref",
+      "source_commit_sha",
+      "source_tree_clean",
+      "state"
+    ],
+    "revocation": {
+      "can_start_new_runs": false,
+      "existing_snapshots_keep_reference": true,
+      "release_record_deleted": false,
+      "still_referenceable_for_history": true
+    },
+    "states": [
+      "draft",
+      "candidate",
+      "approved",
+      "revoked"
+    ],
+    "unverifiable_release_effect": "block_publication_and_close"
+  },
+  "execution_mode": "contract_only_no_productive_storage",
+  "gates": [
+    {
+      "acceptance": "pending_human",
+      "id": "S1-READY",
+      "owner_role": "Integration Steward",
+      "status": "not_met"
+    },
+    {
+      "acceptance": "pending_human",
+      "id": "DRG-00",
+      "owner_role": "Legal",
+      "status": "not_met"
+    },
+    {
+      "acceptance": "pending_human",
+      "id": "DRG-01",
+      "owner_role": "Legal",
+      "status": "not_met"
+    },
+    {
+      "acceptance": "pending_human",
+      "id": "GA-01",
+      "owner_role": "Product",
+      "status": "not_met"
+    },
+    {
+      "acceptance": "pending_human",
+      "id": "L-01",
+      "owner_role": "Legal",
+      "status": "not_met"
+    }
+  ],
+  "graph_invariants": [
+    {
+      "id": "GRAPH-ACYCLIC",
+      "rule": "El grafo de linaje es aciclico; un ciclo es un defecto, no una version."
+    },
+    {
+      "id": "GRAPH-NO-CROSS-COMPANY",
+      "rule": "Una arista cuyo origen y destino no comparten company_id se rechaza."
+    },
+    {
+      "id": "GRAPH-TARGET-EXISTS",
+      "rule": "Origen y destino deben existir; una referencia colgante se rechaza."
+    },
+    {
+      "id": "GRAPH-SUPERSEDED-DECLARED",
+      "rule": "Usar una version superseded exige declaracion explicita de supersession."
+    },
+    {
+      "id": "GRAPH-PRIOR-EDGES-PRESERVED",
+      "rule": "Las aristas de versiones anteriores se conservan; un reprocess no las borra."
+    },
+    {
+      "id": "GRAPH-DRILLDOWN",
+      "rule": "Todo nodo publicado permite drill-down hasta artifact_sha256 y locator exacto."
+    },
+    {
+      "id": "GRAPH-OPERATION-TYPED",
+      "rule": "derived_from, decided_using e included_in_snapshot son operaciones distintas y no intercambiables."
+    },
+    {
+      "id": "GRAPH-APPEND-ONLY",
+      "rule": "Las aristas son append-only; una correccion agrega, nunca reescribe."
+    }
+  ],
+  "human_acceptance": "pending",
+  "locator_rules": {
+    "ambiguous_outcome": "review_required",
+    "artifact_sha256_required": true,
+    "artifact_version_reference_required": true,
+    "fabricated_locator_allowed": false,
+    "locator_mutable": false,
+    "max_locator_bytes_declared_required": true,
+    "out_of_bounds_outcome": "invalid",
+    "universal_opaque_locator_allowed": false
+  },
+  "locator_types": [
+    {
+      "ambiguity_outcome": "review_required",
+      "bounds_validations": [
+        "byte_span_start_lt_end",
+        "byte_span_within_artifact_size",
+        "field_ordinal_within_declared_columns",
+        "record_ordinal_within_record_count"
+      ],
+      "formats": [
+        "csv",
+        "tsv"
+      ],
+      "id": "tabular_delimited",
+      "max_limits": {
+        "max_field_ordinal_declared_required": true,
+        "max_records_declared_required": true
+      },
+      "notes": "El dialecto y el encoding son versionados: cambiarlos cambia la lectura.",
+      "optional_fields": [
+        "byte_span_end",
+        "byte_span_start",
+        "header_row_ordinal"
+      ],
+      "ordinal_base": 0,
+      "required_fields": [
+        "artifact_sha256",
+        "artifact_version_id",
+        "dialect_version",
+        "encoding_version",
+        "field_ordinal",
+        "header_reference",
+        "record_ordinal"
+      ]
+    },
+    {
+      "ambiguity_outcome": "review_required",
+      "bounds_validations": [
+        "cell_a1_matches_row_and_column",
+        "column_number_ge_1",
+        "row_number_ge_1",
+        "sheet_exists_in_workbook"
+      ],
+      "formats": [
+        "xlsx",
+        "xlsm_rejected"
+      ],
+      "id": "spreadsheet",
+      "macro_execution": "forbidden",
+      "max_limits": {
+        "max_columns_declared_required": true,
+        "max_rows_declared_required": true
+      },
+      "notes": "Valor mostrado y formula son metadatos con digest; nunca se ejecuta macro.",
+      "optional_fields": [
+        "displayed_value_digest",
+        "formula_digest",
+        "number_format_id"
+      ],
+      "ordinal_base": 1,
+      "required_fields": [
+        "artifact_sha256",
+        "artifact_version_id",
+        "cell_a1",
+        "column_number",
+        "row_number",
+        "sheet_identity",
+        "sheet_ordinal",
+        "workbook_identity"
+      ]
+    },
+    {
+      "ambiguity_outcome": "review_required",
+      "bounds_validations": [
+        "bbox_within_page_bounds",
+        "bbox_x0_lt_x1",
+        "bbox_y0_lt_y1",
+        "coordinate_system_declared",
+        "page_number_ge_1",
+        "page_number_within_page_count"
+      ],
+      "formats": [
+        "pdf_native",
+        "pdf_scanned",
+        "image"
+      ],
+      "id": "document_visual",
+      "max_limits": {
+        "max_pages_declared_required": true
+      },
+      "notes": "La incertidumbre del OCR es visible; un locator visual nunca se fabrica.",
+      "optional_fields": [
+        "confidence_bucket",
+        "region_id",
+        "rotation_degrees",
+        "token_ids"
+      ],
+      "ordinal_base": 1,
+      "required_fields": [
+        "artifact_sha256",
+        "artifact_version_id",
+        "bbox_x0",
+        "bbox_x1",
+        "bbox_y0",
+        "bbox_y1",
+        "coordinate_system",
+        "coordinate_unit",
+        "ocr_engine_version",
+        "page_number"
+      ],
+      "uncertainty_visible": true
+    },
+    {
+      "ambiguity_outcome": "review_required",
+      "bounds_validations": [
+        "byte_span_within_artifact_size",
+        "namespace_uri_declared",
+        "node_kind_in_element_or_attribute_or_text",
+        "structural_path_has_ordinal_per_repeated_element"
+      ],
+      "formats": [
+        "xml",
+        "ubl_dian"
+      ],
+      "id": "structured_markup",
+      "max_limits": {
+        "max_path_depth_declared_required": true
+      },
+      "notes": "Ruta estructural con ordinal por elemento repetido; no se ejecuta XPath del usuario.",
+      "optional_fields": [
+        "attribute_name",
+        "byte_span_end",
+        "byte_span_start",
+        "schema_ref"
+      ],
+      "ordinal_base": 1,
+      "required_fields": [
+        "artifact_sha256",
+        "artifact_version_id",
+        "namespace_uri",
+        "node_kind",
+        "structural_path"
+      ],
+      "user_supplied_xpath_executed": false
+    },
+    {
+      "ambiguity_outcome": "review_required",
+      "bounds_validations": [
+        "field_tag_path_declared",
+        "raw_span_within_artifact_size",
+        "record_ordinal_within_record_count",
+        "stable_handle_declared_when_ordinal_absent"
+      ],
+      "formats": [
+        "ofx",
+        "mt940",
+        "camt053",
+        "api_record"
+      ],
+      "id": "record_stream",
+      "max_limits": {
+        "max_records_declared_required": true
+      },
+      "notes": "El ordinal es del artefacto recibido, no del proveedor; un handle estable lo sustituye.",
+      "optional_fields": [
+        "provider_record_id_hash",
+        "raw_span_end",
+        "raw_span_start",
+        "statement_identity"
+      ],
+      "ordinal_base": 0,
+      "required_fields": [
+        "artifact_sha256",
+        "artifact_version_id",
+        "field_tag_path",
+        "provider_source_version",
+        "record_ordinal_or_stable_handle"
+      ]
+    },
+    {
+      "ambiguity_outcome": "review_required",
+      "bounds_validations": [],
+      "fabricated_locator_allowed": false,
+      "formats": [
+        "unrecognized"
+      ],
+      "id": "unknown_format",
+      "max_limits": {},
+      "notes": "Un formato no reconocido produce review_required; nunca un locator inventado.",
+      "optional_fields": [],
+      "ordinal_base": 0,
+      "required_fields": [
+        "artifact_sha256",
+        "artifact_version_id",
+        "detection_result"
+      ]
+    }
+  ],
+  "node_types": [
+    {
+      "company_scoped": true,
+      "id": "artifact_version",
+      "identity_fields": [
+        "artifact_sha256",
+        "artifact_version_id",
+        "company_id"
+      ],
+      "identity_immutable": true,
+      "mutability": "immutable",
+      "notes": "Evidencia original aceptada. Nunca se sobrescribe ni se edita.",
+      "operational_classification_required": true,
+      "owner_module": "ingestion",
+      "payload_contract": {
+        "free_form_json_allowed": false,
+        "max_bytes_required": true,
+        "schema_ref_required": true,
+        "schema_version_required": true
+      },
+      "personal_data_tags_required": true,
+      "plane": "evidence",
+      "produces_lineage_for": [
+        "artifact_version",
+        "document",
+        "source_artifact"
+      ],
+      "value_digest": {
+        "algorithm": "sha256",
+        "over": "canonical_json_of_typed_value",
+        "raw_value_in_logs_or_edges": false,
+        "raw_value_stored_in_node": false
+      },
+      "version_reference_required": true
+    },
+    {
+      "company_scoped": true,
+      "id": "raw_locator",
+      "identity_fields": [
+        "artifact_version_id",
+        "company_id",
+        "locator_id"
+      ],
+      "identity_immutable": true,
+      "mutability": "immutable",
+      "notes": "Coordenada exacta dentro de una version de artefacto. Tipada por formato.",
+      "operational_classification_required": true,
+      "owner_module": "ingestion",
+      "payload_contract": {
+        "free_form_json_allowed": false,
+        "max_bytes_required": true,
+        "schema_ref_required": true,
+        "schema_version_required": true
+      },
+      "personal_data_tags_required": true,
+      "plane": "evidence",
+      "produces_lineage_for": [
+        "raw_record"
+      ],
+      "value_digest": {
+        "algorithm": "sha256",
+        "over": "canonical_json_of_typed_value",
+        "raw_value_in_logs_or_edges": false,
+        "raw_value_stored_in_node": false
+      },
+      "version_reference_required": true
+    },
+    {
+      "company_scoped": true,
+      "id": "extracted_field",
+      "identity_fields": [
+        "company_id",
+        "extraction_id",
+        "locator_id",
+        "processing_run_id"
+      ],
+      "identity_immutable": true,
+      "mutability": "immutable",
+      "notes": "Lectura fiel sin normalizar. Conserva incertidumbre del extractor.",
+      "operational_classification_required": true,
+      "owner_module": "clean",
+      "payload_contract": {
+        "free_form_json_allowed": false,
+        "max_bytes_required": true,
+        "schema_ref_required": true,
+        "schema_version_required": true
+      },
+      "personal_data_tags_required": true,
+      "plane": "evidence",
+      "produces_lineage_for": [
+        "raw_record"
+      ],
+      "value_digest": {
+        "algorithm": "sha256",
+        "over": "canonical_json_of_typed_value",
+        "raw_value_in_logs_or_edges": false,
+        "raw_value_stored_in_node": false
+      },
+      "version_reference_required": true
+    },
+    {
+      "company_scoped": true,
+      "id": "transformed_value",
+      "identity_fields": [
+        "company_id",
+        "dataset_version_id",
+        "field_path",
+        "transform_step_id"
+      ],
+      "identity_immutable": true,
+      "mutability": "immutable_version",
+      "notes": "Resultado de un paso de receta determinista. Cada paso es un nodo.",
+      "operational_classification_required": true,
+      "owner_module": "clean",
+      "payload_contract": {
+        "free_form_json_allowed": false,
+        "max_bytes_required": true,
+        "schema_ref_required": true,
+        "schema_version_required": true
+      },
+      "personal_data_tags_required": true,
+      "plane": "evidence",
+      "produces_lineage_for": [
+        "dataset_version"
+      ],
+      "value_digest": {
+        "algorithm": "sha256",
+        "over": "canonical_json_of_typed_value",
+        "raw_value_in_logs_or_edges": false,
+        "raw_value_stored_in_node": false
+      },
+      "version_reference_required": true
+    },
+    {
+      "company_scoped": true,
+      "id": "source_record_field",
+      "identity_fields": [
+        "company_id",
+        "dataset_version_id",
+        "field_path",
+        "source_record_id"
+      ],
+      "identity_immutable": true,
+      "mutability": "immutable",
+      "notes": "Campo publicado del registro de origen. Observacion, nunca movimiento.",
+      "operational_classification_required": true,
+      "owner_module": "clean",
+      "payload_contract": {
+        "free_form_json_allowed": false,
+        "max_bytes_required": true,
+        "schema_ref_required": true,
+        "schema_version_required": true
+      },
+      "personal_data_tags_required": true,
+      "plane": "evidence",
+      "produces_lineage_for": [
+        "dataset_version",
+        "source_record"
+      ],
+      "value_digest": {
+        "algorithm": "sha256",
+        "over": "canonical_json_of_typed_value",
+        "raw_value_in_logs_or_edges": false,
+        "raw_value_stored_in_node": false
+      },
+      "version_reference_required": true
+    },
+    {
+      "company_scoped": true,
+      "id": "financial_fact_field",
+      "identity_fields": [
+        "company_id",
+        "entity_id",
+        "entity_type",
+        "fact_version",
+        "field_path"
+      ],
+      "identity_immutable": true,
+      "mutability": "controlled_state_machine",
+      "notes": "Hecho financiero canonico. Exige camino completo hasta evidencia.",
+      "operational_classification_required": true,
+      "owner_module": "finance",
+      "payload_contract": {
+        "free_form_json_allowed": false,
+        "max_bytes_required": true,
+        "schema_ref_required": true,
+        "schema_version_required": true
+      },
+      "personal_data_tags_required": true,
+      "plane": "financial",
+      "produces_lineage_for": [
+        "account_balance",
+        "counterparty",
+        "external_reference",
+        "financial_account",
+        "ledger_entry",
+        "ledger_line",
+        "money_movement",
+        "movement_evidence_link",
+        "obligation",
+        "settlement"
+      ],
+      "value_digest": {
+        "algorithm": "sha256",
+        "over": "canonical_json_of_typed_value",
+        "raw_value_in_logs_or_edges": false,
+        "raw_value_stored_in_node": false
+      },
+      "version_reference_required": true
+    },
+    {
+      "company_scoped": true,
+      "id": "decision",
+      "identity_fields": [
+        "company_id",
+        "decision_id",
+        "decision_kind"
+      ],
+      "identity_immutable": true,
+      "mutability": "append_only",
+      "notes": "Dedupe, match, excepcion, balance o cierre. Nunca se borra: se revierte.",
+      "operational_classification_required": true,
+      "owner_module": "reconciliation",
+      "payload_contract": {
+        "free_form_json_allowed": false,
+        "max_bytes_required": true,
+        "schema_ref_required": true,
+        "schema_version_required": true
+      },
+      "personal_data_tags_required": true,
+      "plane": "financial",
+      "produces_lineage_for": [
+        "completeness_assessment",
+        "completeness_control_result",
+        "match_candidate",
+        "match_group",
+        "match_member"
+      ],
+      "value_digest": {
+        "algorithm": "sha256",
+        "over": "canonical_json_of_typed_value",
+        "raw_value_in_logs_or_edges": false,
+        "raw_value_stored_in_node": false
+      },
+      "version_reference_required": true
+    },
+    {
+      "company_scoped": true,
+      "id": "report_field",
+      "identity_fields": [
+        "company_id",
+        "field_path",
+        "report_snapshot_id"
+      ],
+      "identity_immutable": true,
+      "mutability": "immutable_version",
+      "notes": "Vista derivada. No es autoridad financiera.",
+      "operational_classification_required": true,
+      "owner_module": "reporting",
+      "payload_contract": {
+        "free_form_json_allowed": false,
+        "max_bytes_required": true,
+        "schema_ref_required": true,
+        "schema_version_required": true
+      },
+      "personal_data_tags_required": true,
+      "plane": "analytics",
+      "produces_lineage_for": [
+        "export_request",
+        "report_snapshot"
+      ],
+      "value_digest": {
+        "algorithm": "sha256",
+        "over": "canonical_json_of_typed_value",
+        "raw_value_in_logs_or_edges": false,
+        "raw_value_stored_in_node": false
+      },
+      "version_reference_required": true
+    },
+    {
+      "company_scoped": true,
+      "id": "close_snapshot_field",
+      "identity_fields": [
+        "close_snapshot_id",
+        "company_id",
+        "field_path",
+        "revision"
+      ],
+      "identity_immutable": true,
+      "mutability": "immutable",
+      "notes": "Campo sellado en un cierre. Conserva su release y version set original.",
+      "operational_classification_required": true,
+      "owner_module": "close",
+      "payload_contract": {
+        "free_form_json_allowed": false,
+        "max_bytes_required": true,
+        "schema_ref_required": true,
+        "schema_version_required": true
+      },
+      "personal_data_tags_required": true,
+      "plane": "financial",
+      "produces_lineage_for": [
+        "close_snapshot"
+      ],
+      "value_digest": {
+        "algorithm": "sha256",
+        "over": "canonical_json_of_typed_value",
+        "raw_value_in_logs_or_edges": false,
+        "raw_value_stored_in_node": false
+      },
+      "version_reference_required": true
+    },
+    {
+      "company_scoped": false,
+      "id": "reference_data_value",
+      "identity_fields": [
+        "key_path",
+        "reference_dataset_version_id"
+      ],
+      "identity_immutable": true,
+      "mutability": "immutable_version",
+      "notes": "Dato de referencia versionado, no company-scoped. Se cita, no se copia.",
+      "operational_classification_required": true,
+      "owner_module": "sources",
+      "payload_contract": {
+        "free_form_json_allowed": false,
+        "max_bytes_required": true,
+        "schema_ref_required": true,
+        "schema_version_required": true
+      },
+      "personal_data_tags_required": true,
+      "plane": "control",
+      "produces_lineage_for": [
+        "reference_dataset_version"
+      ],
+      "value_digest": {
+        "algorithm": "sha256",
+        "over": "canonical_json_of_typed_value",
+        "raw_value_in_logs_or_edges": false,
+        "raw_value_stored_in_node": false
+      },
+      "version_reference_required": true
+    }
+  ],
+  "overlay_contract": {
+    "actions": [
+      "set_typed_value",
+      "redact_value",
+      "mark_unknown"
+    ],
+    "append_only": true,
+    "arbitrary_code_allowed": false,
+    "concurrency": {
+      "clock_ordering_authoritative": false,
+      "last_write_wins_by_clock": false,
+      "mechanism": "optimistic_expected_base_digest",
+      "stale_base_outcome": "conflict"
+    },
+    "determinism": {
+      "application": "deterministic_chain_per_version",
+      "ordering_key": [
+        "base_version_ref",
+        "sequence",
+        "overlay_id"
+      ],
+      "same_chain_same_result": true
+    },
+    "entity": "field_overlay",
+    "export_manifest": {
+      "digest_of_overlay_set_required": true,
+      "ordered": true,
+      "overlay_set_declared": true
+    },
+    "immutability": {
+      "artifact_version_unchanged": true,
+      "extracted_unchanged": true,
+      "raw_unchanged": true
+    },
+    "mutable_after_write": false,
+    "reason_comment_max_bytes_declared_required": true,
+    "required_fields": [
+      "action",
+      "actor_id",
+      "actor_kind",
+      "approval_state",
+      "audit_event_ref",
+      "authorization_version",
+      "base_version_ref",
+      "canonical_schema_version",
+      "company_id",
+      "dataset_version_id",
+      "engine_release_id",
+      "expected_base_digest",
+      "expected_base_type",
+      "field_risk_class",
+      "new_typed_value_digest",
+      "occurred_at",
+      "overlay_id",
+      "reason_code",
+      "reason_comment",
+      "recipe_version_id",
+      "reverts_overlay_id",
+      "sequence",
+      "supersedes_overlay_id",
+      "target_field_path",
+      "target_node_id",
+      "target_node_type",
+      "value_type"
+    ],
+    "schema_drift": {
+      "outcome": "new_version_and_review_required",
+      "silent_application": false
+    },
+    "ui_contract": {
+      "must_display": [
+        "approval_state",
+        "author",
+        "difference",
+        "effective_value",
+        "occurred_at",
+        "original_value_reference",
+        "overlay_chain_position",
+        "reason_code_and_comment"
+      ],
+      "note": "Contrato de lo que la interfaz debe mostrar. No define UI."
+    },
+    "undo": {
+      "deletes_prior_overlay": false,
+      "mechanism": "new_reversing_overlay",
+      "mutates_prior_overlay": false
+    }
+  },
+  "overlay_state_machine": {
+    "initial": "draft",
+    "states": [
+      "draft",
+      "pending_review",
+      "approved",
+      "rejected",
+      "applied",
+      "reverted",
+      "conflicted"
+    ],
+    "states_blocked_from_publication": [
+      "draft",
+      "pending_review",
+      "rejected",
+      "conflicted",
+      "reverted"
+    ],
+    "states_feeding_authoritative_use": [
+      "applied"
+    ],
+    "terminal": [
+      "rejected",
+      "reverted"
+    ],
+    "transitions": [
+      {
+        "from": "draft",
+        "to": "pending_review"
+      },
+      {
+        "from": "draft",
+        "to": "rejected"
+      },
+      {
+        "from": "pending_review",
+        "to": "approved"
+      },
+      {
+        "from": "pending_review",
+        "to": "rejected"
+      },
+      {
+        "from": "pending_review",
+        "to": "conflicted"
+      },
+      {
+        "from": "approved",
+        "to": "applied"
+      },
+      {
+        "from": "approved",
+        "to": "conflicted"
+      },
+      {
+        "from": "applied",
+        "to": "reverted"
+      },
+      {
+        "from": "conflicted",
+        "to": "rejected"
+      },
+      {
+        "from": "conflicted",
+        "to": "pending_review"
+      }
+    ]
+  },
+  "principles": [
+    {
+      "id": "LIN-COMPANY-SCOPE",
+      "rule": "Todo nodo y arista financiera es company-scoped; company es la frontera estable."
+    },
+    {
+      "id": "LIN-IMMUTABLE-EVIDENCE",
+      "rule": "Raw, artifact version, origin locator y cierres historicos son inmutables."
+    },
+    {
+      "id": "LIN-CORRECT-BY-VERSION",
+      "rule": "Corregir crea overlay o nueva version; nunca edita evidencia de origen."
+    },
+    {
+      "id": "LIN-COMPLETE-PATH",
+      "rule": "Todo campo publicado y toda decision financiera tiene camino completo hasta evidencia."
+    },
+    {
+      "id": "LIN-REPROCESS-VERSIONS",
+      "rule": "Un reprocess crea dataset_version; nunca reescribe registros, informes o snapshots previos."
+    },
+    {
+      "id": "LIN-RELEASE-PINNED",
+      "rule": "Engine release fija exactamente que codigo y artefactos produjeron un resultado."
+    },
+    {
+      "id": "LIN-SOFT-IDENTITY",
+      "rule": "Fecha, monto, referencia y fingerprint no son identidad dura ni prueban duplicado."
+    },
+    {
+      "id": "LIN-NO-LLM-AUTHORITY",
+      "rule": "Un LLM no calcula dinero, confirma match, autoriza acceso ni cierra."
+    },
+    {
+      "id": "LIN-MODEL-AS-PRODUCER",
+      "rule": "IA, OCR y modelos son productores versionados de propuesta o evidencia, no autoridad."
+    },
+    {
+      "id": "LIN-UNKNOWN-BLOCKS",
+      "rule": "Unknown, lineage incompleto o release no verificable bloquean publicacion y cierre."
+    },
+    {
+      "id": "LIN-NO-RAW-IN-EDGES",
+      "rule": "Ningun valor raw viaja en aristas, logs o telemetria; solo digests y referencias."
+    },
+    {
+      "id": "LIN-CACHE-NOT-TRUTH",
+      "rule": "Valkey y analytics no son fuente de verdad de linaje."
+    },
+    {
+      "id": "LIN-TWO-AXES",
+      "rule": "Sensibilidad operativa y condicion de dato personal son ejes distintos que viajan juntos."
+    }
+  ],
+  "privacy_activity_bindings": [
+    {
+      "activity_id": "PA-03",
+      "relationship": "linaje de operacion contable delegada"
+    },
+    {
+      "activity_id": "PA-06",
+      "relationship": "extraccion produce raw_locator y extracted_field"
+    },
+    {
+      "activity_id": "PA-07",
+      "relationship": "publicacion exige path completo"
+    },
+    {
+      "activity_id": "PA-08",
+      "relationship": "decisiones de conciliacion y cierre"
+    },
+    {
+      "activity_id": "PA-09",
+      "relationship": "report_field y manifiesto de export"
+    },
+    {
+      "activity_id": "PA-15",
+      "relationship": "tombstone y minimizacion de linaje"
+    },
+    {
+      "activity_id": "PA-17",
+      "relationship": "restore conserva release y version set"
+    }
+  ],
+  "privacy_propagation": {
+    "axes_are_distinct_fields": true,
+    "carriers": [
+      "ai_request_record",
+      "close_snapshot",
+      "delete_ledger_entry",
+      "export_manifest",
+      "field_overlay",
+      "lineage_edge",
+      "report_snapshot"
+    ],
+    "decision_request_ref": "DR-PRV-001",
+    "decision_request_state": "proposed",
+    "downgrade_rule": {
+      "downgrade_or_removal_allowed": false,
+      "exception_requires": [
+        "approval_ref",
+        "redaction_evidence_ref",
+        "versioned_minimization_rule_id"
+      ],
+      "silent_downgrade": false
+    },
+    "operational_classification": {
+      "field": "operational_classification",
+      "meaning": "sensibilidad operativa y controles aplicables",
+      "values_source": "docs/domain/canonical-model.json#classifications"
+    },
+    "personal_data_tags": {
+      "catalog_version_required": true,
+      "content_defined_by": "Privacy and Legal via DR-PRV-001",
+      "content_invented_by_agent": false,
+      "default_presence": "unknown",
+      "default_state": "pending",
+      "field": "personal_data_tags",
+      "legal_taxonomy_declared_here": false,
+      "presence_values": [
+        "none",
+        "possible",
+        "confirmed",
+        "unknown"
+      ],
+      "state_values": [
+        "pending",
+        "approved"
+      ]
+    },
+    "resolved_here": false,
+    "unknown_state_effect": {
+      "external_egress_when_purpose_requires_personal_assessment": "blocked",
+      "internal_processing": "allowed_with_recorded_unknown"
+    }
+  },
+  "reprocessing_contract": {
+    "close_snapshot": {
+      "keeps_original_engine_release": true,
+      "keeps_original_version_set": true,
+      "mutated_by_reprocess": false,
+      "reopen_or_republish_creates_revision": "n_plus_1",
+      "revision_mutates_previous": false,
+      "revision_requires": [
+        "approval_ref",
+        "authorization_version",
+        "reason_code"
+      ]
+    },
+    "creates_dataset_version": true,
+    "creates_processing_run": true,
+    "diff": {
+      "digest_comparison_required": true,
+      "exact_amount_delta_when_money": true,
+      "granularity": [
+        "field",
+        "record",
+        "decision"
+      ],
+      "typed": true
+    },
+    "impact_analysis_targets": [
+      "account_balance",
+      "close_snapshot",
+      "completeness_assessment",
+      "financial_fact_field",
+      "match_group",
+      "report_snapshot"
+    ],
+    "lineage_is_not_dedupe": {
+      "legitimate_identical_case_ref": "TST-DED-002",
+      "rule": "El linaje explica origen; no colapsa dos hechos distintos.",
+      "shared_locator_implies_same_fact": false,
+      "two_identical_legitimate_movements_merged": false
+    },
+    "missing_input_or_release_effect": "not_reproducible",
+    "overwrites_previous_version": false,
+    "previous_version_deleted": false,
+    "prior_edges_preserved": true,
+    "substitute_with_latest_allowed": false,
+    "supersedes_recorded": true
+  },
+  "reproducibility_manifest": {
+    "entity": "reproducibility_manifest",
+    "external_provider_without_pinnable_version": "reproducibility_not_claimed",
+    "failure_state": "not_reproducible",
+    "floating_version_tokens_forbidden": [
+      "latest",
+      "main",
+      "head",
+      "stable",
+      "current"
+    ],
+    "guarantee": "same_manifest_produces_same_canonical_output_bytes_or_explicit_failure",
+    "reproduction_key": {
+      "algorithm": "sha256",
+      "encoding": "canonical_json_sorted_keys_compact_separators_utf8",
+      "over_fields": "all_required_fields_except_output_digests"
+    },
+    "required_fields": [
+      "canonical_schema_version",
+      "company_id",
+      "dataset_version_id",
+      "deterministic_config",
+      "engine_release_id",
+      "input_artifact_sha256",
+      "input_artifact_version_id",
+      "locale",
+      "manifest_id",
+      "mapping_template_version_id",
+      "model_versions",
+      "ordered_overlay_ids",
+      "output_digests",
+      "overlay_set_digest",
+      "parser_versions",
+      "random_seed",
+      "recipe_version_id",
+      "reference_dataset_version_ids",
+      "rule_versions",
+      "timezone"
+    ],
+    "silent_substitution_with_latest": false
+  },
+  "required_paths": [
+    {
+      "applies_to_node_type": "source_record_field",
+      "average_coverage_allowed": false,
+      "coverage_requirement": "100_percent_of_published_fields",
+      "id": "PATH-SOURCE-RECORD",
+      "on_incomplete": "block_publication",
+      "sequence": [
+        "artifact_version",
+        "raw_locator",
+        "extracted_field",
+        "transformed_value",
+        "source_record_field"
+      ],
+      "terminal_evidence": "artifact_version"
+    },
+    {
+      "applies_to_node_type": "financial_fact_field",
+      "average_coverage_allowed": false,
+      "coverage_requirement": "100_percent_of_published_fields",
+      "id": "PATH-FINANCIAL-FACT",
+      "on_incomplete": "block_publication",
+      "sequence": [
+        "artifact_version",
+        "raw_locator",
+        "extracted_field",
+        "transformed_value",
+        "source_record_field",
+        "financial_fact_field"
+      ],
+      "terminal_evidence": "artifact_version"
+    },
+    {
+      "applies_to_node_type": "decision",
+      "average_coverage_allowed": false,
+      "coverage_requirement": "100_percent_of_financial_decisions",
+      "id": "PATH-DECISION",
+      "on_incomplete": "block_decision",
+      "sequence": [
+        "artifact_version",
+        "raw_locator",
+        "extracted_field",
+        "transformed_value",
+        "source_record_field",
+        "financial_fact_field",
+        "decision"
+      ],
+      "terminal_evidence": "artifact_version"
+    },
+    {
+      "applies_to_node_type": "report_field",
+      "average_coverage_allowed": false,
+      "coverage_requirement": "100_percent_of_certified_report_fields",
+      "id": "PATH-REPORT",
+      "on_incomplete": "block_certified_report",
+      "sequence": [
+        "artifact_version",
+        "raw_locator",
+        "extracted_field",
+        "transformed_value",
+        "source_record_field",
+        "financial_fact_field",
+        "report_field"
+      ],
+      "terminal_evidence": "artifact_version"
+    },
+    {
+      "applies_to_node_type": "close_snapshot_field",
+      "average_coverage_allowed": false,
+      "coverage_requirement": "100_percent_of_close_snapshot_fields",
+      "id": "PATH-CLOSE",
+      "on_incomplete": "block_close",
+      "sequence": [
+        "artifact_version",
+        "raw_locator",
+        "extracted_field",
+        "transformed_value",
+        "source_record_field",
+        "financial_fact_field",
+        "decision",
+        "close_snapshot_field"
+      ],
+      "terminal_evidence": "artifact_version"
+    }
+  ],
+  "required_tests": [
+    {
+      "expected": "cobertura total sin promedio",
+      "id": "TST-LIN-001",
+      "scenario": "path completo para 100% de campos publicados y decisiones"
+    },
+    {
+      "expected": "publicacion bloqueada",
+      "id": "TST-LIN-002",
+      "scenario": "campo publicado sin arista de linaje"
+    },
+    {
+      "expected": "rechazada",
+      "id": "TST-LIN-003",
+      "scenario": "arista entre companies distintas"
+    },
+    {
+      "expected": "rechazado",
+      "id": "TST-LIN-004",
+      "scenario": "ciclo en el grafo"
+    },
+    {
+      "expected": "invalid o review_required",
+      "id": "TST-LIN-005",
+      "scenario": "locator fuera de bounds o ambiguo"
+    },
+    {
+      "expected": "review_required y nunca locator fabricado",
+      "id": "TST-LIN-006",
+      "scenario": "formato desconocido"
+    },
+    {
+      "expected": "raw y extraction sin cambios",
+      "id": "TST-OVR-001",
+      "scenario": "overlay aplicado"
+    },
+    {
+      "expected": "conflicto",
+      "id": "TST-OVR-002",
+      "scenario": "overlay contra base stale"
+    },
+    {
+      "expected": "nuevo overlay append-only",
+      "id": "TST-OVR-003",
+      "scenario": "undo"
+    },
+    {
+      "expected": "orden efectivo determinista",
+      "id": "TST-OVR-004",
+      "scenario": "cadena de overlays desordenada"
+    },
+    {
+      "expected": "exige revision independiente",
+      "id": "TST-OVR-005",
+      "scenario": "overlay de campo financiero critico"
+    },
+    {
+      "expected": "no alimenta publicacion ni cierre",
+      "id": "TST-OVR-006",
+      "scenario": "overlay pendiente o rechazado"
+    },
+    {
+      "expected": "mismo output digest",
+      "id": "TST-PAR-001",
+      "scenario": "mismo manifest"
+    },
+    {
+      "expected": "rechazada",
+      "id": "TST-PAR-002",
+      "scenario": "release affects_results sin evaluacion"
+    },
+    {
+      "expected": "reclasificada o rechazada",
+      "id": "TST-PAR-003",
+      "scenario": "release neutral sin equivalencia byte-for-byte"
+    },
+    {
+      "expected": "rechazada",
+      "id": "TST-PAR-004",
+      "scenario": "build sucio, sin hash o sin SBOM"
+    },
+    {
+      "expected": "crea version sin overwrite",
+      "id": "TST-PAR-005",
+      "scenario": "reprocess"
+    },
+    {
+      "expected": "conserva release y version set original",
+      "id": "TST-PAR-006",
+      "scenario": "snapshot historico"
+    },
+    {
+      "expected": "no ejecuta runs nuevos",
+      "id": "TST-PAR-007",
+      "scenario": "release revocada"
+    },
+    {
+      "expected": "rechazada sin regla de minimizacion versionada",
+      "id": "TST-PRV-001",
+      "scenario": "transformacion que baja tags personales"
+    },
+    {
+      "expected": "permanecen separados; el linaje no los colapsa",
+      "id": "TST-DED-002",
+      "scenario": "dos movimientos legitimos identicos"
+    }
+  ],
+  "retention_binding": {
+    "duration_owner": "Legal via L-01",
+    "numeric_duration_declared_here": false,
+    "policies": [
+      {
+        "applies_to_node_types": [
+          "extracted_field",
+          "transformed_value",
+          "source_record_field"
+        ],
+        "retention_policy_id": "L-01-DERIVED"
+      },
+      {
+        "applies_to_node_types": [
+          "financial_fact_field",
+          "close_snapshot_field"
+        ],
+        "retention_policy_id": "L-01-FINANCIAL"
+      },
+      {
+        "applies_to_node_types": [
+          "decision"
+        ],
+        "retention_policy_id": "L-01-AUDITABLE-DECISION"
+      },
+      {
+        "applies_to_node_types": [
+          "lineage_edge",
+          "field_overlay"
+        ],
+        "retention_policy_id": "L-01-AUDIT"
+      },
+      {
+        "applies_to_node_types": [
+          "tombstone_reference"
+        ],
+        "retention_policy_id": "L-01-DELETE-LEDGER"
+      },
+      {
+        "applies_to_node_types": [
+          "artifact_version",
+          "financial_fact_field"
+        ],
+        "retention_policy_id": "L-01-BACKUP"
+      }
+    ],
+    "tombstone_behaviour": {
+      "deleted_node_reference": "tombstone_reference_replaces_value_digest_context",
+      "lineage_survives_payload_deletion": true,
+      "personal_payload_retained_as_lineage_excuse": false,
+      "restore_reapplies_tombstones_before_service_reopen": true,
+      "retained_reference_form": "minimized_segregated_reference_and_digest"
+    }
+  },
+  "schema_version": 1,
+  "status": "review_pending",
+  "task_id": "FNC-DOM-005",
+  "unresolved_decisions": [
+    {
+      "blocks": [
+        "S1-READY",
+        "DRG-00"
+      ],
+      "id": "UD-DR-PRV-001",
+      "owner_role": "Privacy",
+      "question": "Taxonomia del eje de dato personal y su obligatoriedad legal.",
+      "reviewer_roles": [
+        "Legal",
+        "Architecture",
+        "Security"
+      ],
+      "state": "pending_human"
+    },
+    {
+      "blocks": [
+        "DRG-00"
+      ],
+      "id": "UD-DR-LEG-001",
+      "owner_role": "Legal",
+      "question": "Reloj y orden de retencion de linaje frente a backups y tombstones.",
+      "reviewer_roles": [
+        "Privacy",
+        "Platform",
+        "Accounting"
+      ],
+      "state": "pending_human"
+    },
+    {
+      "blocks": [
+        "S1-READY"
+      ],
+      "id": "UD-RELEASE-APPROVAL",
+      "owner_role": "Platform",
+      "question": "Quien firma una engine release approved y con que evidencia.",
+      "reviewer_roles": [
+        "Architecture",
+        "Security",
+        "Data"
+      ],
+      "state": "pending_human"
+    },
+    {
+      "blocks": [
+        "S1-READY"
+      ],
+      "id": "UD-LOCATOR-STORAGE",
+      "owner_role": "Architecture",
+      "question": "Representacion fisica y coste de almacenar linaje por campo.",
+      "reviewer_roles": [
+        "Data",
+        "Platform"
+      ],
+      "state": "pending_human"
+    },
+    {
+      "blocks": [
+        "DRG-01"
+      ],
+      "id": "UD-EXTERNAL-MODEL-PINNING",
+      "owner_role": "Architecture",
+      "question": "Que hacer cuando un proveedor externo no ofrece version fijable.",
+      "reviewer_roles": [
+        "Security",
+        "Privacy",
+        "Data"
+      ],
+      "state": "pending_human"
+    }
+  ]
+}

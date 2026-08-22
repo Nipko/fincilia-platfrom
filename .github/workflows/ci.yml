@@ -36,6 +36,7 @@ jobs:
           tools.dfd_model.test_validate
           tools.event_model.test_validate
           tools.idempotency_model.test_validate
+          tools.lineage_model.test_validate
           tools.privacy_model.test_validate
           tools.threat_model.test_validate
           tools.quality_gate.test_repo_policy
@@ -54,6 +55,8 @@ jobs:
         run: python -m tools.event_model.validate
       - name: Validate idempotency and dedupe model
         run: python -m tools.idempotency_model.validate
+      - name: Validate field lineage and engine release model
+        run: python -m tools.lineage_model.validate
       - name: Validate executable privacy model
         run: python -m tools.privacy_model.validate
       - name: Validate executable threat model
