@@ -30,6 +30,7 @@ jobs:
         run: >-
           python -m unittest
           tools.architecture_model.test_validate
+          tools.adr_readiness.test_validate
           tools.canonical_model.test_validate
           tools.completeness_model.test_validate
           tools.connector_model.test_validate
@@ -49,6 +50,8 @@ jobs:
           tools.synthetic_corpus.test_corpus -v
       - name: Validate executable architecture model
         run: python -m tools.architecture_model.validate
+      - name: Validate ADR readiness packet
+        run: python -m tools.adr_readiness.validate
       - name: Validate executable canonical domain model
         run: python -m tools.canonical_model.validate
       - name: Validate completeness and balance model

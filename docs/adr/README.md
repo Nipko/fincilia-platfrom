@@ -2,6 +2,10 @@
 
 Los ADR Accepted no se reescriben sustantivamente; una decisión nueva los supersede. Las aprobaciones humanas pendientes se muestran explícitamente.
 
+El estado operativo y los blockers de aprobación se verifican en
+[`ADR_READINESS.md`](../architecture/ADR_READINESS.md); una etiqueta Accepted no sustituye
+owners nominales, revisión independiente ni el gate S1-READY.
+
 | ADR | Tema | Estado |
 |---:|---|---|
 | [001](ADR-001-modular-monolith-workers.md) | Monolito modular + workers | Accepted shape; stack pending spike |

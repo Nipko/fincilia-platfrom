@@ -23,6 +23,7 @@ Una celda de implementación vacía significa no implementado. No se rellena con
 | REQ-FNC-056-LOCAL | §20, §52 | PLT-002 | `infra/local/compose.yaml`, bootstrap y lifecycle | TST-LOCAL-001 | S1-READY | Review |
 | REQ-FNC-057-UX | §5–§13, §54.5 | UX-001 | IA y prototipo web/móvil sintético | TST-A11Y-001 | S1-READY | Review |
 | REQ-FNC-058-REGION | §20, §29, §31 | ARC-003 | ADR-020 y `region-transmission-decision.json` | TST-A02-001 | A-02 | Review; human decision pending |
+| REQ-FNC-059-ADR-READINESS | §51–§52 | ARC-006 | `adr-readiness.json`, inventario ADR y blockers | `tools.adr_readiness.test_validate` | S1-READY | Review; gate not met |
 
 ## Campos al implementar
 
