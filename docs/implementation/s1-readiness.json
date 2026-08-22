@@ -1258,6 +1258,58 @@
     "Filtrar por owner o por gate produce una vista, nunca un resultado canonico distinto.",
     "No ejecuta contenedores: la evidencia de infraestructura la produce su propio spike.",
     "No lee prosa como estado: si un Markdown contradice a un modelo, manda el modelo y la diferencia es un defecto.",
-    "No escribe CURRENT_PHASE, backlog, gates, decisiones ni fichas de tarea."
+    "No escribe CURRENT_PHASE, backlog, gates, decisiones ni fichas de tarea.",
+    "Enrutar una contradiccion a otro gate no la resuelve: sigue bloqueando ese gate y conserva owner y motivo. Una contradiccion que nadie enruta bloquea S1-READY."
+  ],
+  "contradiction_relevance": {
+    "gates": [
+      "S1-READY"
+    ],
+    "owner_slots_from_requirements": true,
+    "rationale": "Una contradiccion bloquea S1-READY cuando recae sobre el propio gate objetivo, sobre un slot de owner que S1 exige, sobre un ADR requerido para S1 o sobre una decision que declara bloquear S1. Los gates de datos (DRG-00, DRG-01) llegan despues de S1 y no lo condicionan, pero eso se declara aqui a proposito: deducirlo de que exista o no cierto requisito lo volveria invisible, y bastaria retirar un requisito para que una contradiccion dejara de bloquear sin que nadie lo hubiera decidido."
+  },
+  "acknowledged_contradictions": [
+    {
+      "subject_kind": "gate",
+      "subject_id": "DRG-00",
+      "field": "owner_role",
+      "observed_values": [
+        "Legal",
+        "Security"
+      ],
+      "sources": [
+        "docs/privacy/privacy-map.json$.gates[1]",
+        "docs/domain/lineage-model.json$.gates[1]"
+      ],
+      "reason": "privacy-map.json declara owner Legal y lineage-model.json declara owner Security para el mismo gate de liberacion de datos. Mientras no se adjudique, no esta definido quien puede aprobar DRG-00.",
+      "owner_role": "Integration Steward",
+      "reviewer_roles": [
+        "Legal",
+        "Security"
+      ],
+      "gate": "DRG-00",
+      "blocks_gate": true
+    },
+    {
+      "subject_kind": "gate",
+      "subject_id": "DRG-01",
+      "field": "owner_role",
+      "observed_values": [
+        "Legal",
+        "Security"
+      ],
+      "sources": [
+        "docs/privacy/privacy-map.json$.gates[2]",
+        "docs/domain/lineage-model.json$.gates[2]"
+      ],
+      "reason": "misma divergencia que DRG-00 sobre el gate de operacion piloto: privacy-map.json dice Legal y lineage-model.json dice Security.",
+      "owner_role": "Integration Steward",
+      "reviewer_roles": [
+        "Legal",
+        "Security"
+      ],
+      "gate": "DRG-01",
+      "blocks_gate": true
+    }
   ]
 }

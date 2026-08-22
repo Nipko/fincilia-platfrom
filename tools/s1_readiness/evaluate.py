@@ -117,6 +117,68 @@ def index_observations(observations: list[Observation]) -> dict[tuple[str, str, 
     return index
 
 
+def contradiction_key(item: dict[str, Any]) -> tuple[str, str, str]:
+    return (str(item.get("subject_kind")), str(item.get("subject_id")),
+            str(item.get("field")))
+
+
+def triage_contradictions(contract: dict[str, Any], index: dict, contradictions: list[dict],
+                          gate: str) -> dict[str, list[dict[str, Any]]]:
+    """Separa contradicciones en bloqueantes, enrutadas a otro gate y sin enrutar.
+
+    La relevancia se declara **explicitamente** en el contrato. Derivarla de que
+    exista o no cierto requisito la volveria invisible: bastaria retirar un
+    requisito para que una contradiccion dejara de bloquear sin que nadie lo
+    decidiera.
+
+    Una contradiccion que no es relevante para este gate **no desaparece**. O bien
+    esta enrutada a un owner y a su propio gate, o bloquea. El silencio no es una
+    resolucion.
+    """
+    relevance = contract.get("contradiction_relevance", {})
+    relevant_gates = {str(gate)} | {str(item) for item in relevance.get("gates", []) or []}
+    relevant_owners = {str(item) for item in relevance.get("owner_slots", []) or []}
+    if relevance.get("owner_slots_from_requirements"):
+        relevant_owners |= {
+            str(item.get("ref")) for item in contract.get("requirements", []) or []
+            if item.get("kind") == "nominal_owner" and item.get("ref")}
+    required_adrs = {
+        subject_id for (subject_kind, subject_id, field_name), group in index.items()
+        if subject_kind == "adr" and field_name == "required_for_s1"
+        and any(observation.value == "true" for observation in group)}
+    relevant_decisions = {
+        subject_id for (subject_kind, subject_id, field_name), group in index.items()
+        if subject_kind == "decision" and field_name == "blocks_gate"
+        and any(observation.value == gate for observation in group)}
+
+    routed = {contradiction_key(item): item
+              for item in contract.get("acknowledged_contradictions", []) or []}
+
+    blocking: list[dict[str, Any]] = []
+    acknowledged: list[dict[str, Any]] = []
+    unrouted: list[dict[str, Any]] = []
+    for item in contradictions:
+        kind, subject = item["subject_kind"], item["subject_id"]
+        is_relevant = (
+            (kind == "gate" and subject in relevant_gates)
+            or (kind == "decision" and subject in relevant_decisions)
+            or (kind == "adr" and subject in required_adrs)
+            or (kind == "owner_slot" and subject in relevant_owners)
+        )
+        if is_relevant:
+            blocking.append(item)
+            continue
+        acknowledgement = routed.get(contradiction_key(item))
+        if acknowledgement is None:
+            unrouted.append(item)
+            continue
+        acknowledged.append({**item,
+                             "routed_to_owner": acknowledgement.get("owner_role"),
+                             "blocks_gate": acknowledgement.get("gate"),
+                             "reason": acknowledgement.get("reason")})
+    return {"blocking": blocking, "acknowledged": acknowledged, "unrouted": unrouted}
+
+
 def detect_contradictions(observations: list[Observation],
                           ignored_fields: tuple[str, ...] = ()) -> list[dict[str, Any]]:
     """Dos fuentes estructuradas que dicen cosas distintas del mismo sujeto."""
@@ -363,43 +425,26 @@ def evaluate_requirements(contract: dict[str, Any], root: Path,
                                 "unresolved": unresolved[:40]}]
 
         elif kind == "no_contradiction":
-            relevant_gates = {str(contract.get("target_gate", "S1-READY"))}
-            relevant_gates.update(
-                str(item.get("ref")) for item in contract.get("requirements", []) or []
-                if item.get("kind") == "gate" and item.get("ref"))
-            relevant_owners = {
-                str(item.get("ref")) for item in contract.get("requirements", []) or []
-                if item.get("kind") == "nominal_owner" and item.get("ref")}
-            required_adrs = {
-                subject_id for (subject_kind, subject_id, field_name), group in index.items()
-                if subject_kind == "adr" and field_name == "required_for_s1"
-                and any(observation.value == "true" for observation in group)}
-            relevant_decisions = {
-                subject_id for (subject_kind, subject_id, field_name), group in index.items()
-                if subject_kind == "decision" and field_name == "blocks_gate"
-                and any(observation.value == row["gate"] for observation in group)}
-            blocking_contradictions = [
-                item for item in contradictions
-                if ((item["subject_kind"] == "gate"
-                     and item["subject_id"] in relevant_gates)
-                    or (item["subject_kind"] == "decision"
-                        and item["subject_id"] in relevant_decisions)
-                    or (item["subject_kind"] == "adr"
-                        and item["subject_id"] in required_adrs)
-                    or (item["subject_kind"] == "owner_slot"
-                        and item["subject_id"] in relevant_owners))]
-            if blocking_contradictions:
-                row.update(category="contradiction",
-                           explanation=f"{len(blocking_contradictions)} contradictions "
-                                       f"relevant to {row['gate']} remain unresolved")
+            triage = triage_contradictions(contract, index, contradictions, row["gate"])
+            blocking_contradictions = triage["blocking"]
+            unrouted = triage["unrouted"]
+            if blocking_contradictions or unrouted:
+                row.update(
+                    category="contradiction",
+                    explanation=(
+                        f"{len(blocking_contradictions)} contradictions relevant to "
+                        f"{row['gate']} and {len(unrouted)} contradictions that nobody "
+                        "routed to an owner remain unresolved"))
             else:
                 row.update(category="machine_pass",
-                           explanation=("no structured contradiction relevant to "
-                                        f"{row['gate']} remains unresolved"))
+                           explanation=(
+                               f"no contradiction relevant to {row['gate']} remains, and "
+                               f"the {len(triage['acknowledged'])} observed elsewhere are "
+                               "routed to a named owner and still block their own gate"))
             row["evidence"] = [{
                 "blocking_contradictions": blocking_contradictions,
-                "observed_non_blocking_contradictions": len(contradictions)
-                                                    - len(blocking_contradictions),
+                "unrouted_contradictions": unrouted,
+                "acknowledged_elsewhere": triage["acknowledged"],
             }]
 
         elif kind == "evidence_freshness":
@@ -476,6 +521,9 @@ def aggregate(contract: dict[str, Any], root: Path) -> dict[str, Any]:
     requirements = evaluate_requirements(contract, root, collected, check_results,
                                          contradictions)
     cycles = detect_cycles(requirements)
+    triage = triage_contradictions(
+        contract, index_observations(collected["observations"]), contradictions,
+        str(contract.get("target_gate", "S1-READY")))
 
     blockers = [row for row in requirements
                 if row["category"] not in SATISFYING_CATEGORIES]
@@ -502,6 +550,7 @@ def aggregate(contract: dict[str, Any], root: Path) -> dict[str, Any]:
         "requirements": requirements,
         "blockers": blockers,
         "contradictions": contradictions,
+        "contradiction_triage": triage,
         "dependency_cycles": cycles,
         "machine_check_results": [check_results[key] for key in sorted(check_results)],
         "source_manifest": collected["source_manifest"],

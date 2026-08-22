@@ -92,6 +92,41 @@ def validate_contract(contract: dict[str, Any], root: Path) -> list[Finding]:
         fail("S1R-CATEGORIES", "categories",
              f"categories must be exactly {sorted(CATEGORIES)}")
 
+    # La relevancia de una contradiccion se declara; no se deduce de que exista o
+    # no cierto requisito. Deducirla la vuelve invisible: retirar un requisito
+    # bastaria para que una contradiccion dejara de bloquear sin que nadie lo decida.
+    relevance = contract.get("contradiction_relevance")
+    if not isinstance(relevance, dict):
+        fail("S1R-CONTRADICTION-RELEVANCE", "contradiction_relevance",
+             "declare explicitly which subjects make a contradiction blocking")
+    else:
+        if not isinstance(relevance.get("gates"), list) or not relevance.get("gates"):
+            fail("S1R-CONTRADICTION-RELEVANCE", "contradiction_relevance.gates",
+                 "declare at least the target gate; an empty relevance set would make "
+                 "every contradiction non-blocking by accident")
+        elif TARGET_GATE not in relevance["gates"]:
+            fail("S1R-CONTRADICTION-RELEVANCE", "contradiction_relevance.gates",
+                 f"{TARGET_GATE} must be relevant to itself")
+        if not relevance.get("rationale"):
+            fail("S1R-CONTRADICTION-RELEVANCE", "contradiction_relevance.rationale",
+                 "say why these subjects and not others")
+
+    for index, item in enumerate(contract.get("acknowledged_contradictions", []) or []):
+        location = f"acknowledged_contradictions[{index}]"
+        for field in ("subject_kind", "subject_id", "field", "reason", "owner_role",
+                      "gate"):
+            if not item.get(field):
+                fail("S1R-CONTRADICTION-ROUTE", f"{location}.{field}",
+                     f"a routed contradiction needs {field}")
+        if item.get("blocks_gate") is not True:
+            fail("S1R-CONTRADICTION-ROUTE", f"{location}.blocks_gate",
+                 "routing a contradiction to another gate does not resolve it: it must "
+                 "keep blocking that gate")
+        if item.get("gate") == TARGET_GATE:
+            fail("S1R-CONTRADICTION-ROUTE", f"{location}.gate",
+                 f"a contradiction that blocks {TARGET_GATE} is not routed elsewhere; "
+                 "declare it relevant instead")
+
     precedence = contract.get("source_precedence", [])
     if not precedence or precedence[0] != "structured_json":
         fail("S1R-PRECEDENCE", "source_precedence",
