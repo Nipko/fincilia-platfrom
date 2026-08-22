@@ -86,6 +86,8 @@ FNC-GAT-001 es la única tarea que puede autorizar el primer artefacto real de i
 | FNC-PLT-005 | A2/A4 | DOM-001, SEC-001, ARC-004 | Spike auth-context, RLS, outbox y parser sintético |
 | FNC-QA-002 | A5 | DOM-002..005 | Estrategia integral de pruebas |
 | FNC-QA-003 | A5 | DAT-002, DOM-002..005 | Golden harness determinista en CI |
+| FNC-QA-004 | A5 | QA-002, QA-003 | Catálogo ejecutable y reconciliación dinámica de cobertura |
+| FNC-QA-005 | A5 | QA-002, QA-003 | Arnés determinista de mutaciones de validadores |
 | FNC-UX-002 | A6 | UX-001, RES-002 | Pruebas con contadores y PYMEs |
 | FNC-BRD-001 | A7 | — | Clearance jurídico de Fincilia |
 | FNC-INT-001 | A7 | PRD-001 | Tres cotizaciones comparables de agregadores |

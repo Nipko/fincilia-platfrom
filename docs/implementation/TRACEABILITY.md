@@ -18,7 +18,7 @@ Una celda de implementación vacía significa no implementado. No se rellena con
 | REQ-FNC-025-CONNECTOR | §25 | ARC-005 | `connector-contract.json`, manifest schema | TST-CON-001..015 | S1-READY | Review |
 | REQ-FNC-029-XTENANT | §29 | SEC-001, SEC-002, PLT-005 | ADR-002, matriz auth, `spikes/FNC-PLT-005` | TST-RLS-001/002, TST-AUTH-001/002 | DRG-01 | Review |
 | REQ-FNC-037-AI | §37–§41 | ARC-006 | ADR-009 | TST-AI-001 | Fase 4 | Planned |
-| REQ-FNC-054-QUALITY | §54 | QA-002/003 | `test-strategy.json`, `golden-harness.json`, validadores y runner | TST-QS-001..040, GH-REG-*, GH-RUN-*, GH-ORACLE-* | S1-READY | Review |
+| REQ-FNC-054-QUALITY | §54 | QA-002..005 | `test-strategy.json`, `golden-harness.json`; catálogo y mutaciones en construcción | TST-QS-001..040, GH-REG-*, GH-RUN-*, GH-ORACLE-* | S1-READY | Review + claimed extensions |
 | REQ-FNC-055-GOVERNANCE | §51–§52 | GOV-003 | `work-graph.json`, reservas y política de gates | TST-META-001 | S1-READY | Review |
 | REQ-FNC-056-LOCAL | §20, §52 | PLT-002 | `infra/local/compose.yaml`, bootstrap y lifecycle | TST-LOCAL-001 | S1-READY | Review |
 | REQ-FNC-057-UX | §5–§13, §54.5 | UX-001 | IA y prototipo web/móvil sintético | TST-A11Y-001 | S1-READY | Review |

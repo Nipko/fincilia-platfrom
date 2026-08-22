@@ -49,5 +49,27 @@
       "agent_may_accept": false
     }
   ],
-  "active_reservations": []
+  "active_reservations": [
+    {
+      "task": "FNC-QA-004",
+      "holder": "Claude external principal dev",
+      "paths": [
+        "docs/testing/TEST_CATALOG_MODEL.md",
+        "docs/testing/test-catalog-model.json",
+        "tools/test_catalog",
+        "docs/implementation/handoffs/FNC-QA-004.md"
+      ]
+    },
+    {
+      "task": "FNC-QA-005",
+      "holder": "Claude external principal dev",
+      "paths": [
+        "docs/testing/MUTATION_HARNESS.md",
+        "docs/testing/mutation-harness.json",
+        "tools/mutation_harness",
+        "tests/golden/mutations",
+        "docs/implementation/handoffs/FNC-QA-005.md"
+      ]
+    }
+  ]
 }

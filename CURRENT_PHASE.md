@@ -92,6 +92,8 @@ Hasta S1-READY solo se admite scaffolding, automatización, pruebas, documentaci
 | FNC-ARC-003 | Paquete A-02 de región, transmisión y subencargados | Review pending | Integration Steward | docs/architecture/REGION_TRANSMISSION_DECISION.md, ADR-020, tools/region_decision, handoff |
 | FNC-QA-002 | Estrategia ejecutable de pruebas y huecos declarados | Review pending | Claude + Integration Steward | docs/testing/TEST_STRATEGY.md, test-strategy.json, tools/quality_strategy, handoff |
 | FNC-QA-003 | Golden harness adjudicado y fail-closed | Review pending | Claude + Integration Steward | docs/testing/GOLDEN_HARNESS.md, golden-harness.json, tools/golden_harness, tests/golden/harness, handoff |
+| FNC-QA-004 | Catálogo ejecutable y reconciliación dinámica | Claimed | Claude | docs/testing/TEST_CATALOG_MODEL.md, test-catalog-model.json, tools/test_catalog, handoff |
+| FNC-QA-005 | Arnés determinista de mutaciones | Claimed | Claude | docs/testing/MUTATION_HARNESS.md, mutation-harness.json, tools/mutation_harness, tests/golden/mutations, handoff |
 
 Solo el Integration Steward modifica esta tabla.
 
@@ -125,6 +127,8 @@ Solo el Integration Steward modifica esta tabla.
 | 1 | FNC-ARC-003 Decisión de región y transmisión | FNC-ARC-002 | Review pending; decisión humana A-02 pendiente |
 | 1 | FNC-QA-002 Estrategia integral de pruebas | FNC-DOM-002..005 | Review pending |
 | 1 | FNC-QA-003 Golden harness determinista | FNC-DAT-002, FNC-DOM-002..005 | Review pending |
+| 1 | FNC-QA-004 Catálogo ejecutable de pruebas | FNC-QA-002/003 | Claimed by Claude |
+| 1 | FNC-QA-005 Mutation harness de validadores | FNC-QA-002/003 | Claimed by Claude |
 
 Draftable significa que un agente puede preparar un borrador, pero no marcarlo Accepted hasta resolver la dependencia.
 
