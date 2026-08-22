@@ -82,6 +82,7 @@ Hasta S1-READY solo se admite scaffolding, automatización, pruebas, documentaci
 | FNC-DOM-004 | Evidencia, dedupe e idempotencia segura | Review pending | Integration Steward | docs/domain/EVIDENCE_DEDUPE_IDEMPOTENCY.md, idempotency-dedupe.json, tools/idempotency_model, CI, handoff |
 | FNC-PRV-001 | Mapa ejecutable de privacidad, retención y borrado | Review pending | Claude + Integration Steward | docs/privacy, tools/privacy_model, CI, handoff |
 | FNC-ARC-004 | Eventos, outbox, retries y dead letters | Review pending | Integration Steward | docs/architecture/EVENTS_RETRIES.md, events-retries.json, tools/event_model, CI, handoff |
+| FNC-ARC-005 | Conectores read-only y fallback por archivos | Review pending | Integration Steward | docs/contracts/connectors, tools/connector_model, CI, handoff |
 
 Solo el Integration Steward modifica esta tabla.
 
@@ -106,6 +107,7 @@ Solo el Integration Steward modifica esta tabla.
 | 1 | FNC-DOM-004 Evidencia, dedupe e idempotencia | FNC-DOM-002, FNC-ARC-002 | Review pending |
 | 1 | FNC-PRV-001 Privacidad, retención y borrado | FNC-ARC-002, FNC-DAT-001 | Review pending |
 | 1 | FNC-ARC-004 Eventos, outbox, retries y DLQ | FNC-ARC-001, FNC-DOM-004 | Review pending |
+| 1 | FNC-ARC-005 Contrato de conectores y fallback | FNC-ARC-004, FNC-DOM-003/004 | Review pending |
 
 Draftable significa que un agente puede preparar un borrador, pero no marcarlo Accepted hasta resolver la dependencia.
 

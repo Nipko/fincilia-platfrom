@@ -1,0 +1,128 @@
+{
+  "schema_version": 1,
+  "task_id": "FNC-ARC-005",
+  "status": "review_pending",
+  "human_acceptance": "pending",
+  "data_ceiling": "synthetic_only",
+  "mode": "read_only",
+  "payments_enabled": false,
+  "platform_receives_bank_credentials": false,
+  "manifest_required_sections": [
+    "connector_id", "version", "countries", "source_kind", "institutions",
+    "account_types", "auth", "history", "identity", "freshness", "error_taxonomy",
+    "completeness", "fallback", "region", "subprocessors", "cost", "owner"
+  ],
+  "lifecycle_states": ["draft", "review_pending", "certified", "suspended", "retired"],
+  "capability_contract": {
+    "required": ["read_accounts", "read_transactions", "read_balances", "backfill", "incremental", "webhook", "corrections", "pending_to_posted"],
+    "truth_values": ["supported", "unsupported", "unknown_pending_evidence"],
+    "unknown_is_not_supported": true,
+    "write_capabilities_default": "forbidden"
+  },
+  "authorization_contract": {
+    "allowed_methods": ["oauth_redirect", "hosted_provider_widget", "mutual_tls", "scoped_service_account", "file_upload"],
+    "forbidden_inputs": ["bank_username", "bank_password", "otp", "private_certificate", "raw_access_token"],
+    "secret_storage": "vault_reference_only",
+    "minimum_scopes": true,
+    "consent_expiry_visible": true,
+    "revocation_supported": true,
+    "authorization_version_required": true,
+    "revalidate_before_fetch_and_publish": true
+  },
+  "sync_contract": {
+    "modes": ["backfill", "incremental", "both"],
+    "pagination_required": true,
+    "cursor_versioned": true,
+    "cursor_scope": ["company_id", "connection_id", "account_id", "connector_version"],
+    "page_evidence_required": true,
+    "empty_page_means_complete": false,
+    "overlap_window_versioned": true,
+    "pending_never_aliases_posted": true,
+    "correction_is_new_version": true,
+    "deletion_is_tombstone_or_explicit_provider_event": true
+  },
+  "identity_contract": {
+    "default_assurance": "unverified",
+    "verified_requires_dom004_provider_contract": true,
+    "provider_delivery_id_separate_from_record_id": true,
+    "business_composite_unique_forbidden": true,
+    "cross_source_dedupe_candidate_only": true
+  },
+  "completeness_contract": {
+    "required_controls": ["record_count", "debit_total", "credit_total", "opening_balance", "closing_balance", "period_coverage", "sequence_cursor", "account_identity", "currency_consistency"],
+    "unavailable_required_control": "unknown",
+    "pagination_exhaustion_alone_is_proof": false,
+    "balance_or_match_coverage_alone_is_proof": false,
+    "publication_requires_verified_or_explicit_exception": true,
+    "exception_requires_sod_expiry_evidence": true
+  },
+  "retry_contract": {
+    "adapter_retries": false,
+    "failure_classes": ["retryable", "rate_limited", "fatal", "requires_human", "unknown"],
+    "schedule_owner": "parent_queue_or_durable_workflow",
+    "circuit_breaker_schedules_retry": false,
+    "budget_policy_required": true,
+    "unknown_outcome": "reconcile_before_retry"
+  },
+  "webhook_contract": {
+    "signature_before_inbox": true,
+    "timestamp_nonce_replay_required": true,
+    "payload_digest_required": true,
+    "connection_scoped_idempotency": true,
+    "same_id_different_payload": "conflict_suspend_and_investigate",
+    "manual_replay_audited": true
+  },
+  "fallback_contract": {
+    "file_supported": true,
+    "permanent_not_temporary": true,
+    "same_canonical_model": true,
+    "same_completeness_gates": true,
+    "same_lineage_and_evidence": true,
+    "feed_failure_does_not_block_file": true,
+    "overlap_creates_candidate_not_delete": true,
+    "visible_in_product": true
+  },
+  "degraded_states": ["healthy", "stale", "provider_down", "auth_expired", "partial", "schema_drift", "suspended"],
+  "degraded_contract": {
+    "last_success_and_freshness_visible": true,
+    "gap_and_cursor_visible": true,
+    "never_assume_zero_or_complete": true,
+    "schema_drift_blocks_publication": true,
+    "fallback_action_visible": true
+  },
+  "security_contract": {
+    "egress_allowlist_versioned": true,
+    "ssrf_private_ranges_and_redirects_blocked": true,
+    "tls_required": true,
+    "short_lived_capability": true,
+    "company_scope_server_resolved": true,
+    "raw_payload_or_secret_logs_forbidden": true,
+    "worker_direct_internet_forbidden": true,
+    "connector_gateway_only": true
+  },
+  "legal_cost_contract": {
+    "region_state": "pending_human",
+    "subprocessors_state": "pending_human",
+    "dpa_state": "pending_human",
+    "retention_state": "pending_human",
+    "sla_state": "pending_human",
+    "cost_state": "pending_quote_and_max_usage_model",
+    "no_production_before_approval": true
+  },
+  "certification_gates": [
+    {"id": "GATE-COVERAGE", "owner": "Integrations", "reviewer": "Product", "state": "pending_human"},
+    {"id": "GATE-IDENTITY", "owner": "Integrations", "reviewer": "Data", "state": "pending_human"},
+    {"id": "GATE-COMPLETENESS", "owner": "Data", "reviewer": "Accounting", "state": "pending_human"},
+    {"id": "GATE-SECURITY", "owner": "Security", "reviewer": "Architecture", "state": "pending_human"},
+    {"id": "GATE-PRIVACY-LEGAL", "owner": "Privacy", "reviewer": "Legal", "state": "pending_human"},
+    {"id": "GATE-SLA-COST", "owner": "Finance", "reviewer": "Product", "state": "pending_human"},
+    {"id": "GATE-FALLBACK", "owner": "Integrations", "reviewer": "Data", "state": "pending_human"}
+  ],
+  "required_tests": [
+    "TST-CON-001", "TST-CON-002", "TST-CON-003", "TST-CON-004", "TST-CON-005",
+    "TST-CON-006", "TST-CON-007", "TST-CON-008", "TST-CON-009", "TST-CON-010",
+    "TST-CON-011", "TST-CON-012", "TST-CON-013", "TST-CON-014", "TST-CON-015"
+  ],
+  "dependencies": ["FNC-ARC-002", "FNC-ARC-004", "FNC-DOM-003", "FNC-DOM-004", "FNC-PRV-001"],
+  "deferred": ["real_provider_manifest", "production_credentials", "provider_region_and_dpa", "numeric_sla_and_cost", "contract_tests_against_real_sandbox"]
+}

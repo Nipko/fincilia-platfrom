@@ -17,6 +17,9 @@
     "error_taxonomy",
     "completeness",
     "fallback",
+    "region",
+    "subprocessors",
+    "cost",
     "owner"
   ],
   "properties": {
@@ -130,4 +133,3 @@
   },
   "additionalProperties": false
 }
-
