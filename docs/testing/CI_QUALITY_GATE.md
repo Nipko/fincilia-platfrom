@@ -41,6 +41,16 @@ El gate evita que un cambio aparentemente documental o de scaffolding debilite l
 
 El segundo job valida únicamente `spikes/FNC-PLT-001`; no promueve ese código a producto.
 
+### Local platform lifecycle
+
+1. valida el contrato estático y Compose;
+2. arranca PostgreSQL desde volumen limpio y espera healthcheck;
+3. verifica rol de aplicación sin privilegios y marcador sintético;
+4. comprueba persistencia tras restart y stop/start;
+5. purga el volumen nombrado aunque falle un paso.
+
+Este job valida `infra/local`; no activa stores diferidos ni convierte el bootstrap en migración.
+
 ## 3. Política del repositorio
 
 El escáner falla por:
@@ -81,8 +91,10 @@ python3 -m tools.connector_model.validate
 python3 -m tools.dfd_model.validate
 python3 -m tools.event_model.validate
 python3 -m tools.idempotency_model.validate
+python3 -m tools.local_stack.validate
 python3 -m tools.privacy_model.validate
 python3 -m tools.threat_model.validate
+python3 -m tools.work_graph.validate
 python3 -m unittest tools.architecture_model.test_validate tools.canonical_model.test_validate tools.completeness_model.test_validate tools.connector_model.test_validate tools.dfd_model.test_validate tools.event_model.test_validate tools.idempotency_model.test_validate tools.privacy_model.test_validate tools.threat_model.test_validate tools.quality_gate.test_repo_policy tools.synthetic_corpus.test_corpus -v
 python3 -m tools.synthetic_corpus.cli verify --root tests/golden/synthetic
 ```
@@ -104,6 +116,7 @@ Cuando exista remoto, el administrador debe proteger `main` y exigir los checks:
 
 - `Repository and synthetic-data policy`;
 - `PostgreSQL RLS and worker spike`.
+- `Local platform lifecycle`.
 
 También debe impedir push directo, exigir revisión independiente en rutas sensibles y limitar quién puede modificar workflows. Esta configuración externa no se presupone ni puede probarse desde el repositorio.
 

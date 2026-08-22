@@ -70,17 +70,6 @@
         "tests/golden/harness",
         "docs/implementation/handoffs/FNC-QA-003.md"
       ]
-    },
-    {
-      "task": "FNC-PLT-002",
-      "holder": "Integration Steward",
-      "paths": [
-        "infra/local",
-        "tools/local_stack",
-        "docs/implementation/tasks/FNC-PLT-002.md",
-        "docs/implementation/handoffs/FNC-PLT-002.md",
-        "docs/implementation/evidence/FNC-PLT-002"
-      ]
     }
   ]
 }

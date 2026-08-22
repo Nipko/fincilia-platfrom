@@ -20,6 +20,7 @@ Una celda de implementación vacía significa no implementado. No se rellena con
 | REQ-FNC-037-AI | §37–§41 | ARC-006 | ADR-009 | TST-AI-001 | Fase 4 | Planned |
 | REQ-FNC-054-QUALITY | §54 | QA-002/003 | Estrategia de pruebas | Catálogo completo | S1-READY | Draft |
 | REQ-FNC-055-GOVERNANCE | §51–§52 | GOV-003 | `work-graph.json`, reservas y política de gates | TST-META-001 | S1-READY | Review |
+| REQ-FNC-056-LOCAL | §20, §52 | PLT-002 | `infra/local/compose.yaml`, bootstrap y lifecycle | TST-LOCAL-001 | S1-READY | Review |
 
 ## Campos al implementar
 

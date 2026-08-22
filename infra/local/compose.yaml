@@ -1,0 +1,62 @@
+name: fincilia-local
+
+services:
+  postgres:
+    image: postgres:17.11-alpine3.24@sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73
+    environment:
+      POSTGRES_DB: ${FINCILIA_LOCAL_DB_NAME:-fincilia_local}
+      POSTGRES_USER: ${FINCILIA_LOCAL_DB_ADMIN_USER:-fincilia_local_admin}
+      POSTGRES_PASSWORD: ${FINCILIA_LOCAL_DB_ADMIN_PASSWORD:-fincilia_local_admin_only}
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256 --auth-local=trust"
+    ports:
+      - "127.0.0.1:${FINCILIA_LOCAL_DB_PORT:-55430}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+      start_period: 5s
+    stop_grace_period: 30s
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - fincilia_local_pgdata:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    networks:
+      - fincilia_local_private
+    labels:
+      com.fincilia.data-class: synthetic_only
+
+  lifecycle-test:
+    profiles: ["test"]
+    image: postgres:17.11-alpine3.24@sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73
+    entrypoint: ["sh", "/checks/lifecycle.sh"]
+    command: ["${FINCILIA_LOCAL_LIFECYCLE_MODE:-initial}"]
+    environment:
+      PGHOST: postgres
+      PGPORT: "5432"
+      PGDATABASE: ${FINCILIA_LOCAL_DB_NAME:-fincilia_local}
+      PGUSER: ${FINCILIA_LOCAL_DB_ADMIN_USER:-fincilia_local_admin}
+      PGPASSWORD: ${FINCILIA_LOCAL_DB_ADMIN_PASSWORD:-fincilia_local_admin_only}
+      FINCILIA_LOCAL_APP_PASSWORD: ${FINCILIA_LOCAL_APP_PASSWORD:-fincilia_local_app_only}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ./scripts:/checks:ro
+    networks:
+      - fincilia_local_private
+    labels:
+      com.fincilia.data-class: synthetic_only
+
+volumes:
+  fincilia_local_pgdata:
+    name: fincilia_local_pgdata
+
+networks:
+  fincilia_local_private:
+    name: fincilia_local_private
+    internal: true
