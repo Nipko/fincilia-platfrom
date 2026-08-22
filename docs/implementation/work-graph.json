@@ -49,5 +49,47 @@
       "agent_may_accept": false
     }
   ],
-  "active_reservations": []
+  "active_reservations": [
+    {
+      "task": "FNC-SUP-001",
+      "holder": "Claude external principal dev",
+      "paths": [
+        "docs/security/SUPPLY_CHAIN_BASELINE.md",
+        "docs/security/supply-chain.json",
+        "tools/supply_chain",
+        "docs/implementation/handoffs/FNC-SUP-001.md"
+      ]
+    },
+    {
+      "task": "FNC-DB-002",
+      "holder": "Claude external principal dev",
+      "paths": [
+        "docs/database/MIGRATION_SPIKE.md",
+        "docs/database/migration-spike.json",
+        "spikes/FNC-DB-002",
+        "tools/migration_spike",
+        "docs/implementation/handoffs/FNC-DB-002.md"
+      ]
+    },
+    {
+      "task": "FNC-PLT-007",
+      "holder": "Claude external principal dev",
+      "paths": [
+        "docs/platform/DEVELOPER_CLI.md",
+        "docs/platform/developer-cli.json",
+        "tools/dev_cli",
+        "docs/implementation/handoffs/FNC-PLT-007.md"
+      ]
+    },
+    {
+      "task": "FNC-GAT-003",
+      "holder": "Claude external principal dev",
+      "paths": [
+        "docs/implementation/S1_READINESS_REPORT.md",
+        "docs/implementation/s1-readiness.json",
+        "tools/s1_readiness",
+        "docs/implementation/handoffs/FNC-GAT-003.md"
+      ]
+    }
+  ]
 }

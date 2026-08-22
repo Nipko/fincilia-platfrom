@@ -91,6 +91,10 @@ FNC-GAT-001 es la única tarea que puede autorizar el primer artefacto real de i
 | FNC-QA-003 | A5 | DAT-002, DOM-002..005 | Golden harness determinista en CI |
 | FNC-QA-004 | A5 | QA-002, QA-003 | Catálogo ejecutable y reconciliación dinámica de cobertura |
 | FNC-QA-005 | A5 | QA-002, QA-003 | Arnés determinista de mutaciones de validadores |
+| FNC-SUP-001 | A3/A5 | PLT-003, QA-005 | Baseline ejecutable de cadena de suministro y gaps TM-005 |
+| FNC-DB-002 | A2/A4 | DB-001, PLT-002 | Spike PostgreSQL de invariantes de migración SQL-first |
+| FNC-PLT-007 | A4/A5 | PLT-002/003, QA-004/005 | CLI segura de desarrollo y diagnóstico local |
+| FNC-GAT-003 | A0/A5 | ARC-006, QA-004/005, SUP-001, DB-002 | Agregador ejecutable fail-closed de readiness S1 |
 | FNC-UX-002 | A6 | UX-001, RES-002 | Pruebas con contadores y PYMEs |
 | FNC-BRD-001 | A7 | — | Clearance jurídico de Fincilia |
 | FNC-INT-001 | A7 | PRD-001 | Tres cotizaciones comparables de agregadores |
