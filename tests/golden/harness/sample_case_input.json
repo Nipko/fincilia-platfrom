@@ -1,0 +1,12 @@
+{
+  "fixture_id": "harness_sample_case_input",
+  "task_id": "FNC-QA-003",
+  "data_classification": "synthetic_only",
+  "provenance": "authored_from_scratch_for_harness_self_check",
+  "reserved_domain": "example.invalid",
+  "records": [
+    {"record_ordinal": 0, "company_id": "company_c1", "label": "synthetic_alpha"},
+    {"record_ordinal": 1, "company_id": "company_c1", "label": "synthetic_beta"},
+    {"record_ordinal": 2, "company_id": "company_c2", "label": "synthetic_gamma"}
+  ]
+}

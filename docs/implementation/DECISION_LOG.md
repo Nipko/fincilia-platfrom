@@ -14,6 +14,8 @@ Registro append-only. Una corrección crea una nueva decisión que sustituye a l
 | IMP-008 | 2026-08-21 | PRIVACY | Proposed | Separar sensibilidad operativa/financiera de la condición y categoría de dato personal | Privacy + Architecture | `decision_requests/FNC-PRV-001-FINDINGS.md` DR-PRV-001 |
 | IMP-009 | 2026-08-21 | LEGAL | Proposed | Fijar orden delete-ledger > backup y reloj legal de retención financiera | Legal + Privacy + Platform | `decision_requests/FNC-PRV-001-FINDINGS.md` DR-LEG-001 |
 | IMP-010 | 2026-08-21 | ADR | Proposed | Evaluar Brasil y Chile por flujo/servicio; no seleccionar región antes de A02-G01..G10 | Architecture + Legal | ADR-020 y `decision_requests/FNC-ARC-003-A02.md` |
+| IMP-011 | 2026-08-21 | GOVERNANCE | Proposed | Modelar por separado IDs contractuales ausentes del catálogo e IDs runtime planeados todavía sin contrato; la reconciliación debe ser dinámica y ejecutable | QA + Integration Steward | `FNC-QA-002`, hallazgo `UD-QA-CATALOG-DRIFT` |
+| IMP-012 | 2026-08-21 | TOOLING | Proposed | Automatizar mutaciones aisladas de validadores sin rebajar la adjudicación humana de cambios en contratos y digests golden | QA + Security | `FNC-QA-003`, hallazgo de fragilidad de adjudicación |
 
 ## Campos para nuevas decisiones
 

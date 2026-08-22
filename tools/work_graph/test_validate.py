@@ -33,7 +33,18 @@ class WorkGraphTests(unittest.TestCase):
     def test_route_collision_bites(self) -> None:
         config = json.loads((ROOT / "docs/implementation/work-graph.json").read_text(encoding="utf-8"))
         mutated = copy.deepcopy(config)
-        mutated["active_reservations"][1]["paths"].append("tools/quality_strategy/collision")
+        mutated["active_reservations"] = [
+            {
+                "task": "FNC-QA-002",
+                "holder": "synthetic-a",
+                "paths": ["tools/quality_strategy"],
+            },
+            {
+                "task": "FNC-QA-003",
+                "holder": "synthetic-b",
+                "paths": ["tools/quality_strategy/collision"],
+            },
+        ]
         _, findings = validate_repository(ROOT, mutated)
         self.assertIn("META-ROUTE-COLLISION", {item.code for item in findings})
 

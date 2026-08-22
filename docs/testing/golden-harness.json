@@ -1,0 +1,894 @@
+{
+  "adjudication": {
+    "authority": "human_owner_and_independent_reviewer",
+    "procedure": "un cambio de contrato exige re-adjudicar el caso: revisar el diff, actualizar digests y expectativas en el registro y obtener revision independiente",
+    "runner_can_update_expected": false,
+    "runner_can_update_input_digests": false
+  },
+  "auto_update_expected_allowed": false,
+  "cases": [
+    {
+      "argv": [
+        "-m",
+        "tools.architecture_model.validate"
+      ],
+      "case_id": "GH-VALIDATE-ARCHITECTURE",
+      "consumer_gates": [
+        "S1-READY"
+      ],
+      "cwd": ".",
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-HARNESS",
+      "expected_exit_code": 0,
+      "inputs": [
+        {
+          "path": "docs/architecture/module-boundaries.json",
+          "sha256": "133dd7788f136415684dd802248d660bf0bedf062553b13b61143368645cfa93"
+        }
+      ],
+      "max_output_bytes": 262144,
+      "module_allowlist": [
+        "tools.architecture_model.validate"
+      ],
+      "oracle": {
+        "expect": {
+          "errors": [],
+          "ok": true
+        },
+        "kind": "json_subset",
+        "normalize_fields": []
+      },
+      "owner_role": "QA",
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "Architecture",
+        "Security"
+      ],
+      "risk_refs": [
+        "TM-001",
+        "TM-006"
+      ],
+      "runtime": "python",
+      "state": "active",
+      "suite": "contract_validators",
+      "test_refs": [
+        "TST-META-001"
+      ],
+      "timeout_seconds": 120
+    },
+    {
+      "argv": [
+        "-m",
+        "tools.canonical_model.validate"
+      ],
+      "case_id": "GH-VALIDATE-CANONICAL",
+      "consumer_gates": [
+        "S1-READY"
+      ],
+      "cwd": ".",
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-HARNESS",
+      "expected_exit_code": 0,
+      "inputs": [
+        {
+          "path": "docs/architecture/module-boundaries.json",
+          "sha256": "133dd7788f136415684dd802248d660bf0bedf062553b13b61143368645cfa93"
+        },
+        {
+          "path": "docs/domain/canonical-model.json",
+          "sha256": "6df752d46d513575dd1d825f80e4d5a2af657abe8ed1ae409e0e620174d65523"
+        }
+      ],
+      "max_output_bytes": 262144,
+      "module_allowlist": [
+        "tools.canonical_model.validate"
+      ],
+      "oracle": {
+        "expect": {
+          "errors": [],
+          "ok": true
+        },
+        "kind": "json_subset",
+        "normalize_fields": []
+      },
+      "owner_role": "QA",
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "Accounting",
+        "Data"
+      ],
+      "risk_refs": [
+        "TM-007",
+        "TM-008"
+      ],
+      "runtime": "python",
+      "state": "active",
+      "suite": "contract_validators",
+      "test_refs": [
+        "TST-MON-001"
+      ],
+      "timeout_seconds": 120
+    },
+    {
+      "argv": [
+        "-m",
+        "tools.completeness_model.validate"
+      ],
+      "case_id": "GH-VALIDATE-COMPLETENESS",
+      "consumer_gates": [
+        "S1-READY"
+      ],
+      "cwd": ".",
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-HARNESS",
+      "expected_exit_code": 0,
+      "inputs": [
+        {
+          "path": "docs/architecture/module-boundaries.json",
+          "sha256": "133dd7788f136415684dd802248d660bf0bedf062553b13b61143368645cfa93"
+        },
+        {
+          "path": "docs/domain/canonical-model.json",
+          "sha256": "6df752d46d513575dd1d825f80e4d5a2af657abe8ed1ae409e0e620174d65523"
+        },
+        {
+          "path": "docs/domain/completeness-balances.json",
+          "sha256": "f23babddc0806770b2c2d1dac2d40768266c450dfadb097d758e28a193e606c9"
+        }
+      ],
+      "max_output_bytes": 262144,
+      "module_allowlist": [
+        "tools.completeness_model.validate"
+      ],
+      "oracle": {
+        "expect": {
+          "errors": [],
+          "ok": true
+        },
+        "kind": "json_subset",
+        "normalize_fields": []
+      },
+      "owner_role": "QA",
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "Accounting",
+        "Data"
+      ],
+      "risk_refs": [
+        "TM-007"
+      ],
+      "runtime": "python",
+      "state": "active",
+      "suite": "contract_validators",
+      "test_refs": [
+        "TST-BAL-001",
+        "TST-CMP-001"
+      ],
+      "timeout_seconds": 120
+    },
+    {
+      "argv": [
+        "-m",
+        "tools.connector_model.validate"
+      ],
+      "case_id": "GH-VALIDATE-CONNECTOR",
+      "consumer_gates": [
+        "S1-READY"
+      ],
+      "cwd": ".",
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-HARNESS",
+      "expected_exit_code": 0,
+      "inputs": [
+        {
+          "path": "docs/contracts/connectors/connector-contract.json",
+          "sha256": "08a940adeae02f8ca2ca209082443f96f3e03425d8700e4e8d15b31e6ad56e89"
+        },
+        {
+          "path": "docs/contracts/connectors/connector-manifest.schema.json",
+          "sha256": "4aac041152d5e768c2a431014719f0cdad810d9655bb4c39de7033ada9b5d123"
+        },
+        {
+          "path": "docs/domain/completeness-balances.json",
+          "sha256": "f23babddc0806770b2c2d1dac2d40768266c450dfadb097d758e28a193e606c9"
+        },
+        {
+          "path": "docs/domain/idempotency-dedupe.json",
+          "sha256": "c9960eb7df6fe335a6830750599b31770bd8d1281598902075116142d08a4a5c"
+        }
+      ],
+      "max_output_bytes": 262144,
+      "module_allowlist": [
+        "tools.connector_model.validate"
+      ],
+      "oracle": {
+        "expect": {
+          "errors": [],
+          "ok": true
+        },
+        "kind": "json_subset",
+        "normalize_fields": []
+      },
+      "owner_role": "QA",
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "Architecture",
+        "Data"
+      ],
+      "risk_refs": [
+        "TM-009"
+      ],
+      "runtime": "python",
+      "state": "active",
+      "suite": "contract_validators",
+      "test_refs": [
+        "TST-CON-001"
+      ],
+      "timeout_seconds": 120
+    },
+    {
+      "argv": [
+        "-m",
+        "tools.cross_contract_model.validate"
+      ],
+      "case_id": "GH-VALIDATE-CROSS-CONTRACT",
+      "consumer_gates": [
+        "S1-READY"
+      ],
+      "cwd": ".",
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-HARNESS",
+      "expected_exit_code": 0,
+      "inputs": [
+        {
+          "path": "docs/architecture/cross-contract-vocabulary.json",
+          "sha256": "b54bb7ffd8ebc66c5e9703c54500960dc5f982685e1d64784f0d4ea7f0701070"
+        },
+        {
+          "path": "docs/architecture/dfd-flows.json",
+          "sha256": "d78cdac0f83366c6981d484354b0755f9c4a9f3890bc872807ff3945e7e2bb96"
+        },
+        {
+          "path": "docs/architecture/module-boundaries.json",
+          "sha256": "133dd7788f136415684dd802248d660bf0bedf062553b13b61143368645cfa93"
+        },
+        {
+          "path": "docs/domain/canonical-model.json",
+          "sha256": "6df752d46d513575dd1d825f80e4d5a2af657abe8ed1ae409e0e620174d65523"
+        }
+      ],
+      "max_output_bytes": 262144,
+      "module_allowlist": [
+        "tools.cross_contract_model.validate"
+      ],
+      "oracle": {
+        "expect": {
+          "errors": [],
+          "ok": true
+        },
+        "kind": "json_subset",
+        "normalize_fields": []
+      },
+      "owner_role": "QA",
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "Architecture",
+        "Privacy"
+      ],
+      "risk_refs": [
+        "TM-001",
+        "TM-011"
+      ],
+      "runtime": "python",
+      "state": "active",
+      "suite": "contract_validators",
+      "test_refs": [
+        "TST-XCON-001",
+        "TST-XCON-004"
+      ],
+      "timeout_seconds": 120
+    },
+    {
+      "argv": [
+        "-m",
+        "tools.dfd_model.validate"
+      ],
+      "case_id": "GH-VALIDATE-DFD",
+      "consumer_gates": [
+        "S1-READY"
+      ],
+      "cwd": ".",
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-HARNESS",
+      "expected_exit_code": 0,
+      "inputs": [
+        {
+          "path": "docs/architecture/dfd-flows.json",
+          "sha256": "d78cdac0f83366c6981d484354b0755f9c4a9f3890bc872807ff3945e7e2bb96"
+        }
+      ],
+      "max_output_bytes": 262144,
+      "module_allowlist": [
+        "tools.dfd_model.validate"
+      ],
+      "oracle": {
+        "expect": {
+          "errors": [],
+          "ok": true
+        },
+        "kind": "json_subset",
+        "normalize_fields": []
+      },
+      "owner_role": "QA",
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "Architecture",
+        "Security"
+      ],
+      "risk_refs": [
+        "TM-011"
+      ],
+      "runtime": "python",
+      "state": "active",
+      "suite": "contract_validators",
+      "test_refs": [
+        "TST-META-001"
+      ],
+      "timeout_seconds": 120
+    },
+    {
+      "argv": [
+        "-m",
+        "tools.event_model.validate"
+      ],
+      "case_id": "GH-VALIDATE-EVENTS",
+      "consumer_gates": [
+        "S1-READY"
+      ],
+      "cwd": ".",
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-HARNESS",
+      "expected_exit_code": 0,
+      "inputs": [
+        {
+          "path": "docs/architecture/dfd-flows.json",
+          "sha256": "d78cdac0f83366c6981d484354b0755f9c4a9f3890bc872807ff3945e7e2bb96"
+        },
+        {
+          "path": "docs/architecture/events-retries.json",
+          "sha256": "85b6798618ba228ba605b2ff85a4d892bf828cd91fe1f8453d5ac788ee749124"
+        },
+        {
+          "path": "docs/architecture/module-boundaries.json",
+          "sha256": "133dd7788f136415684dd802248d660bf0bedf062553b13b61143368645cfa93"
+        },
+        {
+          "path": "docs/domain/idempotency-dedupe.json",
+          "sha256": "c9960eb7df6fe335a6830750599b31770bd8d1281598902075116142d08a4a5c"
+        }
+      ],
+      "max_output_bytes": 262144,
+      "module_allowlist": [
+        "tools.event_model.validate"
+      ],
+      "oracle": {
+        "expect": {
+          "errors": [],
+          "ok": true
+        },
+        "kind": "json_subset",
+        "normalize_fields": []
+      },
+      "owner_role": "QA",
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "Architecture",
+        "Platform"
+      ],
+      "risk_refs": [
+        "TM-009"
+      ],
+      "runtime": "python",
+      "state": "active",
+      "suite": "contract_validators",
+      "test_refs": [
+        "TST-OUT-001",
+        "TST-RET-001"
+      ],
+      "timeout_seconds": 120
+    },
+    {
+      "argv": [
+        "-m",
+        "tools.idempotency_model.validate"
+      ],
+      "case_id": "GH-VALIDATE-IDEMPOTENCY",
+      "consumer_gates": [
+        "S1-READY"
+      ],
+      "cwd": ".",
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-HARNESS",
+      "expected_exit_code": 0,
+      "inputs": [
+        {
+          "path": "docs/architecture/dfd-flows.json",
+          "sha256": "d78cdac0f83366c6981d484354b0755f9c4a9f3890bc872807ff3945e7e2bb96"
+        },
+        {
+          "path": "docs/architecture/module-boundaries.json",
+          "sha256": "133dd7788f136415684dd802248d660bf0bedf062553b13b61143368645cfa93"
+        },
+        {
+          "path": "docs/domain/canonical-model.json",
+          "sha256": "6df752d46d513575dd1d825f80e4d5a2af657abe8ed1ae409e0e620174d65523"
+        },
+        {
+          "path": "docs/domain/idempotency-dedupe.json",
+          "sha256": "c9960eb7df6fe335a6830750599b31770bd8d1281598902075116142d08a4a5c"
+        }
+      ],
+      "max_output_bytes": 262144,
+      "module_allowlist": [
+        "tools.idempotency_model.validate"
+      ],
+      "oracle": {
+        "expect": {
+          "errors": [],
+          "ok": true
+        },
+        "kind": "json_subset",
+        "normalize_fields": []
+      },
+      "owner_role": "QA",
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "Accounting",
+        "Data"
+      ],
+      "risk_refs": [
+        "TM-008",
+        "TM-009"
+      ],
+      "runtime": "python",
+      "state": "active",
+      "suite": "contract_validators",
+      "test_refs": [
+        "TST-DED-002",
+        "TST-IDEM-001"
+      ],
+      "timeout_seconds": 120
+    },
+    {
+      "argv": [
+        "-m",
+        "tools.lineage_model.validate"
+      ],
+      "case_id": "GH-VALIDATE-LINEAGE",
+      "consumer_gates": [
+        "S1-READY"
+      ],
+      "cwd": ".",
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-HARNESS",
+      "expected_exit_code": 0,
+      "inputs": [
+        {
+          "path": "docs/architecture/dfd-flows.json",
+          "sha256": "d78cdac0f83366c6981d484354b0755f9c4a9f3890bc872807ff3945e7e2bb96"
+        },
+        {
+          "path": "docs/architecture/module-boundaries.json",
+          "sha256": "133dd7788f136415684dd802248d660bf0bedf062553b13b61143368645cfa93"
+        },
+        {
+          "path": "docs/domain/canonical-model.json",
+          "sha256": "6df752d46d513575dd1d825f80e4d5a2af657abe8ed1ae409e0e620174d65523"
+        },
+        {
+          "path": "docs/domain/idempotency-dedupe.json",
+          "sha256": "c9960eb7df6fe335a6830750599b31770bd8d1281598902075116142d08a4a5c"
+        },
+        {
+          "path": "docs/domain/lineage-model.json",
+          "sha256": "cbb8811636db25d5e8a0fe370218c4469020d10c4efede74bafd7558b63d8054"
+        },
+        {
+          "path": "docs/privacy/privacy-map.json",
+          "sha256": "ebbf237503179202d588ccb1703f4080a7805cba17dc362b90956feb856d2331"
+        },
+        {
+          "path": "docs/security/threat-model.json",
+          "sha256": "48ab718002d4c37a9bba54c1cee54ee317209803058620edb406b3dcd241f9ed"
+        }
+      ],
+      "max_output_bytes": 262144,
+      "module_allowlist": [
+        "tools.lineage_model.validate"
+      ],
+      "oracle": {
+        "expect": {
+          "errors": [],
+          "ok": true
+        },
+        "kind": "json_subset",
+        "normalize_fields": []
+      },
+      "owner_role": "QA",
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "Accounting",
+        "Data"
+      ],
+      "risk_refs": [
+        "TM-013",
+        "TM-014",
+        "TM-015"
+      ],
+      "runtime": "python",
+      "state": "active",
+      "suite": "contract_validators",
+      "test_refs": [
+        "TST-LIN-001",
+        "TST-PAR-001"
+      ],
+      "timeout_seconds": 120
+    },
+    {
+      "argv": [
+        "-m",
+        "tools.privacy_model.validate"
+      ],
+      "case_id": "GH-VALIDATE-PRIVACY",
+      "consumer_gates": [
+        "S1-READY"
+      ],
+      "cwd": ".",
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-HARNESS",
+      "expected_exit_code": 0,
+      "inputs": [
+        {
+          "path": "docs/architecture/dfd-flows.json",
+          "sha256": "d78cdac0f83366c6981d484354b0755f9c4a9f3890bc872807ff3945e7e2bb96"
+        },
+        {
+          "path": "docs/privacy/privacy-map.json",
+          "sha256": "ebbf237503179202d588ccb1703f4080a7805cba17dc362b90956feb856d2331"
+        },
+        {
+          "path": "docs/security/threat-model.json",
+          "sha256": "48ab718002d4c37a9bba54c1cee54ee317209803058620edb406b3dcd241f9ed"
+        }
+      ],
+      "max_output_bytes": 262144,
+      "module_allowlist": [
+        "tools.privacy_model.validate"
+      ],
+      "oracle": {
+        "expect": {
+          "errors": [],
+          "ok": true
+        },
+        "kind": "json_subset",
+        "normalize_fields": []
+      },
+      "owner_role": "QA",
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "Privacy",
+        "Security"
+      ],
+      "risk_refs": [
+        "TM-010",
+        "TM-011",
+        "TM-014"
+      ],
+      "runtime": "python",
+      "state": "active",
+      "suite": "contract_validators",
+      "test_refs": [
+        "TST-DRG-001"
+      ],
+      "timeout_seconds": 120
+    },
+    {
+      "argv": [
+        "-m",
+        "tools.threat_model.validate"
+      ],
+      "case_id": "GH-VALIDATE-THREAT",
+      "consumer_gates": [
+        "S1-READY"
+      ],
+      "cwd": ".",
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-HARNESS",
+      "expected_exit_code": 0,
+      "inputs": [
+        {
+          "path": "docs/architecture/dfd-flows.json",
+          "sha256": "d78cdac0f83366c6981d484354b0755f9c4a9f3890bc872807ff3945e7e2bb96"
+        },
+        {
+          "path": "docs/security/threat-model.json",
+          "sha256": "48ab718002d4c37a9bba54c1cee54ee317209803058620edb406b3dcd241f9ed"
+        }
+      ],
+      "max_output_bytes": 262144,
+      "module_allowlist": [
+        "tools.threat_model.validate"
+      ],
+      "oracle": {
+        "expect": {
+          "errors": [],
+          "ok": true
+        },
+        "kind": "json_subset",
+        "normalize_fields": []
+      },
+      "owner_role": "QA",
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "Architecture",
+        "Security"
+      ],
+      "risk_refs": [
+        "TM-013"
+      ],
+      "runtime": "python",
+      "state": "active",
+      "suite": "contract_validators",
+      "test_refs": [
+        "TST-META-001"
+      ],
+      "timeout_seconds": 120
+    },
+    {
+      "argv": [
+        "-m",
+        "tools.quality_strategy.validate"
+      ],
+      "case_id": "GH-VALIDATE-STRATEGY",
+      "consumer_gates": [
+        "S1-READY"
+      ],
+      "cwd": ".",
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-HARNESS",
+      "expected_exit_code": 0,
+      "inputs": [
+        {
+          "path": "docs/architecture/module-boundaries.json",
+          "sha256": "133dd7788f136415684dd802248d660bf0bedf062553b13b61143368645cfa93"
+        },
+        {
+          "path": "docs/security/threat-model.json",
+          "sha256": "48ab718002d4c37a9bba54c1cee54ee317209803058620edb406b3dcd241f9ed"
+        },
+        {
+          "path": "docs/testing/TEST_CATALOG.md",
+          "sha256": "a33f531ee54e4bf29df6f09bf4b8dfab9668e1c2350d1fd35b13e0fde1c81d46"
+        },
+        {
+          "path": "docs/testing/test-strategy.json",
+          "sha256": "e4b51336066b9bed3b69dff8d86d5d14b4397de61ebc9f96699a13404aeb5ab7"
+        }
+      ],
+      "max_output_bytes": 262144,
+      "module_allowlist": [
+        "tools.quality_strategy.validate"
+      ],
+      "oracle": {
+        "expect": {
+          "errors": [],
+          "ok": true
+        },
+        "kind": "json_subset",
+        "normalize_fields": []
+      },
+      "owner_role": "QA",
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "Architecture",
+        "Security"
+      ],
+      "risk_refs": [
+        "TM-013"
+      ],
+      "runtime": "python",
+      "state": "active",
+      "suite": "contract_validators",
+      "test_refs": [
+        "TST-META-001"
+      ],
+      "timeout_seconds": 120
+    },
+    {
+      "argv": [
+        "-m",
+        "tools.synthetic_corpus.cli",
+        "verify",
+        "--root",
+        "tests/golden/synthetic"
+      ],
+      "case_id": "GH-CORPUS-VERIFY",
+      "consumer_gates": [
+        "S1-READY"
+      ],
+      "cwd": ".",
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-HARNESS",
+      "expected_exit_code": 0,
+      "inputs": [
+        {
+          "path": "tests/golden/synthetic/manifest.json",
+          "sha256": "02548181b73453dfea7067e5e6113267c2b496a12338388179e71cb9d474210c"
+        }
+      ],
+      "max_output_bytes": 262144,
+      "module_allowlist": [
+        "tools.synthetic_corpus.cli"
+      ],
+      "oracle": {
+        "expect": {
+          "checked_files": 5,
+          "errors": [],
+          "ok": true
+        },
+        "kind": "json_subset",
+        "normalize_fields": []
+      },
+      "owner_role": "QA",
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "Data",
+        "Security"
+      ],
+      "risk_refs": [
+        "TM-005"
+      ],
+      "runtime": "python",
+      "state": "active",
+      "suite": "synthetic_corpus",
+      "test_refs": [
+        "TST-CI-001"
+      ],
+      "timeout_seconds": 120
+    },
+    {
+      "argv": [
+        "-m",
+        "tools.golden_harness.selfcheck",
+        "--input",
+        "tests/golden/harness/sample_case_input.json"
+      ],
+      "case_id": "GH-SELFCHECK",
+      "consumer_gates": [
+        "S1-READY"
+      ],
+      "cwd": ".",
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-HARNESS",
+      "expected_exit_code": 0,
+      "inputs": [
+        {
+          "path": "tests/golden/harness/MANIFEST.json",
+          "sha256": "4c36ae1cd600c56204a7fcf7d49d6cc0e41644156902dba821e12f1fc25ef231"
+        },
+        {
+          "path": "tests/golden/harness/sample_case_input.json",
+          "sha256": "f4d38e132a478df3f3f8dec15dd9851f3691c4cd6e74387f428a77e16b4afe66"
+        }
+      ],
+      "max_output_bytes": 262144,
+      "module_allowlist": [
+        "tools.golden_harness.selfcheck"
+      ],
+      "oracle": {
+        "expect": {
+          "data_classification": "synthetic_only",
+          "ok": true,
+          "record_count": 3
+        },
+        "kind": "json_subset",
+        "normalize_fields": []
+      },
+      "owner_role": "QA",
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "Data",
+        "Platform"
+      ],
+      "risk_refs": [
+        "TM-015"
+      ],
+      "runtime": "python",
+      "state": "active",
+      "suite": "harness_selfcheck",
+      "test_refs": [
+        "TST-META-001"
+      ],
+      "timeout_seconds": 120
+    }
+  ],
+  "data_ceiling": "synthetic_only",
+  "determinism": {
+    "digest_excludes": [
+      "duration",
+      "interpreter_patch_version",
+      "hostname",
+      "timestamp"
+    ],
+    "digest_inputs": [
+      "registry_digest",
+      "case_digest",
+      "input_digests",
+      "expected_exit_code",
+      "actual_exit_code",
+      "normalised_output_digest"
+    ],
+    "rationale": "la duracion y el intérprete concreto no cambian el resultado adjudicado; el output si"
+  },
+  "human_acceptance": "pending",
+  "network_access": false,
+  "schema_version": 1,
+  "status": "review_pending",
+  "task_id": "FNC-QA-003"
+}

@@ -1,0 +1,1112 @@
+{
+  "accessibility_testing": {
+    "automated_scope": [
+      "contrast_ratio",
+      "focus_visibility",
+      "heading_structure",
+      "keyboard_navigation",
+      "name_role_value",
+      "state_not_only_by_colour"
+    ],
+    "component_existence_counts_as_evidence": false,
+    "gate": "GA-01",
+    "human_testing_claimed": false,
+    "human_testing_state": "pending_human",
+    "owner_role": "Web/UX",
+    "reviewer_roles": [
+      "Accessibility/QA",
+      "Product"
+    ],
+    "standard": "WCAG_2_2_AA"
+  },
+  "accounting_testing": {
+    "approximate_comparison_allowed": false,
+    "balance_equation_required": true,
+    "completeness_before_close_required": true,
+    "currency_explicit_required": true,
+    "float_allowed": false,
+    "gate": "S1-READY",
+    "money_representation": "exact_decimal",
+    "reviewer_role": "Accounting",
+    "segregation_of_duties_required": true,
+    "semantic_dates_distinct": [
+      "accounting",
+      "issue",
+      "occurred",
+      "posted",
+      "settlement",
+      "value"
+    ],
+    "unknown_or_partial_blocks_close": true
+  },
+  "ai_testing": {
+    "abstention_required": true,
+    "adjudicated_dataset_required": true,
+    "drift_monitoring_required": true,
+    "external_ai_enabled": false,
+    "fallback_required": true,
+    "gate": "L-02",
+    "json_validity_is_sufficient_oracle": false,
+    "model_has_financial_authority": false,
+    "redaction_fail_closed_required": true,
+    "required_oracles": [
+      "abstention_rate",
+      "adversarial_prompt_injection",
+      "calibration",
+      "redaction_recall",
+      "semantic_field_accuracy"
+    ]
+  },
+  "ci_lanes": [
+    {
+      "blocking_gates": [
+        "S1-READY"
+      ],
+      "contains": [
+        "format",
+        "lint",
+        "types",
+        "secret_scan",
+        "dependency_scan"
+      ],
+      "depends_on": [],
+      "id": "lane_static",
+      "order": 1,
+      "requires_infrastructure": false
+    },
+    {
+      "blocking_gates": [
+        "S1-READY"
+      ],
+      "contains": [
+        "contract_validators",
+        "cross_contract_vocabulary",
+        "quality_strategy"
+      ],
+      "depends_on": [
+        "lane_static"
+      ],
+      "id": "lane_contract",
+      "order": 2,
+      "requires_infrastructure": false
+    },
+    {
+      "blocking_gates": [
+        "S1-READY"
+      ],
+      "contains": [
+        "unit",
+        "property"
+      ],
+      "depends_on": [
+        "lane_static"
+      ],
+      "id": "lane_unit_property",
+      "order": 3,
+      "requires_infrastructure": false
+    },
+    {
+      "blocking_gates": [
+        "S1-READY"
+      ],
+      "contains": [
+        "golden_harness",
+        "synthetic_corpus_verify"
+      ],
+      "depends_on": [
+        "lane_contract"
+      ],
+      "id": "lane_golden",
+      "order": 4,
+      "requires_infrastructure": false
+    },
+    {
+      "blocking_gates": [
+        "DRG-01"
+      ],
+      "contains": [
+        "postgresql_rls",
+        "outbox",
+        "worker_sandbox"
+      ],
+      "depends_on": [
+        "lane_contract",
+        "lane_unit_property"
+      ],
+      "id": "lane_integration",
+      "order": 5,
+      "requires_infrastructure": true
+    },
+    {
+      "blocking_gates": [
+        "DRG-01"
+      ],
+      "contains": [
+        "cross_company",
+        "replay",
+        "egress",
+        "restore"
+      ],
+      "depends_on": [
+        "lane_integration"
+      ],
+      "id": "lane_security",
+      "order": 6,
+      "requires_infrastructure": true
+    }
+  ],
+  "coverage_policy": {
+    "aggregate_percentage_as_gate": false,
+    "average_hides_failure": false,
+    "per_company_enumeration_required": true,
+    "per_field_enumeration_required": true,
+    "per_format_enumeration_required": true,
+    "structural_coverage_is_not_correctness": true
+  },
+  "data_and_fixture_policy": {
+    "allowed_classification": "synthetic_only",
+    "existing_corpus_immutable": [
+      "tests/golden/synthetic"
+    ],
+    "manifest_required": true,
+    "new_fixture_root": "tests/golden/harness",
+    "provenance_required": true,
+    "real_or_derived_allowed": false,
+    "reserved_domains_required": true
+  },
+  "data_ceiling": "synthetic_only",
+  "double_policy": {
+    "allowed_layers": [
+      "unit",
+      "property"
+    ],
+    "cannot_demonstrate": [
+      "connection_pool_context_isolation",
+      "object_storage_versioning_and_locks",
+      "real_provider_replay_semantics",
+      "restore_and_tombstone_reapplication",
+      "row_level_security_enforcement",
+      "transactional_atomicity"
+    ],
+    "double_counted_as_integration": false,
+    "forbidden_layers": [
+      "integration",
+      "security",
+      "golden",
+      "e2e"
+    ],
+    "kinds": [
+      "mock",
+      "stub",
+      "fake",
+      "emulator"
+    ]
+  },
+  "evidence_contract": {
+    "data_classification_values": [
+      "synthetic_only"
+    ],
+    "payload_included": false,
+    "required_fields": [
+      "command",
+      "data_classification",
+      "evidence_id",
+      "input_digests",
+      "produced_by_role",
+      "result",
+      "reviewed_by_role",
+      "runtime_version"
+    ],
+    "result_values": [
+      "pass",
+      "fail",
+      "not_run"
+    ],
+    "secrets_included": false
+  },
+  "execution_mode": "contract_and_offline_harness_only",
+  "flake_policy": {
+    "flaky_definition": "resultado no determinista sobre el mismo input y la misma version",
+    "known_failure_counts_as_pass": false,
+    "protected_control_domains": [
+      "completeness_and_balances",
+      "idempotency_and_dedupe",
+      "lineage_and_evidence",
+      "money_and_decimal",
+      "restore_and_tombstones",
+      "rls_and_company_isolation",
+      "security_and_egress"
+    ],
+    "protected_domain_quarantine_allowed": false,
+    "protected_domain_skip_allowed": false,
+    "quarantine_max_consecutive_gates": 1,
+    "quarantine_requires": [
+      "expiry_gate",
+      "owner_role",
+      "reason",
+      "reviewer_role",
+      "tracking_id"
+    ],
+    "retry_allowed": false,
+    "retry_masks_flake": false,
+    "silent_skip_allowed": false,
+    "skip_allowed": false,
+    "waiver_required_fields": [
+      "expiry_gate",
+      "gate",
+      "owner_role",
+      "reason",
+      "reviewer_role",
+      "waiver_id"
+    ],
+    "waiver_self_approval_allowed": false
+  },
+  "gates": [
+    {
+      "acceptance": "pending_human",
+      "id": "S1-READY",
+      "owner_role": "Integration Steward",
+      "status": "not_met"
+    },
+    {
+      "acceptance": "pending_human",
+      "id": "DRG-00",
+      "owner_role": "Legal",
+      "status": "not_met"
+    },
+    {
+      "acceptance": "pending_human",
+      "id": "DRG-01",
+      "owner_role": "Legal",
+      "status": "not_met"
+    },
+    {
+      "acceptance": "pending_human",
+      "id": "GA-01",
+      "owner_role": "Product",
+      "status": "not_met"
+    },
+    {
+      "acceptance": "pending_human",
+      "id": "L-02",
+      "owner_role": "Legal",
+      "status": "not_met"
+    },
+    {
+      "acceptance": "pending_human",
+      "id": "S-01",
+      "owner_role": "Security",
+      "status": "not_met"
+    }
+  ],
+  "human_acceptance": "pending",
+  "id_policy": {
+    "catalog_drift_effect": "report_to_integration_steward_not_silently_absorbed",
+    "discovery_pattern": "TST-[A-Z0-9]+-[0-9]{3}",
+    "discovery_sources": [
+      "docs/architecture/cross-contract-vocabulary.json",
+      "docs/architecture/events-retries.json",
+      "docs/contracts/connectors/connector-contract.json",
+      "docs/domain/completeness-balances.json",
+      "docs/domain/idempotency-dedupe.json",
+      "docs/domain/lineage-model.json",
+      "docs/testing/TEST_CATALOG.md"
+    ],
+    "duplicate_id_effect": "reject",
+    "parallel_fixed_list_maintained": false,
+    "unknown_id_effect": "reject"
+  },
+  "layers": [
+    {
+      "cannot_prove": "aislamiento de base de datos, RLS, concurrencia real o integracion",
+      "gate": "S1-READY",
+      "id": "unit",
+      "proves": "que una transformacion respeta su contrato aislado",
+      "scope": "funciones puras e invariantes locales",
+      "test_doubles_allowed": true
+    },
+    {
+      "cannot_prove": "que el espacio generado represente el trafico real",
+      "gate": "S1-READY",
+      "id": "property",
+      "proves": "que una invariante se sostiene sobre un espacio generado",
+      "scope": "dinero, fechas, locales, idempotencia y combinaciones",
+      "test_doubles_allowed": true
+    },
+    {
+      "cannot_prove": "que el codigo productivo implemente el contrato",
+      "gate": "S1-READY",
+      "id": "contract",
+      "proves": "que dos contratos son mutuamente coherentes",
+      "scope": "modelos ejecutables, OpenAPI, eventos, jobs y conectores",
+      "test_doubles_allowed": false
+    },
+    {
+      "cannot_prove": "correccion contable ni completitud de una fuente",
+      "gate": "DRG-01",
+      "id": "integration",
+      "proves": "comportamiento real de la frontera con infraestructura",
+      "scope": "PostgreSQL, RLS, object storage, outbox y workers",
+      "test_doubles_allowed": false
+    },
+    {
+      "cannot_prove": "que la salida adjudicada sea contablemente correcta",
+      "gate": "S1-READY",
+      "id": "golden",
+      "proves": "que una salida adjudicada no cambio sin decision humana",
+      "scope": "parsers, plantillas, engine_release y validadores adjudicados",
+      "test_doubles_allowed": false
+    },
+    {
+      "cannot_prove": "ausencia de vulnerabilidades no modeladas",
+      "gate": "DRG-01",
+      "id": "security",
+      "proves": "que un ataque conocido falla cerrado",
+      "scope": "cross-company, pool leakage, replay, worker escape, egress y restore",
+      "test_doubles_allowed": false
+    },
+    {
+      "cannot_prove": "rendimiento, escala ni exactitud financiera",
+      "gate": "DRG-01",
+      "id": "e2e",
+      "proves": "que las piezas se conectan sobre datos sinteticos",
+      "scope": "walking skeleton sintetico de extremo a extremo",
+      "test_doubles_allowed": false
+    },
+    {
+      "cannot_prove": "usabilidad percibida sin prueba con personas",
+      "gate": "GA-01",
+      "id": "usability_accessibility",
+      "proves": "conformidad verificable de criterios automatizables",
+      "scope": "teclado, foco, encabezados, contraste y flujo",
+      "test_doubles_allowed": false
+    }
+  ],
+  "mutation_policy": {
+    "evidence_required": true,
+    "minimum_mutants_per_validator": 5,
+    "note": "Una suite en verde no demuestra que el validador muerda; una mutacion que sobrevive es un test que falta.",
+    "required": true,
+    "scope": "reglas criticas de cada validador ejecutable",
+    "surviving_mutant_effect": "treated_as_missing_test"
+  },
+  "oracle_types": [
+    {
+      "description": "igualdad exacta contra un valor adjudicado",
+      "id": "exact",
+      "money_safe": true,
+      "requires_adjudication": true
+    },
+    {
+      "description": "una propiedad debe sostenerse en toda ejecucion",
+      "id": "invariant",
+      "money_safe": true,
+      "requires_adjudication": false
+    },
+    {
+      "description": "relacion entre entradas y salidas transformadas",
+      "id": "metamorphic",
+      "money_safe": true,
+      "requires_adjudication": false
+    },
+    {
+      "description": "invariante sobre un espacio generado con semilla fija",
+      "id": "property",
+      "money_safe": true,
+      "requires_adjudication": false
+    },
+    {
+      "auto_update_allowed": false,
+      "description": "snapshot congelado por decision humana",
+      "id": "adjudicated_snapshot",
+      "money_safe": true,
+      "requires_adjudication": true
+    }
+  ],
+  "ownership": {
+    "author_is_sole_reviewer_allowed": false,
+    "expected_output_adjudicator_equals_code_author_allowed": false,
+    "independent_review_required_domains": [
+      "completeness_and_balances",
+      "idempotency_and_dedupe",
+      "lineage_and_evidence",
+      "money_and_decimal",
+      "restore_and_tombstones",
+      "rls_and_company_isolation",
+      "security_and_egress"
+    ],
+    "owner_role_required": true,
+    "reviewer_roles_required": true
+  },
+  "performance_slo": {
+    "budget_state": "pending_human",
+    "gate": "GA-01",
+    "invented_threshold_allowed": false,
+    "measurement_required_before_threshold": true,
+    "note": "Sin presupuesto aprobado no hay umbral. Medir primero, fijar despues.",
+    "owner_role": "Platform",
+    "reviewer_roles": [
+      "Architecture",
+      "Product"
+    ],
+    "thresholds_declared": false
+  },
+  "principles": [
+    {
+      "id": "QS-NO-AVERAGE",
+      "rule": "Un promedio de cobertura nunca sustituye la enumeracion de campos, empresas o formatos fallidos."
+    },
+    {
+      "id": "QS-FAIL-CLOSED",
+      "rule": "Skip, quarantine, retry o waiver fallan cerrado en controles financieros y de seguridad."
+    },
+    {
+      "id": "QS-EVIDENCE-OR-NOTHING",
+      "rule": "Un test solo cuenta como evidencia si registra comando, version, hash, clasificacion y resultado."
+    },
+    {
+      "id": "QS-DYNAMIC-IDS",
+      "rule": "Los IDs requeridos se descubren de contratos ejecutables y catalogo; una lista fija paralela es drift disfrazado de cobertura."
+    },
+    {
+      "id": "QS-DOUBLE-LIMITS",
+      "rule": "Un mock demuestra que el llamador compila contra una firma, no que la dependencia real se comporte asi."
+    },
+    {
+      "id": "QS-STRUCTURAL-NOT-SEMANTIC",
+      "rule": "Cobertura estructural no es exactitud contable ni calidad de modelo."
+    },
+    {
+      "id": "QS-ADJUDICATION-SOD",
+      "rule": "Quien cambia el codigo no aprueba el expected output que ese cambio modifica."
+    },
+    {
+      "id": "QS-NO-INVENTED-THRESHOLD",
+      "rule": "Un umbral de rendimiento sin presupuesto aprobado permanece pending_human, no se inventa."
+    },
+    {
+      "id": "QS-SYNTHETIC-ONLY",
+      "rule": "Todo fixture es inequivocamente sintetico, inventariado y con procedencia demostrable."
+    },
+    {
+      "id": "QS-OFFLINE",
+      "rule": "Una prueba con red o reloj no controlado no es determinista y no es evidencia."
+    }
+  ],
+  "pyramid_by_module": [
+    {
+      "boundary": "money_and_balances",
+      "contract": "high",
+      "golden": "medium",
+      "integration": "medium",
+      "module": "finance",
+      "property": "high",
+      "unit": "high"
+    },
+    {
+      "boundary": "completeness_and_matching",
+      "contract": "high",
+      "golden": "high",
+      "integration": "medium",
+      "module": "reconciliation",
+      "property": "high",
+      "unit": "high"
+    },
+    {
+      "boundary": "parsing_and_lineage",
+      "contract": "high",
+      "golden": "high",
+      "integration": "low",
+      "module": "clean",
+      "property": "medium",
+      "unit": "high"
+    },
+    {
+      "boundary": "quarantine_and_promotion",
+      "contract": "high",
+      "golden": "medium",
+      "integration": "high",
+      "module": "ingestion",
+      "property": "low",
+      "unit": "medium"
+    },
+    {
+      "boundary": "outbox_retry_and_release",
+      "contract": "high",
+      "golden": "medium",
+      "integration": "high",
+      "module": "platform",
+      "property": "medium",
+      "unit": "medium"
+    },
+    {
+      "boundary": "append_only_and_digest",
+      "contract": "high",
+      "golden": "low",
+      "integration": "high",
+      "module": "audit",
+      "property": "low",
+      "unit": "low"
+    },
+    {
+      "boundary": "snapshot_and_sod",
+      "contract": "high",
+      "golden": "high",
+      "integration": "medium",
+      "module": "close",
+      "property": "medium",
+      "unit": "medium"
+    }
+  ],
+  "risk_control_matrix": [
+    {
+      "acceptance": "pending_human",
+      "controls": [
+        "C-AUDIT",
+        "C-AUTH",
+        "C-COMPANY",
+        "C-LOG",
+        "C-RLS"
+      ],
+      "coverage_state": "covered_contract_only",
+      "evidence_ref": "EV-QA-HARNESS",
+      "gate": "DRG-01",
+      "owner_role": "Security",
+      "reviewer_roles": [
+        "Architecture"
+      ],
+      "risk_id": "TM-001",
+      "risk_severity": "critical",
+      "test_ids": [
+        "TST-LIN-003",
+        "TST-RLS-001",
+        "TST-RLS-002",
+        "TST-XCON-004"
+      ],
+      "test_layers": [
+        "contract",
+        "golden"
+      ]
+    },
+    {
+      "acceptance": "pending_human",
+      "blocks_gate": true,
+      "controls": [
+        "C-COMPANY",
+        "C-REVOKE",
+        "C-RLS",
+        "C-WORKER"
+      ],
+      "coverage_state": "gap_declared",
+      "evidence_ref": "EV-QA-HARNESS",
+      "gap_gate": "DRG-01",
+      "gap_owner_role": "Platform",
+      "gap_reason": "El aislamiento de pool exige PostgreSQL real; el harness offline no puede demostrarlo.",
+      "gate": "DRG-01",
+      "owner_role": "Backend",
+      "reviewer_roles": [
+        "Platform",
+        "Security"
+      ],
+      "risk_id": "TM-002",
+      "risk_severity": "critical",
+      "test_ids": [
+        "TST-RLS-002"
+      ],
+      "test_layers": [
+        "integration"
+      ]
+    },
+    {
+      "acceptance": "pending_human",
+      "controls": [
+        "C-AUDIT",
+        "C-AUTH",
+        "C-COMPANY",
+        "C-SIGN",
+        "C-SOD"
+      ],
+      "coverage_state": "covered_contract_only",
+      "evidence_ref": "EV-QA-HARNESS",
+      "gate": "DRG-01",
+      "owner_role": "Security",
+      "reviewer_roles": [
+        "Architecture"
+      ],
+      "risk_id": "TM-003",
+      "risk_severity": "critical",
+      "test_ids": [
+        "TST-AUTH-001",
+        "TST-AUTH-002",
+        "TST-TEN-001"
+      ],
+      "test_layers": [
+        "contract",
+        "golden"
+      ]
+    },
+    {
+      "acceptance": "pending_human",
+      "controls": [
+        "C-AUDIT",
+        "C-COMPANY",
+        "C-EXPORT",
+        "C-REVOKE"
+      ],
+      "coverage_state": "covered_contract_only",
+      "evidence_ref": "EV-QA-HARNESS",
+      "gate": "DRG-01",
+      "owner_role": "Security",
+      "reviewer_roles": [
+        "Backend",
+        "Privacy"
+      ],
+      "risk_id": "TM-004",
+      "risk_severity": "critical",
+      "test_ids": [
+        "TST-AUTH-001",
+        "TST-AUTH-002",
+        "TST-PAR-007"
+      ],
+      "test_layers": [
+        "contract",
+        "golden"
+      ]
+    },
+    {
+      "acceptance": "pending_human",
+      "blocks_gate": true,
+      "controls": [
+        "C-AUDIT",
+        "C-LOG",
+        "C-QUAR",
+        "C-SCAN",
+        "C-WORKER"
+      ],
+      "coverage_state": "gap_declared",
+      "evidence_ref": "EV-QA-CORPUS",
+      "gap_gate": "DRG-00",
+      "gap_owner_role": "Security",
+      "gap_reason": "La deteccion de PAN y contenido prohibido antes de raw depende de S-01, todavia sin mecanismo decidido.",
+      "gate": "DRG-00",
+      "owner_role": "Security",
+      "reviewer_roles": [
+        "Data Engineering",
+        "Privacy"
+      ],
+      "risk_id": "TM-005",
+      "risk_severity": "critical",
+      "test_ids": [
+        "TST-CI-001"
+      ],
+      "test_layers": [
+        "security"
+      ]
+    },
+    {
+      "acceptance": "pending_human",
+      "blocks_gate": true,
+      "controls": [
+        "C-COMPANY",
+        "C-EGRESS",
+        "C-LOG",
+        "C-MANIFEST",
+        "C-WORKER"
+      ],
+      "coverage_state": "gap_declared",
+      "evidence_ref": "EV-QA-HARNESS",
+      "gap_gate": "DRG-01",
+      "gap_owner_role": "Platform",
+      "gap_reason": "El escape de worker exige sandbox real; no hay entorno de ejecucion en Fase 0.",
+      "gate": "DRG-01",
+      "owner_role": "Platform",
+      "reviewer_roles": [
+        "Data Engineering",
+        "Security"
+      ],
+      "risk_id": "TM-006",
+      "risk_severity": "critical",
+      "test_ids": [
+        "TST-CI-001"
+      ],
+      "test_layers": [
+        "integration",
+        "security"
+      ]
+    },
+    {
+      "acceptance": "pending_human",
+      "controls": [
+        "C-AUDIT",
+        "C-COMPLETE",
+        "C-DECIMAL",
+        "C-LINEAGE",
+        "C-SOD"
+      ],
+      "coverage_state": "covered_contract_only",
+      "evidence_ref": "EV-QA-HARNESS",
+      "gate": "S1-READY",
+      "owner_role": "Accounting",
+      "reviewer_roles": [
+        "Data Engineering",
+        "Security"
+      ],
+      "risk_id": "TM-007",
+      "risk_severity": "critical",
+      "test_ids": [
+        "TST-BAL-001",
+        "TST-BAL-002",
+        "TST-CLOSE-001",
+        "TST-CMP-001",
+        "TST-CMP-002"
+      ],
+      "test_layers": [
+        "contract",
+        "golden"
+      ]
+    },
+    {
+      "acceptance": "pending_human",
+      "controls": [
+        "C-AUDIT",
+        "C-COMPLETE",
+        "C-IDEMP",
+        "C-LINEAGE"
+      ],
+      "coverage_state": "covered_contract_only",
+      "evidence_ref": "EV-QA-HARNESS",
+      "gate": "S1-READY",
+      "owner_role": "Accounting",
+      "reviewer_roles": [
+        "Architecture",
+        "Data Engineering"
+      ],
+      "risk_id": "TM-008",
+      "risk_severity": "critical",
+      "test_ids": [
+        "TST-DED-001",
+        "TST-DED-002",
+        "TST-DED-003",
+        "TST-DED-004",
+        "TST-DED-005"
+      ],
+      "test_layers": [
+        "contract",
+        "golden",
+        "property"
+      ]
+    },
+    {
+      "acceptance": "pending_human",
+      "controls": [
+        "C-AUDIT",
+        "C-IDEMP",
+        "C-MANIFEST",
+        "C-SIGN"
+      ],
+      "coverage_state": "covered_contract_only",
+      "evidence_ref": "EV-QA-HARNESS",
+      "gate": "S1-READY",
+      "owner_role": "Platform",
+      "reviewer_roles": [
+        "Backend",
+        "Finance"
+      ],
+      "risk_id": "TM-009",
+      "risk_severity": "high",
+      "test_ids": [
+        "TST-IDEM-001",
+        "TST-IDEM-002",
+        "TST-IDEM-003",
+        "TST-INB-001",
+        "TST-RET-001"
+      ],
+      "test_layers": [
+        "contract",
+        "golden",
+        "property"
+      ]
+    },
+    {
+      "acceptance": "pending_human",
+      "blocks_gate": true,
+      "controls": [
+        "C-AI",
+        "C-AUDIT",
+        "C-COMPANY",
+        "C-EGRESS",
+        "C-LOG"
+      ],
+      "coverage_state": "gap_declared",
+      "evidence_ref": "EV-QA-HARNESS",
+      "gap_gate": "L-02",
+      "gap_owner_role": "AI Platform",
+      "gap_reason": "La IA externa esta deshabilitada hasta L-02; no existe superficie ejecutable que probar.",
+      "gate": "L-02",
+      "owner_role": "AI Platform",
+      "reviewer_roles": [
+        "Privacy",
+        "Security"
+      ],
+      "risk_id": "TM-010",
+      "risk_severity": "critical",
+      "test_ids": [
+        "TST-AI-001"
+      ],
+      "test_layers": [
+        "security"
+      ]
+    },
+    {
+      "acceptance": "pending_human",
+      "controls": [
+        "C-AUDIT",
+        "C-COMPANY",
+        "C-LOG"
+      ],
+      "coverage_state": "covered_contract_only",
+      "evidence_ref": "EV-QA-HARNESS",
+      "gate": "S1-READY",
+      "owner_role": "Security",
+      "reviewer_roles": [
+        "Platform",
+        "Privacy"
+      ],
+      "risk_id": "TM-011",
+      "risk_severity": "critical",
+      "test_ids": [
+        "TST-CI-001",
+        "TST-LIN-001"
+      ],
+      "test_layers": [
+        "contract",
+        "golden"
+      ]
+    },
+    {
+      "acceptance": "pending_human",
+      "controls": [
+        "C-AUDIT",
+        "C-COMPANY",
+        "C-EXPORT",
+        "C-LOG",
+        "C-REVOKE"
+      ],
+      "coverage_state": "covered_contract_only",
+      "evidence_ref": "EV-QA-HARNESS",
+      "gate": "DRG-01",
+      "owner_role": "Backend",
+      "reviewer_roles": [
+        "Privacy",
+        "Security"
+      ],
+      "risk_id": "TM-012",
+      "risk_severity": "critical",
+      "test_ids": [
+        "TST-AUTH-001",
+        "TST-AUTH-002",
+        "TST-EXT-001"
+      ],
+      "test_layers": [
+        "contract",
+        "security"
+      ]
+    },
+    {
+      "acceptance": "pending_human",
+      "controls": [
+        "C-AUDIT",
+        "C-IDEMP",
+        "C-LOG",
+        "C-SOD"
+      ],
+      "coverage_state": "covered_contract_only",
+      "evidence_ref": "EV-QA-HARNESS",
+      "gate": "S1-READY",
+      "owner_role": "Security",
+      "reviewer_roles": [
+        "Platform",
+        "Privacy"
+      ],
+      "risk_id": "TM-013",
+      "risk_severity": "high",
+      "test_ids": [
+        "TST-LIN-001",
+        "TST-META-001"
+      ],
+      "test_layers": [
+        "contract",
+        "golden"
+      ]
+    },
+    {
+      "acceptance": "pending_human",
+      "controls": [
+        "C-AUDIT",
+        "C-DELETE",
+        "C-IDEMP",
+        "C-RESTORE",
+        "C-SOD"
+      ],
+      "coverage_state": "covered_contract_only",
+      "evidence_ref": "EV-QA-HARNESS",
+      "gate": "DRG-01",
+      "owner_role": "Platform",
+      "reviewer_roles": [
+        "Privacy",
+        "Security"
+      ],
+      "risk_id": "TM-014",
+      "risk_severity": "critical",
+      "test_ids": [
+        "TST-PAR-005",
+        "TST-PAR-006",
+        "TST-PRV-001"
+      ],
+      "test_layers": [
+        "contract",
+        "golden"
+      ]
+    },
+    {
+      "acceptance": "pending_human",
+      "controls": [
+        "C-AUDIT",
+        "C-LINEAGE",
+        "C-LOG",
+        "C-MANIFEST",
+        "C-WORKER"
+      ],
+      "coverage_state": "covered_contract_only",
+      "evidence_ref": "EV-QA-HARNESS",
+      "gate": "S1-READY",
+      "owner_role": "Platform",
+      "reviewer_roles": [
+        "Data Engineering",
+        "Security"
+      ],
+      "risk_id": "TM-015",
+      "risk_severity": "critical",
+      "test_ids": [
+        "TST-PAR-002",
+        "TST-PAR-003",
+        "TST-PAR-004",
+        "TST-PAR-007"
+      ],
+      "test_layers": [
+        "contract",
+        "golden"
+      ]
+    }
+  ],
+  "schema_version": 1,
+  "security_testing": {
+    "doubles_allowed": false,
+    "gate": "DRG-01",
+    "layer": "security",
+    "negative_tests_required": true,
+    "required_scenarios": [
+      "cross_company",
+      "export_scope",
+      "pool_context",
+      "replay_idempotency",
+      "restore_resurrection",
+      "telemetry_leak",
+      "unauthorized_egress",
+      "worker_escape"
+    ],
+    "uniform_denial_required": true
+  },
+  "status": "review_pending",
+  "task_id": "FNC-QA-002",
+  "test_case_contract": {
+    "network_access_allowed": false,
+    "required_fields": [
+      "command",
+      "data_classification",
+      "deterministic",
+      "layer",
+      "network_access",
+      "oracle_type",
+      "owner_role",
+      "reviewer_roles",
+      "risk_refs",
+      "state",
+      "test_id",
+      "title"
+    ],
+    "silent_skip_allowed": false,
+    "state_values": [
+      "active",
+      "quarantined",
+      "waived"
+    ]
+  },
+  "unresolved_decisions": [
+    {
+      "blocks": [
+        "GA-01"
+      ],
+      "id": "UD-QA-PERF-BUDGET",
+      "owner_role": "Platform",
+      "question": "Presupuesto de rendimiento y umbrales por operacion.",
+      "reviewer_roles": [
+        "Architecture",
+        "Product"
+      ],
+      "state": "pending_human"
+    },
+    {
+      "blocks": [
+        "GA-01"
+      ],
+      "id": "UD-QA-A11Y-HUMAN",
+      "owner_role": "Web/UX",
+      "question": "Alcance y proveedor de pruebas de accesibilidad con personas.",
+      "reviewer_roles": [
+        "Accessibility/QA",
+        "Product"
+      ],
+      "state": "pending_human"
+    },
+    {
+      "blocks": [
+        "S1-READY"
+      ],
+      "id": "UD-QA-CATALOG-DRIFT",
+      "owner_role": "QA",
+      "question": "TEST_CATALOG.md y los contratos ejecutables divergen en ambos sentidos; quien reconcilia y con que frecuencia.",
+      "reviewer_roles": [
+        "Integration Steward",
+        "Architecture"
+      ],
+      "state": "pending_human"
+    },
+    {
+      "blocks": [
+        "DRG-01"
+      ],
+      "id": "UD-QA-INTEGRATION-ENV",
+      "owner_role": "Platform",
+      "question": "Entorno de integracion para RLS, pool, worker sandbox y restore.",
+      "reviewer_roles": [
+        "Security",
+        "QA"
+      ],
+      "state": "pending_human"
+    },
+    {
+      "blocks": [
+        "S1-READY"
+      ],
+      "id": "UD-QA-MUTATION-TOOLING",
+      "owner_role": "QA",
+      "question": "Herramienta y presupuesto de mutation testing sostenido en CI.",
+      "reviewer_roles": [
+        "Platform",
+        "Architecture"
+      ],
+      "state": "pending_human"
+    }
+  ]
+}

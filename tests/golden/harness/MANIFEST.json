@@ -1,0 +1,13 @@
+{
+  "data_classification": "synthetic_only",
+  "files": {
+    "README.md": "344ba08bb74a931670739253f4e32ec44ddd895da16f5787af8d546204bdf683",
+    "sample_case_input.json": "f4d38e132a478df3f3f8dec15dd9851f3691c4cd6e74387f428a77e16b4afe66"
+  },
+  "fixture_set": "golden_harness",
+  "provenance": "authored_from_scratch",
+  "reserved_domains": [
+    "example.invalid"
+  ],
+  "task_id": "FNC-QA-003"
+}

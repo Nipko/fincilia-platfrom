@@ -1,10 +1,10 @@
 ---
 task: FNC-QA-003
 title: Golden harness determinista y adjudicado
-status: claimed
+status: review_pending
 implementer: Claude (external principal dev)
 base_sha: c227f1c
-integration_sha: pending_integration_steward
+integration_sha: see_git_commit_containing_this_task
 gate: S1-READY
 data_ceiling: synthetic_only
 independent_reviewers: [QA, Data, Accounting, Security]

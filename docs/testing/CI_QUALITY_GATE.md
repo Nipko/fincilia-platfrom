@@ -20,14 +20,16 @@ El gate evita que un cambio aparentemente documental o de scaffolding debilite l
 1. checkout fijado a commit SHA;
 2. Python 3.12 mediante action fijada a SHA;
 3. política del repositorio sobre el índice Git;
-4. tests de arquitectura modular, modelo canónico, completitud/saldos, DFD, threat model, escáner y corpus;
+4. tests de arquitectura modular, modelo canónico, completitud/saldos, DFD, threat model, estrategia de calidad, escáner y corpus;
 5. validación del modelo ejecutable de módulos;
 6. validación de ownership, company scope, dinero, fechas, dedupe y linaje del modelo canónico;
 7. validación de estados de completitud, ecuación de saldos, excepciones y close readiness;
 8. validación de los 13 flujos del DFD y sus contratos de seguridad/privacidad;
 9. validación de cobertura/scoring del threat model y aceptación humana pendiente;
-10. regeneración byte a byte del corpus golden;
-11. 61 pruebas del kernel de autorización dentro de una imagen Node fijada por digest.
+10. validación dinámica de requisitos de prueba y huecos críticos declarados;
+11. regeneración byte a byte del corpus golden;
+12. verificación de digests y ejecución de los casos golden adjudicados, después de validar los contratos;
+13. 61 pruebas del kernel de autorización dentro de una imagen Node fijada por digest.
 
 ### PostgreSQL RLS and worker spike
 
@@ -93,12 +95,16 @@ python3 -m tools.event_model.validate
 python3 -m tools.idempotency_model.validate
 python3 -m tools.local_stack.validate
 python3 -m tools.privacy_model.validate
+python3 -m tools.quality_strategy.validate
 python3 -m tools.region_decision.validate
 python3 -m tools.threat_model.validate
 python3 -m tools.ux_contract.validate
 python3 -m tools.work_graph.validate
-python3 -m unittest tools.architecture_model.test_validate tools.canonical_model.test_validate tools.completeness_model.test_validate tools.connector_model.test_validate tools.dfd_model.test_validate tools.event_model.test_validate tools.idempotency_model.test_validate tools.privacy_model.test_validate tools.threat_model.test_validate tools.quality_gate.test_repo_policy tools.synthetic_corpus.test_corpus -v
+python3 -m unittest tools.architecture_model.test_validate tools.canonical_model.test_validate tools.completeness_model.test_validate tools.connector_model.test_validate tools.dfd_model.test_validate tools.event_model.test_validate tools.idempotency_model.test_validate tools.privacy_model.test_validate tools.quality_strategy.test_validate tools.threat_model.test_validate tools.quality_gate.test_repo_policy tools.synthetic_corpus.test_corpus -v
 python3 -m tools.synthetic_corpus.cli verify --root tests/golden/synthetic
+python3 -m tools.golden_harness.cli verify
+python3 -m tools.golden_harness.cli run
+python3 -m unittest tools.golden_harness.test_harness -v
 ```
 
 Stack local desde WSL:

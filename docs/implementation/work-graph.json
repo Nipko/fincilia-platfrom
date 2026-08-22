@@ -49,27 +49,5 @@
       "agent_may_accept": false
     }
   ],
-  "active_reservations": [
-    {
-      "task": "FNC-QA-002",
-      "holder": "Claude external principal dev",
-      "paths": [
-        "docs/testing/TEST_STRATEGY.md",
-        "docs/testing/test-strategy.json",
-        "tools/quality_strategy",
-        "docs/implementation/handoffs/FNC-QA-002.md"
-      ]
-    },
-    {
-      "task": "FNC-QA-003",
-      "holder": "Claude external principal dev",
-      "paths": [
-        "docs/testing/GOLDEN_HARNESS.md",
-        "docs/testing/golden-harness.json",
-        "tools/golden_harness",
-        "tests/golden/harness",
-        "docs/implementation/handoffs/FNC-QA-003.md"
-      ]
-    }
-  ]
+  "active_reservations": []
 }
