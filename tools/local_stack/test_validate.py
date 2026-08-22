@@ -4,7 +4,8 @@ import re
 import unittest
 from pathlib import Path
 
-from .model import validate_bootstrap, validate_compose, validate_repository
+from .model import (validate_bootstrap, validate_bootstrap_script,
+                    validate_compose, validate_repository)
 
 ROOT = Path(__file__).resolve().parents[2]
 COMPOSE = (ROOT / "infra/local/compose.yaml").read_text(encoding="utf-8")
@@ -99,6 +100,48 @@ class LocalStackContractTests(unittest.TestCase):
         mutated = COMPOSE.replace(block, block.replace(
             '    profiles: ["migrate"]\n', "", 1), 1)
         self.assertIn("LOCAL-MIGRATE-PROFILE", codes(validate_compose(mutated)))
+
+    def test_giving_the_web_a_database_credential_bites(self) -> None:
+        block = service_block(COMPOSE, "web")
+        mutated = COMPOSE.replace(block, block.replace(
+            "      FINCILIA_ENV: local\n",
+            "      FINCILIA_ENV: local\n      FINCILIA_DATABASE_URL: postgresql://x@postgres/y\n",
+            1), 1)
+        self.assertIn("LOCAL-WEB-CREDENTIALS", codes(validate_compose(mutated)))
+
+    def test_giving_the_web_the_signing_key_bites(self) -> None:
+        block = service_block(COMPOSE, "web")
+        mutated = COMPOSE.replace(block, block.replace(
+            "      FINCILIA_ENV: local\n",
+            "      FINCILIA_ENV: local\n      FINCILIA_AUTH_SIGNING_KEY: x\n", 1), 1)
+        self.assertIn("LOCAL-WEB-CREDENTIALS", codes(validate_compose(mutated)))
+
+    def test_a_healthcheck_that_does_not_ask_the_web_anything_bites(self) -> None:
+        mutated = COMPOSE.replace("http://localhost:3000/entrar", "http://example.invalid")
+        self.assertIn("LOCAL-HEALTHCHECK", codes(validate_compose(mutated)))
+
+    def test_a_healthcheck_that_does_not_ask_the_api_anything_bites(self) -> None:
+        mutated = COMPOSE.replace("http://localhost:8000/health/live", "http://example.invalid")
+        self.assertIn("LOCAL-HEALTHCHECK", codes(validate_compose(mutated)))
+
+    def test_a_missing_bootstrap_script_bites(self) -> None:
+        self.assertIn("LOCAL-BOOTSTRAP-SCRIPT",
+                      codes(validate_bootstrap_script(None)))
+
+    def test_a_bootstrap_script_that_only_starts_containers_bites(self) -> None:
+        codes_found = codes(validate_bootstrap_script("docker compose up -d --wait"))
+        self.assertIn("LOCAL-BOOTSTRAP-SCRIPT", codes_found)
+
+    def test_a_bootstrap_script_that_destroys_volumes_bites(self) -> None:
+        script = (ROOT / "infra/local/up.sh").read_text(encoding="utf-8")
+        mutated = script.replace("compose up -d --wait postgres",
+                                 "compose down --volumes", 1)
+        self.assertIn("LOCAL-BOOTSTRAP-DESTRUCTIVE",
+                      codes(validate_bootstrap_script(mutated)))
+
+    def test_the_real_bootstrap_script_is_clean(self) -> None:
+        script = (ROOT / "infra/local/up.sh").read_text(encoding="utf-8")
+        self.assertEqual([], validate_bootstrap_script(script))
 
     def test_a_stack_that_never_migrates_bites(self) -> None:
         mutated = COMPOSE.replace("db.migrate.apply", "db.migrate.noop")

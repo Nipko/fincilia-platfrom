@@ -143,6 +143,42 @@ services:
       com.fincilia.data-class: synthetic_only
       com.fincilia.environment: local
 
+  web:
+    build:
+      context: ../..
+      dockerfile: apps/web/Dockerfile
+    environment:
+      FINCILIA_ENV: local
+      # La web habla con la API por la red privada, no por el puerto del host: el
+      # navegador nunca llama a la API directamente, y por eso el token puede
+      # vivir solo en una cookie httpOnly.
+      FINCILIA_API_BASE_URL: http://api:8000
+      FINCILIA_WEB_SECURE_COOKIES: "false"
+      NEXT_TELEMETRY_DISABLED: "1"
+    ports:
+      - "127.0.0.1:${FINCILIA_LOCAL_WEB_PORT:-53000}:3000"
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:3000/entrar',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))\""]
+      interval: 3s
+      timeout: 5s
+      retries: 40
+      start_period: 8s
+    stop_grace_period: 15s
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - fincilia_local_private
+      - fincilia_local_edge
+    labels:
+      com.fincilia.data-class: synthetic_only
+      com.fincilia.environment: local
+
   worker:
     build:
       context: ../..

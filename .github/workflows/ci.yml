@@ -221,7 +221,7 @@ jobs:
           docker compose up -d --wait postgres
           FINCILIA_LOCAL_LIFECYCLE_MODE=persisted docker compose --profile test run --rm lifecycle-test
       - name: Build product images
-        run: docker compose --profile migrate build api worker migrate
+        run: docker compose --profile migrate build api worker web migrate
 
       - name: Apply migrations
         run: >-
@@ -248,13 +248,23 @@ jobs:
           docker compose --profile migrate run --rm migrate
           python -m unittest discover -s /app/db/tests -t /app -v
 
-      - name: Start the full local stack
-        run: docker compose up -d --wait
+      # El camino documentado, tal cual lo ejecuta quien clona el repositorio. Es
+      # idempotente: migrar y sembrar otra vez no cambian nada.
+      - name: Start the full local stack with the documented command
+        run: sh up.sh
 
       - name: API contract tests inside the image
         run: >-
           docker compose run --rm --no-deps api
           python -m unittest discover -s /app/tests -t /app/tests
+
+      # `build web` ya ejecuta `typecheck` y `build` dentro de la imagen: si el
+      # tipo no cuadra, la imagen no existe. Falta el lint, que no bloquea el
+      # arranque y por eso se pide aparte.
+      - name: Web lint
+        run: |
+          docker build --target build -f apps/web/Dockerfile -t fincilia-web-check ../..
+          docker run --rm fincilia-web-check npm run lint
 
       - name: Health endpoints answer from the host
         run: |
@@ -268,6 +278,12 @@ jobs:
           TOKEN=$(curl -fsS -X POST http://127.0.0.1:58080/api/v1/auth/session             -H 'content-type: application/json'             -d '{"username":"ana@demo.local","secret":"fincilia-demo-only"}'             | python3 -c 'import json,sys; print(json.load(sys.stdin)["token"])')
           curl -fsS http://127.0.0.1:58080/api/v1/me -H "Authorization: Bearer $TOKEN"             | tee /dev/stderr | python3 -c 'import json,sys; d=json.load(sys.stdin); assert len(d["companies"])==2, d'
           test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:58080/api/v1/me)" = 401
+
+      - name: The web serves the sign-in page and guards the rest
+        run: |
+          curl -fsS http://127.0.0.1:53000/entrar | grep -q 'Fincilia'
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:53000/empresas)" = 307
+          curl -fsS -D - -o /dev/null http://127.0.0.1:53000/entrar | grep -qi 'content-security-policy'
 
       - name: Cleanup exact local project
         if: always()

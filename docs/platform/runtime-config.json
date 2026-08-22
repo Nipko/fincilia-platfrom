@@ -48,6 +48,16 @@
       "owner": "Security"
     },
     {
+      "name": "FINCILIA_API_BASE_URL",
+      "class": "plain",
+      "required": [
+        "local",
+        "ci"
+      ],
+      "safe_example": "http://api:8000",
+      "owner": "Platform"
+    },
+    {
       "name": "FINCILIA_AUTH_AUDIENCE",
       "class": "plain",
       "required": false,
@@ -215,6 +225,13 @@
       "class": "plain",
       "required": false,
       "safe_example": "fincilia-api",
+      "owner": "Platform"
+    },
+    {
+      "name": "FINCILIA_WEB_SECURE_COOKIES",
+      "class": "plain",
+      "required": false,
+      "safe_example": "false",
       "owner": "Platform"
     }
   ],

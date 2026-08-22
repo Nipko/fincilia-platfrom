@@ -249,6 +249,10 @@ class ApiAuthorizationTests(unittest.TestCase):
         self.assertTrue(events)
         for event in events:
             self.assertNotEqual(ESPIGA, event["resource_ref"])
+            # Un inicio de sesion es un evento de plataforma, sin empresa. La
+            # politica deja verlo al propio sujeto, pero no pertenece al registro
+            # de una empresa y no debe aparecer aqui.
+            self.assertNotEqual("auth.session.open", event["action"])
 
     # --------------------------------------------------------- revocacion #
 

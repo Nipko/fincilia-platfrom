@@ -1,14 +1,104 @@
 {
-  "schema_version":"1.0.0","task":"FNC-PLT-006","status":"review_pending","data_ceiling":"synthetic_only","product_code_allowed":false,"framework_install_allowed":false,"s1_ready":"not_met",
-  "components":[
-    {"id":"web","path":"apps/web","runtime":"node","target":"Next.js_React_pending_scaffold_activation","authority":"none"},
-    {"id":"api","path":"apps/api","runtime":"node","target":"NestJS_TypeScript_pending_scaffold_activation","authority":"future_domain_control_plane"},
-    {"id":"mobile","path":"apps/mobile","runtime":"react_native","target":"React_Native_pending_phase","authority":"none"},
-    {"id":"document_worker","path":"workers/document","runtime":"python","target":"Python_worker_pending_scaffold_activation","authority":"manifest_only"},
-    {"id":"contracts","path":"packages/contracts","runtime":"language_neutral","target":"versioned_contracts","authority":"contract_only"},
-    {"id":"config","path":"packages/config","runtime":"language_neutral","target":"runtime_configuration","authority":"policy_only"},
-    {"id":"database","path":"db/migrations","runtime":"postgresql","target":"forward_only_migrations_pending_tool","authority":"schema_only"}
+  "schema_version": "1.0.0",
+  "task": "FNC-PLT-006",
+  "status": "review_pending",
+  "data_ceiling": "synthetic_only",
+  "product_code_allowed": false,
+  "framework_install_allowed": false,
+  "s1_ready": "not_met",
+  "components": [
+    {
+      "id": "web",
+      "path": "apps/web",
+      "runtime": "node",
+      "target": "Next.js_React_pending_scaffold_activation",
+      "authority": "none"
+    },
+    {
+      "id": "api",
+      "path": "apps/api",
+      "runtime": "python",
+      "target": "FastAPI_Python_local_build",
+      "authority": "future_domain_control_plane"
+    },
+    {
+      "id": "mobile",
+      "path": "apps/mobile",
+      "runtime": "react_native",
+      "target": "React_Native_pending_phase",
+      "authority": "none"
+    },
+    {
+      "id": "document_worker",
+      "path": "workers/document",
+      "runtime": "python",
+      "target": "Python_worker_pending_scaffold_activation",
+      "authority": "manifest_only"
+    },
+    {
+      "id": "contracts",
+      "path": "packages/contracts",
+      "runtime": "language_neutral",
+      "target": "versioned_contracts",
+      "authority": "contract_only"
+    },
+    {
+      "id": "config",
+      "path": "packages/config",
+      "runtime": "language_neutral",
+      "target": "runtime_configuration",
+      "authority": "policy_only"
+    },
+    {
+      "id": "database",
+      "path": "db/migrations",
+      "runtime": "postgresql",
+      "target": "forward_only_migrations_pending_tool",
+      "authority": "schema_only"
+    }
   ],
-  "invariants":["company_is_financial_boundary","worker_cannot_publish_financial_state","web_and_mobile_never_authorize","no_real_data","no_framework_dependency_before_S1","no_shared_database_writes_across_module_owners"],
-  "activation_gates":[{"id":"WSP-G01","state":"not_met","rule":"S1_READY_human_approved"},{"id":"WSP-G02","state":"not_met","rule":"ADR_002_migration_tool_decided"},{"id":"WSP-G03","state":"not_met","rule":"framework_lockfiles_reviewed"}]
+  "invariants": [
+    "company_is_financial_boundary",
+    "worker_cannot_publish_financial_state",
+    "web_and_mobile_never_authorize",
+    "no_real_data",
+    "no_framework_dependency_before_S1",
+    "no_shared_database_writes_across_module_owners"
+  ],
+  "activation_gates": [
+    {
+      "id": "WSP-G01",
+      "state": "not_met",
+      "rule": "S1_READY_human_approved"
+    },
+    {
+      "id": "WSP-G02",
+      "state": "not_met",
+      "rule": "ADR_002_migration_tool_decided"
+    },
+    {
+      "id": "WSP-G03",
+      "state": "not_met",
+      "rule": "framework_lockfiles_reviewed"
+    }
+  ],
+  "local_build": {
+    "local_product_build_allowed": true,
+    "scope": "local_only_synthetic",
+    "compose_project": "fincilia-local",
+    "does_not_imply": [
+      "s1_ready",
+      "product_code_allowed",
+      "framework_install_allowed",
+      "deployment_to_shared_environment",
+      "real_data"
+    ],
+    "built_components": [
+      "web",
+      "api",
+      "document_worker",
+      "contracts",
+      "database"
+    ]
+  }
 }

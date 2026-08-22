@@ -1,0 +1,257 @@
+/*
+ * Una hoja, sin dependencias de estilo. La interfaz de un cierre contable no
+ * necesita un sistema de diseno de terceros, y cada paquete que no entra es un
+ * paquete que nadie tiene que auditar.
+ */
+
+:root {
+  --ink: #101418;
+  --ink-soft: #4b5563;
+  --ground: #f7f7f5;
+  --surface: #ffffff;
+  --line: #e2e2dd;
+  --accent: #14532d;
+  --accent-soft: #e7f0e9;
+  --danger: #7f1d1d;
+  --danger-soft: #fdecec;
+  --radius: 10px;
+  --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ink: #eceef0;
+    --ink-soft: #9ba3ad;
+    --ground: #14171a;
+    --surface: #1c2024;
+    --line: #2d3238;
+    --accent: #7cc79a;
+    --accent-soft: #1e2a22;
+    --danger: #f3a7a7;
+    --danger-soft: #2d1c1c;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--font);
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+.shell {
+  max-width: 62rem;
+  margin: 0 auto;
+  padding: 2.5rem 1.25rem 1rem;
+}
+
+h1 {
+  font-size: 1.6rem;
+  letter-spacing: -0.015em;
+  margin: 0 0 0.35rem;
+}
+
+h2 {
+  font-size: 1.05rem;
+  margin: 2rem 0 0.75rem;
+}
+
+p.lede {
+  color: var(--ink-soft);
+  margin: 0 0 1.75rem;
+}
+
+header.bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: baseline;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 1rem;
+  margin-bottom: 1.75rem;
+}
+
+header.bar .who {
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+}
+
+a {
+  color: inherit;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 1.1rem 1.25rem;
+}
+
+ul.companies {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+
+ul.companies a {
+  display: block;
+  text-decoration: none;
+}
+
+ul.companies a:hover .card,
+ul.companies a:focus-visible .card {
+  border-color: var(--accent);
+}
+
+.company-name {
+  font-weight: 600;
+}
+
+.meta {
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+  margin-top: 0.2rem;
+}
+
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.6rem;
+}
+
+.tag {
+  font-size: 0.75rem;
+  font-family: var(--mono);
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-radius: 999px;
+  padding: 0.1rem 0.6rem;
+}
+
+form.signin {
+  display: grid;
+  gap: 0.9rem;
+  max-width: 24rem;
+}
+
+label {
+  display: grid;
+  gap: 0.3rem;
+  font-size: 0.9rem;
+}
+
+input {
+  font: inherit;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+}
+
+input:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+button {
+  font: inherit;
+  font-weight: 600;
+  padding: 0.55rem 1rem;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--ground);
+  cursor: pointer;
+}
+
+button.quiet {
+  background: transparent;
+  color: var(--ink-soft);
+  border-color: var(--line);
+  font-weight: 500;
+  padding: 0.3rem 0.7rem;
+}
+
+.notice {
+  border-radius: 8px;
+  padding: 0.6rem 0.8rem;
+  font-size: 0.9rem;
+}
+
+.notice.error {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 0.45rem 0.6rem;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+
+th {
+  color: var(--ink-soft);
+  font-weight: 500;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+td.when {
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.outcome {
+  font-family: var(--mono);
+  font-size: 0.78rem;
+}
+
+.outcome.denied {
+  color: var(--danger);
+}
+
+.scroll {
+  overflow-x: auto;
+}
+
+footer.ceiling {
+  max-width: 62rem;
+  margin: 0 auto;
+  padding: 1.5rem 1.25rem 2.5rem;
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+  border-top: 1px solid var(--line);
+}
+
+.hint {
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+  margin-top: 1.5rem;
+}
+
+.hint code {
+  font-family: var(--mono);
+}

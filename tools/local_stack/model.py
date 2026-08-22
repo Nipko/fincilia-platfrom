@@ -37,9 +37,15 @@ HEALTHCHECK_KEY = re.compile(r"(?m)^    healthcheck:\s*$")
 NEVER_PUBLISHED = ("postgres", "valkey")
 # Servicios de larga vida: todos menos los de un solo uso, que van por perfil.
 ONE_SHOT_PROFILES = ("test", "migrate")
+NEWLINE = chr(10)
 # El migrador se invoca a mano. Un stack que migra en `up` migra una vez por
 # replica y convierte un despliegue en un cambio de esquema.
 MIGRATE_ENTRYPOINT = "db.migrate.apply"
+# La web pinta lo que devuelve la API y no decide nada. Una credencial
+# de base, de firma o de objetos en su entorno solo puede usarse para
+# saltarse a la API.
+WEB_MUST_NOT_HOLD = ("FINCILIA_DATABASE_URL", "FINCILIA_AUTH_SIGNING_KEY",
+                     "FINCILIA_OBJECT_SECRET_KEY", "FINCILIA_MIGRATOR_URL")
 
 
 @dataclass(frozen=True, order=True)
@@ -100,7 +106,8 @@ def validate_compose(text: str) -> list[Finding]:
         # Un healthcheck que no pregunta nada al servicio no es un healthcheck.
         # Se exige la sonda propia de cada dependencia, no una cualquiera.
         expected_probe = {"postgres": "pg_isready", "valkey": "valkey-cli ping",
-                          "objectstore": "/minio/health/live"}.get(name)
+                          "objectstore": "/minio/health/live",
+                          "api": "/health/live", "web": "/entrar"}.get(name)
         if expected_probe and expected_probe not in block:
             findings.append(Finding(
                 "LOCAL-HEALTHCHECK",
@@ -120,6 +127,14 @@ def validate_compose(text: str) -> list[Finding]:
                 f"{name} applies migrations and declares no profile; it would run on "
                 "every `up`, once per replica, without anyone deciding to migrate"))
 
+    web = services.get("web")
+    if web is not None:
+        for secret in WEB_MUST_NOT_HOLD:
+            if secret in web:
+                findings.append(Finding(
+                    "LOCAL-WEB-CREDENTIALS",
+                    f"web receives {secret}; the interface never authorises and has "
+                    "no business holding a credential it cannot need"))
     if not any(MIGRATE_ENTRYPOINT in block for block in services.values()):
         findings.append(Finding(
             "LOCAL-MIGRATE-MISSING",
@@ -169,7 +184,42 @@ def validate_bootstrap(text: str) -> list[Finding]:
     return sorted(set(findings))
 
 
+def validate_bootstrap_script(text: str | None) -> list[Finding]:
+    """El camino documentado tiene que existir y tiene que ser seguro.
+
+    Dos cosas: que arranque el producto de verdad (migrar y sembrar, no solo
+    levantar contenedores) y que **no** borre volumenes. Un script de arranque
+    que empieza destruyendo datos es una trampa el dia que alguien lo ejecuta
+    sobre algo que le importaba.
+    """
+    findings: list[Finding] = []
+    if text is None:
+        return [Finding("LOCAL-BOOTSTRAP-SCRIPT",
+                        "the documented one-command path does not exist")]
+    # Solo lo que se ejecuta. Un comentario que explica como empezar de cero no
+    # es un comando, y confundirlos haria que documentar bien penalizara.
+    text = NEWLINE.join(line for line in text.splitlines()
+                        if not line.lstrip().startswith("#"))
+    for required in ("--profile migrate run --rm migrate", "db.seed.local",
+                     "up -d --wait"):
+        if required not in text:
+            findings.append(Finding(
+                "LOCAL-BOOTSTRAP-SCRIPT",
+                f"the bootstrap script never runs {required!r}; bringing containers "
+                "up is not the same as leaving the product usable"))
+    for destructive in ("--volumes", "-v ", "down --rmi", "prune"):
+        if destructive in text:
+            findings.append(Finding(
+                "LOCAL-BOOTSTRAP-DESTRUCTIVE",
+                f"the bootstrap script contains {destructive!r}; starting the stack "
+                "must never be the same gesture as destroying data"))
+    return findings
+
+
 def validate_repository(root: Path) -> list[Finding]:
     compose = (root / "infra/local/compose.yaml").read_text(encoding="utf-8")
     bootstrap = (root / "infra/local/db/init/001_bootstrap.sql").read_text(encoding="utf-8")
-    return sorted(set(validate_compose(compose) + validate_bootstrap(bootstrap)))
+    script_path = root / "infra/local/up.sh"
+    script = script_path.read_text(encoding="utf-8") if script_path.is_file() else None
+    return sorted(set(validate_compose(compose) + validate_bootstrap(bootstrap)
+                      + validate_bootstrap_script(script)))

@@ -210,6 +210,11 @@ def list_audit(connection: psycopg.Connection, *, limit: int = 50) -> list[dict]
         cursor.execute(
             "SELECT audit_event_id::text, action, resource_kind, resource_ref, "
             "outcome, occurred_at, detail FROM fincilia.audit_event "
+            # La politica deja ver dos conjuntos disjuntos: los eventos de esta
+            # empresa y los de plataforma del propio sujeto, que no tienen
+            # empresa. Un inicio de sesion no pertenece al registro de una
+            # empresa, asi que aqui se piden solo los que si.
+            "WHERE company_id IS NOT NULL "
             "ORDER BY occurred_at DESC, audit_event_id LIMIT %s", (bounded,))
         rows = cursor.fetchall()
     return [{"audit_event_id": row[0], "action": row[1], "resource_kind": row[2],

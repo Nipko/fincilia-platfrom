@@ -15,13 +15,29 @@
 Un solo comando, desde la raíz del repositorio:
 
 ```bash
-docker compose -f infra/local/compose.yaml -p fincilia-local up -d --wait
+sh infra/local/up.sh
 ```
 
-Cuando termina con exit `0`, los cinco servicios están **healthy**: `postgres`,
-`valkey`, `objectstore`, `api` y `worker`. `--wait` no vuelve hasta que cada
-healthcheck pasa, así que un `0` aquí significa que el stack sirve, no que los
-contenedores arrancaron.
+Cuando termina, la web está en <http://127.0.0.1:53000> y se entra como
+`ana@demo.local`.
+
+El script hace tres cosas en un orden que **no** es un detalle de
+implementación: levanta la infraestructura, migra y siembra, y sólo después
+arranca las aplicaciones. Es el mismo orden que en un despliegue real, y aquí es
+obligatorio porque las aplicaciones se niegan a declararse sanas contra una base
+sin esquema: el worker sale con `1` antes que reportar salud sin poder trabajar,
+y `/health/ready` devuelve 503 nombrando el esquema. Un `docker compose up -d
+--wait` a secas sobre una base vacía falla, y falla a propósito.
+
+El script **no borra nada**. Empezar de cero es un gesto aparte:
+
+```bash
+docker compose -f infra/local/compose.yaml -p fincilia-local down --volumes
+```
+
+Los seis servicios quedan **healthy**: `postgres`, `valkey`, `objectstore`,
+`api`, `worker` y `web`. `--wait` no vuelve hasta que cada healthcheck pasa, así
+que un `0` significa que el stack sirve, no que los contenedores arrancaron.
 
 Comprobación de un vistazo:
 
@@ -32,26 +48,29 @@ curl -s http://127.0.0.1:58080/health/ready
 ```json
 {"status":"ready","dependencies":[
   {"name":"postgresql","status":"up","detail":"fincilia_app@17.11"},
+  {"name":"schema","status":"up","detail":"head V0002"},
   {"name":"valkey","status":"up","detail":"pong"},
   {"name":"object_storage","status":"up","detail":"4 buckets"}]}
 ```
 
-### Aplicar el esquema
+### Los tres pasos por separado
 
-El stack arranca sano con la base vacía: `/health/ready` sólo dice que PostgreSQL
-responde. Para que exista esquema hay que migrar, **a mano y una vez**:
+`up.sh` no hace nada que no puedas hacer a mano, y a veces conviene:
 
 ```bash
+docker compose -f infra/local/compose.yaml -p fincilia-local up -d --wait postgres valkey objectstore
 docker compose -f infra/local/compose.yaml -p fincilia-local --profile migrate run --rm migrate
+docker compose -f infra/local/compose.yaml -p fincilia-local up -d --wait
 ```
 
 ```json
-{"applied": ["V0001"], "head": "V0001", "mutated": true, "ok": true}
+{"applied": ["V0001", "V0002"], "head": "V0002", "mutated": true, "ok": true}
 ```
 
-Repetirlo devuelve `"mutated": false`. Las migraciones no corren en el arranque de
-la API a propósito: un servicio que migra al arrancar migra una vez por réplica, y
-convierte un despliegue en un cambio de esquema. Detalle en [`db/README.md`](../../db/README.md).
+Repetir la migración devuelve `"mutated": false`. Las migraciones no corren en el
+arranque de la API a propósito: un servicio que migra al arrancar migra una vez
+por réplica, y convierte un despliegue en un cambio de esquema. Detalle en
+[`db/README.md`](../../db/README.md).
 
 ### Sembrar la demo y entrar
 
@@ -107,6 +126,7 @@ docker compose -f infra/local/compose.yaml -p fincilia-local down --volumes
 | `objectstore` | `minio/minio:RELEASE.2025-04-22@sha256:a1ea29fa…` | `127.0.0.1:59000`, consola `59001` | zonas de evidencia |
 | `api` | construida de `apps/api/Dockerfile` | `127.0.0.1:58080` | FastAPI |
 | `worker` | construida de `workers/document/Dockerfile` | — | procesamiento de documentos |
+| `web` | construida de `apps/web/Dockerfile` | `127.0.0.1:53000` | Next.js; nunca autoriza |
 
 Toda imagen está fijada **por digest**. Una etiqueta puede reapuntarse a otros
 bytes sin cambiar de nombre, y entonces «reproducible» deja de significar nada.
@@ -182,6 +202,10 @@ credenciales sin permiso de creación.
 ```bash
 # Contratos compartidos: solo biblioteca estandar, sin levantar nada
 python -m unittest discover -s packages/contracts/python -t packages/contracts/python
+
+# Web: typecheck y lint dentro de su imagen de construccion
+docker build --target build -f apps/web/Dockerfile -t fincilia-web-check .
+docker run --rm fincilia-web-check npm run lint
 
 # Contrato del stack
 python -m tools.local_stack.validate
