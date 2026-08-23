@@ -97,6 +97,13 @@ class DocumentUploadTests(unittest.TestCase):
                         "SELECT run_id FROM fincilia.processing_run WHERE artifact_id IN ("
                         "SELECT artifact_id FROM fincilia.source_artifact "
                         "WHERE content_sha256 = ANY(%s)))", (list(cls.created),))
+                    # La extraccion escribe filas que referencian al trabajo.
+                    # Aqui no corre el worker, pero el orden tiene que aguantar
+                    # que alguien lo haga correr manana.
+                    cursor.execute(
+                        "DELETE FROM fincilia.raw_record WHERE artifact_id IN ("
+                        "SELECT artifact_id FROM fincilia.source_artifact "
+                        "WHERE content_sha256 = ANY(%s))", (list(cls.created),))
                     cursor.execute(
                         "DELETE FROM fincilia.processing_run WHERE artifact_id IN ("
                         "SELECT artifact_id FROM fincilia.source_artifact "

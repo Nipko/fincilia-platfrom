@@ -96,6 +96,14 @@ class QuarantineBeforeRawTests(unittest.TestCase):
                         " SELECT run_id FROM fincilia.processing_run WHERE artifact_id IN ("
                         "  SELECT artifact_id FROM fincilia.source_artifact "
                         "  WHERE content_sha256 = ANY(%s)))",
+                        # Promover encola tambien la extraccion, asi que
+                        # ahora hay filas que referencian al trabajo. El
+                        # `ON DELETE RESTRICT` de la clave ajena es lo que
+                        # impide que borrar un trabajo se lleve por delante
+                        # la evidencia extraida sin decirlo.
+                        "DELETE FROM fincilia.raw_record WHERE artifact_id IN ("
+                        " SELECT artifact_id FROM fincilia.source_artifact "
+                        " WHERE content_sha256 = ANY(%s))",
                         "DELETE FROM fincilia.processing_run WHERE artifact_id IN ("
                         " SELECT artifact_id FROM fincilia.source_artifact "
                         " WHERE content_sha256 = ANY(%s))",
