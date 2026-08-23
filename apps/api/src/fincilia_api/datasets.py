@@ -881,10 +881,13 @@ def _write_chunk(connection: psycopg.Connection, *, company_id: str,
                  release: dict[str, Any]) -> tuple[int, int, list[dict[str, Any]]]:
     """Un lote entero en una transaccion: registros, movimientos y enlaces.
 
-    Tres `COPY` en vez de veintitres sentencias por fila. Los identificadores se
-    generan aqui y no con `RETURNING`, que es justo lo que permite el `COPY`: sin
-    eso cada fila costaria un viaje de ida y vuelta, y cien mil filas costarian
-    dos millones y medio.
+    Tres sentencias multifila en vez de veintitres por fila. Los identificadores
+    se generan aqui y no con `RETURNING`: sin eso cada fila costaria un viaje de
+    ida y vuelta, y cien mil filas costarian dos millones y medio.
+
+    **No es `COPY`**, y no por gusto: PostgreSQL no admite `COPY FROM` sobre una
+    tabla con seguridad por filas, que es justo lo que protege estas tres. Entre
+    perder el aislamiento y perder algo de velocidad, se pierde velocidad.
     """
     schema_version = release["canonical_schema_version"]
     release_id = release["release_id"]
@@ -935,29 +938,30 @@ def _write_chunk(connection: psycopg.Connection, *, company_id: str,
     last = int(rows[-1][1])
     with connection.cursor() as cursor:
         if records:
-            with cursor.copy(
-                "COPY fincilia.source_record (source_record_id, company_id, "
+            insert_many(
+                cursor,
+                "INSERT INTO fincilia.source_record (source_record_id, company_id, "
                 "dataset_version_id, data_source_id, raw_record_id, record_family, "
                 "source_payload, state, engine_release_id, canonical_schema_version, "
-                "lineage_state) FROM STDIN") as copy:
-                for row in records:
-                    copy.write_row(row)
-            with cursor.copy(
-                "COPY fincilia.canonical_movement (movement_id, company_id, "
+                "lineage_state) VALUES ",
+                "(%s, %s, %s, %s, %s, %s, %s::jsonb, %s, %s, %s, %s)", records)
+            insert_many(
+                cursor,
+                "INSERT INTO fincilia.canonical_movement (movement_id, company_id, "
                 "dataset_version_id, source_record_id, financial_account_id, kind, "
                 "amount, currency_code, direction, description, reference_original, "
                 "reference_normalised, occurred_on, dedupe_fingerprint, state, "
                 "engine_release_id, canonical_schema_version, lineage_state, "
-                "field_digests) FROM STDIN") as copy:
-                for row in movements:
-                    copy.write_row(row)
-            with cursor.copy(
-                "COPY fincilia.movement_evidence_link (link_id, company_id, "
+                "field_digests) VALUES ",
+                "(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, "
+                "%s, %s, %s::jsonb)", movements)
+            insert_many(
+                cursor,
+                "INSERT INTO fincilia.movement_evidence_link (link_id, company_id, "
                 "movement_id, source_record_id, link_role, allocated_amount, "
                 "currency_code, engine_release_id, canonical_schema_version, "
-                "lineage_state) FROM STDIN") as copy:
-                for row in links:
-                    copy.write_row(row)
+                "lineage_state) VALUES ",
+                "(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)", links)
         # El punto de control va **con** los datos, no despues: si esta la fila,
         # esta el lote, y si no esta, el lote no ocurrio.
         cursor.execute(
@@ -968,6 +972,25 @@ def _write_chunk(connection: psycopg.Connection, *, company_id: str,
             (company_id, dataset_version_id, chunk_ordinal, first, last,
              len(movements), len(rejections)))
     return len(movements), len(rejections), rejections
+
+
+# Filas por sentencia. Cada fila lleva hasta diecinueve parametros, y PostgreSQL
+# admite 65.535 por sentencia: quinientas dejan un margen amplio y siguen
+# amortizando el viaje.
+INSERT_BATCH = 500
+
+
+def insert_many(cursor, prefix: str, template: str, rows: list[tuple]) -> None:
+    """Inserta en tandas con una sola sentencia por tanda.
+
+    Los valores siguen siendo parametros: lo unico que se construye es la lista
+    de huecos. Interpolar valores aqui seria cambiar un problema de rendimiento
+    por uno de inyeccion.
+    """
+    for start in range(0, len(rows), INSERT_BATCH):
+        batch = rows[start:start + INSERT_BATCH]
+        cursor.execute(prefix + ", ".join([template] * len(batch)),
+                       [value for row in batch for value in row])
 
 
 def dumps_compact(payload: Any) -> str:
@@ -1643,36 +1666,3 @@ def load_movement(connection: psycopg.Connection,
     if problems:
         payload["lineage_reason"] = "; ".join(problems)
     return payload
-
-
-# --------------------------------------------------------------------------- #
-# Maestros de la empresa
-# --------------------------------------------------------------------------- #
-
-def list_accounts(connection: psycopg.Connection) -> list[dict[str, Any]]:
-    """Las cuentas contra las que se registra un movimiento.
-
-    Sale el token y los cuatro ultimos digitos, nunca el identificador completo:
-    `canonical-model` tipa `identifier_token` como `tokenized_identifier`, y una
-    lista de cuentas no es sitio para un numero de cuenta.
-    """
-    with connection.cursor() as cursor:
-        cursor.execute(
-            "SELECT account_id, account_family, display_name, identifier_last4, "
-            "       currency_code, status FROM fincilia.financial_account "
-            "WHERE status = 'active' ORDER BY display_name")
-        return [{"account_id": str(row[0]), "account_family": row[1],
-                 "display_name": row[2], "identifier_last4": row[3],
-                 "currency_code": row[4], "status": row[5]} for row in cursor]
-
-
-def list_sources(connection: psycopg.Connection) -> list[dict[str, Any]]:
-    """De donde viene la evidencia: banco, pasarela, contabilidad."""
-    with connection.cursor() as cursor:
-        cursor.execute(
-            "SELECT data_source_id, source_family, display_name, timezone, status "
-            "FROM fincilia.data_source WHERE status = 'active' "
-            "ORDER BY display_name")
-        return [{"data_source_id": str(row[0]), "source_family": row[1],
-                 "display_name": row[2], "timezone": row[3], "status": row[4]}
-                for row in cursor]

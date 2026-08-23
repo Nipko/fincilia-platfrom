@@ -9,6 +9,7 @@ prueba de caso feliz encuentra.
 
 from __future__ import annotations
 
+import datetime as dt
 import hashlib
 import logging
 import time
@@ -24,7 +25,7 @@ from fincilia_platform.identity import AuthenticationError
 from fincilia_platform.objects import ObjectStoreError, object_key
 from fincilia_platform.tokens import issue
 
-from . import datasets, repository
+from . import datasets, onboarding, repository
 from .security import (Principal, ProblemError, company_context, current_principal,
                        forbidden, require, unauthorized)
 from fincilia_contracts.errors import problem
@@ -891,20 +892,215 @@ def read_movement(request: Request, company_id: str, movement_id: str,
     return movement
 
 
-@router.get("/companies/{company_id}/accounts", tags=["mapping"])
-def list_accounts(request: Request, company_id: str,
+# --------------------------------------------------------------------------- #
+# Alta de cuentas, fuentes, vinculos y ciclos (FNC-P3.5)
+# --------------------------------------------------------------------------- #
+
+class AccountRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    account_family: str
+    display_name: str = Field(min_length=1, max_length=160)
+    # El identificador entra por aqui y **no** sale por ningun sitio: se
+    # tokeniza al recibirlo y lo que se guarda es el token.
+    identifier: str = Field(min_length=4, max_length=64)
+    currency_code: str = Field(min_length=3, max_length=3)
+    timezone: str = "America/Bogota"
+
+
+class AccountUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    display_name: str | None = Field(default=None, min_length=1, max_length=160)
+    timezone: str | None = None
+    status: str | None = None
+    closed_reason: str | None = Field(default=None, max_length=200)
+
+
+class SourceRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    source_family: str
+    display_name: str = Field(min_length=1, max_length=160)
+    purpose_code: str = Field(default="operational", min_length=3, max_length=64)
+    timezone: str = "America/Bogota"
+
+
+class SourceUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    display_name: str | None = Field(default=None, min_length=1, max_length=160)
+    purpose_code: str | None = Field(default=None, min_length=3, max_length=64)
+    timezone: str | None = None
+    status: str | None = None
+    closed_reason: str | None = Field(default=None, max_length=200)
+
+
+class LinkRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    financial_account_id: str
+    relation_role: str = "primary"
+    valid_from: dt.date | None = None
+
+
+class LinkUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    status: str
+
+
+class CycleRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    periodicity: str = "monthly"
+    custom_days: int | None = Field(default=None, ge=1, le=366)
+    due_day_offset: int = Field(default=5, ge=0, le=120)
+    grace_days: int = Field(default=3, ge=0, le=120)
+    responsible_subject_id: str
+    timezone: str = "America/Bogota"
+    anchor_date: dt.date
+
+
+class ExpectationRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    until: dt.date
+
+
+def _onboarding_problem(error: onboarding.OnboardingError) -> ProblemError:
+    # `link-refused` no distingue «no existe» de «no puedes», por la misma razon
+    # que el resto de la API: un codigo que las separara seria un buscador de
+    # cuentas ajenas.
+    status = 409 if error.code.endswith("already-exists") else 422
+    return ProblemError(problem(error.code, "The request cannot be applied", status,
+                                error.detail))
+
+
+@router.post("/companies/{company_id}/accounts", tags=["onboarding"], status_code=201)
+def create_account(request: Request, company_id: str, body: AccountRequest,
+                   principal: Principal = Depends(principal_dependency)) -> dict:
+    """Da de alta una cuenta financiera.
+
+    El identificador que llega en el cuerpo se convierte en token con una clave
+    dedicada y **no se persiste, ni se registra, ni aparece en un error**. Lo que
+    queda es el token, los cuatro ultimos digitos y la version de clave.
+    """
+    context = company_context(request, principal, company_id)
+    require(context, "financial_account.manage")
+    settings = request.app.state.settings
+    database = request.app.state.database
+    with database.session(company_id=context.company_id,
+                          subject_id=principal.subject_id) as connection:
+        try:
+            account = onboarding.create_account(
+                connection, company_id=context.company_id,
+                account_family=body.account_family,
+                display_name=body.display_name, identifier=body.identifier,
+                currency_code=body.currency_code, timezone=body.timezone,
+                subject_id=principal.subject_id,
+                tokenization_key=settings.identifier_tokenization_key,
+                key_version=settings.identifier_key_version)
+        except onboarding.OnboardingError as error:
+            raise _onboarding_problem(error) from None
+        # El rastro dice que se creo una cuenta y cual es su cola visible. Nunca
+        # el identificador: un evento de auditoria que lo llevara desharia la
+        # tokenizacion entera.
+        repository.record_audit(
+            connection, subject_id=principal.subject_id,
+            company_id=context.company_id, action="account.create",
+            resource_kind="financial_account",
+            resource_ref=account["account_id"], outcome="allowed",
+            detail={"family": account["account_family"],
+                    "currency": account["currency_code"],
+                    "last4": account.get("identifier_last4")})
+    return account
+
+
+@router.get("/companies/{company_id}/accounts", tags=["onboarding"])
+def list_accounts(request: Request, company_id: str, include_inactive: bool = True,
                   principal: Principal = Depends(principal_dependency)) -> list[dict]:
-    """Las cuentas de la empresa. Un movimiento siempre se registra contra una."""
     context = company_context(request, principal, company_id)
     require(context, "movement.read")
     database = request.app.state.database
     with database.session(company_id=context.company_id,
                           subject_id=principal.subject_id) as connection:
-        return datasets.list_accounts(connection)
+        return onboarding.list_accounts(connection, include_inactive=include_inactive)
 
 
-@router.get("/companies/{company_id}/sources", tags=["mapping"])
-def list_sources(request: Request, company_id: str,
+@router.get("/companies/{company_id}/accounts/{account_id}", tags=["onboarding"])
+def read_account(request: Request, company_id: str, account_id: str,
+                 principal: Principal = Depends(principal_dependency)) -> dict:
+    context = company_context(request, principal, company_id)
+    require(context, "movement.read")
+    database = request.app.state.database
+    with database.session(company_id=context.company_id,
+                          subject_id=principal.subject_id) as connection:
+        account = onboarding.load_account(connection, account_id)
+        if account is None:
+            raise forbidden()
+        account["usage"] = onboarding.account_usage(connection, account_id)
+    return account
+
+
+@router.patch("/companies/{company_id}/accounts/{account_id}", tags=["onboarding"])
+def update_account(request: Request, company_id: str, account_id: str,
+                   body: AccountUpdate,
+                   principal: Principal = Depends(principal_dependency)) -> dict:
+    """Cambia nombre, zona horaria o estado. **Nunca borra.**
+
+    Una cuenta con movimientos publicados detras se cierra; borrarla dejaria
+    hechos economicos apuntando a algo que nadie puede explicar.
+    """
+    context = company_context(request, principal, company_id)
+    require(context, "financial_account.manage")
+    database = request.app.state.database
+    with database.session(company_id=context.company_id,
+                          subject_id=principal.subject_id) as connection:
+        if onboarding.load_account(connection, account_id) is None:
+            raise forbidden()
+        try:
+            account = onboarding.update_account(
+                connection, account_id=account_id, display_name=body.display_name,
+                timezone=body.timezone, status=body.status,
+                closed_reason=body.closed_reason)
+        except onboarding.OnboardingError as error:
+            raise _onboarding_problem(error) from None
+        repository.record_audit(
+            connection, subject_id=principal.subject_id,
+            company_id=context.company_id, action="account.update",
+            resource_kind="financial_account", resource_ref=account_id,
+            outcome="allowed",
+            detail={"status": account.get("status"),
+                    "reason": account.get("closed_reason")})
+    return account
+
+
+@router.post("/companies/{company_id}/sources", tags=["onboarding"], status_code=201)
+def create_source(request: Request, company_id: str, body: SourceRequest,
+                  principal: Principal = Depends(principal_dependency)) -> dict:
+    context = company_context(request, principal, company_id)
+    require(context, "data_source.manage")
+    database = request.app.state.database
+    with database.session(company_id=context.company_id,
+                          subject_id=principal.subject_id) as connection:
+        try:
+            source = onboarding.create_source(
+                connection, company_id=context.company_id,
+                source_family=body.source_family, display_name=body.display_name,
+                purpose_code=body.purpose_code, timezone=body.timezone)
+        except onboarding.OnboardingError as error:
+            raise _onboarding_problem(error) from None
+        repository.record_audit(
+            connection, subject_id=principal.subject_id,
+            company_id=context.company_id, action="source.create",
+            resource_kind="data_source", resource_ref=source["data_source_id"],
+            outcome="allowed", detail={"family": source["source_family"]})
+    return source
+
+
+@router.get("/companies/{company_id}/sources", tags=["onboarding"])
+def list_sources(request: Request, company_id: str, include_inactive: bool = True,
                  principal: Principal = Depends(principal_dependency)) -> list[dict]:
     """De donde viene la evidencia de esta empresa."""
     context = company_context(request, principal, company_id)
@@ -912,4 +1108,187 @@ def list_sources(request: Request, company_id: str,
     database = request.app.state.database
     with database.session(company_id=context.company_id,
                           subject_id=principal.subject_id) as connection:
-        return datasets.list_sources(connection)
+        return onboarding.list_sources(connection, include_inactive=include_inactive)
+
+
+@router.get("/companies/{company_id}/sources/{data_source_id}", tags=["onboarding"])
+def read_source(request: Request, company_id: str, data_source_id: str,
+                principal: Principal = Depends(principal_dependency)) -> dict:
+    context = company_context(request, principal, company_id)
+    require(context, "document.read")
+    database = request.app.state.database
+    with database.session(company_id=context.company_id,
+                          subject_id=principal.subject_id) as connection:
+        source = onboarding.load_source(connection, data_source_id)
+        if source is None:
+            raise forbidden()
+        source["links"] = onboarding.list_links(connection,
+                                                data_source_id=data_source_id)
+        source["cycle"] = onboarding.load_cycle(connection, data_source_id)
+    return source
+
+
+@router.patch("/companies/{company_id}/sources/{data_source_id}", tags=["onboarding"])
+def update_source(request: Request, company_id: str, data_source_id: str,
+                  body: SourceUpdate,
+                  principal: Principal = Depends(principal_dependency)) -> dict:
+    context = company_context(request, principal, company_id)
+    require(context, "data_source.manage")
+    database = request.app.state.database
+    with database.session(company_id=context.company_id,
+                          subject_id=principal.subject_id) as connection:
+        if onboarding.load_source(connection, data_source_id) is None:
+            raise forbidden()
+        try:
+            source = onboarding.update_source(
+                connection, data_source_id=data_source_id,
+                display_name=body.display_name, purpose_code=body.purpose_code,
+                timezone=body.timezone, status=body.status,
+                closed_reason=body.closed_reason)
+        except onboarding.OnboardingError as error:
+            raise _onboarding_problem(error) from None
+        repository.record_audit(
+            connection, subject_id=principal.subject_id,
+            company_id=context.company_id, action="source.update",
+            resource_kind="data_source", resource_ref=data_source_id,
+            outcome="allowed", detail={"status": source.get("status")})
+    return source
+
+
+@router.post("/companies/{company_id}/sources/{data_source_id}/accounts",
+             tags=["onboarding"], status_code=201)
+def link_account(request: Request, company_id: str, data_source_id: str,
+                 body: LinkRequest,
+                 principal: Principal = Depends(principal_dependency)) -> dict:
+    """Vincula una fuente con una cuenta y declara que papel juega."""
+    context = company_context(request, principal, company_id)
+    require(context, "data_source.manage")
+    database = request.app.state.database
+    with database.session(company_id=context.company_id,
+                          subject_id=principal.subject_id) as connection:
+        try:
+            link = onboarding.link_account(
+                connection, company_id=context.company_id,
+                data_source_id=data_source_id,
+                financial_account_id=body.financial_account_id,
+                relation_role=body.relation_role, subject_id=principal.subject_id,
+                valid_from=body.valid_from)
+        except onboarding.OnboardingError as error:
+            raise _onboarding_problem(error) from None
+        except psycopg.errors.ForeignKeyViolation:
+            raise forbidden() from None
+        repository.record_audit(
+            connection, subject_id=principal.subject_id,
+            company_id=context.company_id, action="source.link",
+            resource_kind="data_source", resource_ref=data_source_id,
+            outcome="allowed", detail={"role": link["relation_role"],
+                                       "account": link["financial_account_id"]})
+    return link
+
+
+@router.get("/companies/{company_id}/links", tags=["onboarding"])
+def list_links(request: Request, company_id: str, data_source_id: str | None = None,
+               principal: Principal = Depends(principal_dependency)) -> list[dict]:
+    context = company_context(request, principal, company_id)
+    require(context, "document.read")
+    database = request.app.state.database
+    with database.session(company_id=context.company_id,
+                          subject_id=principal.subject_id) as connection:
+        return onboarding.list_links(connection, data_source_id=data_source_id)
+
+
+@router.patch("/companies/{company_id}/links/{link_id}", tags=["onboarding"])
+def retire_link(request: Request, company_id: str, link_id: str, body: LinkUpdate,
+                principal: Principal = Depends(principal_dependency)) -> dict:
+    context = company_context(request, principal, company_id)
+    require(context, "data_source.manage")
+    database = request.app.state.database
+    with database.session(company_id=context.company_id,
+                          subject_id=principal.subject_id) as connection:
+        try:
+            link = onboarding.retire_link(connection, link_id=link_id,
+                                          status=body.status)
+        except onboarding.OnboardingError as error:
+            if error.code == "link-unknown":
+                raise forbidden() from None
+            raise _onboarding_problem(error) from None
+        repository.record_audit(
+            connection, subject_id=principal.subject_id,
+            company_id=context.company_id, action="source.unlink",
+            resource_kind="data_source", resource_ref=link["data_source_id"],
+            outcome="allowed", detail={"status": link["status"]})
+    return link
+
+
+@router.put("/companies/{company_id}/sources/{data_source_id}/cycle",
+            tags=["onboarding"])
+def set_cycle(request: Request, company_id: str, data_source_id: str,
+              body: CycleRequest,
+              principal: Principal = Depends(principal_dependency)) -> dict:
+    """Declara cada cuanto se espera un documento de esta fuente."""
+    context = company_context(request, principal, company_id)
+    require(context, "data_source.manage")
+    database = request.app.state.database
+    with database.session(company_id=context.company_id,
+                          subject_id=principal.subject_id) as connection:
+        try:
+            cycle = onboarding.set_cycle(
+                connection, company_id=context.company_id,
+                data_source_id=data_source_id, periodicity=body.periodicity,
+                custom_days=body.custom_days, due_day_offset=body.due_day_offset,
+                grace_days=body.grace_days,
+                responsible_subject_id=body.responsible_subject_id,
+                timezone=body.timezone, anchor=body.anchor_date,
+                subject_id=principal.subject_id)
+        except onboarding.OnboardingError as error:
+            raise _onboarding_problem(error) from None
+        except psycopg.errors.ForeignKeyViolation:
+            raise forbidden() from None
+        repository.record_audit(
+            connection, subject_id=principal.subject_id,
+            company_id=context.company_id, action="source.cycle",
+            resource_kind="data_source", resource_ref=data_source_id,
+            outcome="allowed", detail={"periodicity": cycle["periodicity"],
+                                       "due_day_offset": cycle["due_day_offset"]})
+    return cycle
+
+
+@router.post("/companies/{company_id}/sources/{data_source_id}/expectations",
+             tags=["onboarding"], status_code=201)
+def generate_expectations(request: Request, company_id: str, data_source_id: str,
+                          body: ExpectationRequest,
+                          principal: Principal = Depends(principal_dependency)) -> dict:
+    """Materializa los periodos del ciclo hasta una fecha. Idempotente."""
+    context = company_context(request, principal, company_id)
+    require(context, "data_source.manage")
+    database = request.app.state.database
+    with database.session(company_id=context.company_id,
+                          subject_id=principal.subject_id) as connection:
+        try:
+            report = onboarding.generate_expectations(
+                connection, company_id=context.company_id,
+                data_source_id=data_source_id, until=body.until)
+        except onboarding.OnboardingError as error:
+            raise _onboarding_problem(error) from None
+    return {"data_source_id": data_source_id, **report}
+
+
+@router.get("/companies/{company_id}/expectations", tags=["onboarding"])
+def list_expectations(request: Request, company_id: str,
+                      data_source_id: str | None = None, limit: int = 100,
+                      principal: Principal = Depends(principal_dependency),
+                      ) -> list[dict]:
+    """Que se espera, cuando vence y que lleva atraso.
+
+    El atraso se calcula al leer contra la fecha de hoy. Guardarlo obligaria a un
+    proceso nocturno que marcara atrasos, y el dia que no corriera nada estaria
+    atrasado.
+    """
+    context = company_context(request, principal, company_id)
+    require(context, "document.read")
+    database = request.app.state.database
+    with database.session(company_id=context.company_id,
+                          subject_id=principal.subject_id) as connection:
+        return onboarding.list_expectations(
+            connection, today=dt.date.today(), data_source_id=data_source_id,
+            limit=limit)

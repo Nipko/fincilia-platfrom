@@ -32,6 +32,8 @@ PERMISSIONS: Final[tuple[str, ...]] = (
     "document.read",
     "dataset.map",
     "dataset.publish",
+    "financial_account.manage",
+    "data_source.manage",
     "movement.read",
     "match.propose",
     "match.confirm",
@@ -47,6 +49,7 @@ ROLE_PERMISSIONS: Final[dict[str, frozenset[str]]] = {
     "owner": frozenset(PERMISSIONS),
     "firm_admin": frozenset({
         "company.read", "document.upload", "document.read", "dataset.map",
+        "financial_account.manage", "data_source.manage",
         "movement.read", "match.propose", "match.reject", "close.prepare",
         "audit.read", "member.manage",
     }),
