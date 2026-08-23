@@ -958,6 +958,21 @@ def _write_chunk(connection: psycopg.Connection, *, company_id: str,
     first = int(rows[0][1])
     last = int(rows[-1][1])
     with connection.cursor() as cursor:
+        # El punto de control se toma **antes** de escribir, no despues. Es una
+        # reserva: dos preparaciones simultaneas del mismo dataset leen el mismo
+        # punto de reanudacion y arrancan las dos por el mismo lote, y quien
+        # llega segundo tiene que enterarse aqui —sin trabajo perdido— en vez de
+        # descubrirlo al chocar contra la unicidad del registro de origen.
+        #
+        # Sigue siendo un punto de control valido porque entra en la misma
+        # transaccion que sus filas: si esta, el lote entero esta.
+        cursor.execute(
+            "INSERT INTO fincilia.dataset_chunk (chunk_id, company_id, "
+            "dataset_version_id, chunk_ordinal, first_record, last_record, "
+            "movement_count, rejected_count) VALUES (gen_random_uuid(), %s, %s, "
+            "%s, %s, %s, %s, %s)",
+            (company_id, dataset_version_id, chunk_ordinal, first, last,
+             len(movements), len(rejections)))
         if records:
             insert_many(
                 cursor,
@@ -983,15 +998,6 @@ def _write_chunk(connection: psycopg.Connection, *, company_id: str,
                 "currency_code, engine_release_id, canonical_schema_version, "
                 "lineage_state) VALUES ",
                 "(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)", links)
-        # El punto de control va **con** los datos, no despues: si esta la fila,
-        # esta el lote, y si no esta, el lote no ocurrio.
-        cursor.execute(
-            "INSERT INTO fincilia.dataset_chunk (chunk_id, company_id, "
-            "dataset_version_id, chunk_ordinal, first_record, last_record, "
-            "movement_count, rejected_count) VALUES (gen_random_uuid(), %s, %s, "
-            "%s, %s, %s, %s, %s)",
-            (company_id, dataset_version_id, chunk_ordinal, first, last,
-             len(movements), len(rejections)))
     return len(movements), len(rejections), rejections
 
 
@@ -1238,13 +1244,33 @@ def _drive_chunks(database, *, company_id: str, subject_id: str, dataset_id: str
                 rows = cursor.fetchall()
             if not rows:
                 break
-            accepted, refused, detail = _write_chunk(
-                connection, company_id=company_id, dataset_version_id=dataset_id,
-                chunk_ordinal=chunk_ordinal, rows=rows,
-                mapping=context["mapping"],
-                data_source_id=context["data_source_id"],
-                financial_account_id=context["financial_account_id"],
-                release=context["release"])
+            try:
+                # Punto de retorno propio: si la reserva del lote choca, se
+                # deshace **solo** lo suyo. Sin el, la transaccion de fuera
+                # quedaria abortada y salir del bloque intentaria confirmarla.
+                with connection.transaction():
+                    accepted, refused, detail = _write_chunk(
+                        connection, company_id=company_id,
+                        dataset_version_id=dataset_id, chunk_ordinal=chunk_ordinal,
+                        rows=rows, mapping=context["mapping"],
+                        data_source_id=context["data_source_id"],
+                        financial_account_id=context["financial_account_id"],
+                        release=context["release"])
+            except psycopg.errors.UniqueViolation as error:
+                if "uq_chunk_ordinal" not in str(error):
+                    raise
+                collided = True
+            else:
+                collided = False
+
+        if collided:
+            # Otra preparacion va por delante. Se relee por donde va y se sigue
+            # desde ahi: adelantarla no duplicaria nada —lo impide la unicidad—
+            # pero repetiria trabajo que ya esta hecho.
+            with database.session(company_id=company_id,
+                                  subject_id=subject_id) as connection:
+                chunk_ordinal, last_record = _resume_point(connection, dataset_id)
+            continue
 
         movements += accepted
         rejected += refused
