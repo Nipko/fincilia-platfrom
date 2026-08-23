@@ -178,6 +178,33 @@ class TenancyTests(unittest.TestCase):
         self.assertEqual(violates_segregation("match.confirm", {"match.propose"}),
                          "match.propose")
 
+    def test_publishing_a_dataset_is_its_own_permission(self) -> None:
+        # Reutilizar close.approve o match.confirm ataria la publicacion de un
+        # dataset al cierre contable, que es una decision distinta y posterior.
+        self.assertIn("dataset.publish", PERMISSIONS)
+        self.assertNotIn("dataset.publish", ROLE_PERMISSIONS["preparer"])
+        self.assertIn("dataset.publish", ROLE_PERMISSIONS["reviewer"])
+        self.assertIn("dataset.map", ROLE_PERMISSIONS["preparer"])
+        self.assertNotIn("dataset.map", ROLE_PERMISSIONS["reviewer"])
+
+    def test_mapping_and_publishing_are_segregated_in_both_directions(self) -> None:
+        self.assertEqual(violates_segregation("dataset.publish", {"dataset.map"}),
+                         "dataset.map")
+        self.assertEqual(violates_segregation("dataset.map", {"dataset.publish"}),
+                         "dataset.publish")
+
+    def test_an_administrator_cannot_hold_map_and_publish_over_one_version(self) -> None:
+        # Un rol puede acumular ambos permisos; lo que no puede es ejercerlos
+        # sobre el mismo objeto. La comprobacion es por objeto, no por rol.
+        admin = derive_permissions(["owner"])
+        self.assertTrue({"dataset.map", "dataset.publish"} <= admin)
+        self.assertIsNotNone(violates_segregation("dataset.publish", {"dataset.map"}))
+
+    def test_no_role_holds_both_map_and_publish_except_the_owner(self) -> None:
+        both = {r for r, p in ROLE_PERMISSIONS.items()
+                if {"dataset.map", "dataset.publish"} <= p}
+        self.assertEqual(both, {"owner"})
+
 
 class ProblemTests(unittest.TestCase):
     def test_a_problem_is_rfc7807_shaped(self) -> None:

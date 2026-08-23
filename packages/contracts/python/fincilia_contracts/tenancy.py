@@ -31,6 +31,7 @@ PERMISSIONS: Final[tuple[str, ...]] = (
     "document.upload",
     "document.read",
     "dataset.map",
+    "dataset.publish",
     "movement.read",
     "match.propose",
     "match.confirm",
@@ -54,8 +55,8 @@ ROLE_PERMISSIONS: Final[dict[str, frozenset[str]]] = {
         "movement.read", "match.propose", "match.reject", "close.prepare",
     }),
     "reviewer": frozenset({
-        "company.read", "document.read", "movement.read", "match.confirm",
-        "match.reject", "close.approve", "audit.read",
+        "company.read", "document.read", "dataset.publish", "movement.read",
+        "match.confirm", "match.reject", "close.approve", "audit.read",
     }),
     "auditor": frozenset({
         "company.read", "document.read", "movement.read", "audit.read",
@@ -69,6 +70,7 @@ ROLE_PERMISSIONS: Final[dict[str, frozenset[str]]] = {
 SEGREGATED_PAIRS: Final[tuple[tuple[str, str], ...]] = (
     ("match.propose", "match.confirm"),
     ("close.prepare", "close.approve"),
+    ("dataset.map", "dataset.publish"),
 )
 
 
