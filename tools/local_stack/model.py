@@ -216,10 +216,124 @@ def validate_bootstrap_script(text: str | None) -> list[Finding]:
     return findings
 
 
+# --------------------------------------------------------------------------- #
+# Contrato del workflow de CI
+# --------------------------------------------------------------------------- #
+
+# Cada suite declara que dependencias necesita para poder correr. No es
+# documentacion: se comprueba contra el orden real de los pasos del workflow.
+# El origen de la regla es un fallo concreto -- las pruebas documentales se
+# ejecutaron con solo PostgreSQL arriba y reventaron contra el almacen de
+# objetos -- y el coste de descubrirlo fue una CI roja durante varios commits.
+SUITE_DEPENDENCIES: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("/app/db/tests", ("postgres", "objectstore", "valkey")),
+    ("db.seed.local", ("postgres",)),
+    ("/app/tests -t /app/tests", ("postgres", "objectstore", "valkey")),
+)
+# Un paso que arranca servicios: o los nombra, o levanta el stack entero.
+STARTS_EVERYTHING = ("up -d --wait" + NEWLINE, "up -d --wait" + NEWLINE, "sh up.sh")
+DOCKER_BUILD_FILE = re.compile(r"docker build[^\n]*?-f\s+(\S+)")
+
+
+def _ci_steps(text: str) -> list[tuple[str, str]]:
+    """Pasos del job `local-platform`, en orden, como `(nombre, comando)`.
+
+    Se trocea a mano en vez de con un parser de YAML: este validador corre en la
+    biblioteca estandar, y lo que hace falta comprobar es el **orden**, que se
+    lee igual de bien sobre el texto.
+    """
+    marker = NEWLINE + "  local-platform:" + NEWLINE
+    if marker not in text:
+        return []
+    body = text.split(marker, 1)[1]
+    # El job termina en la siguiente clave de nivel de job.
+    for candidate in re.finditer(r"(?m)^  [a-z][a-z0-9-]*:$", body):
+        body = body[:candidate.start()]
+        break
+    steps: list[tuple[str, str]] = []
+    chunks = re.split(r"(?m)^      - name: ", body)
+    for chunk in chunks[1:]:
+        name, _, rest = chunk.partition(NEWLINE)
+        steps.append((name.strip(), rest))
+    return steps
+
+
+def _services_started(command: str) -> set[str]:
+    """Servicios que un comando deja arriba y sanos."""
+    started: set[str] = set()
+    if "sh up.sh" in command:
+        # El camino documentado levanta el stack entero, incluida la web.
+        return {"postgres", "valkey", "objectstore", "api", "worker", "web"}
+    for line in command.splitlines():
+        if "up -d --wait" not in line:
+            continue
+        tail = line.split("up -d --wait", 1)[1].strip()
+        if not tail or tail.startswith("|"):
+            # Sin nombres, `up --wait` levanta todos los servicios por defecto.
+            return {"postgres", "valkey", "objectstore", "api", "worker", "web"}
+        started |= {token for token in tail.split()
+                    if re.fullmatch(r"[a-z][a-z0-9-]*", token)}
+    return started
+
+
+def validate_ci_workflow(text: str, root: Path | None = None) -> list[Finding]:
+    """El orden de los pasos de CI tiene que sostener lo que cada suite necesita."""
+    findings: list[Finding] = []
+    steps = _ci_steps(text)
+    if not steps:
+        return [Finding("LOCAL-CI-JOB",
+                        "the local-platform job is missing from the CI workflow")]
+
+    running: set[str] = set()
+    for name, command in steps:
+        for needle, required in SUITE_DEPENDENCIES:
+            if needle not in command:
+                continue
+            missing = sorted(set(required) - running)
+            if missing:
+                findings.append(Finding(
+                    "LOCAL-CI-DEPENDENCIES",
+                    f"step {name!r} runs a suite that needs {missing} but nothing "
+                    "has started them yet; a suite that cannot reach its "
+                    "dependencies fails on the dependency, not on the code"))
+        running |= _services_started(command)
+
+        for referenced in DOCKER_BUILD_FILE.findall(command):
+            if root is None:
+                continue
+            # `-f` se resuelve desde el directorio de trabajo del job, no desde la
+            # raiz del repositorio. Un `-f apps/web/Dockerfile` con
+            # `working-directory: infra/local` no existe, y solo se descubre en CI.
+            if not (root / "infra/local" / referenced).is_file():
+                findings.append(Finding(
+                    "LOCAL-CI-BUILD-CONTEXT",
+                    f"step {name!r} builds with -f {referenced!r}, which does not "
+                    "exist relative to the job working directory"))
+
+    # Que se ejecuten de verdad: un workflow que deja de correr una suite pasa
+    # igual de verde que uno que la corre y acierta.
+    joined = NEWLINE.join(command for _, command in steps)
+    for needle, _ in SUITE_DEPENDENCIES:
+        if needle not in joined:
+            findings.append(Finding(
+                "LOCAL-CI-COVERAGE",
+                f"no CI step runs {needle!r}; dropping a suite is not the same as "
+                "passing it"))
+    for expected in ("npm run lint", "/health/ready", "/api/v1/auth/session"):
+        if expected not in joined:
+            findings.append(Finding(
+                "LOCAL-CI-COVERAGE", f"no CI step exercises {expected!r}"))
+    return sorted(set(findings))
+
+
 def validate_repository(root: Path) -> list[Finding]:
     compose = (root / "infra/local/compose.yaml").read_text(encoding="utf-8")
     bootstrap = (root / "infra/local/db/init/001_bootstrap.sql").read_text(encoding="utf-8")
     script_path = root / "infra/local/up.sh"
     script = script_path.read_text(encoding="utf-8") if script_path.is_file() else None
+    workflow_path = root / ".github/workflows/ci.yml"
+    workflow = (workflow_path.read_text(encoding="utf-8")
+                if workflow_path.is_file() else "")
     return sorted(set(validate_compose(compose) + validate_bootstrap(bootstrap)
-                      + validate_bootstrap_script(script)))
+                      + validate_bootstrap_script(script)
+                      + validate_ci_workflow(workflow, root)))

@@ -48,7 +48,19 @@ class DocumentUploadTests(unittest.TestCase):
         settings = build_settings()
         # Las zonas de evidencia las crea la API al arrancar, pero solo en `local`.
         # Aqui el entorno es `test`, asi que las pruebas se las crean ellas.
-        ensure_buckets(settings)
+        #
+        # Si el almacen de objetos no esta arriba, el fallo nativo es una traza de
+        # botocore que no dice que falta levantar un servicio. Se traduce a un
+        # mensaje que nombra la dependencia: quien lea el log de CI tiene que
+        # saber en una linea que arreglar. `tools/local_stack` comprueba ademas,
+        # de forma estatica, que ningun paso de CI llegue hasta aqui sin ella.
+        try:
+            ensure_buckets(settings)
+        except Exception as error:  # noqa: BLE001 - el motivo importa mas que el tipo
+            raise AssertionError(
+                "these tests need the object store: start it with "
+                "`docker compose up -d --wait objectstore` "
+                f"({type(error).__name__})") from error
         cls.created: set[str] = set()
         cls.client = TestClient(create_app(settings))
         cls.client.__enter__()

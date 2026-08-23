@@ -223,6 +223,13 @@ jobs:
       - name: Build product images
         run: docker compose --profile migrate build api worker web migrate
 
+      # Las suites que corren antes de `up.sh` necesitan mas que PostgreSQL: las
+      # pruebas documentales hablan con el almacen de objetos y la API con la
+      # cache. Arrancarlas aqui es lo que impide que una suite falle por una
+      # dependencia ausente en vez de por el codigo.
+      - name: Start every dependency the suites need
+        run: docker compose up -d --wait postgres valkey objectstore
+
       - name: Apply migrations
         run: >-
           docker compose --profile migrate run --rm migrate
@@ -268,7 +275,7 @@ jobs:
       # arranque y por eso se pide aparte.
       - name: Web lint
         run: |
-          docker build --target build -f apps/web/Dockerfile -t fincilia-web-check ../..
+          docker build --target build -f ../../apps/web/Dockerfile -t fincilia-web-check ../..
           docker run --rm fincilia-web-check npm run lint
 
       - name: Health endpoints answer from the host

@@ -5,11 +5,12 @@ import unittest
 from pathlib import Path
 
 from .model import (validate_bootstrap, validate_bootstrap_script,
-                    validate_compose, validate_repository)
+                    validate_ci_workflow, validate_compose, validate_repository)
 
 ROOT = Path(__file__).resolve().parents[2]
 COMPOSE = (ROOT / "infra/local/compose.yaml").read_text(encoding="utf-8")
 BOOTSTRAP = (ROOT / "infra/local/db/init/001_bootstrap.sql").read_text(encoding="utf-8")
+WORKFLOW = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
 
 
 def codes(findings) -> set[str]:
@@ -123,6 +124,45 @@ class LocalStackContractTests(unittest.TestCase):
     def test_a_healthcheck_that_does_not_ask_the_api_anything_bites(self) -> None:
         mutated = COMPOSE.replace("http://localhost:8000/health/live", "http://example.invalid")
         self.assertIn("LOCAL-HEALTHCHECK", codes(validate_compose(mutated)))
+
+    # ---- contrato del workflow de CI --------------------------------- #
+    def test_the_real_workflow_satisfies_every_suite_dependency(self) -> None:
+        self.assertEqual([], validate_ci_workflow(WORKFLOW, ROOT))
+
+    def test_running_the_document_suite_without_object_storage_bites(self) -> None:
+        # El fallo real que motivo la regla: las pruebas documentales
+        # corriendo con solo PostgreSQL arriba.
+        mutated = WORKFLOW.replace(
+            "docker compose up -d --wait postgres valkey objectstore",
+            "docker compose up -d --wait postgres", 1)
+        self.assertIn("LOCAL-CI-DEPENDENCIES", codes(validate_ci_workflow(mutated, ROOT)))
+
+    def test_a_build_file_that_does_not_resolve_bites(self) -> None:
+        # `-f` se resuelve desde el directorio de trabajo del job. El error
+        # solo aparecia en CI, nunca en local.
+        mutated = WORKFLOW.replace("-f ../../apps/web/Dockerfile",
+                                   "-f apps/web/Dockerfile", 1)
+        self.assertIn("LOCAL-CI-BUILD-CONTEXT", codes(validate_ci_workflow(mutated, ROOT)))
+
+    def test_dropping_a_suite_from_ci_bites(self) -> None:
+        # Dejar de correr una suite pasa igual de verde que correrla y acertar.
+        for needle in ("/app/db/tests", "npm run lint", "/api/v1/auth/session"):
+            with self.subTest(needle=needle):
+                mutated = WORKFLOW.replace(needle, "x-removed-x")
+                self.assertIn("LOCAL-CI-COVERAGE",
+                              codes(validate_ci_workflow(mutated, ROOT)))
+
+    def test_a_workflow_without_the_job_bites(self) -> None:
+        self.assertIn("LOCAL-CI-JOB", codes(validate_ci_workflow("jobs:", ROOT)))
+
+    def test_the_documented_command_counts_as_starting_everything(self) -> None:
+        # `sh up.sh` levanta el stack entero; exigirle que nombre servicios
+        # uno a uno seria pedirle que repita lo que el script ya hace.
+        mutated = WORKFLOW.replace(
+            "docker compose up -d --wait postgres valkey objectstore",
+            "sh up.sh", 1)
+        self.assertNotIn("LOCAL-CI-DEPENDENCIES",
+                         codes(validate_ci_workflow(mutated, ROOT)))
 
     def test_a_missing_bootstrap_script_bites(self) -> None:
         self.assertIn("LOCAL-BOOTSTRAP-SCRIPT",
