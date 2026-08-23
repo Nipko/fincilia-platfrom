@@ -28,6 +28,7 @@ from types import FrameType
 # reglas fail-closed. Duplicarlas seria pedir que se separen con el tiempo.
 sys.path.insert(0, "/app/src")
 
+from fincilia_contracts.release import digest_of  # noqa: E402
 from fincilia_platform.db import Database  # noqa: E402
 from fincilia_platform.objects import ObjectStoreError, S3ObjectStore  # noqa: E402
 from fincilia_worker import jobs  # noqa: E402
@@ -124,9 +125,10 @@ def process_one(database: Database, store, identity: str) -> bool:
     result: dict | None = None
     error_code: str | None = None
     failure_class: str | None = None
-    # Un escaneo lee de cuarentena; un perfilado, de la zona de evidencia. Nada
-    # se perfila desde cuarentena: si se pudiera, la regla de inspeccion previa
-    # no serviria de nada.
+    # Un escaneo lee de cuarentena; perfilar y extraer, de la zona de evidencia.
+    # **Nada se extrae desde cuarentena**: si se pudiera, la regla de inspeccion
+    # previa no serviria de nada, y la vista previa mostraria valores de un
+    # fichero que nadie ha mirado.
     zone = "quarantine" if claim.kind == "scan" else "raw"
     try:
         artifact = _artifact_row(database, claim)
@@ -150,6 +152,19 @@ def process_one(database: Database, store, identity: str) -> bool:
                     logger.exception("could not record the promotion decision")
                     result, error_code, failure_class = None, "decision_unstorable", \
                         jobs.RETRYABLE
+        elif claim.kind == "extract":
+            extraction, error_code, failure_class = jobs.run_extract(payload)
+            if extraction is not None:
+                try:
+                    _store_records(database, claim, artifact, extraction)
+                except Exception:  # noqa: BLE001
+                    logger.exception("could not store the extracted records")
+                    error_code, failure_class = "records_unstorable", jobs.RETRYABLE
+                else:
+                    # El resultado de la ejecucion lo lee cualquiera que vea el
+                    # documento: lleva la forma, y los valores se quedan en
+                    # `raw_record`, que exige contexto de empresa.
+                    result = extraction.as_dict()
         else:
             result, error_code, failure_class = jobs.run_profile(payload)
 
@@ -221,13 +236,18 @@ def _record_decision(database: Database, store, claim: "jobs.Claim", artifact: d
                  decision["decision"], decision["reason_code"], jobs.SCANNER_RELEASE,
                  decision["media_type"], decision.get("internal_type", ""),
                  jobs.dumps(decision.get("findings", [])), raw_key))
-            # Solo lo promovido se perfila. Encolar un perfilado sobre algo que
-            # sigue en cuarentena seria pasear por otro proceso justo lo que no
-            # ha pasado inspeccion.
+            # Solo lo promovido se lee. Encolar una lectura sobre algo que sigue
+            # en cuarentena seria pasear por otro proceso justo lo que no ha
+            # pasado inspeccion.
+            #
+            # Son dos trabajos independientes y no uno con dos partes: perfilar
+            # mide sin transcribir y extraer transcribe con coordenadas. Que uno
+            # falle no debe impedir el otro.
             if decision["decision"] == "promoted":
-                cursor.execute(
-                    "SELECT fincilia.enqueue_processing_run(%s, %s, 'profile')",
-                    (claim.company_id, claim.artifact_id))
+                for kind in ("profile", "extract"):
+                    cursor.execute(
+                        "SELECT fincilia.enqueue_processing_run(%s, %s, %s)",
+                        (claim.company_id, claim.artifact_id, kind))
             cursor.execute(
                 "INSERT INTO fincilia.audit_event (audit_event_id, company_id, "
                 "subject_id, action, resource_kind, resource_ref, outcome, detail) "
@@ -238,6 +258,49 @@ def _record_decision(database: Database, store, claim: "jobs.Claim", artifact: d
                  jobs.dumps({"decision": decision["decision"],
                              "reason": decision["reason_code"],
                              "scanner": jobs.SCANNER_RELEASE})))
+
+
+def _store_records(database: Database, claim: "jobs.Claim", artifact: dict,
+                   extraction) -> None:
+    """Guarda cada registro leido con su coordenada exacta.
+
+    `ON CONFLICT DO NOTHING` sobre `(processing_run_id, record_ordinal)` hace
+    inocuo el reintento: un arriendo vencido y recuperado vuelve a ejecutar esta
+    misma extraccion, y la segunda vez no duplica nada.
+
+    Se escriben **todos** los registros, membrete y cabecera incluidos. Decidir
+    cuales son datos es del mapeo; guardar solo los que hoy parecen datos
+    obligaria a releer la evidencia en cuanto alguien moviera la cabecera.
+    """
+    sha256 = artifact["content_sha256"]
+    rows = [
+        (claim.company_id, claim.artifact_id, claim.run_id, row.record_ordinal,
+         jobs.dumps(row.locator(sha256)), jobs.dumps(list(row.values)),
+         digest_of(list(row.values)))
+        for row in extraction.rows
+    ]
+    with database.session(company_id=claim.company_id) as connection:
+        with connection.cursor() as cursor:
+            cursor.executemany(
+                "INSERT INTO fincilia.raw_record (raw_record_id, company_id, "
+                "artifact_id, processing_run_id, record_ordinal, origin_locator, "
+                "raw_values, values_digest) VALUES (gen_random_uuid(), %s, %s, %s, "
+                "%s, %s::jsonb, %s::jsonb, %s) "
+                "ON CONFLICT (processing_run_id, record_ordinal) DO NOTHING",
+                rows)
+            # La auditoria dice cuantos registros se leyeron y de donde. **Ni un
+            # valor**: el evento lo lee quien tiene `audit.read`, que no es
+            # necesariamente quien puede ver el contenido del documento.
+            cursor.execute(
+                "INSERT INTO fincilia.audit_event (audit_event_id, company_id, "
+                "subject_id, action, resource_kind, resource_ref, outcome, detail) "
+                "VALUES (gen_random_uuid(), %s, NULL, 'document.extraction', "
+                "'document', %s, 'allowed', %s::jsonb)",
+                (claim.company_id, claim.artifact_id,
+                 jobs.dumps({"records": len(rows),
+                             "truncated": extraction.truncated,
+                             "truncation_reason": extraction.truncation_reason,
+                             "run": claim.run_id})))
 
 
 if __name__ == "__main__":

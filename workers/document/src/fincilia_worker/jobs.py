@@ -30,6 +30,7 @@ from dataclasses import dataclass
 
 import psycopg
 
+from fincilia_contracts.extraction import ExtractionError, extract
 from fincilia_contracts.ingestion import RejectedUpload, decide_promotion
 from fincilia_contracts.profiling import UnprofilableFile, profile
 
@@ -120,6 +121,24 @@ def run_profile(payload: bytes) -> tuple[dict | None, str | None, str | None]:
         logger.exception("unexpected profiling failure")
         return None, "profiling_error", UNKNOWN
     return table.as_dict(), None, None
+
+
+def run_extract(payload: bytes):
+    """Lee un fichero entero. Devuelve `(extraccion, codigo, clase_de_fallo)`.
+
+    A diferencia del perfilado, esto **si** devuelve valores, y por eso lo que
+    sale no va al resultado de la ejecucion: va a `raw_record`, que exige
+    contexto de empresa. El resultado solo lleva la forma.
+    """
+    try:
+        return extract(payload), None, None
+    except ExtractionError as error:
+        # El fichero es el que es: releerlo dara lo mismo.
+        logger.warning("unextractable artifact: %s", error)
+        return None, "unextractable", FATAL
+    except Exception:  # noqa: BLE001 - un fallo raro no tumba el worker
+        logger.exception("unexpected extraction failure")
+        return None, "extraction_error", UNKNOWN
 
 
 def run_scan(payload: bytes, filename: str) -> tuple[dict | None, str | None, str | None]:

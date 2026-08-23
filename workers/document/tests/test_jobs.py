@@ -85,6 +85,54 @@ class FailureClassificationTests(unittest.TestCase):
             self.assertFalse(hasattr(jobs, gone),
                              f"{gone} writes the queue without checking the lease")
 
+class ExtractionTests(unittest.TestCase):
+    """Extraer transcribe; perfilar no. La diferencia es la que decide donde va
+    cada cosa: la forma al resultado de la ejecucion, los valores a `raw_record`.
+    """
+
+    def test_a_readable_file_is_extracted_without_failure(self) -> None:
+        extraction, error, failure = jobs.run_extract(CLEAN_CSV)
+        self.assertIsNone(error)
+        self.assertIsNone(failure)
+        self.assertEqual(";", extraction.delimiter)
+        self.assertEqual(2, len(extraction.data_rows()))
+
+    def test_the_extraction_summary_carries_no_value_from_the_file(self) -> None:
+        # El resultado de la ejecucion lo lee cualquiera que vea el documento.
+        extraction, _, _ = jobs.run_extract(CLEAN_CSV)
+        rendered = str(extraction.as_dict())
+        for value in ("Transferencia", "Consignacion", "1.250.000", "3.400.000"):
+            self.assertNotIn(value, rendered)
+
+    def test_every_extracted_record_carries_its_coordinate(self) -> None:
+        extraction, _, _ = jobs.run_extract(CLEAN_CSV)
+        for row in extraction.rows:
+            with self.subTest(record=row.record_ordinal):
+                locator = row.locator("a" * 64)
+                self.assertEqual(locator["locator_kind"], "tabular_delimited")
+                self.assertLess(locator["byte_start"], locator["byte_end"])
+                recovered = CLEAN_CSV[row.byte_start:row.byte_end].decode("utf-8")
+                self.assertEqual(recovered.splitlines()[0].split(";"),
+                                 list(row.values))
+
+    def test_an_unreadable_file_is_fatal_not_retryable(self) -> None:
+        extraction, error, failure = jobs.run_extract(BINARY)
+        self.assertIsNone(extraction)
+        self.assertEqual("unextractable", error)
+        self.assertEqual(jobs.FATAL, failure)
+
+    def test_an_empty_file_is_fatal(self) -> None:
+        _, error, failure = jobs.run_extract(b"")
+        self.assertEqual("unextractable", error)
+        self.assertEqual(jobs.FATAL, failure)
+
+    def test_the_extraction_reason_code_fits_the_bounded_vocabulary(self) -> None:
+        for payload in (b"", BINARY, b"solo cabecera"):
+            with self.subTest(payload=payload[:8]):
+                _, error, _ = jobs.run_extract(payload)
+                if error is not None:
+                    self.assertRegex(error, REASON_CODE)
+
 
 if __name__ == "__main__":
     unittest.main()
