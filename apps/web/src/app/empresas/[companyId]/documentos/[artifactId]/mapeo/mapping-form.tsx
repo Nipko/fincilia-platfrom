@@ -1,0 +1,421 @@
+'use client';
+
+import { useActionState, useState } from 'react';
+
+import type { Blocker, ColumnProfile, PreviewPage } from '@/lib/api';
+import {
+  createMappingAction,
+  decideAmbiguityAction,
+  prepareDatasetAction,
+  publishDatasetAction,
+  type DecisionState,
+  type MappingState,
+  type PrepareState,
+  type PublishState,
+} from '../../../../../actions';
+
+/** Los campos canonicos, con el nombre que una persona reconoce. */
+const FIELDS: { id: string; label: string; hint: string }[] = [
+  { id: 'occurred_on', label: 'Fecha', hint: 'obligatoria' },
+  { id: 'description', label: 'Descripcion', hint: 'obligatoria' },
+  { id: 'reference', label: 'Referencia', hint: 'opcional' },
+  { id: 'amount', label: 'Importe', hint: 'con signo o con direccion aparte' },
+  { id: 'debit', label: 'Debito', hint: 'solo si van en columnas separadas' },
+  { id: 'credit', label: 'Credito', hint: 'solo si van en columnas separadas' },
+  { id: 'direction', label: 'Direccion', hint: 'solo si el fichero la trae' },
+];
+
+const KIND_LABELS: Record<string, string> = {
+  date_format: 'convenio de fecha',
+  decimal_format: 'convenio decimal',
+  direction_sign: 'convenio de signo',
+  currency: 'moneda',
+  column_role: 'papel de la columna',
+  timezone: 'zona horaria',
+};
+
+const VALUE_LABELS: Record<string, string> = {
+  iso: 'aaaa-mm-dd',
+  dmy: 'dd/mm/aaaa',
+  mdy: 'mm/dd/aaaa',
+  dot: '1,234.56 (punto decimal)',
+  comma: '1.234,56 (coma decimal)',
+};
+
+const MAPPING_INITIAL: MappingState = {
+  error: null,
+  mappingVersionId: null,
+  blockers: [],
+};
+const DECISION_INITIAL: DecisionState = { error: null, resolved: null };
+const PREPARE_INITIAL: PrepareState = {
+  error: null,
+  datasetVersionId: null,
+  summary: null,
+  rejections: [],
+};
+const PUBLISH_INITIAL: PublishState = { error: null, published: null };
+
+/**
+ * Selector visual de columnas.
+ *
+ * Cada campo canonico elige su columna de una lista que **son las columnas del
+ * fichero**, con su cabecera y el tipo que el perfilador infirio. Escribir un
+ * indice a mano seria pedirle a una persona que cuente columnas, y contar mal la
+ * columna del importe mueve dinero sin que nada falle.
+ */
+export function MappingForm({
+  companyId,
+  artifactId,
+  dataSourceId,
+  preview,
+}: {
+  companyId: string;
+  artifactId: string;
+  dataSourceId: string;
+  preview: PreviewPage;
+}) {
+  const [state, action, pending] = useActionState(createMappingAction, MAPPING_INITIAL);
+  const [directionMode, setDirectionMode] = useState('signed_amount');
+
+  const columns: ColumnProfile[] = preview.columns.length
+    ? preview.columns
+    : preview.header.map((header, index) => ({
+        index,
+        header,
+        non_empty: 0,
+        empty: 0,
+        min_length: 0,
+        max_length: 0,
+        inferred_type: 'text',
+        type_confidence: 0,
+        ambiguous: false,
+      }));
+
+  return (
+    <form className="upload" action={action}>
+      <input type="hidden" name="companyId" value={companyId} />
+      <input type="hidden" name="artifactId" value={artifactId} />
+      <input type="hidden" name="dataSourceId" value={dataSourceId} />
+
+      <label htmlFor="displayName">
+        Nombre del mapeo
+        <input
+          id="displayName"
+          name="displayName"
+          type="text"
+          maxLength={160}
+          defaultValue={`Mapeo de ${preview.header.join(', ').slice(0, 60)}`}
+        />
+      </label>
+
+      <fieldset>
+        <legend>Que columna es cada cosa</legend>
+        {FIELDS.map((field) => (
+          <label key={field.id} htmlFor={`col_${field.id}`}>
+            {field.label} <span className="meta">({field.hint})</span>
+            <select id={`col_${field.id}`} name={`col_${field.id}`} defaultValue="">
+              <option value="">sin asignar</option>
+              {columns.map((column) => (
+                <option key={column.index} value={column.index}>
+                  {column.index + 1}. {column.header} · {column.inferred_type}
+                  {column.ambiguous ? ' (ambigua)' : ''}
+                </option>
+              ))}
+            </select>
+          </label>
+        ))}
+      </fieldset>
+
+      <fieldset>
+        <legend>Como se leen los valores</legend>
+        <label htmlFor="dateFormat">
+          Convenio de fecha
+          <select id="dateFormat" name="dateFormat" defaultValue="dmy">
+            <option value="dmy">dd/mm/aaaa</option>
+            <option value="mdy">mm/dd/aaaa</option>
+            <option value="iso">aaaa-mm-dd</option>
+          </select>
+        </label>
+        <label htmlFor="decimalFormat">
+          Convenio decimal
+          <select id="decimalFormat" name="decimalFormat" defaultValue="comma">
+            <option value="comma">1.234,56</option>
+            <option value="dot">1,234.56</option>
+          </select>
+        </label>
+        <label htmlFor="currency">
+          Moneda
+          <input
+            id="currency"
+            name="currency"
+            type="text"
+            maxLength={3}
+            minLength={3}
+            defaultValue="COP"
+            pattern="[A-Za-z]{3}"
+            required
+          />
+        </label>
+        <label htmlFor="directionMode">
+          De donde sale la direccion
+          <select
+            id="directionMode"
+            name="directionMode"
+            value={directionMode}
+            onChange={(event) => setDirectionMode(event.target.value)}
+          >
+            <option value="signed_amount">del signo del importe</option>
+            <option value="debit_credit_columns">de dos columnas separadas</option>
+            <option value="explicit_direction">de una columna que la dice</option>
+          </select>
+        </label>
+        <p className="meta">
+          La direccion se guarda aparte y el importe siempre positivo. Un menos
+          delante de un numero significa cosas distintas en cada banco, y guardar
+          esa ambiguedad dentro del importe la propaga a todo lo que venga despues.
+        </p>
+      </fieldset>
+
+      <fieldset>
+        <legend>Donde empieza la tabla</legend>
+        <label htmlFor="headerRow">
+          Fila de la cabecera
+          <input
+            id="headerRow"
+            name="headerRow"
+            type="number"
+            min={1}
+            defaultValue={preview.header_row}
+          />
+        </label>
+        <label htmlFor="firstDataRow">
+          Primera fila de datos
+          <input
+            id="firstDataRow"
+            name="firstDataRow"
+            type="number"
+            min={1}
+            defaultValue={preview.first_data_row}
+          />
+        </label>
+      </fieldset>
+
+      <div>
+        <button type="submit" disabled={pending}>
+          {pending ? 'Guardando...' : 'Guardar mapeo'}
+        </button>
+      </div>
+
+      {state.error ? (
+        <p className="notice error" role="alert">
+          {state.error}
+        </p>
+      ) : null}
+      {state.mappingVersionId ? (
+        <p className="notice ok" role="status">
+          Mapeo guardado en borrador.
+          {state.blockers.length > 0
+            ? ` Quedan ${state.blockers.length} cosa(s) por resolver antes de poder preparar.`
+            : ' No queda nada por resolver.'}
+        </p>
+      ) : null}
+    </form>
+  );
+}
+
+/** Resolucion explicita de una ambiguedad, con su motivo escrito. */
+export function DecisionForm({
+  companyId,
+  artifactId,
+  mappingVersionId,
+  blocker,
+}: {
+  companyId: string;
+  artifactId: string;
+  mappingVersionId: string;
+  blocker: Blocker;
+}) {
+  const [state, action, pending] = useActionState(
+    decideAmbiguityAction,
+    DECISION_INITIAL,
+  );
+
+  if (blocker.resolvable !== 'true') {
+    return (
+      <li>
+        <strong>{blocker.code}</strong> · {blocker.location} · {blocker.detail}
+        <p className="meta">
+          Esto no se resuelve con una explicacion: hay que corregir el mapeo.
+        </p>
+      </li>
+    );
+  }
+
+  return (
+    <li>
+      <strong>{KIND_LABELS[blocker.ambiguity_kind] ?? blocker.ambiguity_kind}</strong>{' '}
+      en <code>{blocker.subject_ref}</code> · {blocker.detail}
+      <form className="upload" action={action}>
+        <input type="hidden" name="companyId" value={companyId} />
+        <input type="hidden" name="artifactId" value={artifactId} />
+        <input type="hidden" name="mappingVersionId" value={mappingVersionId} />
+        <input type="hidden" name="ambiguityKind" value={blocker.ambiguity_kind} />
+        <input type="hidden" name="subjectRef" value={blocker.subject_ref} />
+        <input type="hidden" name="resolvedValue" value={blocker.expected_value} />
+        <label htmlFor={`rationale_${blocker.subject_ref}`}>
+          Confirmo{' '}
+          <strong>
+            {VALUE_LABELS[blocker.expected_value] ?? blocker.expected_value}
+          </strong>{' '}
+          porque
+          <input
+            id={`rationale_${blocker.subject_ref}`}
+            name="rationale"
+            type="text"
+            maxLength={500}
+            required
+            placeholder="el banco emite dd/mm/aaaa en Colombia"
+          />
+        </label>
+        <div>
+          <button type="submit" disabled={pending}>
+            {pending ? 'Registrando...' : 'Registrar la decision'}
+          </button>
+        </div>
+        {state.error ? (
+          <p className="notice error" role="alert">
+            {state.error}
+          </p>
+        ) : null}
+        {state.resolved ? (
+          <p className="notice ok" role="status">
+            Decidido y anotado. Queda escrito quien lo eligio y por que.
+          </p>
+        ) : null}
+      </form>
+    </li>
+  );
+}
+
+/** Preparar es del preparador. El resumen sale antes de que nadie publique. */
+export function PrepareForm({
+  companyId,
+  artifactId,
+  mappingVersionId,
+  accounts,
+}: {
+  companyId: string;
+  artifactId: string;
+  mappingVersionId: string;
+  accounts: { account_id: string; label: string }[];
+}) {
+  const [state, action, pending] = useActionState(prepareDatasetAction, PREPARE_INITIAL);
+
+  return (
+    <form className="upload" action={action}>
+      <input type="hidden" name="companyId" value={companyId} />
+      <input type="hidden" name="artifactId" value={artifactId} />
+      <input type="hidden" name="mappingVersionId" value={mappingVersionId} />
+      <label htmlFor="financialAccountId">
+        Cuenta contra la que se registran
+        <select id="financialAccountId" name="financialAccountId" required>
+          {accounts.length === 0 ? <option value="">no hay cuentas</option> : null}
+          {accounts.map((account) => (
+            <option key={account.account_id} value={account.account_id}>
+              {account.label}
+            </option>
+          ))}
+        </select>
+      </label>
+      <div>
+        <button type="submit" disabled={pending || accounts.length === 0}>
+          {pending ? 'Preparando...' : 'Preparar el conjunto canonico'}
+        </button>
+      </div>
+      {state.error ? (
+        <p className="notice error" role="alert">
+          {state.error}
+        </p>
+      ) : null}
+      {state.summary ? (
+        <p className="notice ok" role="status">
+          {state.summary}
+        </p>
+      ) : null}
+      {state.rejections.length > 0 ? (
+        <div className="card scroll">
+          <div className="meta">Filas que no se pudieron leer</div>
+          <table>
+            <caption className="meta">
+              Cada rechazo lleva su numero de fila del fichero, que es como se
+              encuentra. Nunca lleva el valor que fallo.
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col">Fila</th>
+                <th scope="col">Motivo</th>
+              </tr>
+            </thead>
+            <tbody>
+              {state.rejections.map((item) => (
+                <tr key={item.record_ordinal}>
+                  <td className="when">{item.record_ordinal}</td>
+                  <td>{item.detail}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
+    </form>
+  );
+}
+
+/** Publicar es de otra persona, y el boton solo aparece si esa persona eres tu. */
+export function PublishForm({
+  companyId,
+  artifactId,
+  datasetVersionId,
+  canPublish,
+  reason,
+}: {
+  companyId: string;
+  artifactId: string;
+  datasetVersionId: string;
+  canPublish: boolean;
+  reason: string;
+}) {
+  const [state, action, pending] = useActionState(publishDatasetAction, PUBLISH_INITIAL);
+
+  if (!canPublish) {
+    return (
+      <p className="notice" role="status">
+        {reason}
+      </p>
+    );
+  }
+
+  return (
+    <form className="upload" action={action}>
+      <input type="hidden" name="companyId" value={companyId} />
+      <input type="hidden" name="artifactId" value={artifactId} />
+      <input type="hidden" name="datasetVersionId" value={datasetVersionId} />
+      <div>
+        <button type="submit" disabled={pending}>
+          {pending ? 'Publicando...' : 'Publicar'}
+        </button>
+      </div>
+      {state.error ? (
+        <p className="notice error" role="alert">
+          {state.error}
+        </p>
+      ) : null}
+      {state.published ? (
+        <p className="notice ok" role="status">
+          {state.published}
+        </p>
+      ) : null}
+    </form>
+  );
+}

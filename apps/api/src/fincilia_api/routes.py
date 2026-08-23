@@ -840,3 +840,27 @@ def read_movement(request: Request, company_id: str, movement_id: str,
         if movement is None:
             raise forbidden()
     return movement
+
+
+@router.get("/companies/{company_id}/accounts", tags=["mapping"])
+def list_accounts(request: Request, company_id: str,
+                  principal: Principal = Depends(principal_dependency)) -> list[dict]:
+    """Las cuentas de la empresa. Un movimiento siempre se registra contra una."""
+    context = company_context(request, principal, company_id)
+    require(context, "movement.read")
+    database = request.app.state.database
+    with database.session(company_id=context.company_id,
+                          subject_id=principal.subject_id) as connection:
+        return datasets.list_accounts(connection)
+
+
+@router.get("/companies/{company_id}/sources", tags=["mapping"])
+def list_sources(request: Request, company_id: str,
+                 principal: Principal = Depends(principal_dependency)) -> list[dict]:
+    """De donde viene la evidencia de esta empresa."""
+    context = company_context(request, principal, company_id)
+    require(context, "document.read")
+    database = request.app.state.database
+    with database.session(company_id=context.company_id,
+                          subject_id=principal.subject_id) as connection:
+        return datasets.list_sources(connection)

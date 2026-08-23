@@ -976,3 +976,36 @@ def load_movement(connection: psycopg.Connection,
              "value_digest": digest, "operation": operation}
             for field, locator, transform, digest, operation in cursor]
     return payload
+
+
+# --------------------------------------------------------------------------- #
+# Maestros de la empresa
+# --------------------------------------------------------------------------- #
+
+def list_accounts(connection: psycopg.Connection) -> list[dict[str, Any]]:
+    """Las cuentas contra las que se registra un movimiento.
+
+    Sale el token y los cuatro ultimos digitos, nunca el identificador completo:
+    `canonical-model` tipa `identifier_token` como `tokenized_identifier`, y una
+    lista de cuentas no es sitio para un numero de cuenta.
+    """
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT account_id, account_family, display_name, identifier_last4, "
+            "       currency_code, status FROM fincilia.financial_account "
+            "WHERE status = 'active' ORDER BY display_name")
+        return [{"account_id": str(row[0]), "account_family": row[1],
+                 "display_name": row[2], "identifier_last4": row[3],
+                 "currency_code": row[4], "status": row[5]} for row in cursor]
+
+
+def list_sources(connection: psycopg.Connection) -> list[dict[str, Any]]:
+    """De donde viene la evidencia: banco, pasarela, contabilidad."""
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT data_source_id, source_family, display_name, timezone, status "
+            "FROM fincilia.data_source WHERE status = 'active' "
+            "ORDER BY display_name")
+        return [{"data_source_id": str(row[0]), "source_family": row[1],
+                 "display_name": row[2], "timezone": row[3], "status": row[4]}
+                for row in cursor]

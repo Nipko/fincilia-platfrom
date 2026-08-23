@@ -241,3 +241,387 @@ export function fetchDocument(
     { token },
   );
 }
+
+// --------------------------------------------------------------------------- //
+// Mapeo, dataset canonico y movimientos (FNC-P3)
+// --------------------------------------------------------------------------- //
+
+/** Coordenada exacta de una fila o de una celda dentro del artefacto. */
+export type OriginLocator = {
+  locator_kind: string;
+  artifact_sha256: string;
+  record_ordinal: number;
+  byte_start: number;
+  byte_end: number;
+  field_count: number;
+  field_ordinal?: number;
+};
+
+export type PreviewRow = {
+  record_ordinal: number;
+  values: string[];
+  locator: OriginLocator;
+};
+
+export type PreviewPage = {
+  artifact_id: string;
+  run_id: string;
+  header: string[];
+  header_row: number;
+  first_data_row: number;
+  columns: ColumnProfile[];
+  total_records: number;
+  offset: number;
+  limit: number;
+  truncated: boolean;
+  truncation_reason: string | null;
+  rows: PreviewRow[];
+};
+
+/** Lo que impide publicar, con la decision que lo levantaria si la hay. */
+export type Blocker = {
+  code: string;
+  location: string;
+  detail: string;
+  ambiguity_kind: string;
+  subject_ref: string;
+  expected_value: string;
+  resolvable: string;
+};
+
+export type MappingDecision = {
+  decision_id: string;
+  ambiguity_kind: string;
+  subject_ref: string;
+  resolved_value: string;
+  rationale: string;
+  decided_by: string;
+  decided_at: string;
+};
+
+export type MappingVersion = {
+  mapping_version_id: string;
+  mapping_id: string;
+  version_number: number;
+  artifact_id: string;
+  definition: Record<string, unknown>;
+  definition_digest: string;
+  source_schema_digest: string;
+  state: string;
+  created_by: string;
+  created_at: string;
+  validated_by: string | null;
+  display_name: string;
+  data_source_id: string;
+};
+
+export type MappingDetail = MappingVersion & {
+  decisions: MappingDecision[];
+  blockers: Blocker[];
+  columns: ColumnProfile[];
+};
+
+export type MappingSummary = {
+  mapping_version_id: string;
+  mapping_id: string;
+  version_number: number;
+  artifact_id: string;
+  state: string;
+  display_name: string;
+  created_at: string;
+};
+
+export type DatasetSummary = {
+  dataset_version_id: string;
+  artifact_id: string;
+  state: string;
+  movement_count: number;
+  rejected_count: number;
+  prepared_at: string;
+  published_at: string | null;
+};
+
+export type DatasetDetail = DatasetSummary & {
+  processing_run_id: string;
+  mapping_version_id: string;
+  completeness_state: string;
+  lineage_state: string;
+  record_count: number;
+  prepared_by: string;
+  validated_by: string | null;
+  published_by: string | null;
+  rejected_reason: string | null;
+  canonical_schema_version: string;
+  engine_release: string;
+  can_publish: boolean;
+  manifest: {
+    reproduction_key: string;
+    reproducible: boolean;
+    locale: string;
+    timezone: string;
+    deterministic_config: Record<string, unknown>;
+  } | null;
+};
+
+export type Movement = {
+  movement_id: string;
+  amount: string;
+  currency: string;
+  direction: string;
+  description: string;
+  reference: string | null;
+  occurred_on: string;
+  posted_on: string | null;
+  value_date: string | null;
+  accounting_date: string | null;
+  state: string;
+  kind: string;
+  record_ordinal: number;
+};
+
+export type LineageStep = {
+  field: string;
+  cell: OriginLocator;
+  transform: string;
+  value_digest: string;
+  operation: string;
+};
+
+export type MovementDetail = Movement & {
+  dataset_version_id: string;
+  dataset_state: string;
+  origin: { filename: string; locator: OriginLocator; values: string[] };
+  lineage: LineageStep[];
+};
+
+export type MappingDefinition = {
+  columns: Record<string, number>;
+  date_format: string;
+  decimal_format: string;
+  currency: string;
+  direction_mode: string;
+  header_row: number;
+  first_data_row: number;
+  ignored_columns: number[];
+};
+
+export function fetchPreview(
+  token: string,
+  companyId: string,
+  artifactId: string,
+  offset = 0,
+  limit = 25,
+): Promise<PreviewPage> {
+  const company = encodeURIComponent(companyId);
+  const artifact = encodeURIComponent(artifactId);
+  return request<PreviewPage>(
+    `/api/v1/companies/${company}/documents/${artifact}/preview` +
+      `?offset=${Math.max(0, offset)}&limit=${Math.max(1, limit)}`,
+    { token },
+  );
+}
+
+export function fetchMappings(
+  token: string,
+  companyId: string,
+  artifactId: string,
+): Promise<MappingSummary[]> {
+  const company = encodeURIComponent(companyId);
+  const artifact = encodeURIComponent(artifactId);
+  return request<MappingSummary[]>(
+    `/api/v1/companies/${company}/mappings?artifact_id=${artifact}`,
+    { token },
+  );
+}
+
+export function fetchMapping(
+  token: string,
+  companyId: string,
+  mappingVersionId: string,
+): Promise<MappingDetail> {
+  const company = encodeURIComponent(companyId);
+  const version = encodeURIComponent(mappingVersionId);
+  return request<MappingDetail>(`/api/v1/companies/${company}/mappings/${version}`, {
+    token,
+  });
+}
+
+export function createMapping(
+  token: string,
+  companyId: string,
+  body: MappingDefinition & {
+    artifact_id: string;
+    data_source_id: string;
+    display_name: string;
+  },
+): Promise<{ mapping_version_id: string; blockers: Blocker[] }> {
+  return request(`/api/v1/companies/${encodeURIComponent(companyId)}/mappings`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+    token,
+  });
+}
+
+export function decideAmbiguity(
+  token: string,
+  companyId: string,
+  mappingVersionId: string,
+  body: {
+    ambiguity_kind: string;
+    subject_ref: string;
+    resolved_value: string;
+    rationale: string;
+  },
+): Promise<{ decision_id: string; created: boolean }> {
+  const company = encodeURIComponent(companyId);
+  const version = encodeURIComponent(mappingVersionId);
+  return request(`/api/v1/companies/${company}/mappings/${version}/decisions`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+    token,
+  });
+}
+
+export function validateMapping(
+  token: string,
+  companyId: string,
+  mappingVersionId: string,
+): Promise<MappingVersion> {
+  const company = encodeURIComponent(companyId);
+  const version = encodeURIComponent(mappingVersionId);
+  return request<MappingVersion>(
+    `/api/v1/companies/${company}/mappings/${version}/validate`,
+    { method: 'POST', token },
+  );
+}
+
+export function prepareDataset(
+  token: string,
+  companyId: string,
+  body: {
+    artifact_id: string;
+    mapping_version_id: string;
+    financial_account_id: string;
+  },
+): Promise<{
+  dataset_version_id: string;
+  state: string;
+  movement_count: number;
+  rejected_count: number;
+  record_count: number;
+  reused: boolean;
+  rejections: { record_ordinal: number; code: string; detail: string }[];
+}> {
+  return request(`/api/v1/companies/${encodeURIComponent(companyId)}/datasets`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+    token,
+  });
+}
+
+export function fetchDatasets(
+  token: string,
+  companyId: string,
+  artifactId: string,
+): Promise<DatasetSummary[]> {
+  const company = encodeURIComponent(companyId);
+  const artifact = encodeURIComponent(artifactId);
+  return request<DatasetSummary[]>(
+    `/api/v1/companies/${company}/datasets?artifact_id=${artifact}`,
+    { token },
+  );
+}
+
+export function fetchDataset(
+  token: string,
+  companyId: string,
+  datasetVersionId: string,
+): Promise<DatasetDetail> {
+  const company = encodeURIComponent(companyId);
+  const dataset = encodeURIComponent(datasetVersionId);
+  return request<DatasetDetail>(`/api/v1/companies/${company}/datasets/${dataset}`, {
+    token,
+  });
+}
+
+export function publishDataset(
+  token: string,
+  companyId: string,
+  datasetVersionId: string,
+): Promise<DatasetDetail> {
+  const company = encodeURIComponent(companyId);
+  const dataset = encodeURIComponent(datasetVersionId);
+  return request<DatasetDetail>(
+    `/api/v1/companies/${company}/datasets/${dataset}/publish`,
+    { method: 'POST', token },
+  );
+}
+
+export function fetchMovements(
+  token: string,
+  companyId: string,
+  datasetVersionId: string,
+  offset = 0,
+  limit = 50,
+): Promise<Movement[]> {
+  const company = encodeURIComponent(companyId);
+  const dataset = encodeURIComponent(datasetVersionId);
+  return request<Movement[]>(
+    `/api/v1/companies/${company}/datasets/${dataset}/movements` +
+      `?offset=${Math.max(0, offset)}&limit=${Math.max(1, limit)}`,
+    { token },
+  );
+}
+
+export function fetchMovement(
+  token: string,
+  companyId: string,
+  movementId: string,
+): Promise<MovementDetail> {
+  const company = encodeURIComponent(companyId);
+  const movement = encodeURIComponent(movementId);
+  return request<MovementDetail>(
+    `/api/v1/companies/${company}/movements/${movement}`,
+    { token },
+  );
+}
+
+export type FinancialAccount = {
+  account_id: string;
+  account_family: string;
+  display_name: string;
+  identifier_last4: string | null;
+  currency_code: string;
+  status: string;
+};
+
+export type DataSource = {
+  data_source_id: string;
+  source_family: string;
+  display_name: string;
+  timezone: string;
+  status: string;
+};
+
+export function fetchAccounts(
+  token: string,
+  companyId: string,
+): Promise<FinancialAccount[]> {
+  return request<FinancialAccount[]>(
+    `/api/v1/companies/${encodeURIComponent(companyId)}/accounts`,
+    { token },
+  );
+}
+
+export function fetchSources(
+  token: string,
+  companyId: string,
+): Promise<DataSource[]> {
+  return request<DataSource[]>(
+    `/api/v1/companies/${encodeURIComponent(companyId)}/sources`,
+    { token },
+  );
+}

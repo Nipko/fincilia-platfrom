@@ -82,7 +82,12 @@ export default async function DocumentPage({
             {document.zone}
           </span>
         </div>
-        <Link href={`/empresas/${companyId}`}>Volver</Link>
+        <nav aria-label="Navegacion del documento">
+          <Link href={`/empresas/${companyId}/documentos/${artifactId}/mapeo`}>
+            Mapear y publicar
+          </Link>{' '}
+          <Link href={`/empresas/${companyId}`}>Volver</Link>
+        </nav>
       </header>
 
       <section className="card">
