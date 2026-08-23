@@ -68,6 +68,8 @@ class ObjectStore(Protocol):
 
     def exists(self, zone: str, key: str) -> bool: ...
 
+    def list_keys(self, zone: str, prefix: str = "") -> list[str]: ...
+
 
 class S3ObjectStore:
     """Implementacion S3 compatible. En local apunta al MinIO del stack."""
@@ -118,6 +120,21 @@ class S3ObjectStore:
         except (BotoCoreError, ClientError) as error:
             raise ObjectStoreError(type(error).__name__) from error
 
+    def list_keys(self, zone: str, prefix: str = "") -> list[str]:
+        """Claves de una zona. Solo lo usa la reconciliacion, nunca el producto.
+
+        Listar un bucket es caro y no hace falta para servir: quien atiende una
+        peticion ya sabe que objeto quiere, porque la clave sale del contenido.
+        """
+        keys: list[str] = []
+        try:
+            paginator = self._client.get_paginator("list_objects_v2")
+            for page in paginator.paginate(Bucket=self.bucket(zone), Prefix=prefix):
+                keys.extend(item["Key"] for item in page.get("Contents", []))
+        except (BotoCoreError, ClientError) as error:
+            raise ObjectStoreError(type(error).__name__) from error
+        return keys
+
     def exists(self, zone: str, key: str) -> bool:
         try:
             self._client.head_object(Bucket=self.bucket(zone), Key=key)
@@ -152,6 +169,10 @@ class InMemoryObjectStore:
             return self.objects[(zone, key)]
         except KeyError:
             raise ObjectStoreError("no such object") from None
+
+    def list_keys(self, zone: str, prefix: str = "") -> list[str]:
+        return sorted(key for (stored_zone, key) in self.objects
+                      if stored_zone == zone and key.startswith(prefix))
 
     def exists(self, zone: str, key: str) -> bool:
         return (zone, key) in self.objects

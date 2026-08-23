@@ -428,7 +428,7 @@ class DispatchProtocolTests(unittest.TestCase):
                            "WHERE run_id = %s", (run_id,))
 
     def test_no_job_can_stay_running_without_a_lease(self) -> None:
-        # El invariante que resume todo: `running` y arriendo son un solo hecho.
+        # El invariante que lo resume: `running` y arriendo son un solo hecho.
         run_id = self.enqueue(self.artifact())
         claimed = self.claim()
         with connect(MIGRATOR_DSN, SANDBOX_A) as connection, connection.cursor() as cursor:
@@ -471,7 +471,7 @@ class DispatchProtocolTests(unittest.TestCase):
     def test_the_claim_does_not_leak_the_company_context_to_the_caller(self) -> None:
         # `Database.session()` fija el contexto una vez al abrir la transaccion y
         # no lo vuelve a mirar: un contexto filtrado reetiquetaria en silencio
-        # todo lo que viniera despues.
+        # cuanto viniera despues.
         self.enqueue(self.artifact())
         with connect(WORKER_DSN) as connection, connection.cursor() as cursor:
             cursor.execute("SELECT * FROM fincilia.claim_next_run('w', %s)", (LEASE,))

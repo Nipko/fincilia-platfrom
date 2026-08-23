@@ -280,7 +280,19 @@ def find_artifact_by_content(connection: psycopg.Connection,
 def insert_artifact(connection: psycopg.Connection, *, company_id: str,
                     filename: str, byte_size: int, content_sha256: str,
                     media_type: str, zone: str, object_key: str, status: str,
-                    findings: list, uploaded_by: str) -> Artifact:
+                    findings: list, uploaded_by: str) -> tuple[Artifact, bool]:
+    """Registra la entrega. Devuelve `(artefacto, si_es_nueva)`.
+
+    La idempotencia la decide la restriccion `uq_artifact_content`, no una
+    comprobacion previa. Entre mirar «¿ya existe?» y escribir cabe otra peticion,
+    y con dos subidas simultaneas de los mismos bytes esa ventana producia o dos
+    filas o un 500 por violacion de unicidad. Aqui el perdedor no falla: lee la
+    fila del ganador y responde lo mismo que el.
+
+    Requiere READ COMMITTED, que es lo que `Database` fija explicitamente: bajo
+    REPEATABLE READ el `SELECT` de respaldo no veria la fila recien confirmada y
+    la API reportaria un fallo por una entrega que si existe.
+    """
     artifact_id = new_id()
     with connection.cursor() as cursor:
         cursor.execute(
@@ -288,12 +300,21 @@ def insert_artifact(connection: psycopg.Connection, *, company_id: str,
             "byte_size, content_sha256, media_type, zone, object_key, status, "
             "findings, uploaded_by) "
             "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s) "
+            "ON CONFLICT (company_id, content_sha256) DO NOTHING "
             f"RETURNING {ARTIFACT_COLUMNS}",
             (artifact_id, company_id, filename, byte_size, content_sha256, media_type,
              zone, object_key, status,
              json.dumps(findings, ensure_ascii=False, sort_keys=True), uploaded_by))
         row = cursor.fetchone()
-    return _artifact(row)
+    if row is not None:
+        return _artifact(row), True
+
+    existing = find_artifact_by_content(connection, content_sha256)
+    if existing is None:
+        # El conflicto existe pero la fila no se ve bajo la politica. Reportarlo
+        # como exito seria afirmar algo que no se puede comprobar.
+        raise LookupError("a conflicting artifact is not visible in this context")
+    return existing, False
 
 
 def list_artifacts(connection: psycopg.Connection, *, limit: int = 50) -> list[Artifact]:

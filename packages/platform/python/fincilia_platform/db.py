@@ -20,9 +20,26 @@ from contextlib import contextmanager
 from typing import Iterator
 
 import psycopg
+from psycopg import IsolationLevel
 from psycopg_pool import ConnectionPool
 
 from .settings import Settings
+
+def _read_committed(connection: psycopg.Connection) -> None:
+    """Fija READ COMMITTED en cada conexion nueva del pool.
+
+    No es un argumento de `connect()`: pasarlo ahi hace que **toda** conexion
+    falle, el pool se quede vacio y la unica senal sea un `PoolTimeout` a los
+    diez segundos, que no señala a la causa.
+
+    Explicito y no heredado: la idempotencia de la subida se apoya en que el
+    perdedor de un `ON CONFLICT` vea la fila que el ganador acaba de confirmar.
+    Bajo REPEATABLE READ no la veria, y la API reportaria un fallo por una
+    entrega que si existe. Depender del valor por defecto del servidor es
+    depender de una configuracion que nadie de este lado controla.
+    """
+    connection.isolation_level = IsolationLevel.READ_COMMITTED
+
 
 POOL_WAIT_SECONDS = 10.0
 COMPANY_SETTING = "fincilia.company_id"
@@ -44,6 +61,7 @@ class Database:
             # `autocommit=False` no basta: psycopg abre la transaccion al primer
             # comando. Lo que garantiza el alcance es `connection.transaction()`.
             kwargs={"autocommit": False},
+            configure=_read_committed,
             # Esperar indefinidamente por una conexion convierte una base caida en
             # una API colgada. Mejor un error rapido que un cliente en el limbo.
             timeout=POOL_WAIT_SECONDS,

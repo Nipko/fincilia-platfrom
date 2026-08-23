@@ -246,6 +246,11 @@ services:
       # desde otro rol no prueba nada. Este servicio es de un solo uso, va por
       # perfil y no atiende trafico.
       FINCILIA_WORKER_URL: postgresql://${FINCILIA_LOCAL_DB_WORKER_USER:-fincilia_worker}:${FINCILIA_LOCAL_WORKER_PASSWORD:-fincilia_local_worker_only}@postgres:5432/${FINCILIA_LOCAL_DB_NAME:-fincilia_local}
+      # El reconciliador compara el registro con el almacen: necesita los dos.
+      FINCILIA_CACHE_URL: redis://valkey:6379/3
+      FINCILIA_OBJECT_STORE_ENDPOINT: http://objectstore:9000
+      FINCILIA_OBJECT_ACCESS_KEY: ${FINCILIA_OBJECT_ACCESS_KEY:-fincilia_local_object}
+      FINCILIA_OBJECT_SECRET_KEY: ${FINCILIA_OBJECT_SECRET_KEY:-fincilia_local_object_only}
     depends_on:
       postgres:
         condition: service_healthy

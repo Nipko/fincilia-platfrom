@@ -92,7 +92,7 @@ def principal_dependency(request: Request) -> Principal:
 
 
 @router.post("/auth/session", response_model=SessionResponse, tags=["identity"])
-async def open_session(request: Request, body: SessionRequest) -> SessionResponse:
+def open_session(request: Request, body: SessionRequest) -> SessionResponse:
     settings = request.app.state.settings
     database = request.app.state.database
     provider = request.app.state.identity_provider
@@ -166,7 +166,7 @@ def _my_companies(request: Request, principal: Principal) -> list[CompanySummary
 
 
 @router.get("/me", tags=["identity"])
-async def me(request: Request,
+def me(request: Request,
              principal: Principal = Depends(principal_dependency)) -> dict:
     companies = _my_companies(request, principal)
     return {
@@ -178,7 +178,7 @@ async def me(request: Request,
 
 
 @router.get("/companies", response_model=list[CompanySummary], tags=["companies"])
-async def list_companies(request: Request,
+def list_companies(request: Request,
                          principal: Principal = Depends(principal_dependency),
                          ) -> list[CompanySummary]:
     return _my_companies(request, principal)
@@ -186,7 +186,7 @@ async def list_companies(request: Request,
 
 @router.get("/companies/{company_id}", response_model=CompanyDetail,
             tags=["companies"])
-async def read_company(request: Request, company_id: str,
+def read_company(request: Request, company_id: str,
                        principal: Principal = Depends(principal_dependency),
                        ) -> CompanyDetail:
     context = company_context(request, principal, company_id)
@@ -216,7 +216,7 @@ async def read_company(request: Request, company_id: str,
 
 @router.get("/companies/{company_id}/audit", response_model=list[AuditEvent],
             tags=["audit"])
-async def read_audit(request: Request, company_id: str, limit: int = 50,
+def read_audit(request: Request, company_id: str, limit: int = 50,
                      principal: Principal = Depends(principal_dependency),
                      ) -> list[AuditEvent]:
     context: TenantContext = company_context(request, principal, company_id)
@@ -232,16 +232,19 @@ async def read_audit(request: Request, company_id: str, limit: int = 50,
 # Documentos
 # --------------------------------------------------------------------------- #
 
-async def _read_bounded(upload: UploadFile) -> bytes:
+def _read_bounded(upload: UploadFile) -> bytes:
     """Lee con techo. Se corta **mientras** se lee, no despues.
 
     Comprobar el tamano al final es comprobarlo cuando el fichero ya esta entero
     en memoria: quien quiera tumbar el proceso solo tiene que mandar algo enorme.
+
+    Se lee del fichero temporal directamente, sin `await`, porque este manejador
+    corre en un hilo y no en el bucle de eventos.
     """
     chunks: list[bytes] = []
     total = 0
     while True:
-        chunk = await upload.read(64 * 1024)
+        chunk = upload.file.read(64 * 1024)
         if not chunk:
             break
         total += len(chunk)
@@ -255,7 +258,7 @@ async def _read_bounded(upload: UploadFile) -> bytes:
 
 @router.post("/companies/{company_id}/documents", response_model=ArtifactSummary,
              tags=["documents"])
-async def upload_document(request: Request, company_id: str,
+def upload_document(request: Request, company_id: str,
                           file: UploadFile = File(...),
                           principal: Principal = Depends(principal_dependency),
                           ) -> ArtifactSummary:
@@ -264,18 +267,9 @@ async def upload_document(request: Request, company_id: str,
     database = request.app.state.database
     store = request.app.state.object_store
 
-    payload = await _read_bounded(file)
+    payload = _read_bounded(file)
     filename = (file.filename or "sin-nombre").strip()[:255]
     fingerprint = hashlib.sha256(payload).hexdigest()
-
-    # Idempotencia por contenido: los mismos bytes en la misma empresa son la
-    # misma entrega. No hace falta que el cliente mande una clave de idempotencia
-    # que puede equivocarse o repetirse entre ficheros distintos.
-    with database.session(company_id=context.company_id,
-                          subject_id=principal.subject_id) as connection:
-        existing = repository.find_artifact_by_content(connection, fingerprint)
-    if existing is not None:
-        return ArtifactSummary(**existing.as_dict(), already_present=True)
 
     rejection: str | None = None
     try:
@@ -303,6 +297,15 @@ async def upload_document(request: Request, company_id: str,
                       "sha256": admission.content_sha256})
     except ObjectStoreError as error:
         logger.error("object store refused the upload: %s", error)
+        with database.session(company_id=context.company_id,
+                              subject_id=principal.subject_id) as connection:
+            repository.record_audit(
+                connection, subject_id=principal.subject_id,
+                company_id=context.company_id, action="document.upload",
+                resource_kind="document", resource_ref=fingerprint,
+                outcome="error", detail={"reason": "storage_unavailable"})
+        # Nada se encola ni se publica: si el almacen fallo, no hay evidencia que
+        # procesar, y declararlo exitoso seria ocultar una inconsistencia.
         raise ProblemError(problem(
             "storage-unavailable", "Storage unavailable", 503,
             "the evidence store did not accept the file")) from None
@@ -310,31 +313,37 @@ async def upload_document(request: Request, company_id: str,
     status = "stored" if admission.promoted else "quarantined"
     with database.session(company_id=context.company_id,
                           subject_id=principal.subject_id) as connection:
-        artifact = repository.insert_artifact(
+        # La idempotencia la decide la restriccion, no una comprobacion previa.
+        # Dos subidas simultaneas de los mismos bytes son una sola entrega: el
+        # perdedor lee la fila del ganador y responde lo mismo, sin fallar.
+        artifact, created = repository.insert_artifact(
             connection, company_id=context.company_id, filename=filename,
             byte_size=admission.byte_size, content_sha256=admission.content_sha256,
             media_type=admission.media_type, zone=admission.zone,
             object_key=stored.key, status=status,
             findings=[item.as_dict() for item in admission.findings],
             uploaded_by=principal.subject_id)
-        # Solo se procesa lo que salio de cuarentena. Encolar un fichero con un
-        # secreto dentro seria pasearlo por un proceso mas.
-        if admission.promoted:
+        if created and admission.promoted:
+            # Solo se procesa lo que salio de cuarentena. Encolar un fichero con
+            # un secreto dentro seria pasearlo por un proceso mas.
             repository.enqueue_run(connection, company_id=context.company_id,
                                    artifact_id=artifact.artifact_id, kind="profile")
+        # La auditoria distingue una entrega nueva de una repetida. Contarlas
+        # igual haria imposible saber si alguien reintenta o si algo se duplica.
         repository.record_audit(
             connection, subject_id=principal.subject_id,
             company_id=context.company_id, action="document.upload",
             resource_kind="document", resource_ref=artifact.artifact_id,
             outcome="allowed",
-            detail={"zone": admission.zone, "media_type": admission.media_type,
+            detail={"result": "created" if created else "duplicate",
+                    "zone": admission.zone, "media_type": admission.media_type,
                     "findings": len(admission.findings)})
-    return ArtifactSummary(**artifact.as_dict())
+    return ArtifactSummary(**artifact.as_dict(), already_present=not created)
 
 
 @router.get("/companies/{company_id}/documents", response_model=list[ArtifactSummary],
             tags=["documents"])
-async def list_documents(request: Request, company_id: str, limit: int = 50,
+def list_documents(request: Request, company_id: str, limit: int = 50,
                          principal: Principal = Depends(principal_dependency),
                          ) -> list[ArtifactSummary]:
     context = company_context(request, principal, company_id)
@@ -348,7 +357,7 @@ async def list_documents(request: Request, company_id: str, limit: int = 50,
 
 @router.get("/companies/{company_id}/documents/{artifact_id}",
             response_model=ArtifactDetail, tags=["documents"])
-async def read_document(request: Request, company_id: str, artifact_id: str,
+def read_document(request: Request, company_id: str, artifact_id: str,
                         principal: Principal = Depends(principal_dependency),
                         ) -> ArtifactDetail:
     context = company_context(request, principal, company_id)

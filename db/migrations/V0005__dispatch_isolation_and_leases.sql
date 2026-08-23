@@ -33,7 +33,7 @@
 -- funciones necesitan. Ejecutar una funcion concede su efecto, nunca mas.
 
 -- Una migracion que espera indefinidamente por un bloqueo es una migracion que
--- bloquea a todo lo que venga detras.
+-- bloquea a cuanto venga detras.
 SET LOCAL lock_timeout = '5s';
 SET LOCAL statement_timeout = '120s';
 
@@ -91,7 +91,7 @@ GRANT USAGE ON SCHEMA fincilia TO fincilia_worker, fincilia_dispatch;
 REVOKE INSERT, UPDATE ON fincilia.local_credential FROM fincilia_app;
 
 -- La API nunca ha actualizado un trabajo: `bump_authorization_version` era su
--- unico UPDATE en todo el codigo, y no lo llama nadie.
+-- unico UPDATE del codigo entero, y no lo llama nadie.
 REVOKE UPDATE ON fincilia.processing_run FROM fincilia_app;
 
 -- `identity_binding` y `firm` no los lee nadie desde la API: la autorizacion sale
@@ -321,7 +321,7 @@ REVOKE ALL PRIVILEGES ON fincilia.dead_letter_item FROM fincilia_app;
 -- fijan el contexto de empresa y lo **restauran** antes de salir. La restauracion
 -- no es higiene: `Database.session()` fija el contexto una vez al abrir la
 -- transaccion y no lo vuelve a mirar, de modo que un contexto filtrado
--- reetiquetaria en silencio todo lo que viniera despues en esa transaccion.
+-- reetiquetaria en silencio cuanto viniera despues en esa transaccion.
 --
 -- El orden de bloqueo es siempre el mismo, puntero y despues trabajo. Dos ordenes
 -- distintos entre reclamar y terminar producirian un interbloqueo justo cuando un

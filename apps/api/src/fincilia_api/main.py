@@ -125,8 +125,10 @@ def create_app(settings: ApiSettings | None = None,
         return {"status": "alive", "service": resolved.service_name,
                 "version": API_VERSION, "environment": resolved.env}
 
+    # `def`, no `async def`: las sondas son bloqueantes y en el bucle de eventos
+    # dejarian sin atender al resto mientras esperan.
     @app.get("/health/ready", tags=["health"])
-    async def ready() -> JSONResponse:
+    def ready() -> JSONResponse:
         results = [probe.probe() for probe in app.state.probes]
         healthy = all(result.healthy for result in results)
         payload = {
