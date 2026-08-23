@@ -75,7 +75,9 @@ def synthetic_statement(rows: int) -> bytes:
         sign = "-" if index % 3 else ""
         parts.append(
             f"{day:02d}/{month:02d}/2026;Movimiento sintetico {index};"
-            f"REF-{index:06d};{sign}{units}.{cents:02d}\n")
+            # Coma decimal, que es el convenio que declara el mapeo. Con punto,
+            # el punto seria separador de miles y exigiria grupos de tres.
+            f"REF-{index:06d};{sign}{units},{cents:02d}\n")
     return "".join(parts).encode("utf-8")
 
 

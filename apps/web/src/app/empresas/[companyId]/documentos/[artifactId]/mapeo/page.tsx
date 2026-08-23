@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 
 import {
   ApiError,
-  fetchAccounts,
+  fetchAccountsFull,
   fetchCompany,
   fetchDataset,
   fetchDatasets,
@@ -12,7 +12,7 @@ import {
   fetchMappings,
   fetchMovements,
   fetchPreview,
-  fetchSources,
+  fetchSourcesFull,
   type Blocker,
   type DatasetDetail,
   type MappingDetail,
@@ -22,6 +22,7 @@ import {
 import { readSession } from '@/lib/session';
 
 import {
+  ContinueForm,
   DecisionForm,
   MappingForm,
   PrepareForm,
@@ -46,9 +47,11 @@ const TYPE_LABELS: Record<string, string> = {
 
 const STATE_LABELS: Record<string, string> = {
   draft: 'borrador',
+  staging: 'a medias',
   validated: 'validado',
   published: 'publicado',
   rejected: 'rechazado',
+  cancelled: 'abandonado',
   superseded: 'sustituido',
 };
 
@@ -166,10 +169,12 @@ export default async function MappingPage({
   // Los maestros salen de la API, no de una constante: una cuenta escrita a
   // mano en la interfaz seria una cuenta que la base no conoce.
   const [accountRows, sourceRows] = await Promise.all([
-    fetchAccounts(session.token, companyId).catch(() => []),
-    fetchSources(session.token, companyId).catch(() => []),
+    fetchAccountsFull(session.token, companyId).catch(() => []),
+    fetchSourcesFull(session.token, companyId).catch(() => []),
   ]);
-  const accounts = accountRows.map((account) => ({
+  const accounts = accountRows
+    .filter((account) => account.status === 'active')
+    .map((account) => ({
     account_id: account.account_id,
     label:
       `${account.display_name} · ${account.currency_code}` +
@@ -463,7 +468,21 @@ export default async function MappingPage({
                 {dataset.manifest.locale} · {dataset.manifest.timezone}
               </p>
             ) : null}
-            {dataset.state === 'published' ? (
+            {dataset.state === 'staging' ? (
+              <>
+                <p className="notice" role="status">
+                  Este conjunto esta a medias: {dataset.movement_count} de{' '}
+                  {dataset.expected_record_count ?? '?'} fila(s). No es publicable
+                  ni aparece como publicado, y lo que ya entro no se repite al
+                  continuar.
+                </p>
+                <ContinueForm
+                  companyId={companyId}
+                  artifactId={artifactId}
+                  datasetVersionId={dataset.dataset_version_id}
+                />
+              </>
+            ) : dataset.state === 'published' ? (
               <p className="notice ok" role="status">
                 Publicado. Reprocesar creara otra version y esta se conserva: lo
                 publicado no se reescribe.

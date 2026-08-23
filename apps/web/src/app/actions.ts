@@ -11,7 +11,14 @@ import { redirect } from 'next/navigation';
 import {
   ApiError,
   type Blocker,
+  continueDataset,
+  createAccount,
   createMapping,
+  createSource,
+  generateExpectations,
+  linkAccount,
+  setCycle,
+  updateAccount,
   decideAmbiguity,
   prepareDataset,
   publishDataset,
@@ -392,4 +399,222 @@ export async function publishDatasetAction(
       `${published.engine_release}. Reprocesar creara otra version y esta se ` +
       'conserva.',
   };
+}
+
+
+// --------------------------------------------------------------------------- //
+// Alta de cuentas, fuentes, vinculos y ciclos (FNC-P3.5)
+// --------------------------------------------------------------------------- //
+
+/**
+ * El identificador de una cuenta viaja en el `FormData` y **no vuelve**: la API
+ * lo tokeniza al recibirlo y nada de lo que devuelve lo contiene. Aqui tampoco
+ * se registra ni se devuelve en un mensaje de error, porque un estado de
+ * formulario acaba renderizado en el navegador.
+ */
+
+export type OnboardingState = { error: string | null; done: string | null };
+
+function refresh(companyId: string): void {
+  revalidatePath(`/empresas/${companyId}/fuentes`);
+  revalidatePath(`/empresas/${companyId}`);
+}
+
+function explain(error: unknown, fallback: string): string {
+  if (error instanceof ApiError && error.status === 403) {
+    return 'Este rol no puede administrar cuentas ni fuentes.';
+  }
+  if (error instanceof ApiError) {
+    return error.message;
+  }
+  return fallback;
+}
+
+export async function createAccountAction(
+  _previous: OnboardingState,
+  formData: FormData,
+): Promise<OnboardingState> {
+  const session = await readSession();
+  if (!session) {
+    redirect('/entrar');
+  }
+  const companyId = String(formData.get('companyId') ?? '');
+  const identifier = String(formData.get('identifier') ?? '').trim();
+  if (identifier.length < 4) {
+    return { error: 'Escribe el identificador de la cuenta.', done: null };
+  }
+
+  let account;
+  try {
+    account = await createAccount(session.token, companyId, {
+      account_family: String(formData.get('accountFamily') ?? 'bank_account'),
+      display_name: String(formData.get('displayName') ?? '').trim(),
+      identifier,
+      currency_code: String(formData.get('currency') ?? 'COP').toUpperCase(),
+      timezone: String(formData.get('timezone') ?? 'America/Bogota'),
+    });
+  } catch (error) {
+    // El mensaje viene de la API, que nunca cita el identificador.
+    return { error: explain(error, 'No se pudo crear la cuenta.'), done: null };
+  }
+
+  refresh(companyId);
+  const tail = account.identifier_last4 ? ` terminada en ${account.identifier_last4}` : '';
+  return {
+    error: null,
+    done: `${account.display_name}${tail} creada. El identificador no se guardo: ` +
+      'lo que queda es una huella con clave.',
+  };
+}
+
+export async function closeAccountAction(
+  _previous: OnboardingState,
+  formData: FormData,
+): Promise<OnboardingState> {
+  const session = await readSession();
+  if (!session) {
+    redirect('/entrar');
+  }
+  const companyId = String(formData.get('companyId') ?? '');
+  const accountId = String(formData.get('accountId') ?? '');
+  const status = String(formData.get('status') ?? 'suspended');
+  const reason = String(formData.get('reason') ?? '').trim();
+  if (status !== 'active' && reason.length < 3) {
+    // Suspender o cerrar es una decision, y una decision lleva su motivo.
+    return { error: 'Escribe por que se suspende o se cierra.', done: null };
+  }
+
+  try {
+    await updateAccount(
+      session.token,
+      companyId,
+      accountId,
+      status === 'active' ? { status } : { status, closed_reason: reason },
+    );
+  } catch (error) {
+    return { error: explain(error, 'No se pudo cambiar la cuenta.'), done: null };
+  }
+  refresh(companyId);
+  return { error: null, done: `La cuenta quedo en estado ${status}.` };
+}
+
+export async function createSourceAction(
+  _previous: OnboardingState,
+  formData: FormData,
+): Promise<OnboardingState> {
+  const session = await readSession();
+  if (!session) {
+    redirect('/entrar');
+  }
+  const companyId = String(formData.get('companyId') ?? '');
+  try {
+    const source = await createSource(session.token, companyId, {
+      source_family: String(formData.get('sourceFamily') ?? 'bank_account'),
+      display_name: String(formData.get('displayName') ?? '').trim(),
+      purpose_code: String(formData.get('purposeCode') ?? 'operational').trim(),
+      timezone: String(formData.get('timezone') ?? 'America/Bogota'),
+    });
+    refresh(companyId);
+    return { error: null, done: `${source.display_name} creada.` };
+  } catch (error) {
+    return { error: explain(error, 'No se pudo crear la fuente.'), done: null };
+  }
+}
+
+export async function linkAccountAction(
+  _previous: OnboardingState,
+  formData: FormData,
+): Promise<OnboardingState> {
+  const session = await readSession();
+  if (!session) {
+    redirect('/entrar');
+  }
+  const companyId = String(formData.get('companyId') ?? '');
+  const sourceId = String(formData.get('sourceId') ?? '');
+  const accountId = String(formData.get('accountId') ?? '');
+  if (!accountId) {
+    return { error: 'Elige una cuenta.', done: null };
+  }
+  try {
+    await linkAccount(session.token, companyId, sourceId, {
+      financial_account_id: accountId,
+      relation_role: String(formData.get('relationRole') ?? 'primary'),
+    });
+    refresh(companyId);
+    return { error: null, done: 'Vinculada. Ya hay contra que publicar.' };
+  } catch (error) {
+    return { error: explain(error, 'No se pudo vincular.'), done: null };
+  }
+}
+
+export async function setCycleAction(
+  _previous: OnboardingState,
+  formData: FormData,
+): Promise<OnboardingState> {
+  const session = await readSession();
+  if (!session) {
+    redirect('/entrar');
+  }
+  const companyId = String(formData.get('companyId') ?? '');
+  const sourceId = String(formData.get('sourceId') ?? '');
+  const periodicity = String(formData.get('periodicity') ?? 'monthly');
+  const customDays = Number.parseInt(String(formData.get('customDays') ?? ''), 10);
+  try {
+    await setCycle(session.token, companyId, sourceId, {
+      periodicity,
+      custom_days: periodicity === 'custom' && Number.isInteger(customDays)
+        ? customDays
+        : null,
+      due_day_offset:
+        Number.parseInt(String(formData.get('dueDayOffset') ?? '5'), 10) || 0,
+      grace_days: Number.parseInt(String(formData.get('graceDays') ?? '3'), 10) || 0,
+      responsible_subject_id: String(formData.get('responsible') ?? ''),
+      timezone: String(formData.get('timezone') ?? 'America/Bogota'),
+      anchor_date: String(formData.get('anchorDate') ?? ''),
+    });
+    const until = String(formData.get('until') ?? '');
+    if (until) {
+      const report = await generateExpectations(
+        session.token, companyId, sourceId, until,
+      );
+      refresh(companyId);
+      return {
+        error: null,
+        done: `Ciclo guardado y ${report.periods} periodo(s) calculados, ` +
+          `${report.created} nuevo(s).`,
+      };
+    }
+    refresh(companyId);
+    return { error: null, done: 'Ciclo guardado.' };
+  } catch (error) {
+    return { error: explain(error, 'No se pudo guardar el ciclo.'), done: null };
+  }
+}
+
+export type ContinueState = { error: string | null; progress: string | null };
+
+export async function continueDatasetAction(
+  _previous: ContinueState,
+  formData: FormData,
+): Promise<ContinueState> {
+  const session = await readSession();
+  if (!session) {
+    redirect('/entrar');
+  }
+  const companyId = String(formData.get('companyId') ?? '');
+  const artifactId = String(formData.get('artifactId') ?? '');
+  const datasetId = String(formData.get('datasetVersionId') ?? '');
+  try {
+    const report = await continueDataset(session.token, companyId, datasetId);
+    revalidatePath(`/empresas/${companyId}/documentos/${artifactId}/mapeo`);
+    return {
+      error: null,
+      progress: report.complete
+        ? `Terminado: ${report.movement_count} movimiento(s) listos para revisar.`
+        : `Va por ${report.movement_count} movimiento(s). Sigue pulsando: cada ` +
+          'tanda entra con su punto de control y no se repite.',
+    };
+  } catch (error) {
+    return { error: explain(error, 'No se pudo continuar.'), progress: null };
+  }
 }

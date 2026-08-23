@@ -94,7 +94,10 @@ export default async function CompanyPage({
             {company.authorization_version}
           </span>
         </div>
-        <Link href="/empresas">Volver</Link>
+        <nav aria-label="Navegacion de la empresa">
+          <Link href={`/empresas/${companyId}/fuentes`}>Fuentes y cuentas</Link>{' '}
+          <Link href="/empresas">Empresas</Link>
+        </nav>
       </header>
 
       <section className="card">

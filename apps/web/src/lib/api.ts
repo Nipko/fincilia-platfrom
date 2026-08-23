@@ -354,6 +354,7 @@ export type DatasetDetail = DatasetSummary & {
   completeness_state: string;
   lineage_state: string;
   record_count: number;
+  expected_record_count?: number;
   prepared_by: string;
   validated_by: string | null;
   published_by: string | null;
@@ -386,8 +387,25 @@ export type Movement = {
   record_ordinal: number;
 };
 
+/** Una etapa logica del camino de un campo publicado. */
+export type LineageStage = {
+  canonical_field: string;
+  step_ordinal: number;
+  stage: string;
+  operation: string;
+  input_semantic_type: string;
+  output_semantic_type: string;
+  transform_ref: string | null;
+  configuration_digest: string;
+  parser_version: string;
+  rule_version: string;
+  source_column: number | null;
+  identity: Record<string, unknown>;
+};
+
 export type LineageStep = {
   field: string;
+  stages: LineageStage[];
   cell: OriginLocator;
   transform: string;
   value_digest: string;
@@ -397,8 +415,11 @@ export type LineageStep = {
 export type MovementDetail = Movement & {
   dataset_version_id: string;
   dataset_state: string;
+  engine_release: string;
   origin: { filename: string; locator: OriginLocator; values: string[] };
   lineage: LineageStep[];
+  lineage_complete: boolean;
+  lineage_reason?: string;
 };
 
 export type MappingDefinition = {
@@ -596,39 +617,269 @@ export function fetchMovement(
   );
 }
 
-export type FinancialAccount = {
+
+
+
+
+// --------------------------------------------------------------------------- //
+// Alta de cuentas, fuentes, vinculos y ciclos (FNC-P3.5)
+// --------------------------------------------------------------------------- //
+
+/** Una cuenta. **Nunca** lleva el identificador: solo su cola visible. */
+export type Account = {
   account_id: string;
   account_family: string;
   display_name: string;
   identifier_last4: string | null;
   currency_code: string;
+  timezone: string;
   status: string;
+  closed_reason: string | null;
+  created_at: string;
+  updated_at?: string;
+  usage?: { movements: number; links: number };
 };
 
-export type DataSource = {
+export type Source = {
   data_source_id: string;
   source_family: string;
   display_name: string;
+  purpose_code: string;
   timezone: string;
+  status: string;
+  closed_reason: string | null;
+  created_at: string;
+  updated_at?: string;
+};
+
+export type SourceLink = {
+  link_id: string;
+  data_source_id: string;
+  financial_account_id: string;
+  relation_role: string;
+  valid_from: string;
+  valid_to: string | null;
+  status: string;
+  source_name?: string;
+  account_name?: string;
+  currency_code?: string;
+  identifier_last4?: string | null;
+  account_status?: string;
+};
+
+export type SourceCycle = {
+  cycle_id: string;
+  data_source_id: string;
+  periodicity: string;
+  custom_days: number | null;
+  due_day_offset: number;
+  grace_days: number;
+  responsible_subject_id: string;
+  timezone: string;
+  anchor_date: string;
   status: string;
 };
 
-export function fetchAccounts(
+export type Expectation = {
+  expectation_id: string;
+  data_source_id: string;
+  period_start: string;
+  period_end: string;
+  due_on: string;
+  late_after: string;
+  state: string;
+  stored_state: string;
+  days_late: number;
+  source_name: string;
+  waived_reason: string | null;
+};
+
+export type SourceDetail = Source & {
+  links: SourceLink[];
+  cycle: SourceCycle | null;
+};
+
+export function fetchAccountsFull(token: string, companyId: string): Promise<Account[]> {
+  return request<Account[]>(
+    `/api/v1/companies/${encodeURIComponent(companyId)}/accounts`, { token });
+}
+
+export function fetchAccount(
   token: string,
   companyId: string,
-): Promise<FinancialAccount[]> {
-  return request<FinancialAccount[]>(
-    `/api/v1/companies/${encodeURIComponent(companyId)}/accounts`,
+  accountId: string,
+): Promise<Account> {
+  const company = encodeURIComponent(companyId);
+  return request<Account>(
+    `/api/v1/companies/${company}/accounts/${encodeURIComponent(accountId)}`,
     { token },
   );
 }
 
-export function fetchSources(
+export function createAccount(
   token: string,
   companyId: string,
-): Promise<DataSource[]> {
-  return request<DataSource[]>(
-    `/api/v1/companies/${encodeURIComponent(companyId)}/sources`,
+  body: {
+    account_family: string;
+    display_name: string;
+    identifier: string;
+    currency_code: string;
+    timezone: string;
+  },
+): Promise<Account> {
+  return request<Account>(
+    `/api/v1/companies/${encodeURIComponent(companyId)}/accounts`,
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+      token,
+    },
+  );
+}
+
+export function updateAccount(
+  token: string,
+  companyId: string,
+  accountId: string,
+  body: { status?: string; closed_reason?: string; display_name?: string },
+): Promise<Account> {
+  const company = encodeURIComponent(companyId);
+  return request<Account>(
+    `/api/v1/companies/${company}/accounts/${encodeURIComponent(accountId)}`,
+    {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+      token,
+    },
+  );
+}
+
+export function fetchSourcesFull(token: string, companyId: string): Promise<Source[]> {
+  return request<Source[]>(
+    `/api/v1/companies/${encodeURIComponent(companyId)}/sources`, { token });
+}
+
+export function fetchSource(
+  token: string,
+  companyId: string,
+  sourceId: string,
+): Promise<SourceDetail> {
+  const company = encodeURIComponent(companyId);
+  return request<SourceDetail>(
+    `/api/v1/companies/${company}/sources/${encodeURIComponent(sourceId)}`,
     { token },
   );
+}
+
+export function createSource(
+  token: string,
+  companyId: string,
+  body: {
+    source_family: string;
+    display_name: string;
+    purpose_code: string;
+    timezone: string;
+  },
+): Promise<Source> {
+  return request<Source>(
+    `/api/v1/companies/${encodeURIComponent(companyId)}/sources`,
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+      token,
+    },
+  );
+}
+
+export function linkAccount(
+  token: string,
+  companyId: string,
+  sourceId: string,
+  body: { financial_account_id: string; relation_role: string },
+): Promise<SourceLink> {
+  const company = encodeURIComponent(companyId);
+  return request<SourceLink>(
+    `/api/v1/companies/${company}/sources/${encodeURIComponent(sourceId)}/accounts`,
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+      token,
+    },
+  );
+}
+
+export function fetchLinks(token: string, companyId: string): Promise<SourceLink[]> {
+  return request<SourceLink[]>(
+    `/api/v1/companies/${encodeURIComponent(companyId)}/links`, { token });
+}
+
+export function setCycle(
+  token: string,
+  companyId: string,
+  sourceId: string,
+  body: {
+    periodicity: string;
+    custom_days: number | null;
+    due_day_offset: number;
+    grace_days: number;
+    responsible_subject_id: string;
+    timezone: string;
+    anchor_date: string;
+  },
+): Promise<SourceCycle> {
+  const company = encodeURIComponent(companyId);
+  return request<SourceCycle>(
+    `/api/v1/companies/${company}/sources/${encodeURIComponent(sourceId)}/cycle`,
+    {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+      token,
+    },
+  );
+}
+
+export function generateExpectations(
+  token: string,
+  companyId: string,
+  sourceId: string,
+  until: string,
+): Promise<{ periods: number; created: number }> {
+  const company = encodeURIComponent(companyId);
+  return request(
+    `/api/v1/companies/${company}/sources/${encodeURIComponent(sourceId)}/expectations`,
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ until }),
+      token,
+    },
+  );
+}
+
+export function fetchExpectations(
+  token: string,
+  companyId: string,
+): Promise<Expectation[]> {
+  return request<Expectation[]>(
+    `/api/v1/companies/${encodeURIComponent(companyId)}/expectations?limit=100`,
+    { token },
+  );
+}
+
+export function continueDataset(
+  token: string,
+  companyId: string,
+  datasetVersionId: string,
+): Promise<{ state: string; complete: boolean; movement_count: number }> {
+  const company = encodeURIComponent(companyId);
+  const dataset = encodeURIComponent(datasetVersionId);
+  return request(`/api/v1/companies/${company}/datasets/${dataset}/continue`, {
+    method: 'POST',
+    token,
+  });
 }

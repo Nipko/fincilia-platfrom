@@ -4,6 +4,7 @@ import { useActionState, useState } from 'react';
 
 import type { Blocker, ColumnProfile, PreviewPage } from '@/lib/api';
 import {
+  continueDatasetAction,
   createMappingAction,
   decideAmbiguityAction,
   prepareDatasetAction,
@@ -414,6 +415,49 @@ export function PublishForm({
       {state.published ? (
         <p className="notice ok" role="status">
           {state.published}
+        </p>
+      ) : null}
+    </form>
+  );
+}
+
+/** Continua una preparacion que se quedo a medias. */
+export function ContinueForm({
+  companyId,
+  artifactId,
+  datasetVersionId,
+}: {
+  companyId: string;
+  artifactId: string;
+  datasetVersionId: string;
+}) {
+  const [state, action, pending] = useActionState(continueDatasetAction, {
+    error: null,
+    progress: null,
+  });
+
+  return (
+    <form className="upload" action={action}>
+      <input type="hidden" name="companyId" value={companyId} />
+      <input type="hidden" name="artifactId" value={artifactId} />
+      <input type="hidden" name="datasetVersionId" value={datasetVersionId} />
+      <div>
+        <button type="submit" disabled={pending}>
+          {pending ? 'Continuando...' : 'Continuar la preparacion'}
+        </button>
+      </div>
+      <p className="meta">
+        Cada tanda entra con su punto de control. Si esto se interrumpe, lo que
+        entro se queda y lo que falta se retoma desde ahi: reanudar no repite.
+      </p>
+      {state.error ? (
+        <p className="notice error" role="alert">
+          {state.error}
+        </p>
+      ) : null}
+      {state.progress ? (
+        <p className="notice ok" role="status">
+          {state.progress}
         </p>
       ) : null}
     </form>

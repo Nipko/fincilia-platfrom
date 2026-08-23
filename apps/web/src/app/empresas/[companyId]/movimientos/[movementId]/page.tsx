@@ -17,6 +17,24 @@ const FIELD_LABELS: Record<string, string> = {
   credit: 'Credito',
 };
 
+const STAGE_LABELS: Record<string, string> = {
+  artifact_version: 'la evidencia original',
+  raw_locator: 'la celda exacta',
+  extracted_field: 'el texto leido',
+  transformed_value: 'el valor tipado',
+  source_record_field: 'el campo del registro',
+  financial_fact_field: 'el campo publicado',
+};
+
+const OPERATION_LABELS: Record<string, string> = {
+  derived_from: 'el valor fluyo',
+  decided_using: 'alguien lo eligio',
+  included_in_snapshot: 'quedo sellado',
+  overlay_applied: 'un overlay lo cambio',
+  superseded_by: 'lo sustituyo otra version',
+  redacted_from: 'se minimizo',
+};
+
 const TRANSFORM_LABELS: Record<string, string> = {
   verbatim: 'tal cual venia',
   'parse_date:dmy': 'leido como dd/mm/aaaa',
@@ -157,46 +175,68 @@ export default async function MovementPage({
       </div>
 
       <h2 id="linaje">Como se leyo cada campo</h2>
-      <div className="card scroll" aria-labelledby="linaje">
-        <table>
-          <caption className="meta">
-            Cada campo publicado dice de que celda viene y que transformacion se
-            le aplico. El grafo guarda la huella del valor, nunca el valor.
-          </caption>
-          <thead>
-            <tr>
-              <th scope="col">Campo</th>
-              <th scope="col">Fila</th>
-              <th scope="col">Columna</th>
-              <th scope="col">Bytes</th>
-              <th scope="col">Como se leyo</th>
-            </tr>
-          </thead>
-          <tbody>
-            {movement.lineage.map((step) => (
-              <tr key={step.field}>
-                <th scope="row">{FIELD_LABELS[step.field] ?? step.field}</th>
-                <td className="when">{step.cell.record_ordinal}</td>
-                <td className="when">
-                  {step.cell.field_ordinal !== undefined
-                    ? step.cell.field_ordinal + 1
-                    : '—'}
-                </td>
-                <td className="when">
-                  {step.cell.byte_start}–{step.cell.byte_end}
-                </td>
-                <td>{TRANSFORM_LABELS[step.transform] ?? step.transform}</td>
+      {!movement.lineage_complete ? (
+        <p className="notice error" role="alert">
+          El camino de este movimiento no se puede reconstruir entero
+          {movement.lineage_reason ? `: ${movement.lineage_reason}` : '.'} Un
+          importe sin camino hasta su celda no se puede auditar, y decirlo es
+          mejor que ensenar un camino corto que parezca el contrato completo.
+        </p>
+      ) : null}
+
+      {movement.lineage.map((step) => (
+        <section className="card scroll" key={step.field}
+                 aria-label={`Camino de ${FIELD_LABELS[step.field] ?? step.field}`}>
+          <div className="meta">
+            <strong>{FIELD_LABELS[step.field] ?? step.field}</strong> · fila{' '}
+            {step.cell.record_ordinal} · columna{' '}
+            {step.cell.field_ordinal !== undefined ? step.cell.field_ordinal + 1 : '—'}
+            {' · '}bytes {step.cell.byte_start}–{step.cell.byte_end}
+          </div>
+          <table>
+            <caption className="meta">
+              Las seis etapas que exige el contrato de linaje, en orden. Cada una
+              dice que tipo entra, que tipo sale y con que se leyo.
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col">#</th>
+                <th scope="col">Etapa</th>
+                <th scope="col">Operacion</th>
+                <th scope="col">De</th>
+                <th scope="col">A</th>
+                <th scope="col">Con que</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-        {movement.lineage.length === 0 ? (
-          <p className="notice error" role="status">
-            Este movimiento no tiene linaje registrado, y eso es un defecto: un
-            importe sin camino hasta su celda no se puede auditar.
+            </thead>
+            <tbody>
+              {step.stages.map((stage) => (
+                <tr key={stage.step_ordinal}>
+                  <th scope="row" className="when">{stage.step_ordinal}</th>
+                  <td>{STAGE_LABELS[stage.stage] ?? stage.stage}</td>
+                  <td>
+                    <span className="outcome">
+                      {OPERATION_LABELS[stage.operation] ?? stage.operation}
+                    </span>
+                  </td>
+                  <td className="meta">{stage.input_semantic_type}</td>
+                  <td className="meta">{stage.output_semantic_type}</td>
+                  <td>
+                    {TRANSFORM_LABELS[stage.transform_ref ?? ''] ??
+                      stage.transform_ref ??
+                      'sin transformacion'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="meta">
+            Huella del valor publicado{' '}
+            <code className="digest">{step.value_digest}</code>. El grafo guarda
+            la huella y jamas el valor: uno que copiara importes seria una
+            segunda base de datos que nadie protege.
           </p>
-        ) : null}
-      </div>
+        </section>
+      ))}
 
       <section className="card" aria-label="Evidencia">
         <div className="meta">Huella del artefacto</div>

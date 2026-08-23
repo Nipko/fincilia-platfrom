@@ -166,6 +166,18 @@ def purge(created: set[str]) -> None:
         "DELETE FROM fincilia.lineage_node WHERE entity_ref IN ("
         " SELECT artifact_id FROM fincilia.source_artifact"
         " WHERE content_sha256 = ANY(%s))",
+        # El nodo del dataset y los de decision: cardinalidad uno cada uno, y
+        # sin ellos las aristas de arriba dejarian huerfano el grafo.
+        "DELETE FROM fincilia.lineage_node WHERE entity_ref IN ("
+        " SELECT dataset_version_id FROM fincilia.dataset_version"
+        " WHERE artifact_id IN (SELECT artifact_id FROM fincilia.source_artifact"
+        "  WHERE content_sha256 = ANY(%s)))",
+        "DELETE FROM fincilia.lineage_node WHERE entity_ref IN ("
+        " SELECT decision_id FROM fincilia.mapping_decision"
+        " WHERE mapping_version_id IN ("
+        "  SELECT mapping_version_id FROM fincilia.column_mapping_version"
+        "  WHERE artifact_id IN (SELECT artifact_id FROM fincilia.source_artifact"
+        "   WHERE content_sha256 = ANY(%s))))",
         "DELETE FROM fincilia.movement_evidence_link WHERE movement_id IN ("
         " SELECT movement_id FROM fincilia.canonical_movement"
         " WHERE dataset_version_id IN (SELECT dataset_version_id"
@@ -184,9 +196,26 @@ def purge(created: set[str]) -> None:
         " SELECT dataset_version_id FROM fincilia.dataset_version"
         " WHERE artifact_id IN (SELECT artifact_id FROM fincilia.source_artifact"
         "  WHERE content_sha256 = ANY(%s)))",
+        # Los puntos de control referencian al dataset, y el plan de linaje
+        # tambien: borrar el dataset antes choca con la clave ajena, que es
+        # justo lo que `ON DELETE RESTRICT` existe para hacer.
+        "DELETE FROM fincilia.dataset_chunk WHERE dataset_version_id IN ("
+        " SELECT dataset_version_id FROM fincilia.dataset_version"
+        " WHERE artifact_id IN (SELECT artifact_id FROM fincilia.source_artifact"
+        "  WHERE content_sha256 = ANY(%s)))",
         "DELETE FROM fincilia.dataset_version WHERE artifact_id IN ("
         " SELECT artifact_id FROM fincilia.source_artifact"
         " WHERE content_sha256 = ANY(%s))",
+        "DELETE FROM fincilia.lineage_transform_step WHERE plan_id IN ("
+        " SELECT plan_id FROM fincilia.lineage_transform_plan"
+        " WHERE mapping_version_id IN ("
+        "  SELECT mapping_version_id FROM fincilia.column_mapping_version"
+        "  WHERE artifact_id IN (SELECT artifact_id"
+        "   FROM fincilia.source_artifact WHERE content_sha256 = ANY(%s))))",
+        "DELETE FROM fincilia.lineage_transform_plan WHERE mapping_version_id IN ("
+        " SELECT mapping_version_id FROM fincilia.column_mapping_version"
+        " WHERE artifact_id IN (SELECT artifact_id FROM fincilia.source_artifact"
+        "  WHERE content_sha256 = ANY(%s)))",
         "DELETE FROM fincilia.mapping_decision WHERE mapping_version_id IN ("
         " SELECT mapping_version_id FROM fincilia.column_mapping_version"
         " WHERE artifact_id IN (SELECT artifact_id FROM fincilia.source_artifact"
