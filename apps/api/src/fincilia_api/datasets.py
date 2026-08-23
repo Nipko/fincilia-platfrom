@@ -598,7 +598,8 @@ def _write_dataset(connection: psycopg.Connection, *, company_id: str,
                  movement.reference or None,
                  _normalise_reference(movement.reference),
                  movement.occurred_on,
-                 _fingerprint(company_id, financial_account_id, movement)))
+                 _fingerprint(company_id, financial_account_id, movement),
+                 release["release_id"], schema_version))
             movement_id = str(cursor.fetchone()[0])
 
             cursor.execute(
