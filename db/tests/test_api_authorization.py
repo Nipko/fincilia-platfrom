@@ -51,7 +51,17 @@ def isolated_env():
         os.environ.update(saved)
 
 
-def build_settings() -> ApiSettings:
+# Sintetica, distinta de la de firma, y nunca la de ningun entorno real.
+TOKENIZATION_KEY = "fincilia_test_identifier_token_key_synthetic_32"
+
+
+def build_settings(**overrides) -> ApiSettings:
+    """Ajustes de prueba. `overrides` sirve para aislar la version del motor.
+
+    Cada suite que toca el enforcement de releases necesita **su** clave de
+    release: si compartieran una, aprobar la de una prueba haria pasar por
+    aprobada la de la que comprueba que un borrador bloquea.
+    """
     with isolated_env():
         return ApiSettings(
             env="test",
@@ -61,8 +71,10 @@ def build_settings() -> ApiSettings:
             object_access_key="fincilia_local_object",
             object_secret_key="fincilia_local_object_only",
             auth_signing_key=SIGNING_KEY,
+            identifier_tokenization_key=TOKENIZATION_KEY,
             auth_issuer=ISSUER,
             auth_audience=AUDIENCE,
+            **overrides,
         )
 
 

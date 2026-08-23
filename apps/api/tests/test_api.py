@@ -32,6 +32,9 @@ BASE_ENV: dict[str, str] = {
     "object_access_key": "fincilia_local_object",
     "object_secret_key": "fincilia_local_object_only",
     "auth_signing_key": "x" * 40,
+    # Distinta de la de firma a proposito: la propia clase lo exige, y una
+    # prueba que las hiciera iguales dejaria de comprobar nada.
+    "identifier_tokenization_key": "y" * 40,
 }
 
 
@@ -75,12 +78,34 @@ def client(probes) -> TestClient:
 class SettingsTests(unittest.TestCase):
     def test_a_missing_credential_stops_the_process(self) -> None:
         for required in ("database_url", "cache_url", "object_store_endpoint",
-                         "object_access_key", "object_secret_key", "auth_signing_key"):
+                         "object_access_key", "object_secret_key", "auth_signing_key",
+                         "identifier_tokenization_key"):
             with self.subTest(required=required):
                 payload = {key: value for key, value in BASE_ENV.items()
                            if key != required}
                 with isolated_env(), self.assertRaises(ValidationError):
                     ApiSettings(**payload)  # type: ignore[arg-type]
+
+    def test_the_tokenization_key_is_not_the_signing_key(self) -> None:
+        # Un secreto que sirve para dos cosas tiene el radio de explosion de las
+        # dos, y rotar uno obligaria a rotar el otro.
+        with self.assertRaises(ValidationError):
+            api_settings(identifier_tokenization_key="x" * 40)
+
+    def test_a_short_tokenization_key_is_refused(self) -> None:
+        with self.assertRaises(ValidationError):
+            api_settings(identifier_tokenization_key="corta")
+
+    def test_a_floating_engine_release_is_refused(self) -> None:
+        # Publicar contra `latest` es publicar contra lo que haya manana.
+        for token in ("latest", "LATEST", "main", "head", "stable", "current"):
+            with self.subTest(token=token), self.assertRaises(ValidationError):
+                api_settings(engine_release_key=token)
+
+    def test_a_named_engine_release_is_accepted(self) -> None:
+        settings = api_settings(engine_release_key="fnc-p3-mapping-0.1.0")
+        self.assertEqual(settings.engine_release_key, "fnc-p3-mapping-0.1.0")
+        self.assertEqual(settings.identifier_key_version, 1)
 
     def test_production_is_not_an_environment_value(self) -> None:
         for value in ("production", "prod", "staging"):
