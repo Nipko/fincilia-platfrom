@@ -260,6 +260,18 @@ def _record_decision(database: Database, store, claim: "jobs.Claim", artifact: d
                              "scanner": jobs.SCANNER_RELEASE})))
 
 
+# Filas por sentencia al guardar lo extraido. Igual que en la publicacion: lo
+# bastante grande para amortizar el viaje, lo bastante pequeno para no sostener
+# una copia entera del fichero en memoria.
+STORE_BATCH = 1_000
+
+
+def _batched(items, size: int):
+    """Recorre en tandas sin copiar la secuencia entera."""
+    for start in range(0, len(items), size):
+        yield items[start:start + size]
+
+
 def _store_records(database: Database, claim: "jobs.Claim", artifact: dict,
                    extraction) -> None:
     """Guarda cada registro leido con su coordenada exacta.
@@ -273,21 +285,24 @@ def _store_records(database: Database, claim: "jobs.Claim", artifact: dict,
     obligaria a releer la evidencia en cuanto alguien moviera la cabecera.
     """
     sha256 = artifact["content_sha256"]
-    rows = [
-        (claim.company_id, claim.artifact_id, claim.run_id, row.record_ordinal,
-         jobs.dumps(row.locator(sha256)), jobs.dumps(list(row.values)),
-         digest_of(list(row.values)))
-        for row in extraction.rows
-    ]
+    total = 0
     with database.session(company_id=claim.company_id) as connection:
         with connection.cursor() as cursor:
-            cursor.executemany(
-                "INSERT INTO fincilia.raw_record (raw_record_id, company_id, "
-                "artifact_id, processing_run_id, record_ordinal, origin_locator, "
-                "raw_values, values_digest) VALUES (gen_random_uuid(), %s, %s, %s, "
-                "%s, %s::jsonb, %s::jsonb, %s) "
-                "ON CONFLICT (processing_run_id, record_ordinal) DO NOTHING",
-                rows)
+            # Por tandas y sin construir la lista entera: serializar cien mil
+            # filas de golpe deja en memoria una segunda copia completa del
+            # fichero, al lado de la que ya tiene la extraccion.
+            for batch in _batched(extraction.rows, STORE_BATCH):
+                cursor.executemany(
+                    "INSERT INTO fincilia.raw_record (raw_record_id, company_id, "
+                    "artifact_id, processing_run_id, record_ordinal, origin_locator, "
+                    "raw_values, values_digest) VALUES (gen_random_uuid(), %s, %s, %s, "
+                    "%s, %s::jsonb, %s::jsonb, %s) "
+                    "ON CONFLICT (processing_run_id, record_ordinal) DO NOTHING",
+                    [(claim.company_id, claim.artifact_id, claim.run_id,
+                      row.record_ordinal, jobs.dumps(row.locator(sha256)),
+                      jobs.dumps(list(row.values)), digest_of(list(row.values)))
+                     for row in batch])
+                total += len(batch)
             # La auditoria dice cuantos registros se leyeron y de donde. **Ni un
             # valor**: el evento lo lee quien tiene `audit.read`, que no es
             # necesariamente quien puede ver el contenido del documento.
@@ -297,7 +312,7 @@ def _store_records(database: Database, claim: "jobs.Claim", artifact: dict,
                 "VALUES (gen_random_uuid(), %s, NULL, 'document.extraction', "
                 "'document', %s, 'allowed', %s::jsonb)",
                 (claim.company_id, claim.artifact_id,
-                 jobs.dumps({"records": len(rows),
+                 jobs.dumps({"records": total,
                              "truncated": extraction.truncated,
                              "truncation_reason": extraction.truncation_reason,
                              "run": claim.run_id})))

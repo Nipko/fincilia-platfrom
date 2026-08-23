@@ -148,7 +148,7 @@ def purge(created: set[str]) -> None:
     """
     if not created:
         return
-        statements = (
+    statements = (
         "DELETE FROM fincilia.lineage_edge WHERE processing_run_id IN ("
         " SELECT run_id FROM fincilia.processing_run WHERE artifact_id IN ("
         "  SELECT artifact_id FROM fincilia.source_artifact"
