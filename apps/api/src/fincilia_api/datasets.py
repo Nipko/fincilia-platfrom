@@ -709,27 +709,48 @@ def _plan_for(connection: psycopg.Connection, *, company_id: str,
                     "explain the data with rules that did not produce it")
             return {"plan_id": str(row[0]), "steps": steps, "digest": digest}
 
-        cursor.execute(
-            "INSERT INTO fincilia.lineage_transform_plan (plan_id, company_id, "
-            "mapping_version_id, engine_release_id, plan_digest, "
-            "canonical_schema_version, field_count) "
-            "VALUES (gen_random_uuid(), %s, %s, %s, %s, %s, %s) "
-            "RETURNING plan_id",
-            (company_id, mapping_version_id, release["release_id"], digest,
-             release["canonical_schema_version"], len(mapping.columns)))
-        plan_id = str(cursor.fetchone()[0])
-        cursor.executemany(
-            "INSERT INTO fincilia.lineage_transform_step (step_id, company_id, "
-            "plan_id, canonical_field, step_ordinal, stage, operation, "
-            "input_semantic_type, output_semantic_type, transform_ref, "
-            "configuration_digest, parser_version, rule_version, source_column) "
-            "VALUES (gen_random_uuid(), %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, "
-            "%s, %s, %s)",
-            [(company_id, plan_id, step.canonical_field, step.step_ordinal,
-              step.stage, step.operation, step.input_semantic_type,
-              step.output_semantic_type, step.transform_ref,
-              step.configuration_digest, step.parser_version, step.rule_version,
-              step.source_column) for step in steps])
+        try:
+            # Punto de retorno propio: dos preparaciones simultaneas de la misma
+            # version de mapeo ven las dos que no hay plan y las dos lo escriben.
+            # `uq_plan_binding` impide el duplicado —que es lo que importa— y sin
+            # el savepoint el conflicto abortaria la transaccion entera y saldria
+            # como un 500 en vez de como el mismo plan.
+            with connection.transaction():
+                cursor.execute(
+                    "INSERT INTO fincilia.lineage_transform_plan (plan_id, "
+                    "company_id, mapping_version_id, engine_release_id, "
+                    "plan_digest, canonical_schema_version, field_count) "
+                    "VALUES (gen_random_uuid(), %s, %s, %s, %s, %s, %s) "
+                    "RETURNING plan_id",
+                    (company_id, mapping_version_id, release["release_id"], digest,
+                     release["canonical_schema_version"], len(mapping.columns)))
+                plan_id = str(cursor.fetchone()[0])
+                cursor.executemany(
+                    "INSERT INTO fincilia.lineage_transform_step (step_id, "
+                    "company_id, plan_id, canonical_field, step_ordinal, stage, "
+                    "operation, input_semantic_type, output_semantic_type, "
+                    "transform_ref, configuration_digest, parser_version, "
+                    "rule_version, source_column) VALUES (gen_random_uuid(), %s, "
+                    "%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                    [(company_id, plan_id, step.canonical_field, step.step_ordinal,
+                      step.stage, step.operation, step.input_semantic_type,
+                      step.output_semantic_type, step.transform_ref,
+                      step.configuration_digest, step.parser_version,
+                      step.rule_version, step.source_column) for step in steps])
+        except psycopg.errors.UniqueViolation:
+            cursor.execute(
+                "SELECT plan_id, plan_digest FROM fincilia.lineage_transform_plan "
+                "WHERE mapping_version_id = %s AND engine_release_id = %s",
+                (mapping_version_id, release["release_id"]))
+            found = cursor.fetchone()
+            if found is None:
+                raise
+            if found[1] != digest:
+                raise PreparationError(
+                    "lineage-plan-drift",
+                    "another request stored a different transform plan for this "
+                    "mapping and release") from None
+            plan_id = str(found[0])
     return {"plan_id": plan_id, "steps": steps, "digest": digest}
 
 
