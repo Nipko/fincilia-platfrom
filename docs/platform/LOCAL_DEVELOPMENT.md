@@ -29,6 +29,10 @@ sin esquema: el worker sale con `1` antes que reportar salud sin poder trabajar,
 y `/health/ready` devuelve 503 nombrando el esquema. Un `docker compose up -d
 --wait` a secas sobre una base vacía falla, y falla a propósito.
 
+> **Si tu volumen local es anterior a `V0005`**, recréalo: los roles nuevos los
+> crea el bootstrap, que sólo corre sobre un volumen vacío, y la migración se
+> detiene diciéndolo en vez de conceder privilegios a medias.
+
 El script **no borra nada**. Empezar de cero es un gesto aparte:
 
 ```bash
@@ -129,6 +133,32 @@ Lo que ocurre con los bytes, en orden:
 Un hallazgo dice **qué tipo** y **en qué línea**, jamás el valor: contener un
 secreto no puede consistir en copiarlo a un sitio con menos protección.
 
+### Qué pasa con lo que subes
+
+**Todo aterriza en cuarentena.** Sin excepciones por formato. Salir de ahí es una
+decisión aparte, que toma un trabajo de escaneo y que queda escrita.
+
+Se promueve a la zona de evidencia lo que se ha podido **inspeccionar de principio
+a fin**, y hoy eso es CSV y nada más. Un PDF o un libro de cálculo se quedan en
+cuarentena con el motivo `no_scanner_for_format`, y la web lo dice. Prometer que
+están soportados sería peor que decir que no lo están.
+
+Un ZIP se identifica por su manifiesto, no por la extensión: `xl/workbook.xml` lo
+hace un `xlsx`, la entrada `mimetype` lo hace un `ods`, y un ZIP cualquiera se
+queda en ZIP. Un libro con `xl/vbaProject.bin` se rechaza en la puerta: una macro
+es código.
+
+Lo que trae una tarjeta que pasa Luhn, una clave privada o una credencial se queda
+con `sensitive_content`. El hallazgo dice **qué tipo** y **en qué línea**, jamás el
+valor.
+
+Y sólo lo promovido se perfila: perfilar es leer el fichero entero, y eso no se
+hace sobre algo que no ha pasado inspección.
+
+> Esto **no resuelve** S-01 ni TM-005. La detección de PAN antes de `raw` sigue
+> dependiendo de una decisión humana pendiente, y el fichero sigue aterrizando en
+> cuarentena antes de que nadie lo mire.
+
 ### Qué hace el worker con lo que subiste
 
 Lo que llega a `raw` se encola para perfilar. El worker toma el trabajo, lee el
@@ -174,7 +204,7 @@ docker compose -f infra/local/compose.yaml -p fincilia-local down --volumes
 | `valkey` | `valkey/valkey:8.1-alpine@sha256:e0eb7c48…` | — | caché, locks efímeros, progreso |
 | `objectstore` | `minio/minio:RELEASE.2025-04-22@sha256:a1ea29fa…` | `127.0.0.1:59000`, consola `59001` | zonas de evidencia |
 | `api` | construida de `apps/api/Dockerfile` | `127.0.0.1:58080` | FastAPI |
-| `worker` | construida de `workers/document/Dockerfile` | — | perfila documentos; sin salida a internet |
+| `worker` | construida de `workers/document/Dockerfile` | — | escanea y perfila; rol propio, sin salida a internet |
 | `web` | construida de `apps/web/Dockerfile` | `127.0.0.1:53000` | Next.js; nunca autoriza |
 
 Toda imagen está fijada **por digest**. Una etiqueta puede reapuntarse a otros
@@ -271,6 +301,10 @@ docker compose -f infra/local/compose.yaml -p fincilia-local --profile migrate  
 docker compose -f infra/local/compose.yaml -p fincilia-local \
   run --rm --no-deps worker python -m unittest discover -s /app/tests -t /app/tests
 
+# Reconciliar registro y almacen de objetos (no borra nada)
+docker compose -f infra/local/compose.yaml -p fincilia-local --profile migrate \
+  run --rm migrate python -m db.reconcile.objects --company <id-de-empresa>
+
 # Contrato del fichero de migraciones
 python -m unittest tools.migration_readiness.test_validate
 
@@ -291,6 +325,9 @@ docker compose -f infra/local/compose.yaml -p fincilia-local --profile test \
 | el worker sale con 1 | no alcanzó alguna dependencia en 30 s; no se declara sano si no puede trabajar |
 | `/health/ready` dice `schema: down` | falta migrar, o la imagen espera otra cabeza que la base |
 | `401` con token recién emitido | los permisos de esa empresa cambiaron después de emitirlo; vuelve a entrar |
+| un documento en `quarantine` con `no_scanner_for_format` | es correcto: todavía no hay analizador seguro para ese formato |
+| un trabajo en `failed` con `attempts_exhausted` | mira `dead_letter_item`: agotó sus intentos y espera a una persona |
+| un trabajo en `failed` con `authorization_changed` | los permisos de la empresa cambiaron mientras estaba en cola |
 | un documento sin perfil | mira su ejecución: `queued` es que el worker no ha llegado, `failed` trae el motivo |
 | `403` en una empresa que existe | no hay concesión viva, o la delegación de la firma está revocada |
 | puerto ocupado | cambia `FINCILIA_LOCAL_API_PORT` o `FINCILIA_LOCAL_OBJECT_PORT` en `.env` |

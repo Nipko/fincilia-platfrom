@@ -3,118 +3,111 @@
 | Campo | Valor |
 |---|---|
 | Rama | `claude/principal-dev` |
-| HEAD | `053f4ff` — `feat(worker): FNC-DOC-002 perfilado real de documentos y cola persistente` |
-| Remoto | empujado a `origin/claude/principal-dev` |
-| Base de esta ejecución | `c2d7349` |
-| Gate S1-READY | sigue `not_met`, y ninguna de estas tareas lo mueve |
+| Base de esta ejecución | `47652f1` |
+| Migraciones añadidas | `V0005`, `V0006`, `V0007` — `V0001`–`V0004` con su checksum intacto |
+| Gate S1-READY | sigue `not_met`, y nada de esto lo mueve |
 
 ---
 
 ## 1. Levantar el stack
 
-Un solo comando, desde la raíz, con volúmenes vacíos o con datos:
-
 ```bash
 sh infra/local/up.sh
 ```
 
-Deja seis servicios **healthy**, la web en <http://127.0.0.1:53000> y la API en
-<http://127.0.0.1:58080>. Se entra como `ana@demo.local` con la contraseña
-sintética `fincilia-demo-only`.
+> **Si tu volumen local es anterior a `V0005`**, recréalo primero con
+> `docker compose -f infra/local/compose.yaml -p fincilia-local down --volumes`.
+> Los roles nuevos los crea el bootstrap, que sólo corre sobre un volumen vacío, y
+> la migración se detiene diciéndolo en vez de conceder privilegios a medias.
 
-El orden del script no es cosmético: infraestructura, migrar, sembrar, y sólo
-después las aplicaciones. Un `docker compose up -d --wait` a secas sobre una base
-vacía **falla a propósito**, porque el worker prefiere salir con `1` a declararse
-sano sin poder trabajar y `/health/ready` devuelve 503 nombrando el esquema.
+Deja seis servicios healthy y la web en <http://127.0.0.1:53000>. Se entra como
+`ana@demo.local` con la contraseña sintética `fincilia-demo-only`.
 
 ---
 
-## 2. Último comando verde
+## 2. Qué se corrigió en esta ejecución (FNC-P2.1)
 
-Ejecutado desde volúmenes vacíos, en este orden, todo en verde:
+El detalle, con la matriz de privilegios y las divergencias declaradas, está en
+[el handoff](docs/implementation/handoffs/FNC-P2.1.md).
 
-| Comando | Resultado |
+| Rebanada | Qué estaba roto |
 |---|---|
-| `sh infra/local/up.sh` | 6/6 healthy, `schema: head V0004` |
-| `… run --rm --no-deps worker python -m unittest discover -s /app/tests -t /app/tests` | **14 OK** |
-| `… --profile migrate run --rm migrate python -m unittest discover -s /app/db/tests -t /app` | **72 OK** |
-| `… run --rm --no-deps api python -m unittest discover -s /app/tests -t /app/tests` | **61 OK** |
-| `python -m unittest discover -s packages/contracts/python -t packages/contracts/python` | **93 OK** |
-| suite del repositorio (lista enumerada en `ci.yml`) | **787 OK** |
-| `docker build --target build -f apps/web/Dockerfile …` + `npm run lint` | typecheck y lint limpios |
-| `quality_gate`, `local_stack`, `runtime_config`, `migration_readiness`, `workspace_contract` | exit 0 |
-| `tools.supply_chain.cli validate` | exit 1 con **4 hallazgos bloqueantes preexistentes** (DRG-00: SBOM, firma, attestation, procedencia) |
+| **A1** CI | las pruebas documentales corrían sin almacén de objetos; el `-f` del lint de la web no resolvía desde el `working-directory` del job |
+| **A2** despachador | un puntero podía nombrar el trabajo de otra empresa; API y worker compartían rol |
+| **A3** arriendos | un worker que moría dejaba el trabajo en `running` sin puntero: invisible para siempre |
+| **A4** privilegios | el rol de la API podía reescribir el hash de contraseña de cualquier sujeto |
+| **A5** cuarentena | un PDF llegaba a la zona de evidencia sin que nadie leyera su contenido |
+| **A6** idempotencia | dos subidas simultáneas creaban dos filas o devolvían 500 |
+
+Tres defectos adicionales aparecieron **ejecutando**, no revisando: los `REVOKE …
+FROM PUBLIC` corrían después de ceder la propiedad y sólo avisaban, dejando las
+cuatro funciones abiertas a `PUBLIC`; los manejadores `async def` con E/S
+bloqueante mataban dieciséis subidas simultáneas en `PoolTimeout`; y la lista de
+tipos de trabajo vive en tres sitios que hay que ampliar juntos.
 
 ---
 
-## 3. Qué funciona hoy, extremo a extremo
+## 3. Estado de la Fase B (P3)
 
-Verificado en un navegador real, no sólo por API:
+**No empezada.** La Fase A consumió la ejecución entera, y el mandato pide no
+continuar hasta tenerla verde. No hay código de P3 en la rama: ni `column_mapping`,
+ni `canonical_movement`, ni preview, ni pantalla de mapeo.
 
-1. `ana@demo.local` entra; el token nunca llega al navegador (cookie `httpOnly`).
-2. Ve una firma y sus dos empresas de demo. Beto sólo ve una: la que le
-   concedieron.
-3. Abre una empresa y ve sus roles, los permisos que **el servidor** deriva, sus
-   documentos y —sólo si el rol incluye `audit.read`— la auditoría.
-4. Sube un CSV. Se decide el tipo por los primeros bytes, se corta por tamaño
-   mientras se lee, y se calcula la huella.
-5. Si trae una tarjeta que pasa Luhn o una credencial, queda en `quarantine` y
-   **no** se encola. Si está limpio, va a `raw` y se encola.
-6. El worker lo toma, lo perfila y guarda la forma: separador, codificación,
-   filas, y el tipo de cada columna, con las ambigüedades marcadas para que las
-   resuelva una persona.
-7. Todo lo anterior deja rastro en `audit_event`, incluidas las denegaciones.
+Lo que ya está preparado para ella:
 
----
+- `V0008` es la siguiente versión libre.
+- El perfilador ya marca las columnas ambiguas (`ambiguous_numeric`,
+  `ambiguous_date`) y las expone en `needs_decision`, que es exactamente lo que
+  debe bloquear una publicación hasta que una persona elija.
+- `packages/contracts/python/fincilia_contracts/money.py` ya rechaza `float` en vez
+  de convertirlo, y `format_money` emite punto fijo.
+- La cola, los privilegios y la auditoría ya soportan un tipo de trabajo nuevo sin
+  tocar el despachador: basta añadirlo a las **tres** listas (restricción del
+  trabajo, restricción del puntero, validación de `enqueue_processing_run`), y hay
+  una prueba que comprueba que coinciden.
 
-## 4. La siguiente rebanada, exacta
+### La siguiente rebanada, exacta
 
-**P3 — mapeo con vista previa y publicación de movimientos canónicos.**
+**`V0008` — `column_mapping` y `canonical_movement`.**
 
-Es lo que sigue en el recorrido del mandato y lo único que separa «evidencia
-almacenada y perfilada» de «movimientos sobre los que conciliar».
+1. `column_mapping` versionado y company-scoped, con estados
+   `draft → validated → published`, autor y marcas de tiempo. RLS forzada.
+2. `canonical_movement` **inmutable** para el runtime, igual que `source_artifact`:
+   `GRANT SELECT, INSERT` y `REVOKE UPDATE, DELETE`. Importe `numeric(38,12)`,
+   moneda ISO explícita, dirección `credit`/`debit` explícita —nunca inferida del
+   signo—, fechas separadas cuando apliquen, referencia original y normalizada
+   pero **nunca** como unicidad dura.
+3. `source_record_id` y linaje obligatorio hasta fichero, fila, columna y celda.
+4. Publicación idempotente por `(dataset, mapping, engine release)`; unicidad por
+   `(artifact_id, row_number)`. Reprocesar crea una versión nueva y **no**
+   sobrescribe movimientos históricos.
+5. Cualquier ambigüedad de fecha, decimal, locale, signo o columna **bloquea** la
+   publicación hasta que una persona la resuelva.
+6. La vista previa sí lleva valores, y por eso va por un endpoint aparte, con
+   permiso más estricto que el perfil estadístico, con límites y paginación, y sin
+   persistirse en logs ni métricas.
+7. SoD: el preparador propone, quien tiene `close.approve`/`match.confirm` publica.
 
-1. **`V0005`**: `column_mapping` (por empresa y por artefacto: columna origen →
-   campo canónico, formato de fecha y de decimal elegidos, versión) y
-   `canonical_movement` (fecha, descripción, importe `numeric(38,12)`, moneda
-   explícita, dirección, referencia, `artifact_id`, `row_number`). RLS forzada en
-   ambas. `canonical_movement` **inmutable** para el rol runtime, igual que
-   `source_artifact`: `GRANT SELECT, INSERT` y `REVOKE UPDATE, DELETE`.
-2. **`fincilia_contracts/mapping.py`**: aplicar un mapeo a una fila y devolver un
-   movimiento o un rechazo con motivo. Dinero con `parse_money` —que rechaza
-   `float`, no lo convierte— y moneda siempre explícita. Una fila que no encaja
-   **no se publica**; se cuenta y se explica.
-3. **Vista previa antes de publicar**: la vista previa sí lleva valores, y por eso
-   va por un endpoint aparte, bajo `document.read`, y **no** se guarda en el
-   perfil. Las primeras N filas ya transformadas, con el recuento de rechazos.
-4. **Publicación**: `dataset.map` para proponer el mapeo, y la publicación como
-   una transacción sobre el artefacto entero. Republicar el mismo artefacto con
-   el mismo mapeo no duplica movimientos: la unicidad va por
-   `(artifact_id, row_number)`.
-5. **Web**: pantalla de mapeo con la vista previa, los tipos que sugirió el perfil
-   y las columnas ambiguas exigiendo elección explícita.
-
-Después de eso, P4 es la conciliación determinista: candidatos por fecha, importe
-y referencia, propuesta con `match.propose`, confirmación con `match.confirm`, y
-la segregación de funciones que ya está en la matriz de permisos —Ana propone,
-Beto confirma— comprobada sobre el mismo objeto, no sólo sobre el rol.
+Nada de auto-match, conciliación, fraude por ML, cierre ni IA autoritativa.
 
 ---
 
-## 5. Lo que sigue pendiente y no lo mueve nada de esto
+## 4. Lo que sigue esperando a una persona
 
-- **Cuatro huecos de cadena de suministro** (SBOM, firma, attestation,
-  procedencia), declarados y bloqueantes de DRG-00. Owner: Security.
-- **Seis alcances OCI sin monitor de actualizaciones**, visibles como
-  `SUP-UPDATES-UNMONITORED`. Se mantienen así a propósito: Dependabot `docker` no
-  reconoce los `compose.yaml` sin Dockerfile, y no se han vuelto a añadir
-  entradas ficticias para poner el modelo en verde.
-- **`FNC-DB-004`** sigue `proposed`. Sus invariantes de idempotencia están hoy
-  cubiertas por código de producto (`UNIQUE (company_id, content_sha256)` y las
-  pruebas de subida), pero la tarjeta no se ha cerrado.
-- **Decisiones humanas intactas**: ADR-002 sigue `proposed`, no hay herramienta de
-  migración seleccionada, `product_migrations_allowed` sigue `false` y
-  `product_code_allowed` sigue `false`. Lo que se habilitó es un alcance aparte y
-  explícito, `local_build`, que enumera en el propio contrato todo lo que **no**
-  implica.
-- **`apps/mobile`** sigue siendo un scaffold vacío.
+Ninguno de estos gates se ha movido, y ninguna decisión humana se ha marcado como
+aceptada.
+
+- **DB-G03**: cuatro funciones `SECURITY DEFINER` declaradas, con dueño acotado y
+  `human_review_state: pending`. `production_policy.security_definer` sigue
+  diciendo `forbidden_without_review`.
+- **DRG-01**: se amplió la excepción de RLS de `dispatch_pointer` con
+  `available_at`. Es una marca de tiempo, pero amplía una excepción de Security.
+- **S-01 / TM-005**: detección de PAN antes de `raw`. Esta ejecución **no lo
+  resuelve**; sólo deja de promover lo que no ha inspeccionado.
+- **ADR-002**: sigue `proposed`. Sin herramienta seleccionada y con
+  `product_migrations_allowed` en `false`.
+- **`retry_policy_contract`** no está satisfecho: declara trece campos, incluidos
+  `owner` y `reviewer` independientes. Lo que existe es un `max_attempts` con
+  valor por defecto local. No se han inventado los dos nombres.
+- Cuatro huecos de cadena de suministro (SBOM, firma, attestation, procedencia) y
+  seis alcances OCI sin monitor, como estaban.

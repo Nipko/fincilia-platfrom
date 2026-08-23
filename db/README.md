@@ -83,7 +83,13 @@ son código de producto:
 | `processing_run` | un trabajo terminado tiene principio y fin, y el fin no precede al principio | `CHECK` sobre la línea temporal |
 | `processing_run` | fallar exige decir por qué | `CHECK` que exige `error_code` sólo al fallar |
 | `audit_event` | append-only también por privilegio | `GRANT SELECT, INSERT` y nada más |
-| `dispatch_pointer` | sólo identificadores y marcas de tiempo | excepción de RLS declarada y con columnas fijadas por el validador |
+| `dispatch_pointer` | sólo identificadores y marcas de tiempo | excepción de RLS declarada y con columnas fijadas por el validador, incluidas las que añade un `ALTER` |
+| `processing_run` | `running` y arriendo son un solo hecho | `CHECK` que acopla estado, testigo y caducidad |
+| `processing_run` | un solo trabajo vivo por artefacto y tipo | índice único parcial sobre `status IN ('queued','running')` |
+| `run_attempt` | historial append-only, sin error crudo | `CHECK` de vocabulario sobre `reason_code` |
+| `dead_letter_item` | referencia al contenido, nunca el contenido | `CHECK` de huella sobre `payload_reference` |
+| `promotion_decision` | promovido y destino son lo mismo | `CHECK` que acopla `decision` y `raw_object_key` |
+| `promotion_decision` | una decisión por escáner y artefacto | `UNIQUE (artifact_id, scanner_release)` |
 
 `ALTER DEFAULT PRIVILEGES` de V0001 concede `UPDATE` a toda tabla nueva del
 esquema, así que quitarlo es un acto explícito en cada migración que crea una
@@ -111,12 +117,26 @@ tabla llegara a tener RLS, la excepción se marca como obsoleta y bloquea.
 
 ## Roles
 
-El runtime **no** es propietario, ni superusuario, ni `BYPASSRLS`.
+Ninguno es propietario del esquema salvo el migrador, ninguno es superusuario y
+ninguno tiene `BYPASSRLS`.
 
 | Rol | Para qué | Qué no puede |
 |---|---|---|
 | `fincilia_migrator` | crear y modificar el esquema | no atiende tráfico |
-| `fincilia_app` | leer y escribir datos | no hace DDL, no reescribe auditoría, no desactiva RLS |
+| `fincilia_app` | leer y escribir datos de producto | no hace DDL, no reescribe auditoría, **no toca la cola**, **no escribe credenciales** |
+| `fincilia_worker` | escanear y perfilar | no lee identidad ni credenciales, **no tiene UPDATE** sobre la cola |
+| `fincilia_dispatch` | ser dueño de las funciones de cola | no inicia sesión, no crea nada |
+
+`fincilia_dispatch` existe por una razón concreta. Las funciones de cola son
+`SECURITY DEFINER`, y una función `SECURITY DEFINER` **sí** se salta los
+privilegios de tabla. Si su dueño fuera el migrador —que tiene `CREATE` sobre la
+base— cada `EXECUTE` sería una escalada hasta el rol que puede cambiar el esquema.
+Su dueño es un rol sin login, sin DDL y con exactamente los privilegios que esas
+funciones ejercen: ejecutarlas concede su efecto, nunca más.
+
+Lo que **no** se salta una función `SECURITY DEFINER` es `FORCE ROW LEVEL
+SECURITY`. Está comprobado contra el motor en `spikes/FNC-P2.1`, y por eso cada
+función fija el contexto de empresa y lo restaura antes de salir.
 
 Con `FORCE ROW LEVEL SECURITY` el propietario tampoco queda exento: sin `FORCE`,
 el aislamiento se sostiene solo mientras nadie se conecte con el rol equivocado.
