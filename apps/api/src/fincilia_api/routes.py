@@ -972,7 +972,12 @@ def _onboarding_problem(error: onboarding.OnboardingError) -> ProblemError:
     # `link-refused` no distingue «no existe» de «no puedes», por la misma razon
     # que el resto de la API: un codigo que las separara seria un buscador de
     # cuentas ajenas.
-    status = 409 if error.code.endswith("already-exists") else 422
+    # Un conflicto de estado es 409; una peticion mal formada, 422. Que ya
+    # exista una cuenta principal no es un error de quien pide: es que el
+    # mundo ya esta de otra manera.
+    status = 409 if error.code in (
+        "account-already-exists", "source-already-exists",
+        "primary-already-set", "link-already-exists") else 422
     return ProblemError(problem(error.code, "The request cannot be applied", status,
                                 error.detail))
 

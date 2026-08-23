@@ -24,7 +24,6 @@ import io
 import os
 import sys
 import time
-import tracemalloc
 import unittest
 import uuid
 
@@ -53,8 +52,13 @@ REVIEWER = "beto@demo.local"
 # afirmacion sean el mismo.
 TARGET_ROWS = 100_000
 
-# Techo de memoria del proceso durante la importacion. No es una medida de la
-# base: es lo que el proceso que importa reserva, que es lo que reventaba antes.
+# Techo de memoria residente del proceso durante la importacion. No es una
+# medida de la base: es lo que reserva el proceso que importa, que es lo que
+# reventaba antes.
+#
+# Se mide con `getrusage` y **no** con `tracemalloc`: trazar cada reserva
+# multiplica el tiempo por varias veces, y entonces el numero de tiempo diria mas
+# del medidor que del codigo.
 MAX_PEAK_MIB = 900
 
 
@@ -169,8 +173,8 @@ class ScalePublicationTests(unittest.TestCase):
         self.measurements["bytes"] = len(payload)
         self.measurements["target_rows"] = TARGET_ROWS
 
-        tracemalloc.start()
         started = time.monotonic()
+        baseline = peak_rss_mib()
 
         upload = self.client.post(
             f"/api/v1/companies/{ESPIGA}/documents", headers=self.auth(PREPARER),
@@ -233,14 +237,12 @@ class ScalePublicationTests(unittest.TestCase):
             rounds += 1
             self.assertLess(rounds, 200, "the preparation never converged")
 
-        current, peak = tracemalloc.get_traced_memory()
-        tracemalloc.stop()
         self.measurements.update({
             "prepare_seconds": round(time.monotonic() - prepare_started, 1),
             "total_seconds": round(time.monotonic() - started, 1),
             "rounds": rounds,
-            "python_peak_mib": round(peak / (1024 * 1024), 1),
             "process_peak_rss_mib": peak_rss_mib(),
+            "rss_growth_mib": round(peak_rss_mib() - baseline, 1),
             "chunks": response.json().get("chunks"),
         })
 
@@ -253,8 +255,8 @@ class ScalePublicationTests(unittest.TestCase):
         self.measurements["rejected"] = final["rejected_count"]
 
         # Memoria del proceso que importa. Es el numero que reventaba antes.
-        self.assertLess(self.measurements["python_peak_mib"], MAX_PEAK_MIB,
-                        f"peak allocation {self.measurements['python_peak_mib']} MiB")
+        self.assertLess(self.measurements["process_peak_rss_mib"], MAX_PEAK_MIB,
+                        f"peak RSS {self.measurements['process_peak_rss_mib']} MiB")
 
         with psycopg.connect(MIGRATOR_DSN, autocommit=True) as connection:
             with connection.cursor() as cursor:
