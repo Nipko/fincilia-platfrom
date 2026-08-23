@@ -137,14 +137,21 @@ class SettingsTests(unittest.TestCase):
         with self.assertRaises(ValidationError):
             api_settings(auth_signing_key="too-short")
 
-    def test_the_worker_refuses_a_signing_key_it_never_uses(self) -> None:
+    def test_the_worker_refuses_secrets_it_never_uses(self) -> None:
+        # El worker no emite tokens y no da de alta cuentas. Recibir cualquiera
+        # de los dos secretos ampliaria su radio de explosion sin ninguna
+        # ganancia, asi que se rechazan en vez de ignorarse.
+        forbidden = ("auth_signing_key", "identifier_tokenization_key")
         payload = {key: value for key, value in BASE_ENV.items()
-                   if key != "auth_signing_key"}
+                   if key not in forbidden}
         with isolated_env():
             worker = WorkerSettings(**payload)  # type: ignore[arg-type]
             self.assertIsNone(worker.auth_signing_key)
-            with self.assertRaises(ValidationError):
-                WorkerSettings(**BASE_ENV)  # type: ignore[arg-type]
+            self.assertIsNone(worker.identifier_tokenization_key)
+            for secret in forbidden:
+                with self.subTest(secret=secret):
+                    with self.assertRaises(ValidationError):
+                        WorkerSettings(**{**payload, secret: BASE_ENV[secret]})  # type: ignore[arg-type]
 
     def test_the_base_settings_do_not_require_a_signing_key(self) -> None:
         payload = {key: value for key, value in BASE_ENV.items()
