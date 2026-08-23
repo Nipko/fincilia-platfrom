@@ -86,7 +86,13 @@ MAPPING = {
 }
 
 
-class VerticalTests(unittest.TestCase):
+class VerticalHarness(unittest.TestCase):
+    """Montaje compartido: sembrar, arrancar la API y ejercer el worker.
+
+    No lleva pruebas. Las clases que lo heredan traen las suyas y cada una
+    limpia lo que subio: `created` es un atributo de clase, no del modulo.
+    """
+
     @classmethod
     def setUpClass(cls) -> None:
         if not MIGRATOR_DSN or not RUNTIME_DSN:
@@ -270,7 +276,11 @@ class VerticalTests(unittest.TestCase):
             json={"artifact_id": artifact_id, "mapping_version_id": version_id,
                   "financial_account_id": ACCOUNT})
 
-    # ------------------------------------------------------------ vista previa #
+
+class VerticalTests(VerticalHarness):
+    """El recorrido de una persona, de la subida a la publicacion."""
+
+    # -------------------------------------------------------- vista previa #
 
     def test_the_preview_shows_the_file_with_its_coordinates_TST_P3_026(self) -> None:
         artifact = self.promoted(statement_csv("preview"), "extracto.csv")
@@ -596,6 +606,251 @@ class VerticalTests(unittest.TestCase):
             f"/api/v1/companies/{ANDINOS}/movements/{movements[0]['movement_id']}",
             headers=self.auth(PREPARER))
         self.assertEqual(403, response.status_code, response.text)
+
+
+
+class TemplateReuseTests(VerticalHarness):
+    """Un mapeo es una plantilla: sirve para el extracto del mes siguiente.
+
+    Lo que no puede cambiar es la forma del fichero. Si cambia, los indices del
+    mapeo apuntan a otras columnas y **nada falla**: el importe de la fila sale
+    de la columna equivocada y el total sigue cuadrando consigo mismo.
+    """
+
+    def test_the_same_mapping_reads_next_months_statement_TST_P3_047(self) -> None:
+        first = self.promoted(statement_csv("mes1"), "enero.csv")
+        version_id = self.validated_mapping(first)
+        second = self.promoted(
+            ("fecha;descripcion;referencia;valor\n"
+             f"13/03/2026;Pago proveedor {RUN}-mes2;REF-0201;-2.000,00\n"
+             "20/03/2026;Consignacion cliente;REF-0202;500.000,00\n").encode("utf-8"),
+            "febrero.csv")
+        response = self.prepared(second, version_id)
+        self.assertEqual(201, response.status_code, response.text)
+        self.assertEqual(response.json()["movement_count"], 2)
+
+    def test_a_file_with_another_shape_is_refused_as_drift_TST_P3_048(self) -> None:
+        first = self.promoted(statement_csv("forma1"), "enero.csv")
+        version_id = self.validated_mapping(first)
+        # Una columna mas, y las cabeceras ya no son las mismas.
+        wider = self.promoted(
+            ("fecha;descripcion;referencia;moneda;valor\n"
+             f"13/03/2026;Pago {RUN}-forma2;REF-0301;COP;-2.000,00\n"
+             "20/03/2026;Consignacion;REF-0302;COP;500.000,00\n").encode("utf-8"),
+            "otra-forma.csv")
+        response = self.prepared(wider, version_id)
+        self.assertEqual(422, response.status_code, response.text)
+        self.assertEqual(response.json()["type"].rsplit("/", 1)[-1], "schema-drift")
+
+    def test_reprocessing_the_same_file_yields_another_version_TST_P3_049(self) -> None:
+        # Reprocesar es otra ejecucion de extraccion sobre el mismo artefacto.
+        # La version anterior se conserva: lo publicado no se reescribe.
+        artifact = self.promoted(statement_csv("reproc"), "extracto.csv")
+        version_id = self.validated_mapping(artifact)
+        first = self.prepared(artifact, version_id).json()["dataset_version_id"]
+        published = self.client.post(
+            f"/api/v1/companies/{ESPIGA}/datasets/{first}/publish",
+            headers=self.auth(REVIEWER))
+        self.assertEqual(200, published.status_code, published.text)
+
+        with psycopg.connect(MIGRATOR_DSN, autocommit=True) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT set_config('fincilia.company_id', %s, false)", (ESPIGA,))
+                cursor.execute(
+                    "SELECT fincilia.enqueue_processing_run(%s, %s, 'extract')",
+                    (ESPIGA, artifact))
+        self.drain()
+
+        second = self.prepared(artifact, version_id)
+        self.assertEqual(201, second.status_code, second.text)
+        self.assertNotEqual(second.json()["dataset_version_id"], first)
+        still = self.client.get(f"/api/v1/companies/{ESPIGA}/datasets/{first}",
+                                headers=self.auth(REVIEWER)).json()
+        self.assertEqual(still["state"], "published")
+
+
+class ConcurrencyTests(VerticalHarness):
+    """Dos revisores pulsando publicar a la vez.
+
+    Publicar dos veces no puede producir dos publicaciones. La unica que hay es
+    la del que llego primero, y el otro se entera en vez de creerse que publico.
+    """
+
+    def test_two_simultaneous_publications_seal_the_version_once_TST_P3_050(self) -> None:
+        import threading
+
+        artifact = self.promoted(statement_csv("race"), "extracto.csv")
+        version_id = self.validated_mapping(artifact)
+        dataset_id = self.prepared(artifact, version_id).json()["dataset_version_id"]
+        headers = self.auth(REVIEWER)
+
+        start = threading.Barrier(4)
+        outcomes: list[int] = []
+        lock = threading.Lock()
+
+        def publish() -> None:
+            start.wait(timeout=10)
+            response = self.client.post(
+                f"/api/v1/companies/{ESPIGA}/datasets/{dataset_id}/publish",
+                headers=headers)
+            with lock:
+                outcomes.append(response.status_code)
+
+        threads = [threading.Thread(target=publish) for _ in range(4)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join(timeout=30)
+
+        self.assertEqual(len(outcomes), 4, "some publication never answered")
+        # Nadie recibe un 500. Publicar dos veces es idempotente y la carrera
+        # perdida se dice, no se traga.
+        for status in outcomes:
+            self.assertIn(status, (200, 409, 422), f"unexpected status {status}")
+
+        with psycopg.connect(MIGRATOR_DSN, autocommit=True) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT set_config('fincilia.company_id', %s, false)", (ESPIGA,))
+                cursor.execute(
+                    "SELECT state, published_by, published_at "
+                    "FROM fincilia.dataset_version WHERE dataset_version_id = %s",
+                    (dataset_id,))
+                state, published_by, published_at = cursor.fetchone()
+                cursor.execute(
+                    "SELECT count(*) FROM fincilia.canonical_movement "
+                    "WHERE dataset_version_id = %s", (dataset_id,))
+                movements = cursor.fetchone()[0]
+        self.assertEqual(state, "published")
+        self.assertIsNotNone(published_at)
+        self.assertIsNotNone(published_by)
+        # Y lo que mas importa: la carrera no duplico un movimiento.
+        self.assertEqual(movements, 3)
+
+    def test_two_simultaneous_preparations_do_not_duplicate_TST_P3_051(self) -> None:
+        import threading
+
+        artifact = self.promoted(statement_csv("prepare-race"), "extracto.csv")
+        version_id = self.validated_mapping(artifact)
+        start = threading.Barrier(3)
+        results: list[tuple[int, str]] = []
+        lock = threading.Lock()
+
+        def prepare() -> None:
+            start.wait(timeout=10)
+            response = self.prepared(artifact, version_id)
+            body = response.json() if response.status_code == 201 else {}
+            with lock:
+                results.append((response.status_code,
+                                body.get("dataset_version_id", "")))
+
+        threads = [threading.Thread(target=prepare) for _ in range(3)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join(timeout=60)
+
+        self.assertEqual(len(results), 3)
+        with psycopg.connect(MIGRATOR_DSN, autocommit=True) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT set_config('fincilia.company_id', %s, false)", (ESPIGA,))
+                cursor.execute(
+                    "SELECT count(*) FROM fincilia.dataset_version "
+                    "WHERE artifact_id = %s", (artifact,))
+                datasets = cursor.fetchone()[0]
+        # `uq_dataset_reproduction` lo impide en el motor: la misma terna es
+        # un solo dataset, y tres peticiones simultaneas no crean tres.
+        self.assertEqual(datasets, 1)
+
+
+class AuditTests(VerticalHarness):
+    """Cada decision deja rastro, y el rastro no es una copia de lo decidido."""
+
+    def test_the_whole_chain_is_audited_TST_P3_052(self) -> None:
+        artifact = self.promoted(statement_csv("chain"), "extracto.csv")
+        self.client.get(
+            f"/api/v1/companies/{ESPIGA}/documents/{artifact}/preview",
+            headers=self.auth(PREPARER))
+        version_id = self.validated_mapping(artifact)
+        dataset_id = self.prepared(artifact, version_id).json()["dataset_version_id"]
+        self.client.post(
+            f"/api/v1/companies/{ESPIGA}/datasets/{dataset_id}/publish",
+            headers=self.auth(REVIEWER))
+
+        events = self.client.get(f"/api/v1/companies/{ESPIGA}/audit?limit=100",
+                                 headers=self.auth(REVIEWER)).json()
+        actions = {event["action"] for event in events}
+        for expected in ("document.preview", "dataset.map", "dataset.validate",
+                         "dataset.prepare", "dataset.publish"):
+            with self.subTest(action=expected):
+                self.assertIn(expected, actions)
+
+    def test_a_refused_publication_is_audited_as_denied_TST_P3_053(self) -> None:
+        artifact = self.promoted(statement_csv("denied"), "extracto.csv")
+        created = self.create_mapping(artifact, user=OWNER)
+        version_id = created.json()["mapping_version_id"]
+        self.client.post(
+            f"/api/v1/companies/{ESPIGA}/mappings/{version_id}/validate",
+            headers=self.auth(OWNER))
+        dataset_id = self.prepared(artifact, version_id, user=OWNER) \
+            .json()["dataset_version_id"]
+        refused = self.client.post(
+            f"/api/v1/companies/{ESPIGA}/datasets/{dataset_id}/publish",
+            headers=self.auth(OWNER))
+        self.assertEqual(409, refused.status_code, refused.text)
+
+        events = self.client.get(f"/api/v1/companies/{ESPIGA}/audit?limit=50",
+                                 headers=self.auth(REVIEWER)).json()
+        denied = [event for event in events
+                  if event["action"] == "dataset.publish"
+                  and event["resource_ref"] == dataset_id
+                  and event["outcome"] == "denied"]
+        self.assertTrue(denied, "the refusal left no trail")
+        self.assertEqual(denied[0]["detail"].get("reason"), "segregation-of-duties")
+
+    def test_a_rejected_row_is_counted_and_located_TST_P3_054(self) -> None:
+        # Publicar a medias sin decir cuanto se quedo fuera es peor que no
+        # publicar: el total parece completo y no lo es.
+        payload = (
+            "fecha;descripcion;referencia;valor\n"
+            f"13/02/2026;Pago proveedor {RUN}-mixto;REF-0401;-1.234,56\n"
+            "no es una fecha;Fila rota;REF-0402;980.000,00\n"
+            "15/03/2026;Comision manejo;;-15.900,00\n"
+        ).encode("utf-8")
+        artifact = self.promoted(payload, "mixto.csv")
+        version_id = self.validated_mapping(artifact)
+        response = self.prepared(artifact, version_id)
+        self.assertEqual(201, response.status_code, response.text)
+        body = response.json()
+        self.assertEqual(body["movement_count"], 2)
+        self.assertEqual(body["rejected_count"], 1)
+        self.assertEqual([item["record_ordinal"] for item in body["rejections"]], [3])
+        # El motivo no lleva el valor que fallo.
+        self.assertNotIn("no es una fecha", str(body["rejections"]))
+
+        dataset = self.client.get(
+            f"/api/v1/companies/{ESPIGA}/datasets/{body['dataset_version_id']}",
+            headers=self.auth(REVIEWER)).json()
+        # Un dataset con filas fuera no se declara completo.
+        self.assertEqual(dataset["completeness_state"], "mismatch")
+
+    def test_a_reviewer_can_reject_a_dataset_with_a_reason_TST_P3_055(self) -> None:
+        artifact = self.promoted(statement_csv("reject"), "extracto.csv")
+        version_id = self.validated_mapping(artifact)
+        dataset_id = self.prepared(artifact, version_id).json()["dataset_version_id"]
+        response = self.client.post(
+            f"/api/v1/companies/{ESPIGA}/datasets/{dataset_id}/reject",
+            headers=self.auth(REVIEWER),
+            json={"reason": "la cuenta no corresponde a este extracto"})
+        self.assertEqual(200, response.status_code, response.text)
+        self.assertEqual(response.json()["state"], "rejected")
+        # Y un conjunto rechazado ya no se publica.
+        refused = self.client.post(
+            f"/api/v1/companies/{ESPIGA}/datasets/{dataset_id}/publish",
+            headers=self.auth(REVIEWER))
+        self.assertEqual(422, refused.status_code, refused.text)
 
 
 if __name__ == "__main__":

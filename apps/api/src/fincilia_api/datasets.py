@@ -429,9 +429,6 @@ def prepare_dataset(connection: psycopg.Connection, *, company_id: str,
     version = load_mapping_version(connection, mapping_version_id)
     if version is None:
         raise PreparationError("mapping-unknown", "no such mapping version")
-    if version["artifact_id"] != artifact_id:
-        raise PreparationError("mapping-mismatch",
-                               "this mapping version was written for another document")
     if version["state"] != "validated":
         raise PreparationError(
             "mapping-not-validated",
@@ -446,14 +443,25 @@ def prepare_dataset(connection: psycopg.Connection, *, company_id: str,
     profile_run = latest_run(connection, artifact_id, "profile")
     profile = (profile_run or {}).get("result") or {}
 
-    # La forma del fichero cambio desde que se escribio el mapeo: los indices
-    # apuntarian a otras columnas sin que nada fallara.
+    # Reutilizar una plantilla en el extracto del mes siguiente es justo para lo
+    # que sirve versionar un mapeo. Lo que **no** puede cambiar es la forma del
+    # fichero: si cambia, los indices apuntan a otras columnas y nada falla.
+    # Ese es exactamente el fallo que nadie ve, y por eso se compara la huella
+    # del esquema y no el identificador del artefacto.
     if profile and schema_digest(profile) != version["source_schema_digest"]:
         raise PreparationError(
             "schema-drift",
             "the document no longer has the shape this mapping was written for",
             [{"code": "MAP-SCHEMA-DRIFT", "location": "columns",
               "detail": "the source schema digest changed", "resolvable": "false"}])
+    if not profile and version["artifact_id"] != artifact_id:
+        # Sin perfil no hay con que comparar. Aplicar la plantilla a ciegas
+        # sobre otro fichero seria afirmar una compatibilidad que nadie ha
+        # comprobado.
+        raise PreparationError(
+            "mapping-unverifiable",
+            "this document has no profile, so a mapping written for another "
+            "document cannot be checked against it")
 
     mapping = mapping_from_definition(version["definition"])
     decisions = list_decisions(connection, mapping_version_id)
