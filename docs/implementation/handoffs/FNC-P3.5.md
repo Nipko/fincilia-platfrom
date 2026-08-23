@@ -147,7 +147,7 @@ El dato que lo hace viable: **las seis etapas son propiedades de la columna, no
 de la fila**. Leer la columna 3 como decimal con coma es la misma decisión en la
 fila 7 que en la 90.000.
 
-Medido en CI sobre 100.000 filas y cuatro campos: **24 nodos de linaje en toda la
+Medido en CI sobre 100.000 filas y cuatro campos: **2 nodos de linaje en toda la
 empresa**. Con la representación de P3 serían ochocientos mil sólo para ese
 dataset.
 
@@ -187,22 +187,33 @@ perder el aislamiento y perder velocidad, se pierde velocidad.
 
 ### Medición en CI, 100.000 filas
 
+Corrida verde `32623363931`:
+
 ```
 bytes                     5 755 595
 extracted_records           100 001   (sin truncar)
-prepare_seconds                11,2
+extract_seconds                33,0
+prepare_seconds                75,8
+rounds                            3
 chunks                           50
-python_peak_mib                81,3
-process_peak_rss_mib          355,8
-lineage_nodes_company_wide       24
+movements                   100 000
+rejected                          0
+process_peak_rss_mib          229,1
+rss_growth_mib                 90,0
+lineage_nodes_company_wide        2
 ```
 
+Se mide con `getrusage` y no con `tracemalloc`: trazar cada reserva multiplica
+el tiempo por varias veces, y con el puesto la preparación marcaba 238 s, un
+número que dice más del medidor que del código.
+
 La extracción completa —subir, escanear, perfilar y escribir 100.001
-`raw_record`— tardó 55,2 s. **Es el tramo lento y no está resuelto**: la
+`raw_record`— tardó 33,0 s. **Es el tramo lento y no está resuelto**: la
 extracción sigue materializando el fichero entero en memoria antes de escribirlo
 (`extraction.py` construye la lista completa de filas). Lo que se rediseñó es la
 publicación, que es donde estaba el techo. El siguiente cuello es la extracción,
-y está a 5 s del límite declarado de 60 s.
+y está a 27 s del límite declarado de 60 s, y con la mitad más de filas lo
+cruzaría.
 
 Una lectura truncada ya **no** se puede publicar: `truncated` es un estado y no
 un fallo, y la preparación no lo miraba. Un fichero cortado por el límite de

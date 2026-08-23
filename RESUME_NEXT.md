@@ -44,8 +44,8 @@ corto, tres cosas que P3 dejó abiertas:
 |---|---|
 | una release en borrador podía publicar | preparar y publicar exigen `approved`, con constancia de quién firmó y digest de lo firmado |
 | no había alta de cuentas ni de fuentes | pantalla de onboarding con cuentas, fuentes, vínculos tipados y ciclos esperados |
-| el linaje crecía por fila × campo | las seis etapas viven en un plan por columna; **24 nodos** para 100.000 filas |
-| techo de 10.000 filas | 100.000 medidas en CI: 11,2 s de preparación, 50 lotes, 81,3 MiB de pico |
+| el linaje crecía por fila × campo | las seis etapas viven en un plan por columna; **2 nodos** para 100.000 filas |
+| techo de 10.000 filas | 100.000 medidas en CI: 75,8 s de preparación, 50 lotes, 229 MiB de RSS pico |
 
 Y un defecto de P3 que salió revisando: una lectura truncada terminaba bien
 —`truncated` es un estado, no un fallo— y la preparación no lo miraba. Un fichero
@@ -77,10 +77,9 @@ un `REVOKE` de quien no es dueño avisa y no hace nada.
 **La extracción sigue sin ser streaming, y es el cuello que queda.** La
 publicación se rediseñó por lotes; leer el fichero no. `extraction.py` construye
 la lista completa de filas y `_LineFeeder` guarda dos listas más del fichero
-entero. Medido en CI: 55,2 s para 100.000 filas, **a cinco segundos** del límite
-declarado de 60 s. Con 150.000 filas se trunca, y truncar ahora bloquea la
-publicación, que es correcto pero no es lo que uno quiere descubrir en
-producción.
+entero. Medido en CI: 33 s para 100.000 filas, contra un límite declarado de 60 s. Con
+el doble de filas se trunca, y truncar ahora bloquea la publicación, que es
+correcto pero no es lo que uno quiere descubrir en producción.
 
 Lo que hay que hacer, por orden:
 

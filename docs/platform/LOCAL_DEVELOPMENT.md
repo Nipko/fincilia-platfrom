@@ -436,9 +436,9 @@ responde a otra pregunta.
 7. No hay alta de cuentas ni de fuentes en el producto: las únicas que existen
    las siembra este entorno.
 8. Una publicación admite lo mismo que la extracción: doscientas mil filas.
-   Medido en CI con cien mil: 11,2 s de preparación en 50 lotes, con un pico de
-   81,3 MiB. Un conjunto mayor se rechaza diciéndolo.
-9. **La extracción todavía no es incremental.** Leer cien mil filas tardó 55,2 s
+   Medido en CI con cien mil: 75,8 s de preparación en 50 lotes, con un pico de
+   229 MiB de memoria residente. Un conjunto mayor se rechaza diciéndolo.
+9. **La extracción todavía no es incremental.** Leer cien mil filas tardó 33 s
    contra un límite declarado de 60 s, así que un fichero bastante mayor se
    trunca. Truncar bloquea la publicación, que es correcto, pero es el cuello que
    queda por resolver.
