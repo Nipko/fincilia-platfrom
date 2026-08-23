@@ -13,6 +13,8 @@ import hashlib
 import logging
 import time
 
+import psycopg
+
 from fastapi import APIRouter, Depends, File, Request, UploadFile
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -22,7 +24,7 @@ from fincilia_platform.identity import AuthenticationError
 from fincilia_platform.objects import ObjectStoreError, object_key
 from fincilia_platform.tokens import issue
 
-from . import repository
+from . import datasets, repository
 from .security import (Principal, ProblemError, company_context, current_principal,
                        forbidden, require, unauthorized)
 from fincilia_contracts.errors import problem
@@ -393,3 +395,448 @@ def read_document(request: Request, company_id: str, artifact_id: str,
     # es la decision de promocion.
     payload["zone"] = repository.effective_zone(decision)
     return ArtifactDetail(**payload, runs=runs, promotion=decision)
+
+
+# --------------------------------------------------------------------------- #
+# Mapeo, dataset canonico y movimientos (FNC-P3)
+# --------------------------------------------------------------------------- #
+
+class PreviewCell(BaseModel):
+    record_ordinal: int
+    values: list[str]
+    locator: dict
+
+
+class PreviewPage(BaseModel):
+    artifact_id: str
+    run_id: str
+    header: list[str]
+    header_row: int
+    first_data_row: int
+    columns: list[dict]
+    total_records: int
+    offset: int
+    limit: int
+    truncated: bool
+    truncation_reason: str | None = None
+    rows: list[PreviewCell]
+
+
+class MappingRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    artifact_id: str
+    data_source_id: str
+    display_name: str = Field(min_length=1, max_length=160)
+    columns: dict[str, int]
+    date_format: str = "iso"
+    decimal_format: str = "dot"
+    currency: str = Field(min_length=3, max_length=3)
+    direction_mode: str = "signed_amount"
+    header_row: int = Field(default=1, ge=1)
+    first_data_row: int = Field(default=2, ge=1)
+    ignored_columns: list[int] = Field(default_factory=list)
+
+
+class DecisionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    ambiguity_kind: str
+    subject_ref: str = Field(min_length=1, max_length=120)
+    resolved_value: str = Field(min_length=1, max_length=64)
+    rationale: str = Field(min_length=1, max_length=500)
+
+
+class DatasetRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    artifact_id: str
+    mapping_version_id: str
+    financial_account_id: str
+
+
+class RejectionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    reason: str = Field(min_length=1, max_length=200)
+
+
+def _artifact_or_forbidden(connection, artifact_id: str):
+    """El artefacto, o una denegacion indistinguible de «no existe».
+
+    Un codigo que separa «no existe» de «no puedes» convierte la API en un
+    buscador de documentos ajenos, y eso vale para toda esta seccion igual que
+    para la de documentos.
+    """
+    artifact = repository.find_artifact_by_id(connection, artifact_id)
+    if artifact is None:
+        raise forbidden()
+    return artifact
+
+
+def _preparation_problem(error: datasets.PreparationError) -> ProblemError:
+    payload = problem(error.code, "The dataset cannot be prepared", 422, error.detail,
+                      blockers=error.blockers)
+    return ProblemError(payload)
+
+
+@router.get("/companies/{company_id}/documents/{artifact_id}/preview",
+            response_model=PreviewPage, tags=["mapping"])
+def read_preview(request: Request, company_id: str, artifact_id: str,
+                 offset: int = 0, limit: int = datasets.DEFAULT_PREVIEW_LIMIT,
+                 principal: Principal = Depends(principal_dependency)) -> PreviewPage:
+    """La unica lectura del producto que devuelve el contenido del fichero.
+
+    Va por su propio endpoint y pide `dataset.map`, que es mas estricto que el
+    `document.read` del perfil estadistico: el perfil dice como es el fichero y
+    esto dice que pone en el.
+
+    El evento de auditoria registra quien miro, que documento y cuantas filas.
+    **Ni un valor**: el rastro de una lectura no puede ser una copia de lo leido.
+    """
+    context = company_context(request, principal, company_id)
+    require(context, "dataset.map")
+    database = request.app.state.database
+    with database.session(company_id=context.company_id,
+                          subject_id=principal.subject_id) as connection:
+        _artifact_or_forbidden(connection, artifact_id)
+        run = datasets.latest_run(connection, artifact_id, "extract")
+        if run is None:
+            # Solo se extrae lo promovido. Un documento en cuarentena no tiene
+            # vista previa, y decir por que es parte del producto.
+            raise ProblemError(problem(
+                "not-extracted", "No preview available", 409,
+                "this document has no completed extraction; evidence still in "
+                "quarantine is never extracted"))
+        total = datasets.count_records(connection, run["run_id"])
+        rows = datasets.preview_records(connection, run["run_id"],
+                                        offset=offset, limit=limit)
+        profile_run = datasets.latest_run(connection, artifact_id, "profile")
+        repository.record_audit(
+            connection, subject_id=principal.subject_id,
+            company_id=context.company_id, action="document.preview",
+            resource_kind="document", resource_ref=artifact_id, outcome="allowed",
+            detail={"rows": len(rows), "offset": max(0, int(offset))})
+
+    summary = run["result"] or {}
+    profile = (profile_run or {}).get("result") or {}
+    return PreviewPage(
+        artifact_id=artifact_id, run_id=run["run_id"],
+        header=[str(item) for item in (summary.get("header") or [])],
+        header_row=int(summary.get("header_row", 1)),
+        first_data_row=int(summary.get("first_data_row", 2)),
+        # El tipo inferido y su confianza salen del perfil, que es quien mide.
+        columns=list(profile.get("columns") or []),
+        total_records=total, offset=max(0, int(offset)),
+        limit=datasets.effective_limit(limit),
+        truncated=bool(summary.get("truncated")),
+        truncation_reason=summary.get("truncation_reason"),
+        rows=[PreviewCell(record_ordinal=item["record_ordinal"],
+                          values=[str(value) for value in item["values"]],
+                          locator=item["locator"]) for item in rows])
+
+
+@router.post("/companies/{company_id}/mappings", tags=["mapping"], status_code=201)
+def create_mapping(request: Request, company_id: str, body: MappingRequest,
+                   principal: Principal = Depends(principal_dependency)) -> dict:
+    """Crea una version de mapeo en borrador y devuelve lo que la bloquea."""
+    context = company_context(request, principal, company_id)
+    require(context, "dataset.map")
+    database = request.app.state.database
+    definition = body.model_dump(exclude={"artifact_id", "data_source_id",
+                                          "display_name"})
+    with database.session(company_id=context.company_id,
+                          subject_id=principal.subject_id) as connection:
+        _artifact_or_forbidden(connection, body.artifact_id)
+        profile_run = datasets.latest_run(connection, body.artifact_id, "profile")
+        profile = (profile_run or {}).get("result") or {}
+        try:
+            mapping = datasets.mapping_from_definition(definition)
+        except datasets.PreparationError as error:
+            raise ProblemError(problem(error.code, "Invalid mapping", 422,
+                                       error.detail)) from None
+        try:
+            created = datasets.create_mapping(
+                connection, company_id=context.company_id,
+                data_source_id=body.data_source_id, artifact_id=body.artifact_id,
+                display_name=body.display_name, definition=definition,
+                subject_id=principal.subject_id,
+                source_schema=datasets.schema_digest(profile))
+        except Exception:  # noqa: BLE001 - una referencia ajena no se distingue
+            logger.warning("mapping refused for company %s", context.company_id)
+            raise forbidden() from None
+        blockers = datasets.blockers_for(mapping, profile, [])
+        repository.record_audit(
+            connection, subject_id=principal.subject_id,
+            company_id=context.company_id, action="dataset.map",
+            resource_kind="mapping", resource_ref=created["mapping_version_id"],
+            outcome="allowed", detail={"artifact": body.artifact_id,
+                                       "blockers": len(blockers)})
+    return {**created, "blockers": blockers}
+
+
+@router.get("/companies/{company_id}/mappings", tags=["mapping"])
+def list_mappings(request: Request, company_id: str, artifact_id: str | None = None,
+                  principal: Principal = Depends(principal_dependency)) -> list[dict]:
+    context = company_context(request, principal, company_id)
+    require(context, "dataset.map")
+    database = request.app.state.database
+    with database.session(company_id=context.company_id,
+                          subject_id=principal.subject_id) as connection:
+        return datasets.list_mappings(connection, artifact_id=artifact_id)
+
+
+@router.get("/companies/{company_id}/mappings/{mapping_version_id}", tags=["mapping"])
+def read_mapping(request: Request, company_id: str, mapping_version_id: str,
+                 principal: Principal = Depends(principal_dependency)) -> dict:
+    context = company_context(request, principal, company_id)
+    require(context, "dataset.map")
+    database = request.app.state.database
+    with database.session(company_id=context.company_id,
+                          subject_id=principal.subject_id) as connection:
+        version = datasets.load_mapping_version(connection, mapping_version_id)
+        if version is None:
+            raise forbidden()
+        profile_run = datasets.latest_run(connection, version["artifact_id"], "profile")
+        profile = (profile_run or {}).get("result") or {}
+        decisions = datasets.list_decisions(connection, mapping_version_id)
+        mapping = datasets.mapping_from_definition(version["definition"])
+        blockers = datasets.blockers_for(mapping, profile, decisions)
+    return {**version, "decisions": decisions, "blockers": blockers,
+            "columns": list(profile.get("columns") or [])}
+
+
+@router.post("/companies/{company_id}/mappings/{mapping_version_id}/decisions",
+             tags=["mapping"], status_code=201)
+def decide_ambiguity(request: Request, company_id: str, mapping_version_id: str,
+                     body: DecisionRequest,
+                     principal: Principal = Depends(principal_dependency)) -> dict:
+    """Deja escrita la eleccion de una persona sobre una ambiguedad."""
+    context = company_context(request, principal, company_id)
+    require(context, "dataset.map")
+    database = request.app.state.database
+    with database.session(company_id=context.company_id,
+                          subject_id=principal.subject_id) as connection:
+        if datasets.load_mapping_version(connection, mapping_version_id) is None:
+            raise forbidden()
+        try:
+            decision = datasets.record_decision(
+                connection, company_id=context.company_id,
+                mapping_version_id=mapping_version_id,
+                ambiguity_kind=body.ambiguity_kind, subject_ref=body.subject_ref,
+                resolved_value=body.resolved_value, rationale=body.rationale,
+                subject_id=principal.subject_id)
+        except Exception:  # noqa: BLE001 - vocabulario acotado por CHECK
+            raise ProblemError(problem(
+                "invalid-decision", "Invalid decision", 422,
+                "the ambiguity kind is not one this system knows how to resolve")
+            ) from None
+        repository.record_audit(
+            connection, subject_id=principal.subject_id,
+            company_id=context.company_id, action="dataset.decide",
+            resource_kind="mapping", resource_ref=mapping_version_id,
+            outcome="allowed",
+            detail={"kind": body.ambiguity_kind, "subject": body.subject_ref,
+                    "resolved": body.resolved_value})
+    return decision
+
+
+@router.post("/companies/{company_id}/mappings/{mapping_version_id}/validate",
+             tags=["mapping"])
+def validate_mapping(request: Request, company_id: str, mapping_version_id: str,
+                     principal: Principal = Depends(principal_dependency)) -> dict:
+    """Pasa el mapeo de borrador a validado, si ya no queda nada sin decidir."""
+    context = company_context(request, principal, company_id)
+    require(context, "dataset.map")
+    database = request.app.state.database
+    with database.session(company_id=context.company_id,
+                          subject_id=principal.subject_id) as connection:
+        version = datasets.load_mapping_version(connection, mapping_version_id)
+        if version is None:
+            raise forbidden()
+        profile_run = datasets.latest_run(connection, version["artifact_id"], "profile")
+        profile = (profile_run or {}).get("result") or {}
+        decisions = datasets.list_decisions(connection, mapping_version_id)
+        mapping = datasets.mapping_from_definition(version["definition"])
+        blockers = datasets.blockers_for(mapping, profile, decisions)
+        if blockers:
+            raise ProblemError(problem(
+                "unresolved-ambiguity", "The mapping is not valid yet", 422,
+                "a person has to resolve every finding before this mapping can "
+                "produce a dataset", blockers=blockers))
+        datasets.validate_mapping_version(
+            connection, mapping_version_id=mapping_version_id,
+            subject_id=principal.subject_id)
+        repository.record_audit(
+            connection, subject_id=principal.subject_id,
+            company_id=context.company_id, action="dataset.validate",
+            resource_kind="mapping", resource_ref=mapping_version_id,
+            outcome="allowed", detail={"artifact": version["artifact_id"]})
+        return datasets.load_mapping_version(connection, mapping_version_id) or {}
+
+
+@router.post("/companies/{company_id}/datasets", tags=["datasets"], status_code=201)
+def prepare_dataset(request: Request, company_id: str, body: DatasetRequest,
+                    principal: Principal = Depends(principal_dependency)) -> dict:
+    """Convierte las filas extraidas en movimientos canonicos.
+
+    Sale en `validated`, nunca en `published`: publicarlo es de otra persona.
+    """
+    context = company_context(request, principal, company_id)
+    require(context, "dataset.map")
+    database = request.app.state.database
+    with database.session(company_id=context.company_id,
+                          subject_id=principal.subject_id) as connection:
+        _artifact_or_forbidden(connection, body.artifact_id)
+        try:
+            prepared = datasets.prepare_dataset(
+                connection, company_id=context.company_id,
+                artifact_id=body.artifact_id,
+                mapping_version_id=body.mapping_version_id,
+                financial_account_id=body.financial_account_id,
+                subject_id=principal.subject_id)
+        except datasets.PreparationError as error:
+            raise _preparation_problem(error) from None
+        except psycopg.errors.ForeignKeyViolation:
+            # Una cuenta o una fuente de otra empresa. Indistinguible de que no
+            # exista, por la misma razon de siempre.
+            raise forbidden() from None
+        repository.record_audit(
+            connection, subject_id=principal.subject_id,
+            company_id=context.company_id, action="dataset.prepare",
+            resource_kind="dataset", resource_ref=prepared.dataset_version_id,
+            outcome="allowed",
+            detail={"movements": prepared.movement_count,
+                    "rejected": prepared.rejected_count,
+                    "reused": prepared.reused})
+    return {"dataset_version_id": prepared.dataset_version_id,
+            "state": prepared.state, "movement_count": prepared.movement_count,
+            "rejected_count": prepared.rejected_count,
+            "record_count": prepared.record_count, "reused": prepared.reused,
+            "rejections": list(prepared.rejections)}
+
+
+@router.get("/companies/{company_id}/datasets", tags=["datasets"])
+def list_datasets(request: Request, company_id: str, artifact_id: str | None = None,
+                  principal: Principal = Depends(principal_dependency)) -> list[dict]:
+    context = company_context(request, principal, company_id)
+    require(context, "movement.read")
+    database = request.app.state.database
+    with database.session(company_id=context.company_id,
+                          subject_id=principal.subject_id) as connection:
+        return datasets.list_datasets(connection, artifact_id=artifact_id)
+
+
+@router.get("/companies/{company_id}/datasets/{dataset_version_id}",
+            tags=["datasets"])
+def read_dataset(request: Request, company_id: str, dataset_version_id: str,
+                 principal: Principal = Depends(principal_dependency)) -> dict:
+    context = company_context(request, principal, company_id)
+    require(context, "movement.read")
+    database = request.app.state.database
+    with database.session(company_id=context.company_id,
+                          subject_id=principal.subject_id) as connection:
+        dataset = datasets.load_dataset(connection, dataset_version_id)
+        if dataset is None:
+            raise forbidden()
+        # Quien puede publicar necesita saber si **el** puede: la respuesta
+        # incluye si este sujeto seria el autor, para que el boton no mienta.
+        dataset["can_publish"] = (
+            "dataset.publish" in context.permissions
+            and dataset["state"] == "validated"
+            and dataset["prepared_by"] != principal.subject_id)
+    return dataset
+
+
+@router.post("/companies/{company_id}/datasets/{dataset_version_id}/publish",
+             tags=["datasets"])
+def publish_dataset(request: Request, company_id: str, dataset_version_id: str,
+                    principal: Principal = Depends(principal_dependency)) -> dict:
+    """Sella un dataset validado. Exige `dataset.publish` y otro sujeto."""
+    context = company_context(request, principal, company_id)
+    require(context, "dataset.publish")
+    database = request.app.state.database
+    with database.session(company_id=context.company_id,
+                          subject_id=principal.subject_id) as connection:
+        try:
+            published = datasets.publish_dataset(
+                connection, dataset_version_id=dataset_version_id,
+                subject_id=principal.subject_id)
+        except datasets.PublicationError as error:
+            if error.code == "dataset-unknown":
+                raise forbidden() from None
+            status = 409 if error.code == "segregation-of-duties" else 422
+            repository.record_audit(
+                connection, subject_id=principal.subject_id,
+                company_id=context.company_id, action="dataset.publish",
+                resource_kind="dataset", resource_ref=dataset_version_id,
+                outcome="denied", detail={"reason": error.code})
+            raise ProblemError(problem(error.code, "The dataset cannot be published",
+                                       status, error.detail)) from None
+        repository.record_audit(
+            connection, subject_id=principal.subject_id,
+            company_id=context.company_id, action="dataset.publish",
+            resource_kind="dataset", resource_ref=dataset_version_id,
+            outcome="allowed", detail={"movements": published["movement_count"],
+                                       "engine": published["engine_release"]})
+    return published
+
+
+@router.post("/companies/{company_id}/datasets/{dataset_version_id}/reject",
+             tags=["datasets"])
+def reject_dataset(request: Request, company_id: str, dataset_version_id: str,
+                   body: RejectionRequest,
+                   principal: Principal = Depends(principal_dependency)) -> dict:
+    """Rechazar tambien es una decision del revisor, y tambien se audita."""
+    context = company_context(request, principal, company_id)
+    require(context, "dataset.publish")
+    database = request.app.state.database
+    with database.session(company_id=context.company_id,
+                          subject_id=principal.subject_id) as connection:
+        try:
+            rejected = datasets.reject_dataset(
+                connection, dataset_version_id=dataset_version_id,
+                subject_id=principal.subject_id, reason=body.reason)
+        except datasets.PublicationError as error:
+            if error.code == "dataset-unknown":
+                raise forbidden() from None
+            raise ProblemError(problem(error.code, "The dataset cannot be rejected",
+                                       422, error.detail)) from None
+        repository.record_audit(
+            connection, subject_id=principal.subject_id,
+            company_id=context.company_id, action="dataset.reject",
+            resource_kind="dataset", resource_ref=dataset_version_id,
+            outcome="denied", detail={"reason": body.reason[:120]})
+    return rejected
+
+
+@router.get("/companies/{company_id}/datasets/{dataset_version_id}/movements",
+            tags=["movements"])
+def list_movements(request: Request, company_id: str, dataset_version_id: str,
+                   offset: int = 0, limit: int = 50,
+                   principal: Principal = Depends(principal_dependency)) -> list[dict]:
+    context = company_context(request, principal, company_id)
+    require(context, "movement.read")
+    database = request.app.state.database
+    with database.session(company_id=context.company_id,
+                          subject_id=principal.subject_id) as connection:
+        if datasets.load_dataset(connection, dataset_version_id) is None:
+            raise forbidden()
+        return datasets.list_movements(connection,
+                                       dataset_version_id=dataset_version_id,
+                                       offset=offset, limit=limit)
+
+
+@router.get("/companies/{company_id}/movements/{movement_id}", tags=["movements"])
+def read_movement(request: Request, company_id: str, movement_id: str,
+                  principal: Principal = Depends(principal_dependency)) -> dict:
+    """Un movimiento con su camino hasta la celda que lo produjo."""
+    context = company_context(request, principal, company_id)
+    require(context, "movement.read")
+    database = request.app.state.database
+    with database.session(company_id=context.company_id,
+                          subject_id=principal.subject_id) as connection:
+        movement = datasets.load_movement(connection, movement_id)
+        if movement is None:
+            raise forbidden()
+    return movement
