@@ -23,6 +23,11 @@ import uuid
 
 import psycopg
 
+from fincilia_contracts.release import (
+    CANONICAL_SCHEMA_VERSION,
+    ENGINE_COMPONENTS,
+    ENGINE_RELEASE_KEY,
+)
 from fincilia_platform.identity import ALGORITHM, ITERATIONS, hash_secret
 
 # Espacio de nombres fijo del entorno local. No identifica nada fuera de la demo.
@@ -57,6 +62,15 @@ PEOPLE = (
     {"key": "carla", "username": "carla@demo.local", "display_name": "Carla Auditora",
      "firm_role": "member", "grants": {"andinos": "auditor"}},
 )
+
+
+# Maestros minimos para que la vertical de P3 tenga contra que publicar. Un
+# movimiento canonico exige `financial_account_id` no nulo, y un registro de
+# origen exige `data_source_id`: sin estas dos filas no hay nada que mapear.
+# Ninguna corresponde a una cuenta real; el token no es un numero de cuenta.
+DEMO_ACCOUNT = {"family": "bank_account", "name": "Cuenta corriente (demo)",
+                "currency": "COP", "last4": "4417"}
+DEMO_SOURCE = {"family": "bank_account", "name": "Extracto bancario (demo)"}
 
 
 def stable_id(kind: str, key: str) -> str:
@@ -106,6 +120,20 @@ def seed(dsn: str, *, secret: str) -> dict[str, object]:
                     "ON CONFLICT (subject_id) DO NOTHING",
                     (subject_id, person["username"]))
 
+            # -- version del motor ----------------------------------------- #
+            # Nace `draft`. Aprobarla es una decision humana —el contrato de
+            # linaje dice `agent_can_self_approve: false`— y sembrarla aprobada
+            # seria firmar en nombre de otro.
+            cursor.execute(
+                "INSERT INTO fincilia.engine_release (release_id, release_key, "
+                "canonical_schema_version, classification, state, components) "
+                "VALUES (%s, %s, %s, 'neutral', 'draft', %s) "
+                "ON CONFLICT (release_key) DO NOTHING",
+                (stable_id("engine_release", ENGINE_RELEASE_KEY), ENGINE_RELEASE_KEY,
+                 CANONICAL_SCHEMA_VERSION, json.dumps(list(ENGINE_COMPONENTS))))
+            if cursor.rowcount:
+                created.append(f"engine_release:{ENGINE_RELEASE_KEY}")
+
             # -- firma y membresias ---------------------------------------- #
             cursor.execute(
                 "INSERT INTO fincilia.firm (firm_id, legal_name) VALUES (%s, %s) "
@@ -143,6 +171,29 @@ def seed(dsn: str, *, secret: str) -> dict[str, object]:
                     "company_id, valid_from) VALUES (%s, %s, %s, DATE '2026-01-01') "
                     "ON CONFLICT (engagement_id) DO NOTHING",
                     (stable_id("engagement", company["key"]), firm_id, company_id))
+
+                # -- maestros de la empresa -------------------------------- #
+                cursor.execute(
+                    "INSERT INTO fincilia.data_source (data_source_id, company_id, "
+                    "source_family, display_name) VALUES (%s, %s, %s, %s) "
+                    "ON CONFLICT (data_source_id) DO NOTHING",
+                    (stable_id("data_source", company["key"]), company_id,
+                     DEMO_SOURCE["family"], DEMO_SOURCE["name"]))
+                if cursor.rowcount:
+                    created.append(f"data_source:{company['key']}")
+                cursor.execute(
+                    "INSERT INTO fincilia.financial_account (account_id, company_id, "
+                    "account_family, display_name, identifier_token, identifier_last4, "
+                    "currency_code) VALUES (%s, %s, %s, %s, %s, %s, %s) "
+                    "ON CONFLICT (account_id) DO NOTHING",
+                    (stable_id("account", company["key"]), company_id,
+                     DEMO_ACCOUNT["family"], DEMO_ACCOUNT["name"],
+                     # Un token, no un numero: `canonical-model` lo tipa
+                     # `tokenized_identifier` y la demo no tiene cuenta.
+                     stable_id("account_token", company["key"]),
+                     DEMO_ACCOUNT["last4"], DEMO_ACCOUNT["currency"]))
+                if cursor.rowcount:
+                    created.append(f"account:{company['key']}")
 
                 for person in PEOPLE:
                     role = person["grants"].get(company["key"])
