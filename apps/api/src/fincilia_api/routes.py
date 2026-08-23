@@ -602,7 +602,10 @@ def read_mapping(request: Request, company_id: str, mapping_version_id: str,
         decisions = datasets.list_decisions(connection, mapping_version_id)
         mapping = datasets.mapping_from_definition(version["definition"])
         blockers = datasets.blockers_for(mapping, profile, decisions)
+        unaccounted = datasets.unaccounted_columns(
+            version["definition"], mapping, profile)
     return {**version, "decisions": decisions, "blockers": blockers,
+            "unaccounted_columns": unaccounted,
             "columns": list(profile.get("columns") or [])}
 
 

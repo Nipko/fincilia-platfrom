@@ -315,9 +315,16 @@ export type MappingVersion = {
   data_source_id: string;
 };
 
+export type UnaccountedColumn = {
+  index: number;
+  header: string;
+  inferred_type: string;
+};
+
 export type MappingDetail = MappingVersion & {
   decisions: MappingDecision[];
   blockers: Blocker[];
+  unaccounted_columns: UnaccountedColumn[];
   columns: ColumnProfile[];
 };
 

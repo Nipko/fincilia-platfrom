@@ -412,6 +412,31 @@ class VerticalTests(VerticalHarness):
             headers=self.auth(PREPARER))
         self.assertEqual(422, refused.status_code, refused.text)
 
+    def test_an_unused_column_is_named_without_blocking_TST_P3_056(self) -> None:
+        # Una columna que nadie mapea es normal. Lo que no es normal es no
+        # haberla mirado, y esa diferencia importa cuando quien revisa no es
+        # quien mapeo.
+        artifact = self.promoted(statement_csv("ignorada"), "extracto.csv")
+        definition = dict(MAPPING)
+        definition["columns"] = {"occurred_on": 0, "description": 1, "amount": 3}
+        created = self.create_mapping(artifact, definition)
+        self.assertEqual(201, created.status_code, created.text)
+        version_id = created.json()["mapping_version_id"]
+        detail = self.client.get(
+            f"/api/v1/companies/{ESPIGA}/mappings/{version_id}",
+            headers=self.auth(PREPARER)).json()
+        self.assertEqual([column["index"] for column in detail["unaccounted_columns"]],
+                         [2])
+        self.assertEqual(detail["blockers"], [])
+        # Y declararla ignorada la saca del aviso sin cambiar nada mas.
+        declared = dict(definition)
+        declared["ignored_columns"] = [2]
+        other = self.create_mapping(artifact, declared)
+        other_detail = self.client.get(
+            f"/api/v1/companies/{ESPIGA}/mappings/{other.json()['mapping_version_id']}",
+            headers=self.auth(PREPARER)).json()
+        self.assertEqual(other_detail["unaccounted_columns"], [])
+
     def test_a_reviewer_cannot_write_a_mapping_TST_P3_034(self) -> None:
         artifact = self.promoted(statement_csv("revmap"), "extracto.csv")
         response = self.create_mapping(artifact, user=REVIEWER)

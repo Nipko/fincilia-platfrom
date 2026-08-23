@@ -370,6 +370,18 @@ export default async function MappingPage({
             </section>
           ) : null}
 
+          {mapping && mapping.unaccounted_columns.length > 0 ? (
+            <p className="notice" role="status">
+              Estas columnas no se usan y nadie declaro que se ignoran:{' '}
+              {mapping.unaccounted_columns
+                .map((column) => `${column.index + 1}. ${column.header}`)
+                .join(', ')}
+              . No bloquea nada. Declararlo deja escrito «la vi y decidi no
+              usarla», que es distinto de «se me paso», y la diferencia importa
+              cuando quien revisa no es quien mapeo.
+            </p>
+          ) : null}
+
           {mapping && mapping.decisions.length > 0 ? (
             <section className="card scroll" aria-label="Decisiones registradas">
               <table>

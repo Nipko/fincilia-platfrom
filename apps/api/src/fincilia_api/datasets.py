@@ -346,6 +346,28 @@ def resolvable_as(finding, mapping: ColumnMapping,
     return (AMBIGUITY_KINDS.get(inferred, ""), field)
 
 
+def unaccounted_columns(definition: dict[str, Any], mapping: ColumnMapping,
+                        profile: dict[str, Any]) -> list[dict[str, Any]]:
+    """Columnas del fichero que ni se usan ni se declararon ignoradas.
+
+    No bloquea: una columna de saldo acumulado que nadie mapea es normal. Lo que
+    no es normal es no haberla mirado. Declarar que se ignora deja escrito «la vi
+    y decidi no usarla», que es distinto de «se me paso», y la diferencia importa
+    cuando el que revisa no es el que mapeo.
+    """
+    declared = {int(index) for index in (definition.get("ignored_columns") or [])
+                if isinstance(index, int)}
+    used = set(mapping.columns.values())
+    return [
+        {"index": int(column["index"]), "header": str(column.get("header", "")),
+         "inferred_type": str(column.get("inferred_type", ""))}
+        for column in (profile.get("columns") or [])
+        if "index" in column
+        and int(column["index"]) not in used
+        and int(column["index"]) not in declared
+    ]
+
+
 def blockers_for(mapping: ColumnMapping, profile: dict[str, Any],
                  decisions: list[dict[str, Any]]) -> list[dict[str, str]]:
     """Lo que impide publicar, ya descontado lo que una persona resolvio.
