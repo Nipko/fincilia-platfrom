@@ -49,11 +49,18 @@ tipos de trabajo vive en tres sitios que hay que ampliar juntos.
 
 ## 3. Estado de la Fase B (P3)
 
-**No empezada.** La Fase A consumió la ejecución entera, y el mandato pide no
-continuar hasta tenerla verde. No hay código de P3 en la rama: ni `column_mapping`,
-ni `canonical_movement`, ni preview, ni pantalla de mapeo.
+**Una rebanada de siete.** Lo que hay es el dominio puro del mapeo
+(`packages/contracts/python/fincilia_contracts/mapping.py`, 61 pruebas): validación
+de un mapeo contra el perfil, lectura de fechas y de importes según el convenio
+declarado, las tres formas de leer la dirección, y el rechazo por fila con su
+motivo y su número de fila del fichero.
 
-Lo que ya está preparado para ella:
+**Lo que no hay**, y es la mayor parte: no existe `column_mapping` ni
+`canonical_movement` en la base, ni endpoint de vista previa, ni publicación, ni
+pantalla de mapeo, ni exportación. La Fase A consumió la ejecución, y el mandato
+pedía no continuar hasta tenerla verde.
+
+Lo que ya está preparado:
 
 - `V0008` es la siguiente versión libre.
 - El perfilador ya marca las columnas ambiguas (`ambiguous_numeric`,
@@ -68,7 +75,19 @@ Lo que ya está preparado para ella:
 
 ### La siguiente rebanada, exacta
 
-**`V0008` — `column_mapping` y `canonical_movement`.**
+**`V0008` — `column_mapping` y `canonical_movement`.** El dominio ya está escrito y
+probado; falta persistirlo.
+
+Antes de nada, una dependencia que hay que resolver: `canonical-model.json` declara
+`money_movement.financial_account_id` como no nulo, y la entidad `financial_account`
+**no existe** en el esquema. O se crea en `V0008`, o el movimiento canónico no puede
+satisfacer su propio contrato. Lo mismo con `engine_release_id`.
+
+Y una decisión de producto pendiente: la matriz de permisos no tiene un
+`dataset.publish`. Con la matriz actual, el revisor —que es quien debería publicar
+según la SoD del mandato— no tiene `dataset.map`. O se añade el permiso y se
+declara el par segregado `("dataset.map", "dataset.publish")`, o la SoD del mapeo
+se queda en una comprobación de «autor distinto de publicador», que es más débil.
 
 1. `column_mapping` versionado y company-scoped, con estados
    `draft → validated → published`, autor y marcas de tiempo. RLS forzada.
