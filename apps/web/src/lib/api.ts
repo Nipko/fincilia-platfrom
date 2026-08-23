@@ -142,6 +142,17 @@ export function fetchAudit(token: string, companyId: string): Promise<AuditEvent
   );
 }
 
+export type PromotionDecision = {
+  decision: string;
+  reason_code: string;
+  scanner_release?: string;
+  media_type?: string;
+  internal_type?: string;
+  findings?: { kind: string; location: string; detail: string }[];
+  raw_object_key?: string | null;
+  decided_at?: string;
+};
+
 export type ArtifactSummary = {
   artifact_id: string;
   filename: string;
@@ -153,6 +164,7 @@ export type ArtifactSummary = {
   findings: { kind: string; location: string; detail: string }[];
   uploaded_at: string;
   already_present: boolean;
+  promotion: PromotionDecision | null;
 };
 
 export function fetchDocuments(

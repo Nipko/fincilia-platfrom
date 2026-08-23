@@ -15,6 +15,11 @@ Tres decisiones ordenan el modulo:
 3. **Un hallazgo nunca repite el valor que encontro.** Si el escaner de
    tarjetas escribiera el numero en el log, habria copiado a un sitio con menos
    proteccion justo lo que estaba intentando contener.
+4. **Nada sale de cuarentena sin que su contenido se haya inspeccionado entero.**
+   `admit` decide si unos bytes entran; `decide_promotion` decide si pueden
+   salir, y solo dice que si de lo que sabe leer de principio a fin. Un formato
+   sin analizador seguro se queda donde esta, con su motivo escrito. Prometer que
+   un PDF esta soportado es peor que decir que no lo esta.
 """
 
 from __future__ import annotations
@@ -221,6 +226,118 @@ def inspect_archive(payload: bytes) -> list[Finding]:
     return findings
 
 
+# Un ZIP es un contenedor, no un tipo. Un `.xlsx` es un ZIP, un `.ods` es un ZIP,
+# y un ZIP cualquiera tambien lo es: distinguirlos por la extension es dejar que
+# lo decida quien sube el fichero. Se mira dentro, al manifiesto.
+XLSX_MARKERS = ("[Content_Types].xml", "xl/workbook.xml")
+ODS_MIMETYPE = b"application/vnd.oasis.opendocument.spreadsheet"
+MACRO_ENTRIES = ("xl/vbaProject.bin", "macros/", "Basic/")
+
+
+def identify_archive(payload: bytes) -> str:
+    """Tipo interno de un contenedor ZIP: `xlsx`, `ods`, `macro_enabled` o `zip`.
+
+    Se decide por estructura. Un ZIP renombrado a `.xlsx` no es una hoja de
+    calculo, y una hoja de calculo con macros no es una hoja de calculo inocua.
+    """
+    try:
+        with zipfile.ZipFile(io.BytesIO(payload)) as archive:
+            names = archive.namelist()
+            mimetype = b""
+            if "mimetype" in names:
+                with archive.open("mimetype") as handle:
+                    mimetype = handle.read(128)
+    except zipfile.BadZipFile as error:
+        raise RejectedUpload("the archive is not readable") from error
+
+    for entry in names:
+        if any(entry.startswith(marker) for marker in MACRO_ENTRIES):
+            # Una macro es codigo. No entra, se llame como se llame el fichero.
+            return "macro_enabled"
+    if mimetype.startswith(ODS_MIMETYPE):
+        return "ods"
+    if all(marker in names for marker in XLSX_MARKERS):
+        return "xlsx"
+    return "zip"
+
+
+# Lo unico que hoy se sabe inspeccionar de principio a fin. Un PDF o una hoja de
+# calculo necesitan un analizador que todavia no existe, y prometer que estan
+# soportados seria peor que decir que no.
+FULLY_INSPECTABLE: Final[frozenset[str]] = frozenset({"text/csv"})
+
+SENSITIVE_KINDS: Final[frozenset[str]] = frozenset({
+    "payment_card_number", "private_key", "aws_access_key", "bearer_token",
+    "password_assignment", "connection_string"})
+
+
+@dataclass(frozen=True)
+class Decision:
+    """Lo que se decide sobre unos bytes que ya estan en cuarentena.
+
+    `promoted` es la unica salida hacia la zona de evidencia, y solo se alcanza
+    tras inspeccionar el contenido entero. Todo lo demas se queda donde esta, con
+    un motivo que se puede leer.
+    """
+
+    decision: str
+    reason_code: str
+    media_type: str
+    internal_type: str
+    findings: tuple[Finding, ...]
+
+    @property
+    def promoted(self) -> bool:
+        return self.decision == "promoted"
+
+    def as_dict(self) -> dict[str, object]:
+        return {"decision": self.decision, "reason_code": self.reason_code,
+                "media_type": self.media_type, "internal_type": self.internal_type,
+                "findings": [item.as_dict() for item in self.findings]}
+
+
+def decide_promotion(payload: bytes, filename: str) -> Decision:
+    """Escanea el contenido y decide si puede salir de cuarentena.
+
+    La regla es una y no admite excepciones por comodidad: **nada llega a la zona
+    de evidencia sin que su contenido se haya inspeccionado entero**. Un formato
+    que hoy no se sabe inspeccionar se queda en cuarentena con su motivo, no se
+    promueve «porque probablemente esta bien».
+    """
+    detection = detect(payload, filename)
+    internal = ""
+    findings: list[Finding] = []
+
+    if not detection.extension_matches:
+        findings.append(Finding(
+            "extension_mismatch", filename,
+            f"the name suggests {detection.declared_type}, the bytes say "
+            f"{detection.media_type}"))
+
+    if detection.media_type == "application/zip":
+        findings.extend(inspect_archive(payload))
+        internal = identify_archive(payload)
+        if internal == "macro_enabled":
+            return Decision("rejected", "macro_enabled_archive", detection.media_type,
+                            internal, tuple(findings))
+
+    if detection.media_type not in FULLY_INSPECTABLE:
+        # No es un rechazo: es una promocion que no se puede justificar todavia.
+        # El fichero se conserva y se puede volver a decidir cuando exista un
+        # analizador seguro para su formato.
+        return Decision("quarantined", "no_scanner_for_format", detection.media_type,
+                        internal, tuple(findings))
+
+    count_lines(payload)
+    findings.extend(scan_secrets(payload))
+    if any(item.kind in SENSITIVE_KINDS for item in findings):
+        return Decision("quarantined", "sensitive_content", detection.media_type,
+                        internal, tuple(findings))
+
+    return Decision("promoted", "content_inspected", detection.media_type, internal,
+                    tuple(findings))
+
+
 def luhn_valid(digits: str) -> bool:
     total = 0
     for index, char in enumerate(reversed(digits)):
@@ -293,11 +410,17 @@ class Admission:
 
 
 def admit(payload: bytes, filename: str) -> Admission:
-    """Examina unos bytes y decide si pueden salir de cuarentena.
+    """Examina unos bytes en la puerta. **Siempre** aterrizan en cuarentena.
 
-    Nada se promueve a `raw` si aparece un secreto. Se conserva en cuarentena en
-    vez de borrarse: quien subio el fichero necesita saber que paso, y borrar la
-    evidencia de un incidente es la peor forma de responder a uno.
+    Aqui solo se decide si algo puede entrar, no si puede salir. Lo que se rechaza
+    -- vacio, demasiado grande, ejecutable, un tipo que la plataforma no procesa,
+    un archivo que se expande mas de lo aceptable -- no llega a ser evidencia de
+    nada, y no se guarda en ningun sitio.
+
+    Lo que entra se queda en `quarantine` hasta que un escaneo de contenido diga
+    otra cosa. El DFD declara la subida como `evidence_quarantine_only` y la
+    promocion como un flujo aparte, con su propia decision persistida; hacerlo en
+    la misma peticion era exactamente lo que dejaba pasar un PDF sin mirarlo.
     """
     check_size(len(payload))
     detection = detect(payload, filename)
@@ -312,19 +435,11 @@ def admit(payload: bytes, filename: str) -> Admission:
             f"{detection.media_type}"))
 
     if detection.media_type == "application/zip":
+        # Los limites del contenedor se comprueban antes de aceptarlo: una bomba
+        # no se guarda ni siquiera en cuarentena.
         findings.extend(inspect_archive(payload))
     elif detection.media_type.startswith("text/"):
         count_lines(payload)
 
-    # El escaner solo mira texto. Dentro de un PDF o un ZIP hay que extraer
-    # primero, y eso lo hace el worker en su propio aislamiento.
-    if detection.media_type.startswith("text/"):
-        findings.extend(scan_secrets(payload))
-
-    sensitive = any(item.kind in {"payment_card_number", "private_key",
-                                  "aws_access_key", "bearer_token",
-                                  "password_assignment", "connection_string"}
-                    for item in findings)
-    zone = "quarantine" if sensitive else "raw"
     return Admission(sha256_bytes(payload), len(payload), detection.media_type,
-                     detection.extension_matches, zone, tuple(findings))
+                     detection.extension_matches, "quarantine", tuple(findings))

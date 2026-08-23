@@ -76,11 +76,15 @@ class ArtifactSummary(BaseModel):
     byte_size: int
     content_sha256: str
     media_type: str
+    # `zone` es donde vive la evidencia **ahora**: `quarantine` mientras no haya
+    # una decision de promocion, `raw` cuando la hay. La fila del artefacto no
+    # cambia nunca; lo que cambia es si existe una decision.
     zone: str
     status: str
     findings: list[dict]
     uploaded_at: str
     already_present: bool = False
+    promotion: dict | None = None
 
 
 class ArtifactDetail(ArtifactSummary):
@@ -310,7 +314,8 @@ def upload_document(request: Request, company_id: str,
             "storage-unavailable", "Storage unavailable", 503,
             "the evidence store did not accept the file")) from None
 
-    status = "stored" if admission.promoted else "quarantined"
+    # La subida no promueve: `admit` devuelve siempre `quarantine`.
+    status = "quarantined"
     with database.session(company_id=context.company_id,
                           subject_id=principal.subject_id) as connection:
         # La idempotencia la decide la restriccion, no una comprobacion previa.
@@ -323,11 +328,13 @@ def upload_document(request: Request, company_id: str,
             object_key=stored.key, status=status,
             findings=[item.as_dict() for item in admission.findings],
             uploaded_by=principal.subject_id)
-        if created and admission.promoted:
-            # Solo se procesa lo que salio de cuarentena. Encolar un fichero con
-            # un secreto dentro seria pasearlo por un proceso mas.
+        if created:
+            # Lo que se encola es el **escaneo**, no el perfilado. Perfilar es
+            # leer el fichero entero, y eso no se hace sobre algo que todavia no
+            # ha pasado inspeccion: el perfilado lo encola el escaneo si decide
+            # promover.
             repository.enqueue_run(connection, company_id=context.company_id,
-                                   artifact_id=artifact.artifact_id, kind="profile")
+                                   artifact_id=artifact.artifact_id, kind="scan")
         # La auditoria distingue una entrega nueva de una repetida. Contarlas
         # igual haria imposible saber si alguien reintenta o si algo se duplica.
         repository.record_audit(
@@ -352,7 +359,15 @@ def list_documents(request: Request, company_id: str, limit: int = 50,
     with database.session(company_id=context.company_id,
                           subject_id=principal.subject_id) as connection:
         artifacts = repository.list_artifacts(connection, limit=limit)
-    return [ArtifactSummary(**item.as_dict()) for item in artifacts]
+        decisions = repository.decisions_for(
+            connection, [item.artifact_id for item in artifacts])
+    summaries = []
+    for item in artifacts:
+        payload = item.as_dict()
+        decision = decisions.get(item.artifact_id)
+        payload["zone"] = repository.effective_zone(decision)
+        summaries.append(ArtifactSummary(**payload, promotion=decision))
+    return summaries
 
 
 @router.get("/companies/{company_id}/documents/{artifact_id}",
@@ -371,4 +386,10 @@ def read_document(request: Request, company_id: str, artifact_id: str,
             # puedes» convierte la API en un buscador de documentos ajenos.
             raise forbidden()
         runs = repository.list_runs(connection, artifact_id)
-    return ArtifactDetail(**artifact.as_dict(), runs=runs)
+        decision = repository.latest_decision(connection, artifact_id)
+    payload = artifact.as_dict()
+    # La zona que se publica es la efectiva, no la de la fila: el artefacto es
+    # inmutable y siempre dice `quarantine`; quien decide donde vive la evidencia
+    # es la decision de promocion.
+    payload["zone"] = repository.effective_zone(decision)
+    return ArtifactDetail(**payload, runs=runs, promotion=decision)

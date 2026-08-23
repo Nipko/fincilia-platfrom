@@ -6,6 +6,14 @@ import { readSession } from '@/lib/session';
 
 export const dynamic = 'force-dynamic';
 
+const PROMOTION_REASONS: Record<string, string> = {
+  content_inspected: 'contenido inspeccionado por completo',
+  sensitive_content: 'se detecto informacion sensible',
+  no_scanner_for_format: 'todavia no hay analizador seguro para este formato',
+  macro_enabled_archive: 'el libro contiene macros',
+  unscannable: 'no se pudo examinar',
+};
+
 const TYPE_LABELS: Record<string, string> = {
   integer: 'entero',
   decimal_dot: 'decimal con punto',
@@ -86,17 +94,50 @@ export default async function DocumentPage({
         </p>
       </section>
 
-      {document.findings.length > 0 ? (
+      <h2>Zona y decision</h2>
+      <div className="card">
+        <div className="meta">
+          {document.promotion ? (
+            <>
+              <strong>{document.zone}</strong> ·{' '}
+              {PROMOTION_REASONS[document.promotion.reason_code] ??
+                document.promotion.reason_code}{' '}
+              · escaner {document.promotion.scanner_release}
+            </>
+          ) : (
+            <>
+              <strong>{document.zone}</strong> · pendiente de revision
+            </>
+          )}
+        </div>
+        {document.zone === 'quarantine' ? (
+          <p className="meta">
+            La evidencia se conserva. Nada sale de cuarentena sin que su contenido
+            se haya inspeccionado entero, y lo que no se puede inspeccionar todavia
+            se queda aqui en vez de pasar por bueno.
+          </p>
+        ) : (
+          <p className="meta">
+            Se inspecciono el contenido entero antes de promoverlo. El original
+            sigue en cuarentena: promover copia, no mueve.
+          </p>
+        )}
+      </div>
+
+      {document.findings.length > 0 ||
+      (document.promotion?.findings?.length ?? 0) > 0 ? (
         <>
-          <h2>Por que quedo en cuarentena</h2>
+          <h2>Que se encontro</h2>
           <div className="card">
             <ul>
-              {document.findings.map((finding, index) => (
-                <li key={`${finding.kind}-${index}`}>
-                  <strong>{finding.kind}</strong> · {finding.location} ·{' '}
-                  {finding.detail}
-                </li>
-              ))}
+              {[...document.findings, ...(document.promotion?.findings ?? [])].map(
+                (finding, index) => (
+                  <li key={`${finding.kind}-${index}`}>
+                    <strong>{finding.kind}</strong> · {finding.location} ·{' '}
+                    {finding.detail}
+                  </li>
+                ),
+              )}
             </ul>
             <p className="meta">
               El hallazgo dice que tipo y donde, nunca el valor. El fichero se
@@ -109,8 +150,9 @@ export default async function DocumentPage({
       <h2>Perfil</h2>
       {!run ? (
         <p className="card">
-          Este documento no tiene perfilado. Solo se perfila lo que sale de
-          cuarentena.
+          Este documento no tiene perfilado, y no lo tendra mientras siga en
+          cuarentena: perfilar es leer el fichero entero, y eso no se hace sobre
+          algo que no ha pasado inspeccion.
         </p>
       ) : run.status !== 'succeeded' ? (
         <p className="card">

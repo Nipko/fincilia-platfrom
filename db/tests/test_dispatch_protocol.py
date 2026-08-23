@@ -282,7 +282,7 @@ class DispatchProtocolTests(unittest.TestCase):
 
     def test_a_claim_returns_only_what_the_worker_needs(self) -> None:
         run_id = self.enqueue(self.artifact())
-        claimed = self.claim()
+        claimed = self.claim_this(run_id)
         self.assertIsNotNone(claimed)
         self.assertEqual(run_id, claimed[0])
         self.assertEqual(SANDBOX_A, claimed[1])
@@ -292,7 +292,7 @@ class DispatchProtocolTests(unittest.TestCase):
 
     def test_two_concurrent_claims_produce_one_winner(self) -> None:
         run_id = self.enqueue(self.artifact())
-        first = self.claim("w1")
+        first = self.claim_this(run_id, "w1")
         second = self.claim("w2")
         self.assertEqual(run_id, first[0])
         # El segundo no ve el mismo trabajo: el arriendo del primero sigue vivo.
@@ -300,7 +300,7 @@ class DispatchProtocolTests(unittest.TestCase):
 
     def test_a_finished_run_leaves_no_pointer(self) -> None:
         run_id = self.enqueue(self.artifact())
-        claimed = self.claim()
+        claimed = self.claim_this(run_id)
         self.assertEqual("succeeded", self.finish(run_id, claimed[5], result='{"a":1}'))
         self.assertEqual(0, self.pointer_count(run_id))
         self.assertEqual("succeeded", self.run_row(run_id)["status"])
@@ -308,16 +308,16 @@ class DispatchProtocolTests(unittest.TestCase):
     def test_a_worker_that_dies_before_starting_loses_nothing(self) -> None:
         # Reclamado y muerto: el arriendo vence y otro lo recupera.
         run_id = self.enqueue(self.artifact())
-        self.claim("murio")
+        self.claim_this(run_id, "murio")
         self.expire_lease(run_id)
-        recovered = self.claim("vivo")
+        recovered = self.claim_this(run_id, "vivo")
         self.assertEqual(run_id, recovered[0])
         self.assertEqual(2, recovered[4], "the recovery consumes one real attempt")
         self.assertEqual("running", self.run_row(run_id)["status"])
 
     def test_a_worker_that_dies_while_running_is_recovered(self) -> None:
         run_id = self.enqueue(self.artifact())
-        first = self.claim("murio")
+        first = self.claim_this(run_id, "murio")
         self.expire_lease(run_id)
         recovered = self.claim("vivo")
         self.assertEqual(run_id, recovered[0])
@@ -334,9 +334,9 @@ class DispatchProtocolTests(unittest.TestCase):
     def test_a_stale_worker_cannot_finish_after_recovery(self) -> None:
         # El caso que hacia perder trabajos: el worker viejo revive y escribe.
         run_id = self.enqueue(self.artifact())
-        stale = self.claim("viejo")
+        stale = self.claim_this(run_id, "viejo")
         self.expire_lease(run_id)
-        fresh = self.claim("nuevo")
+        fresh = self.claim_this(run_id, "nuevo")
         self.assertEqual("stale_lease", self.finish(run_id, stale[5], result='{"a":1}'))
         self.assertEqual("running", self.run_row(run_id)["status"])
         self.assertEqual(1, self.pointer_count(run_id), "the pointer must survive")
@@ -345,7 +345,7 @@ class DispatchProtocolTests(unittest.TestCase):
 
     def test_a_stale_worker_cannot_finish_after_the_run_is_closed(self) -> None:
         run_id = self.enqueue(self.artifact())
-        claimed = self.claim()
+        claimed = self.claim_this(run_id)
         self.finish(run_id, claimed[5], result='{"a":1}')
         self.assertEqual("stale_lease", self.finish(run_id, claimed[5], error="x_error",
                                                     failure="retryable"))
@@ -354,7 +354,7 @@ class DispatchProtocolTests(unittest.TestCase):
 
     def test_a_retryable_failure_returns_the_job_to_the_queue(self) -> None:
         run_id = self.enqueue(self.artifact())
-        claimed = self.claim()
+        claimed = self.claim_this(run_id)
         self.assertEqual("requeued", self.finish(run_id, claimed[5],
                                                  error="evidence_unreadable",
                                                  failure="retryable"))
@@ -366,7 +366,7 @@ class DispatchProtocolTests(unittest.TestCase):
 
     def test_a_fatal_failure_is_terminal_without_retries(self) -> None:
         run_id = self.enqueue(self.artifact())
-        claimed = self.claim()
+        claimed = self.claim_this(run_id)
         self.assertEqual("failed", self.finish(run_id, claimed[5], error="unprofilable",
                                                failure="fatal"))
         row = self.run_row(run_id)
@@ -403,21 +403,23 @@ class DispatchProtocolTests(unittest.TestCase):
         self.assertRegex(item[4], r"^[0-9a-f]{64}$")
         self.assertEqual("stateless_job", item[5])
 
-    def claim_this(self, run_id: str, limit: int = 8):
+    def claim_this(self, run_id: str, worker: str = "w1", limit: int = 24):
         """Reclama hasta dar con el trabajo de esta prueba.
 
-        La cola es compartida entre pruebas de la clase; lo que sale primero no
-        tiene por que ser lo que esta prueba encolo. Los ajenos se apartan.
+        La cola es global -- lo tiene que ser, o un planificador entre empresas no
+        podria descubrir trabajo -- y otras pruebas y el propio producto encolan
+        en ella. Lo que sale primero no tiene por que ser lo de esta prueba.
+
+        Lo ajeno se aparta quedandose reclamado: su arriendo lo mantiene fuera del
+        reparto durante los proximos sesenta segundos, que es mas de lo que dura
+        cualquier prueba de este fichero. Devolverlo a la cola lo unico que
+        conseguiria es volver a sacarlo en la vuelta siguiente.
         """
-        parked = []
         for _ in range(limit):
-            claimed = self.claim()
+            claimed = self.claim(worker)
             self.assertIsNotNone(claimed, "the queue went empty before the target run")
             if claimed[0] == run_id:
-                for other in parked:
-                    self.expire_pointer(other)
                 return claimed
-            parked.append(claimed[0])
         self.fail("the target run never came out of the queue")
 
     def expire_pointer(self, run_id: str) -> None:
@@ -430,7 +432,7 @@ class DispatchProtocolTests(unittest.TestCase):
     def test_no_job_can_stay_running_without_a_lease(self) -> None:
         # El invariante que lo resume: `running` y arriendo son un solo hecho.
         run_id = self.enqueue(self.artifact())
-        claimed = self.claim()
+        claimed = self.claim_this(run_id)
         with connect(MIGRATOR_DSN, SANDBOX_A) as connection, connection.cursor() as cursor:
             with self.assertRaises(psycopg.errors.CheckViolation):
                 cursor.execute(
@@ -445,8 +447,15 @@ class DispatchProtocolTests(unittest.TestCase):
         with connect(MIGRATOR_DSN, SANDBOX_A) as connection, connection.cursor() as cursor:
             cursor.execute("UPDATE fincilia.authorization_version "
                            "SET version = version + 1 WHERE company_id = %s", (SANDBOX_A,))
-        claimed = self.claim()
-        self.assertTrue(claimed is None or claimed[0] != run_id)
+        # `claim_this` no vale aqui: este trabajo **nunca** debe salir reclamado.
+        # La cola es global, asi que se saca trabajo hasta que el planificador
+        # llegue a el, y al llegar tiene que terminarlo, no tomarlo.
+        for _ in range(24):
+            claimed = self.claim()
+            self.assertTrue(claimed is None or claimed[0] != run_id,
+                            "a job whose authorization changed must not be claimed")
+            if claimed is None or self.run_row(run_id)["status"] != "queued":
+                break
         row = self.run_row(run_id)
         self.assertEqual("failed", row["status"])
         self.assertEqual("authorization_changed", row["error_code"])
@@ -459,12 +468,15 @@ class DispatchProtocolTests(unittest.TestCase):
         first = self.enqueue(self.artifact(SANDBOX_A), SANDBOX_A)
         second = self.enqueue(self.artifact(SANDBOX_B), SANDBOX_B)
         seen = {}
-        for _ in range(4):
+        # La cola es global: hay que sacar trabajo hasta encontrar los dos, y cada
+        # uno tiene que venir con **su** empresa, no con la del otro.
+        for _ in range(24):
             claimed = self.claim()
             if claimed is None:
                 break
             seen[claimed[0]] = claimed[1]
-            self.finish(claimed[0], claimed[5], company=claimed[1], result='{"a":1}')
+            if first in seen and second in seen:
+                break
         self.assertEqual(SANDBOX_A, seen.get(first))
         self.assertEqual(SANDBOX_B, seen.get(second))
 

@@ -101,6 +101,12 @@ class DocumentUploadTests(unittest.TestCase):
                         "DELETE FROM fincilia.processing_run WHERE artifact_id IN ("
                         "SELECT artifact_id FROM fincilia.source_artifact "
                         "WHERE content_sha256 = ANY(%s))", (list(cls.created),))
+                    # La decision de promocion referencia al artefacto: borrar en
+                    # el otro orden choca con la clave ajena.
+                    cursor.execute(
+                        "DELETE FROM fincilia.promotion_decision WHERE artifact_id IN ("
+                        "SELECT artifact_id FROM fincilia.source_artifact "
+                        "WHERE content_sha256 = ANY(%s))", (list(cls.created),))
                     cursor.execute(
                         "DELETE FROM fincilia.source_artifact WHERE content_sha256 = ANY(%s)",
                         (list(cls.created),))
@@ -124,13 +130,15 @@ class DocumentUploadTests(unittest.TestCase):
 
     # ------------------------------------------------------------- recorrido #
 
-    def test_a_synthetic_csv_lands_in_raw(self) -> None:
+    def test_a_synthetic_csv_lands_in_quarantine(self) -> None:
+        # La subida no promueve nada: eso lo decide el escaneo, despues, y con el
+        # contenido leido entero.
         payload = unique_csv("raw")
         response = self.upload("ana@demo.local", ESPIGA, payload, "extracto.csv")
         self.assertEqual(200, response.status_code, response.text)
         body = response.json()
-        self.assertEqual("raw", body["zone"])
-        self.assertEqual("stored", body["status"])
+        self.assertEqual("quarantine", body["zone"])
+        self.assertEqual("quarantined", body["status"])
         self.assertEqual("text/csv", body["media_type"])
         self.assertEqual(sha256_bytes(payload), body["content_sha256"])
         self.assertEqual(len(payload), body["byte_size"])
@@ -151,32 +159,35 @@ class DocumentUploadTests(unittest.TestCase):
         self.assertNotEqual(first["content_sha256"], second["content_sha256"])
 
     def test_a_file_with_a_card_stays_in_quarantine(self) -> None:
+        # En la puerta todavia no se ha escaneado nada; lo que se comprueba aqui es
+        # que aterriza en cuarentena y que la respuesta no repite el valor. Que el
+        # escaneo lo marque como sensible se prueba en
+        # `test_quarantine_before_raw`.
         body = self.upload("ana@demo.local", ESPIGA, CARD_CSV, "clientes.csv").json()
         self.assertEqual("quarantine", body["zone"])
         self.assertEqual("quarantined", body["status"])
-        self.assertIn("payment_card_number", [item["kind"] for item in body["findings"]])
-        # El hallazgo dice donde, nunca que.
         self.assertNotIn("4111111111111111", str(body))
 
-    def test_a_quarantined_file_is_not_queued_for_processing(self) -> None:
+    def test_nothing_is_queued_for_profiling_before_it_is_scanned(self) -> None:
+        # Lo que se encola en la puerta es el escaneo. Perfilar es leer el fichero
+        # entero, y eso no se hace sobre algo que no ha pasado inspeccion.
         body = self.upload("ana@demo.local", ESPIGA, CARD_CSV, "clientes.csv").json()
         detail = self.client.get(
             f"/api/v1/companies/{ESPIGA}/documents/{body['artifact_id']}",
             headers=self.auth("ana@demo.local")).json()
-        self.assertEqual([], detail["runs"])
+        self.assertEqual(["scan"], [run["kind"] for run in detail["runs"]])
 
     def test_a_clean_file_is_queued_once(self) -> None:
         body = self.upload("ana@demo.local", ESPIGA, unique_csv("cola"), "e.csv").json()
         detail = self.client.get(
             f"/api/v1/companies/{ESPIGA}/documents/{body['artifact_id']}",
             headers=self.auth("ana@demo.local")).json()
-        # Exactamente un trabajo, y de perfilado. En que estado esta depende de si
-        # el worker ya lo tomo, y afirmar `queued` haria que la prueba fallara
-        # solo porque el worker fue rapido.
-        self.assertEqual(1, len(detail["runs"]))
-        self.assertEqual("profile", detail["runs"][0]["kind"])
-        self.assertIn(detail["runs"][0]["status"],
-                      {"queued", "running", "succeeded"})
+        # Exactamente un trabajo en la puerta, y de escaneo. En que estado esta
+        # depende de si el worker ya lo tomo, y afirmar `queued` haria que la
+        # prueba fallara solo porque el worker fue rapido.
+        scans = [run for run in detail["runs"] if run["kind"] == "scan"]
+        self.assertEqual(1, len(scans))
+        self.assertIn(scans[0]["status"], {"queued", "running", "succeeded"})
 
     def test_a_renamed_executable_is_refused(self) -> None:
         response = self.upload("ana@demo.local", ESPIGA,
@@ -283,28 +294,28 @@ class DocumentUploadTests(unittest.TestCase):
                         "'quarantine', 'k', 'stored', %s)",
                         (ESPIGA, "a" * 64, stable_id("subject", "ana")))
 
-    def test_the_object_really_is_in_the_zone_the_row_claims(self) -> None:
+    def test_everything_lands_in_quarantine_and_nothing_in_raw(self) -> None:
         from fincilia_platform.objects import S3ObjectStore, object_key
         store = S3ObjectStore(build_settings())
         clean = self.upload("ana@demo.local", ESPIGA, unique_csv("zona"), "e.csv").json()
         dirty = self.upload("ana@demo.local", ESPIGA, CARD_CSV, "clientes.csv").json()
 
-        clean_key = object_key(ESPIGA, clean["content_sha256"])
-        dirty_key = object_key(ESPIGA, dirty["content_sha256"])
-        self.assertTrue(store.exists("raw", clean_key))
-        self.assertFalse(store.exists("quarantine", clean_key))
-        self.assertTrue(store.exists("quarantine", dirty_key))
-        # Lo que quedo en cuarentena **no** esta en raw: si estuviera, el escaner
-        # habria servido para nada.
-        self.assertFalse(store.exists("raw", dirty_key))
+        for body in (clean, dirty):
+            key = object_key(ESPIGA, body["content_sha256"])
+            with self.subTest(name=body["filename"]):
+                self.assertTrue(store.exists("quarantine", key))
+                # Nada llega a la zona de evidencia en la propia subida: si
+                # llegara, el escaneo posterior no serviria de nada.
+                self.assertFalse(store.exists("raw", key))
 
     def test_the_stored_bytes_are_the_bytes_that_were_uploaded(self) -> None:
         from fincilia_platform.objects import S3ObjectStore, object_key
         store = S3ObjectStore(build_settings())
         payload = unique_csv("bytes")
         created = self.upload("ana@demo.local", ESPIGA, payload, "e.csv").json()
-        self.assertEqual(payload,
-                         store.get("raw", object_key(ESPIGA, created["content_sha256"])))
+        self.assertEqual(
+            payload,
+            store.get("quarantine", object_key(ESPIGA, created["content_sha256"])))
 
 
 if __name__ == "__main__":

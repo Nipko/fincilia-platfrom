@@ -122,31 +122,40 @@ def objects_without_rows(connection: psycopg.Connection, store: S3ObjectStore,
     return orphans
 
 
-def artifacts_without_work(connection: psycopg.Connection, company_id: str) -> list[str]:
-    """Artefactos promovidos que no tienen ni trabajo vivo ni trabajo terminado.
+def artifacts_without_work(connection: psycopg.Connection,
+                           company_id: str) -> list[tuple[str, str]]:
+    """Artefactos a los que les falta el trabajo que les toca.
 
-    Es el residuo de una caida entre registrar el artefacto y encolar su trabajo.
+    Dos residuos distintos de la misma clase de caida: un artefacto registrado al
+    que nunca se le encolo el escaneo, y uno ya promovido al que nunca se le
+    encolo el perfilado. Se mira la **decision**, no la zona de la fila: el
+    artefacto es inmutable y siempre dice `quarantine`.
     """
     scoped(connection, company_id)
     with connection.cursor() as cursor:
         cursor.execute(
-            "SELECT a.artifact_id::text FROM fincilia.source_artifact a "
-            "WHERE a.zone = 'raw' AND NOT EXISTS ("
-            "  SELECT 1 FROM fincilia.processing_run r "
-            "   WHERE r.artifact_id = a.artifact_id AND r.kind = 'profile')")
-        return [row[0] for row in cursor.fetchall()]
+            "SELECT a.artifact_id::text, 'scan' FROM fincilia.source_artifact a "
+            " WHERE NOT EXISTS (SELECT 1 FROM fincilia.processing_run r "
+            "                    WHERE r.artifact_id = a.artifact_id AND r.kind = 'scan') "
+            "UNION ALL "
+            "SELECT d.artifact_id::text, 'profile' FROM fincilia.promotion_decision d "
+            " WHERE d.decision = 'promoted' "
+            "   AND NOT EXISTS (SELECT 1 FROM fincilia.processing_run r "
+            "                    WHERE r.artifact_id = d.artifact_id "
+            "                      AND r.kind = 'profile')")
+        return [(row[0], row[1]) for row in cursor.fetchall()]
 
 
 def repair(connection: psycopg.Connection, company_id: str,
-           artifact_ids: list[str]) -> list[str]:
+           pending: list[tuple[str, str]]) -> list[dict]:
     """Reencola lo que quedo sin trabajo. Idempotente por la funcion de despacho."""
     scoped(connection, company_id)
     requeued = []
-    for artifact_id in artifact_ids:
+    for artifact_id, kind in pending:
         with connection.cursor() as cursor:
-            cursor.execute("SELECT fincilia.enqueue_processing_run(%s, %s, 'profile')",
-                           (company_id, artifact_id))
-        requeued.append(artifact_id)
+            cursor.execute("SELECT fincilia.enqueue_processing_run(%s, %s, %s)",
+                           (company_id, artifact_id, kind))
+        requeued.append({"artifact_id": artifact_id, "kind": kind})
     return requeued
 
 
@@ -164,13 +173,13 @@ def reconcile(dsn: str, settings: Settings, *, do_repair: bool = False,
             for item in objects_without_rows(connection, store, company_id):
                 report["objects_without_rows"].append({**item, "company_id": company_id})
             pending = artifacts_without_work(connection, company_id)
-            for artifact_id in pending:
+            for artifact_id, kind in pending:
                 report["artifacts_without_work"].append(
-                    {"company_id": company_id, "artifact_id": artifact_id})
+                    {"company_id": company_id, "artifact_id": artifact_id, "kind": kind})
             if do_repair and pending:
                 report["repaired"].extend(
-                    {"company_id": company_id, "artifact_id": artifact_id}
-                    for artifact_id in repair(connection, company_id, pending))
+                    {**item, "company_id": company_id}
+                    for item in repair(connection, company_id, pending))
 
     # Una fila sin objeto es una inconsistencia real: la evidencia que sostiene
     # el registro no esta. No se declara correcto un estado que no lo es.

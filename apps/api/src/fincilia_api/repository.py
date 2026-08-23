@@ -373,3 +373,51 @@ def find_artifact_by_id(connection: psycopg.Connection,
             "WHERE artifact_id = %s", (artifact_id,))
         row = cursor.fetchone()
     return _artifact(row) if row else None
+
+
+# --------------------------------------------------------------------------- #
+# Decisiones de promocion
+# --------------------------------------------------------------------------- #
+
+DECISION_COLUMNS = ("decision, reason_code, scanner_release, media_type, "
+                    "internal_type, findings, raw_object_key, decided_at")
+
+
+def latest_decision(connection: psycopg.Connection, artifact_id: str) -> dict | None:
+    """Ultima decision de promocion de un artefacto, dentro del alcance fijado."""
+    with connection.cursor() as cursor:
+        cursor.execute(
+            f"SELECT {DECISION_COLUMNS} FROM fincilia.promotion_decision "
+            "WHERE artifact_id = %s ORDER BY decided_at DESC LIMIT 1", (artifact_id,))
+        row = cursor.fetchone()
+    if row is None:
+        return None
+    return {"decision": row[0], "reason_code": row[1], "scanner_release": row[2],
+            "media_type": row[3], "internal_type": row[4], "findings": row[5],
+            "raw_object_key": row[6], "decided_at": row[7].isoformat()}
+
+
+def decisions_for(connection: psycopg.Connection,
+                  artifact_ids: list[str]) -> dict[str, dict]:
+    """Decisiones de varios artefactos en una consulta, no una por fila."""
+    if not artifact_ids:
+        return {}
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT DISTINCT ON (artifact_id) artifact_id::text, decision, reason_code, "
+            "raw_object_key FROM fincilia.promotion_decision "
+            "WHERE artifact_id = ANY(%s) ORDER BY artifact_id, decided_at DESC",
+            (artifact_ids,))
+        rows = cursor.fetchall()
+    return {row[0]: {"decision": row[1], "reason_code": row[2],
+                     "raw_object_key": row[3]} for row in rows}
+
+
+def effective_zone(decision: dict | None) -> str:
+    """Donde vive la evidencia ahora.
+
+    Sin decision, sigue en cuarentena. Es lo correcto y ademas es lo seguro: si
+    una consulta fallara, el resultado seria tratar el fichero como no
+    inspeccionado, nunca al reves.
+    """
+    return "raw" if decision and decision.get("decision") == "promoted" else "quarantine"

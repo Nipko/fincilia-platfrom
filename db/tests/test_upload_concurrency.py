@@ -75,6 +75,9 @@ class ConcurrentUploadTests(unittest.TestCase):
                             "DELETE FROM fincilia.processing_run WHERE artifact_id IN ("
                             " SELECT artifact_id FROM fincilia.source_artifact "
                             " WHERE content_sha256 = ANY(%s))",
+                            "DELETE FROM fincilia.promotion_decision WHERE artifact_id IN ("
+                            " SELECT artifact_id FROM fincilia.source_artifact "
+                            " WHERE content_sha256 = ANY(%s))",
                             "DELETE FROM fincilia.source_artifact "
                             "WHERE content_sha256 = ANY(%s)"):
                         cursor.execute(statement, (list(cls.created),))
@@ -266,7 +269,7 @@ class ConcurrentUploadTests(unittest.TestCase):
 
     def test_the_reconciler_never_reports_ok_without_looking(self) -> None:
         from db.reconcile.objects import reconcile
-        # Un informe vacio en verde diria que todo esta bien tras no mirar nada.
+        # Un informe vacio en verde diria que esta bien tras no mirar nada.
         report = reconcile(MIGRATOR_DSN, self.settings, scope=[])
         if not report["companies"]:
             self.assertFalse(report["ok"])
@@ -303,6 +306,8 @@ class ConcurrentUploadTests(unittest.TestCase):
         repaired = [item["artifact_id"] for item in report["repaired"]]
         self.assertIn(body["artifact_id"], repaired)
         self.assertEqual(1, self.run_count(body["content_sha256"]))
+        self.assertEqual(["scan"], [item["kind"] for item in report["repaired"]
+                                    if item["artifact_id"] == body["artifact_id"]])
 
 
 if __name__ == "__main__":

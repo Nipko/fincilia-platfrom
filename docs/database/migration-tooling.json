@@ -196,7 +196,9 @@
       "function": "fincilia.enqueue_processing_run",
       "owner_role": "fincilia_dispatch",
       "granted_to": [
-        "fincilia_app"
+        "fincilia_app",
+        "fincilia_worker",
+        "fincilia_migrator"
       ],
       "reason": "encolar sin dar a la API ningun privilegio sobre la tabla global de despacho; los parametros se validan contra el contexto autorizado",
       "gate": "DB-G03",

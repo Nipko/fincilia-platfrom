@@ -14,6 +14,14 @@ import { UploadForm } from './upload';
 
 export const dynamic = 'force-dynamic';
 
+const PROMOTION_REASONS: Record<string, string> = {
+  content_inspected: 'contenido inspeccionado por completo',
+  sensitive_content: 'se detecto informacion sensible',
+  no_scanner_for_format: 'todavia no hay analizador seguro para este formato',
+  macro_enabled_archive: 'el libro contiene macros',
+  unscannable: 'no se pudo examinar',
+};
+
 function formatWhen(value: string): string {
   // Sin libreria de fechas: el ISO ya viene del servidor y recortarlo no
   // reinterpreta nada. Una libreria de zonas horarias aqui solo anadiria una
@@ -116,8 +124,14 @@ export default async function CompanyPage({
           <UploadForm companyId={companyId} />
           <p className="meta">
             CSV, PDF o libro de calculo, hasta 25 MB. El tipo se decide por los
-            primeros bytes, no por la extension, y un fichero con datos sensibles se
-            queda en cuarentena en vez de pasar a la zona de evidencia.
+            primeros bytes, no por la extension.
+          </p>
+          <p className="meta">
+            Todo lo que se sube entra en <strong>cuarentena</strong>. Sale de ahi
+            cuando su contenido se ha inspeccionado entero y no aparece nada
+            sensible. Hoy eso solo se sabe hacer con CSV: un PDF o un libro de
+            calculo se quedan en cuarentena, y se dice por que. Prometer que estan
+            soportados seria peor que decir que no lo estan.
           </p>
         </div>
       ) : null}
@@ -154,11 +168,12 @@ export default async function CompanyPage({
                     >
                       {document.zone}
                     </span>
-                    {document.findings.length > 0 ? (
-                      <div className="meta">
-                        {document.findings.map((finding) => finding.kind).join(', ')}
-                      </div>
-                    ) : null}
+                    <div className="meta">
+                      {document.promotion
+                        ? (PROMOTION_REASONS[document.promotion.reason_code] ??
+                           document.promotion.reason_code)
+                        : 'pendiente de revision'}
+                    </div>
                   </td>
                   <td className="when">{document.content_sha256.slice(0, 12)}</td>
                 </tr>

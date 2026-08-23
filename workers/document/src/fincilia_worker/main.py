@@ -124,8 +124,13 @@ def process_one(database: Database, store, identity: str) -> bool:
     result: dict | None = None
     error_code: str | None = None
     failure_class: str | None = None
+    # Un escaneo lee de cuarentena; un perfilado, de la zona de evidencia. Nada
+    # se perfila desde cuarentena: si se pudiera, la regla de inspeccion previa
+    # no serviria de nada.
+    zone = "quarantine" if claim.kind == "scan" else "raw"
     try:
-        payload = store.get("raw", _object_key(database, claim))
+        artifact = _artifact_row(database, claim)
+        payload = store.get(zone, artifact["object_key"])
     except ObjectStoreError as error:
         # La fila dice que el objeto esta y el objeto no esta. Es reintentable:
         # puede ser el almacen, no la evidencia.
@@ -135,7 +140,18 @@ def process_one(database: Database, store, identity: str) -> bool:
         logger.exception("unexpected failure reading evidence for run %s", claim.run_id)
         error_code, failure_class = "evidence_error", jobs.UNKNOWN
     else:
-        result, error_code, failure_class = jobs.run_profile(payload)
+        if claim.kind == "scan":
+            result, error_code, failure_class = jobs.run_scan(
+                payload, artifact["filename"])
+            if result is not None:
+                try:
+                    _record_decision(database, store, claim, artifact, payload, result)
+                except Exception:  # noqa: BLE001
+                    logger.exception("could not record the promotion decision")
+                    result, error_code, failure_class = None, "decision_unstorable", \
+                        jobs.RETRYABLE
+        else:
+            result, error_code, failure_class = jobs.run_profile(payload)
 
     try:
         with database.session(company_id=claim.company_id) as connection:
@@ -159,17 +175,69 @@ def process_one(database: Database, store, identity: str) -> bool:
     return True
 
 
-def _object_key(database: Database, claim: "jobs.Claim") -> str:
-    """Clave del objeto del artefacto, leida dentro del alcance de su empresa."""
+def _artifact_row(database: Database, claim: "jobs.Claim") -> dict:
+    """Datos del artefacto, leidos dentro del alcance de su empresa."""
     with database.session(company_id=claim.company_id) as connection:
         with connection.cursor() as cursor:
             cursor.execute(
-                "SELECT object_key FROM fincilia.source_artifact WHERE artifact_id = %s",
+                "SELECT object_key, filename, content_sha256 "
+                "FROM fincilia.source_artifact WHERE artifact_id = %s",
                 (claim.artifact_id,))
             row = cursor.fetchone()
     if row is None:
         raise ObjectStoreError("the artifact is not visible in its own context")
-    return row[0]
+    return {"object_key": row[0], "filename": row[1], "content_sha256": row[2]}
+
+
+def _record_decision(database: Database, store, claim: "jobs.Claim", artifact: dict,
+                     payload: bytes, decision: dict) -> None:
+    """Escribe la decision y, si promueve, copia la evidencia a su zona.
+
+    El orden importa y no es arbitrario: primero el objeto en `raw`, despues la
+    fila que dice que esta ahi. Al reves, una caida entre medias dejaria una
+    decision afirmando que la evidencia esta promovida cuando no lo esta, y esa
+    fila la creeria todo lo que viniera despues.
+
+    La clave del objeto sale del contenido, asi que copiarlo dos veces escribe lo
+    mismo en el mismo sitio: reintentar un escaneo es inocuo.
+    """
+    raw_key = None
+    if decision["decision"] == "promoted":
+        store.put("raw", artifact["object_key"], payload,
+                  content_type=decision["media_type"],
+                  metadata={"company": claim.company_id,
+                            "sha256": artifact["content_sha256"]})
+        raw_key = artifact["object_key"]
+
+    with database.session(company_id=claim.company_id) as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO fincilia.promotion_decision (decision_id, company_id, "
+                "artifact_id, run_id, decision, reason_code, scanner_release, "
+                "media_type, internal_type, findings, raw_object_key) "
+                "VALUES (gen_random_uuid(), %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s) "
+                "ON CONFLICT (artifact_id, scanner_release) DO NOTHING",
+                (claim.company_id, claim.artifact_id, claim.run_id,
+                 decision["decision"], decision["reason_code"], jobs.SCANNER_RELEASE,
+                 decision["media_type"], decision.get("internal_type", ""),
+                 jobs.dumps(decision.get("findings", [])), raw_key))
+            # Solo lo promovido se perfila. Encolar un perfilado sobre algo que
+            # sigue en cuarentena seria pasear por otro proceso justo lo que no
+            # ha pasado inspeccion.
+            if decision["decision"] == "promoted":
+                cursor.execute(
+                    "SELECT fincilia.enqueue_processing_run(%s, %s, 'profile')",
+                    (claim.company_id, claim.artifact_id))
+            cursor.execute(
+                "INSERT INTO fincilia.audit_event (audit_event_id, company_id, "
+                "subject_id, action, resource_kind, resource_ref, outcome, detail) "
+                "VALUES (gen_random_uuid(), %s, NULL, 'document.promotion', 'document', "
+                "%s, %s, %s::jsonb)",
+                (claim.company_id, claim.artifact_id,
+                 "allowed" if decision["decision"] == "promoted" else "denied",
+                 jobs.dumps({"decision": decision["decision"],
+                             "reason": decision["reason_code"],
+                             "scanner": jobs.SCANNER_RELEASE})))
 
 
 if __name__ == "__main__":

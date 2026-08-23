@@ -17,14 +17,16 @@ import zipfile
 AWS_SHAPED = "AKIA" + "IOSFODNN7EXAMPLE"
 PRIVATE_KEY_HEADER = "-----BEGIN RSA " + "PRIVATE KEY-----"
 
-from fincilia_contracts.ingestion import (ACCEPTED_MEDIA_TYPES, MAX_ARCHIVE_ENTRIES,
-                                          MAX_COMPRESSION_RATIO, MAX_UPLOAD_BYTES,
-                                          Admission, RejectedUpload, admit,
-                                          count_lines, detect, extension_type,
+from fincilia_contracts.ingestion import (ACCEPTED_MEDIA_TYPES, FULLY_INSPECTABLE,
+                                          MAX_ARCHIVE_ENTRIES, MAX_COMPRESSION_RATIO,
+                                          MAX_UPLOAD_BYTES, Admission, RejectedUpload,
+                                          admit, count_lines, decide_promotion, detect,
+                                          extension_type, identify_archive,
                                           inspect_archive, luhn_valid, scan_secrets,
                                           sha256_bytes)
 
 CSV = b"fecha,descripcion,valor\n2026-01-02,Pago proveedor,-125000.00\n"
+NEWLINE = b"\n"
 PDF = b"%PDF-1.7\n1 0 obj\n<<>>\nendobj\ntrailer\n"
 
 
@@ -181,67 +183,157 @@ class SecretScanTests(unittest.TestCase):
 
 
 class AdmissionTests(unittest.TestCase):
-    def test_a_clean_csv_is_promoted_to_raw(self) -> None:
-        admission = admit(CSV, "extracto.csv")
-        self.assertTrue(admission.promoted)
-        self.assertEqual("raw", admission.zone)
-        self.assertEqual(sha256_bytes(CSV), admission.content_sha256)
-        self.assertEqual(len(CSV), admission.byte_size)
-        self.assertEqual((), admission.findings)
+    """`admit` decide si unos bytes **entran**, no si pueden salir."""
 
-    def test_a_csv_with_a_card_stays_in_quarantine(self) -> None:
-        admission = admit(b"cliente,tarjeta\nJuan,4111111111111111\n", "clientes.csv")
-        self.assertEqual("quarantine", admission.zone)
-        self.assertFalse(admission.promoted)
-        self.assertIn("payment_card_number",
-                      [item.kind for item in admission.findings])
+    def test_everything_that_enters_lands_in_quarantine(self) -> None:
+        # La regla que ordena el resto: la subida no promueve nada. El DFD declara
+        # la subida como `evidence_quarantine_only` y la promocion como un flujo
+        # aparte con su propia decision persistida.
+        for payload, name in ((CSV, "extracto.csv"), (PDF, "factura.pdf"),
+                              (build_zip({"a.csv": b"x,y" + NEWLINE}), "libro.xlsx")):
+            with self.subTest(name=name):
+                self.assertEqual("quarantine", admit(payload, name).zone)
 
-    def test_quarantine_keeps_the_file_instead_of_deleting_it(self) -> None:
-        # No hay camino que devuelva «borrado»: borrar la evidencia de un
-        # incidente es la peor forma de responder a uno.
-        admission = admit(b"campo,valor\nclave,password: sup3rsecreto\n", "config.csv")
-        self.assertEqual("quarantine", admission.zone)
-        self.assertIn("password_assignment", [item.kind for item in admission.findings])
+    def test_an_empty_file_is_refused(self) -> None:
+        with self.assertRaises(RejectedUpload):
+            admit(b"", "vacio.csv")
 
-    def test_a_mismatched_extension_is_recorded_but_not_fatal(self) -> None:
-        admission = admit(CSV, "extracto.txt")
-        self.assertEqual("raw", admission.zone)
-        self.assertFalse(admission.extension_matches)
-        self.assertIn("extension_mismatch", [item.kind for item in admission.findings])
+    def test_a_file_over_the_ceiling_is_refused(self) -> None:
+        with self.assertRaises(RejectedUpload):
+            admit(b"a,b" + NEWLINE * (MAX_UPLOAD_BYTES // 4 + 1), "enorme.csv")
 
     def test_an_unaccepted_type_is_refused(self) -> None:
         with self.assertRaises(RejectedUpload):
             admit(b"\x89PNG\r\n\x1a\n" + b"\x00" * 64, "captura.png")
 
     def test_plain_text_without_structure_is_refused(self) -> None:
-        # No es un descuido: un fichero de texto sin delimitadores no es un
-        # documento que esta plataforma sepa leer todavia, y admitirlo seria
-        # prometer un procesamiento que no existe.
         with self.assertRaises(RejectedUpload):
-            admit(b"una nota suelta sin estructura\n", "nota.txt")
+            admit(b"una nota suelta sin estructura" + NEWLINE, "nota.txt")
+
+    def test_a_zip_bomb_never_even_reaches_quarantine(self) -> None:
+        # Los limites del contenedor se comprueban en la puerta: una bomba no se
+        # guarda ni siquiera para mirarla luego.
+        payload = build_zip({"grande.csv": b"0" * (2 * 1024 * 1024)})
+        with self.assertRaises(RejectedUpload):
+            admit(payload, "libro.xlsx")
+
+    def test_a_mismatched_extension_is_recorded_but_not_fatal(self) -> None:
+        admission = admit(CSV, "extracto.txt")
+        self.assertEqual("quarantine", admission.zone)
+        self.assertFalse(admission.extension_matches)
+        self.assertIn("extension_mismatch", [item.kind for item in admission.findings])
 
     def test_the_same_bytes_always_give_the_same_digest(self) -> None:
         self.assertEqual(admit(CSV, "a.csv").content_sha256,
                          admit(CSV, "b.csv").content_sha256)
 
     def test_one_changed_byte_changes_the_digest(self) -> None:
-        self.assertNotEqual(admit(CSV, "a.csv").content_sha256,
-                            admit(CSV.replace(b"125000", b"125001"), "a.csv").content_sha256)
-
-    def test_a_pdf_is_admitted_without_being_scanned_as_text(self) -> None:
-        admission = admit(PDF, "factura.pdf")
-        self.assertEqual("raw", admission.zone)
-        self.assertEqual("application/pdf", admission.media_type)
+        self.assertNotEqual(
+            admit(CSV, "a.csv").content_sha256,
+            admit(CSV.replace(b"125000", b"125001"), "a.csv").content_sha256)
 
     def test_the_report_is_serialisable_and_carries_no_payload(self) -> None:
-        rendered = str(admit(CSV, "extracto.csv").as_dict())
-        self.assertNotIn("Pago proveedor", rendered)
+        self.assertNotIn("Pago proveedor", str(admit(CSV, "extracto.csv").as_dict()))
 
     def test_an_admission_is_immutable(self) -> None:
         admission = admit(CSV, "extracto.csv")
         with self.assertRaises(Exception):
             admission.zone = "raw"  # type: ignore[misc]
         self.assertIsInstance(admission, Admission)
+
+
+class ArchiveIdentityTests(unittest.TestCase):
+    """Un ZIP es un contenedor, no un tipo."""
+
+    def test_a_spreadsheet_is_identified_by_its_manifest(self) -> None:
+        payload = build_zip({"[Content_Types].xml": b"<Types/>",
+                             "xl/workbook.xml": b"<workbook/>"})
+        self.assertEqual("xlsx", identify_archive(payload))
+
+    def test_an_open_document_sheet_is_identified_by_its_mimetype(self) -> None:
+        payload = build_zip({
+            "mimetype": b"application/vnd.oasis.opendocument.spreadsheet",
+            "content.xml": b"<office/>"})
+        self.assertEqual("ods", identify_archive(payload))
+
+    def test_a_plain_zip_is_not_mistaken_for_a_spreadsheet(self) -> None:
+        # Renombrar un ZIP a `.xlsx` no lo convierte en una hoja de calculo, y
+        # decidirlo por la extension seria dejarlo en manos de quien lo sube.
+        self.assertEqual("zip", identify_archive(build_zip({"a.txt": b"hola"})))
+
+    def test_a_macro_enabled_workbook_is_identified(self) -> None:
+        payload = build_zip({"[Content_Types].xml": b"<Types/>",
+                             "xl/workbook.xml": b"<workbook/>",
+                             "xl/vbaProject.bin": b"\x00\x01"})
+        self.assertEqual("macro_enabled", identify_archive(payload))
+
+
+class PromotionTests(unittest.TestCase):
+    """`decide_promotion` es la unica puerta hacia la zona de evidencia."""
+
+    def test_a_clean_csv_is_promoted_after_being_read_whole(self) -> None:
+        decision = decide_promotion(CSV, "extracto.csv")
+        self.assertTrue(decision.promoted)
+        self.assertEqual("content_inspected", decision.reason_code)
+        self.assertEqual((), decision.findings)
+
+    def test_a_csv_with_a_card_stays_in_quarantine(self) -> None:
+        decision = decide_promotion(b"cliente,tarjeta" + NEWLINE +
+                                    b"Juan,4111111111111111" + NEWLINE, "clientes.csv")
+        self.assertFalse(decision.promoted)
+        self.assertEqual("sensitive_content", decision.reason_code)
+        self.assertIn("payment_card_number", [item.kind for item in decision.findings])
+        # El hallazgo dice donde y de que tipo, nunca el valor.
+        self.assertNotIn("4111111111111111", str(decision.as_dict()))
+
+    def test_a_pdf_is_never_promoted_without_being_inspected(self) -> None:
+        # El defecto que motivo esta rebanada: un PDF llegaba a la zona de evidencia
+        # sin que nadie hubiera mirado su contenido.
+        decision = decide_promotion(PDF, "factura.pdf")
+        self.assertFalse(decision.promoted)
+        self.assertEqual("no_scanner_for_format", decision.reason_code)
+
+    def test_a_spreadsheet_is_never_promoted_without_being_inspected(self) -> None:
+        payload = build_zip({"[Content_Types].xml": b"<Types/>",
+                             "xl/workbook.xml": b"<workbook/>"})
+        decision = decide_promotion(payload, "libro.xlsx")
+        self.assertFalse(decision.promoted)
+        self.assertEqual("no_scanner_for_format", decision.reason_code)
+        self.assertEqual("xlsx", decision.internal_type)
+
+    def test_a_generic_zip_is_never_promoted(self) -> None:
+        decision = decide_promotion(build_zip({"a.txt": b"hola"}), "cosas.zip")
+        self.assertFalse(decision.promoted)
+        self.assertEqual("zip", decision.internal_type)
+
+    def test_a_macro_enabled_workbook_is_rejected_outright(self) -> None:
+        payload = build_zip({"[Content_Types].xml": b"<Types/>",
+                             "xl/workbook.xml": b"<workbook/>",
+                             "xl/vbaProject.bin": b"\x00"})
+        decision = decide_promotion(payload, "libro.xlsx")
+        self.assertEqual("rejected", decision.decision)
+        self.assertEqual("macro_enabled_archive", decision.reason_code)
+
+    def test_only_what_can_be_read_whole_is_promotable(self) -> None:
+        # Si esta lista creciera sin un analizador detras, la regla dejaria de
+        # significar nada.
+        self.assertEqual({"text/csv"}, set(FULLY_INSPECTABLE))
+        for media_type in ACCEPTED_MEDIA_TYPES - FULLY_INSPECTABLE:
+            with self.subTest(media_type=media_type):
+                self.assertNotIn(media_type, FULLY_INSPECTABLE)
+
+    def test_quarantine_keeps_the_file_instead_of_deleting_it(self) -> None:
+        # Ningun camino devuelve «borrado»: borrar la evidencia de un incidente
+        # es la peor forma de responder a uno.
+        decision = decide_promotion(b"campo,valor" + NEWLINE +
+                                    b"clave,password: sup3rsecreto" + NEWLINE,
+                                    "config.csv")
+        self.assertIn(decision.decision, {"quarantined", "rejected", "promoted"})
+        self.assertEqual("quarantined", decision.decision)
+
+    def test_a_decision_is_serialisable_without_the_payload(self) -> None:
+        rendered = str(decide_promotion(CSV, "extracto.csv").as_dict())
+        self.assertNotIn("Pago proveedor", rendered)
 
 
 if __name__ == "__main__":

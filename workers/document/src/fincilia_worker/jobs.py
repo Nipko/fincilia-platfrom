@@ -30,6 +30,7 @@ from dataclasses import dataclass
 
 import psycopg
 
+from fincilia_contracts.ingestion import RejectedUpload, decide_promotion
 from fincilia_contracts.profiling import UnprofilableFile, profile
 
 logger = logging.getLogger("fincilia.worker.jobs")
@@ -44,6 +45,12 @@ LEASE_SECONDS = 300
 RETRYABLE = "retryable"
 FATAL = "fatal"
 UNKNOWN = "unknown"
+
+# Version del escaner. Forma parte de la clave de la decision: el mismo escaner
+# sobre el mismo artefacto es una sola decision, y reejecutarlo no crea otra.
+# Cuando el escaner cambie de verdad, esto sube y la decision se puede revisar
+# sin reescribir la anterior.
+SCANNER_RELEASE = "scan-1"
 
 
 @dataclass(frozen=True)
@@ -84,12 +91,12 @@ def finish(connection: psycopg.Connection, claim: Claim, *,
         cursor.execute(
             "SELECT fincilia.finish_run(%s, %s, %s::jsonb, %s, %s)",
             (claim.run_id, claim.lease_token,
-             None if result is None else _dumps(result), error_code, failure_class))
+             None if result is None else dumps(result), error_code, failure_class))
         row = cursor.fetchone()
     return row[0] if row else "unknown"
 
 
-def _dumps(payload: dict) -> str:
+def dumps(payload) -> str:
     import json
     return json.dumps(payload, ensure_ascii=False, sort_keys=True)
 
@@ -113,3 +120,23 @@ def run_profile(payload: bytes) -> tuple[dict | None, str | None, str | None]:
         logger.exception("unexpected profiling failure")
         return None, "profiling_error", UNKNOWN
     return table.as_dict(), None, None
+
+
+def run_scan(payload: bytes, filename: str) -> tuple[dict | None, str | None, str | None]:
+    """Decide si unos bytes pueden salir de cuarentena.
+
+    Devuelve `(decision, codigo, clase_de_fallo)`. Un formato que no se sabe
+    inspeccionar **no es un fallo**: es una decision de no promover, con su motivo
+    escrito, y el trabajo termina bien.
+    """
+    try:
+        decision = decide_promotion(payload, filename)
+    except RejectedUpload as error:
+        # Lo que ni siquiera se puede examinar se queda donde esta. Reintentarlo
+        # daria lo mismo.
+        logger.warning("unscannable artifact: %s", error)
+        return None, "unscannable", FATAL
+    except Exception:  # noqa: BLE001
+        logger.exception("unexpected scan failure")
+        return None, "scan_error", UNKNOWN
+    return decision.as_dict(), None, None

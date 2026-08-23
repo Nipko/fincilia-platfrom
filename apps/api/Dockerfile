@@ -18,6 +18,11 @@ COPY packages/platform/python /app/packages/platform/python
 COPY db /app/db
 COPY apps/api/src /app/src
 COPY apps/api/tests /app/tests
+# El codigo del worker viaja para que las pruebas de esquema puedan ejercer
+# el recorrido completo -- subir, escanear, promover, perfilar -- en un solo
+# proceso. **No** esta en PYTHONPATH: la API no puede importarlo por accidente,
+# y solo las pruebas lo anaden a `sys.path` explicitamente.
+COPY workers/document/src /app/worker_src
 
 # El proceso no corre como root: un upload malicioso no debe encontrarse uid 0.
 RUN useradd --system --uid 10001 --create-home fincilia
