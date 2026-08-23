@@ -187,7 +187,9 @@ services:
       FINCILIA_ENV: local
       FINCILIA_LOG_LEVEL: ${FINCILIA_LOG_LEVEL:-info}
       FINCILIA_SERVICE_NAME: fincilia-worker
-      FINCILIA_DATABASE_URL: postgresql://${FINCILIA_LOCAL_DB_APP_USER:-fincilia_app}:${FINCILIA_LOCAL_APP_PASSWORD:-fincilia_local_app_only}@postgres:5432/${FINCILIA_LOCAL_DB_NAME:-fincilia_local}
+      # Rol propio, no el de la API. El worker no lee identidad ni credenciales, y
+      # no escribe en la cola mas que por sus dos funciones.
+      FINCILIA_DATABASE_URL: postgresql://${FINCILIA_LOCAL_DB_WORKER_USER:-fincilia_worker}:${FINCILIA_LOCAL_WORKER_PASSWORD:-fincilia_local_worker_only}@postgres:5432/${FINCILIA_LOCAL_DB_NAME:-fincilia_local}
       FINCILIA_CACHE_URL: redis://valkey:6379/1
       FINCILIA_OBJECT_STORE_ENDPOINT: http://objectstore:9000
       FINCILIA_OBJECT_ACCESS_KEY: ${FINCILIA_OBJECT_ACCESS_KEY:-fincilia_local_object}
@@ -239,6 +241,11 @@ services:
       # atiende trafico, asi que llevar ambos DSN no amplia superficie.
       FINCILIA_MIGRATOR_URL: postgresql://${FINCILIA_LOCAL_DB_MIGRATOR_USER:-fincilia_migrator}:${FINCILIA_LOCAL_MIGRATOR_PASSWORD:-fincilia_local_migrator_only}@postgres:5432/${FINCILIA_LOCAL_DB_NAME:-fincilia_local}
       FINCILIA_DATABASE_URL: postgresql://${FINCILIA_LOCAL_DB_APP_USER:-fincilia_app}:${FINCILIA_LOCAL_APP_PASSWORD:-fincilia_local_app_only}@postgres:5432/${FINCILIA_LOCAL_DB_NAME:-fincilia_local}
+      # Las pruebas de privilegios necesitan conectarse **como cada rol** para
+      # comprobar lo que cada uno no puede hacer. Afirmar un privilegio negativo
+      # desde otro rol no prueba nada. Este servicio es de un solo uso, va por
+      # perfil y no atiende trafico.
+      FINCILIA_WORKER_URL: postgresql://${FINCILIA_LOCAL_DB_WORKER_USER:-fincilia_worker}:${FINCILIA_LOCAL_WORKER_PASSWORD:-fincilia_local_worker_only}@postgres:5432/${FINCILIA_LOCAL_DB_NAME:-fincilia_local}
     depends_on:
       postgres:
         condition: service_healthy

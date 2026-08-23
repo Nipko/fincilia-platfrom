@@ -1,23 +1,26 @@
 """Toma de trabajos y perfilado de documentos.
 
 El worker no decide nada financiero. Lee un fichero que **ya** salio de
-cuarentena, calcula su forma y la guarda. Si el fichero no se deja leer, el
-trabajo queda `failed` con un codigo: fallar diciendo por que es parte del
-trabajo, no una cortesia.
+cuarentena, calcula su forma y la guarda.
 
-Reclamar es lo unico delicado. Se hace en dos pasos, y en este orden:
+Toda la escritura sobre la cola pasa por dos funciones de base de datos. El rol
+del worker no tiene UPDATE sobre `processing_run` ni ningun privilegio sobre
+`dispatch_pointer`: lo que tiene es permiso para ejecutar `claim_next_run` y
+`finish_run`, con parametros validados. Un worker comprometido puede pedir
+trabajo y cerrar el suyo; no puede reescribir el estado de la cola.
 
-1. `dispatch_pointer` dice **que empresa** tiene trabajo pendiente. Es lo minimo
-   que un planificador entre empresas necesita antes de poder fijar su contexto,
-   y por eso esa tabla no lleva nada mas que identificadores.
-2. Con el contexto ya fijado, `processing_run` -- que si tiene RLS -- decide de
-   verdad si el trabajo se ejecuta, con `FOR UPDATE SKIP LOCKED`. Dos workers
-   compitiendo por la misma fila no la ejecutan dos veces: el segundo la salta.
+Tres invariantes sostienen el protocolo, y cada uno existe por un fallo concreto
+que se pudo reproducir:
 
-Si el proceso muere entre los dos pasos, el puntero queda reclamado y la fila en
-`queued`. `release_stale` lo devuelve al reparto pasado un plazo; perder un
-trabajo en silencio seria peor que ejecutarlo dos veces, y ejecutarlo dos veces
-tampoco pasa porque el perfilado es idempotente sobre el mismo artefacto.
+- **El arriendo tiene testigo.** Cerrar un trabajo exige presentar el testigo
+  vigente. Un worker que revive despues de que otro recupero el trabajo no
+  escribe nada: ni resultado, ni estado, ni puntero.
+- **Terminal y sin puntero son un solo hecho.** Ocurren en la misma transaccion,
+  dentro de `finish_run`. La version anterior borraba el puntero desde fuera, sin
+  comprobar nada, y podia dejar un trabajo en `running` sin puntero: invisible
+  para siempre, en ninguna cola y en ninguna lista.
+- **El worker no libera nada por su cuenta.** La recuperacion de un arriendo
+  vencido la hace `claim_next_run`, que ve las dos filas a la vez.
 """
 
 from __future__ import annotations
@@ -31,8 +34,16 @@ from fincilia_contracts.profiling import UnprofilableFile, profile
 
 logger = logging.getLogger("fincilia.worker.jobs")
 
-STALE_CLAIM_SECONDS = 300
-MAX_ATTEMPTS = 3
+# Mas que cualquier perfilado razonable, y menos que la paciencia de un operador.
+# Un trabajo que dure mas que su arriendo se recupera y se ejecuta otra vez: la
+# ejecucion es at-least-once y los efectos son idempotentes por restriccion.
+LEASE_SECONDS = 300
+
+# Clases de fallo del contrato declarado. `unknown` no se reintenta en silencio:
+# acaba en carta muerta marcada para una persona.
+RETRYABLE = "retryable"
+FATAL = "fatal"
+UNKNOWN = "unknown"
 
 
 @dataclass(frozen=True)
@@ -41,82 +52,41 @@ class Claim:
     company_id: str
     artifact_id: str
     kind: str
-    zone: str
-    object_key: str
-    media_type: str
+    attempt: int
+    lease_token: str
 
 
-def release_stale(connection: psycopg.Connection, *,
-                  seconds: int = STALE_CLAIM_SECONDS) -> int:
-    """Devuelve al reparto los punteros reclamados por un proceso que murio."""
-    with connection.cursor() as cursor:
-        cursor.execute(
-            "UPDATE fincilia.dispatch_pointer SET claimed_at = NULL, claimed_by = NULL "
-            "WHERE claimed_at IS NOT NULL "
-            "  AND claimed_at < now() - make_interval(secs => %s) "
-            "  AND run_id IN (SELECT run_id FROM fincilia.dispatch_pointer)",
-            (seconds,))
-        return cursor.rowcount
+def claim_next(connection: psycopg.Connection, worker: str,
+               lease_seconds: int = LEASE_SECONDS) -> Claim | None:
+    """Reclama el siguiente trabajo disponible, o `None` si no hay.
 
-
-def take_pointer(connection: psycopg.Connection, worker: str) -> tuple[str, str] | None:
-    """Reserva un puntero pendiente. Devuelve `(run_id, company_id)`."""
-    with connection.cursor() as cursor:
-        cursor.execute(
-            "UPDATE fincilia.dispatch_pointer SET claimed_at = now(), claimed_by = %s "
-            "WHERE run_id = ("
-            "  SELECT run_id FROM fincilia.dispatch_pointer WHERE claimed_at IS NULL "
-            "  ORDER BY queued_at FOR UPDATE SKIP LOCKED LIMIT 1) "
-            "RETURNING run_id::text, company_id::text", (worker,))
-        row = cursor.fetchone()
-    return (row[0], row[1]) if row else None
-
-
-def start_run(connection: psycopg.Connection, run_id: str) -> Claim | None:
-    """Marca el trabajo como en curso dentro del contexto de su empresa.
-
-    Devuelve `None` si otro lo tomo antes o si el artefacto no esta en `raw`: un
-    fichero en cuarentena no se procesa, aunque alguien haya encolado su trabajo.
+    Se llama **sin** contexto de empresa: la funcion lo descubre del puntero, que
+    es lo unico legible sin contexto y solo lleva identificadores.
     """
     with connection.cursor() as cursor:
         cursor.execute(
-            "SELECT r.run_id::text, r.company_id::text, r.artifact_id::text, r.kind, "
-            "       a.zone, a.object_key, a.media_type "
-            "FROM fincilia.processing_run r "
-            "JOIN fincilia.source_artifact a ON a.artifact_id = r.artifact_id "
-            "WHERE r.run_id = %s AND r.status = 'queued' "
-            "FOR UPDATE OF r SKIP LOCKED", (run_id,))
+            "SELECT run_id::text, company_id::text, artifact_id::text, kind, "
+            "       attempt, lease_token::text "
+            "FROM fincilia.claim_next_run(%s, %s)", (worker, lease_seconds))
         row = cursor.fetchone()
-        if row is None:
-            return None
-        claim = Claim(*row)
-        if claim.zone != "raw":
-            cursor.execute(
-                "UPDATE fincilia.processing_run SET status = 'failed', "
-                "started_at = now(), finished_at = now(), error_code = %s "
-                "WHERE run_id = %s", ("artifact_not_promoted", run_id))
-            return None
-        cursor.execute(
-            "UPDATE fincilia.processing_run SET status = 'running', started_at = now() "
-            "WHERE run_id = %s", (run_id,))
-    return claim
+    return Claim(*row) if row else None
 
 
-def finish_run(connection: psycopg.Connection, run_id: str, *,
-               result: dict | None = None, error_code: str | None = None) -> None:
-    status = "failed" if error_code else "succeeded"
+def finish(connection: psycopg.Connection, claim: Claim, *,
+           result: dict | None = None, error_code: str | None = None,
+           failure_class: str | None = None) -> str:
+    """Cierra un trabajo. Devuelve el desenlace que decidio la base.
+
+    `stale_lease` significa que este worker ya no es el dueno: otro recupero el
+    trabajo mientras tanto. No es un error a reintentar; es una orden de soltar.
+    """
     with connection.cursor() as cursor:
         cursor.execute(
-            "UPDATE fincilia.processing_run SET status = %s, finished_at = now(), "
-            "result = COALESCE(%s::jsonb, result), error_code = %s WHERE run_id = %s",
-            (status, None if result is None else _dumps(result), error_code, run_id))
-
-
-def drop_pointer(connection: psycopg.Connection, run_id: str) -> None:
-    """El puntero desaparece al terminar. La fila de verdad se queda."""
-    with connection.cursor() as cursor:
-        cursor.execute("DELETE FROM fincilia.dispatch_pointer WHERE run_id = %s",
-                       (run_id,))
+            "SELECT fincilia.finish_run(%s, %s, %s::jsonb, %s, %s)",
+            (claim.run_id, claim.lease_token,
+             None if result is None else _dumps(result), error_code, failure_class))
+        row = cursor.fetchone()
+    return row[0] if row else "unknown"
 
 
 def _dumps(payload: dict) -> str:
@@ -124,8 +94,8 @@ def _dumps(payload: dict) -> str:
     return json.dumps(payload, ensure_ascii=False, sort_keys=True)
 
 
-def run_profile(payload: bytes) -> tuple[dict | None, str | None]:
-    """Perfila unos bytes. Devuelve `(resultado, codigo_de_error)`.
+def run_profile(payload: bytes) -> tuple[dict | None, str | None, str | None]:
+    """Perfila unos bytes. Devuelve `(resultado, codigo, clase_de_fallo)`.
 
     El resultado no lleva ni un valor del fichero: solo su forma. Un perfil que
     transcribiera datos seria una copia parcial del documento viviendo donde vive
@@ -134,9 +104,12 @@ def run_profile(payload: bytes) -> tuple[dict | None, str | None]:
     try:
         table = profile(payload)
     except UnprofilableFile as error:
+        # El fichero es el que es: reintentarlo dara lo mismo.
         logger.warning("unprofilable artifact: %s", error)
-        return None, "unprofilable"
-    except Exception as error:  # noqa: BLE001 - un fallo raro no tumba el worker
+        return None, "unprofilable", FATAL
+    except Exception:  # noqa: BLE001 - un fallo raro no tumba el worker
+        # `unknown_failure_action: fail_closed_requires_triage`. Lo que no se supo
+        # clasificar no se reintenta a ciegas: acaba delante de una persona.
         logger.exception("unexpected profiling failure")
-        return None, f"profiling_{type(error).__name__.lower()}"[:80]
-    return table.as_dict(), None
+        return None, "profiling_error", UNKNOWN
+    return table.as_dict(), None, None

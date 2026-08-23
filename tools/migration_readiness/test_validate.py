@@ -1,7 +1,7 @@
 from __future__ import annotations
 import copy,json,tempfile,unittest
 from pathlib import Path
-from .validate import ROOT,validate_exemptions,validate_migrations,validate_repository
+from .validate import (ROOT,validate_definers,validate_exemptions,validate_migrations,validate_repository)
 M=json.loads((ROOT/"docs/database/migration-tooling.json").read_text(encoding="utf-8"))
 V1=(ROOT/"db/migrations/V0001__identity_and_tenancy.sql").read_text(encoding="utf-8")
 class MigrationTest(unittest.TestCase):
@@ -39,15 +39,15 @@ class MigrationTest(unittest.TestCase):
   m=copy.deepcopy(M);m["local_build"]["s1_approved"]=True;self.bite(m,"DB-LOCAL-SCHEMA")
 
  # ---- migraciones del repositorio --------------------------------------- #
- def scratch(self,name:str,body:str,exemptions=None):
+ def scratch(self,name:str,body:str,exemptions=None,definers=None):
   """Un arbol minimo: el validador mira ficheros, no una base levantada."""
   root=Path(tempfile.mkdtemp())
   (root/"db"/"migrations").mkdir(parents=True);(root/"db"/"migrate").mkdir(parents=True)
   (root/"db"/"migrate"/"apply.py").write_text("", encoding="utf-8")
   (root/"db"/"migrations"/name).write_text(body, encoding="utf-8")
-  return {x.code for x in validate_migrations(root,exemptions)}
+  return {x.code for x in validate_migrations(root,exemptions,definers)}
  def test_the_real_migration_directory_is_clean(self):
-  self.assertEqual([],validate_migrations(ROOT,M["rls_exemptions"]))
+  self.assertEqual([],validate_migrations(ROOT,M["rls_exemptions"],M["security_definer_functions"]))
  def test_an_unnumbered_file_bites(self):
   self.assertIn("DB-MIGRATION-NAME",self.scratch("fix.sql","SELECT 1;"))
  def test_a_readme_is_allowed(self):
@@ -139,6 +139,64 @@ class MigrationTest(unittest.TestCase):
   self.assertNotIn("DB-MIGRATION-PRIVILEGE",self.scratch("V0001__x.sql",body))
  def test_a_real_bypassrls_grant_still_bites(self):
   self.assertIn("DB-MIGRATION-PRIVILEGE",self.scratch("V0001__x.sql","ALTER ROLE r BYPASSRLS;"))
+
+ # ---- funciones SECURITY DEFINER declaradas ----------------------------- #
+ def test_the_declared_definers_are_the_four_dispatch_functions(self):
+  names=sorted(x["function"] for x in M["security_definer_functions"])
+  self.assertEqual(["fincilia.claim_next_run","fincilia.enqueue_processing_run",
+                    "fincilia.finish_run","fincilia.send_to_dead_letter"],names)
+ def test_no_definer_is_owned_by_the_schema_owner(self):
+  # Si el dueno fuera el migrador, cada EXECUTE seria una escalada hasta el
+  # rol que puede cambiar el esquema.
+  for item in M["security_definer_functions"]:
+   self.assertNotEqual("fincilia_migrator",item["owner_role"])
+ def test_the_human_review_is_still_pending(self):
+  # `production_policy.security_definer` sigue diciendo
+  # `forbidden_without_review`. Declarar no es revisar.
+  self.assertEqual("forbidden_without_review",M["production_policy"]["security_definer"])
+  for item in M["security_definer_functions"]:
+   self.assertEqual("pending",item["human_review_state"])
+ def test_marking_the_review_done_bites(self):
+  item=json.loads('{"function":"fincilia.f","owner_role":"fincilia_dispatch","granted_to":["fincilia_app"],"reason":"una razon suficientemente larga para que el validador la acepte como explicacion","gate":"DB-G03","human_review_state":"pending"}');item["human_review_state"]="accepted"
+  self.assertIn("DB-DEFINER-REVIEW",{x.code for x in validate_definers([item])})
+ def test_a_definer_owned_by_the_migrator_bites(self):
+  item=json.loads('{"function":"fincilia.f","owner_role":"fincilia_dispatch","granted_to":["fincilia_app"],"reason":"una razon suficientemente larga para que el validador la acepte como explicacion","gate":"DB-G03","human_review_state":"pending"}');item["owner_role"]="fincilia_migrator"
+  self.assertIn("DB-DEFINER-OWNER",{x.code for x in validate_definers([item])})
+ def test_a_definer_without_a_real_reason_bites(self):
+  item=json.loads('{"function":"fincilia.f","owner_role":"fincilia_dispatch","granted_to":["fincilia_app"],"reason":"una razon suficientemente larga para que el validador la acepte como explicacion","gate":"DB-G03","human_review_state":"pending"}');item["reason"]="porque si"
+  self.assertIn("DB-DEFINER-REASON",{x.code for x in validate_definers([item])})
+ def test_an_undeclared_definer_function_bites(self):
+  # La regla no es un permiso general: solo pasa lo declarado.
+  self.assertIn("DB-MIGRATION-DEFINER",self.scratch("V0001__x.sql",'CREATE FUNCTION fincilia.f() RETURNS void\nLANGUAGE plpgsql SECURITY DEFINER\nSET search_path = pg_catalog, fincilia\nAS $x$ BEGIN NULL; END; $x$;\nREVOKE ALL PRIVILEGES ON FUNCTION fincilia.f() FROM PUBLIC;\nALTER FUNCTION fincilia.f() OWNER TO fincilia_dispatch;\n',None,[]))
+ def test_a_declared_definer_passes(self):
+  self.assertEqual(set(),self.scratch("V0001__x.sql",'CREATE FUNCTION fincilia.f() RETURNS void\nLANGUAGE plpgsql SECURITY DEFINER\nSET search_path = pg_catalog, fincilia\nAS $x$ BEGIN NULL; END; $x$;\nREVOKE ALL PRIVILEGES ON FUNCTION fincilia.f() FROM PUBLIC;\nALTER FUNCTION fincilia.f() OWNER TO fincilia_dispatch;\n',None,[json.loads('{"function":"fincilia.f","owner_role":"fincilia_dispatch","granted_to":["fincilia_app"],"reason":"una razon suficientemente larga para que el validador la acepte como explicacion","gate":"DB-G03","human_review_state":"pending"}')]))
+ def test_a_definer_without_a_pinned_search_path_bites(self):
+  # Sin `search_path` fijo, un objeto colocado antes en la ruta del llamante
+  # se ejecuta con los privilegios del dueno de la funcion.
+  body='CREATE FUNCTION fincilia.f() RETURNS void\nLANGUAGE plpgsql SECURITY DEFINER\nSET search_path = pg_catalog, fincilia\nAS $x$ BEGIN NULL; END; $x$;\nREVOKE ALL PRIVILEGES ON FUNCTION fincilia.f() FROM PUBLIC;\nALTER FUNCTION fincilia.f() OWNER TO fincilia_dispatch;\n'.replace("SET search_path = pg_catalog, fincilia","")
+  self.assertIn("DB-DEFINER-SEARCH-PATH",self.scratch("V0001__x.sql",body,None,[json.loads('{"function":"fincilia.f","owner_role":"fincilia_dispatch","granted_to":["fincilia_app"],"reason":"una razon suficientemente larga para que el validador la acepte como explicacion","gate":"DB-G03","human_review_state":"pending"}')]))
+ def test_a_definer_left_open_to_public_bites(self):
+  body='CREATE FUNCTION fincilia.f() RETURNS void\nLANGUAGE plpgsql SECURITY DEFINER\nSET search_path = pg_catalog, fincilia\nAS $x$ BEGIN NULL; END; $x$;\nREVOKE ALL PRIVILEGES ON FUNCTION fincilia.f() FROM PUBLIC;\nALTER FUNCTION fincilia.f() OWNER TO fincilia_dispatch;\n'.replace("REVOKE ALL PRIVILEGES ON FUNCTION fincilia.f() FROM PUBLIC;","")
+  self.assertIn("DB-DEFINER-PUBLIC",self.scratch("V0001__x.sql",body,None,[json.loads('{"function":"fincilia.f","owner_role":"fincilia_dispatch","granted_to":["fincilia_app"],"reason":"una razon suficientemente larga para que el validador la acepte como explicacion","gate":"DB-G03","human_review_state":"pending"}')]))
+ def test_a_definer_whose_owner_is_never_set_bites(self):
+  body='CREATE FUNCTION fincilia.f() RETURNS void\nLANGUAGE plpgsql SECURITY DEFINER\nSET search_path = pg_catalog, fincilia\nAS $x$ BEGIN NULL; END; $x$;\nREVOKE ALL PRIVILEGES ON FUNCTION fincilia.f() FROM PUBLIC;\nALTER FUNCTION fincilia.f() OWNER TO fincilia_dispatch;\n'.replace("ALTER FUNCTION fincilia.f() OWNER TO fincilia_dispatch;","")
+  self.assertIn("DB-DEFINER-OWNER",self.scratch("V0001__x.sql",body,None,[json.loads('{"function":"fincilia.f","owner_role":"fincilia_dispatch","granted_to":["fincilia_app"],"reason":"una razon suficientemente larga para que el validador la acepte como explicacion","gate":"DB-G03","human_review_state":"pending"}')]))
+
+ # ---- columnas anadidas por ALTER ---------------------------------------- #
+ def test_a_column_added_by_alter_is_checked_against_the_exemption(self):
+  # V0004 prometia que anadir un dato de negocio a la tabla exenta no podia
+  # pasar desapercibido. Mirando solo CREATE TABLE, si podia.
+  body=("CREATE TABLE fincilia.dispatch_pointer (" + chr(10) +
+        "  run_id uuid PRIMARY KEY," + chr(10) +
+        "  company_id uuid NOT NULL" + chr(10) + ");" + chr(10) +
+        "ALTER TABLE fincilia.dispatch_pointer" + chr(10) +
+        "  ADD COLUMN importe numeric(38,12);" + chr(10))
+  exempt=[x for x in M["rls_exemptions"] if x["table"]=="fincilia.dispatch_pointer"]
+  self.assertIn("DB-RLS-EXEMPTION-COLUMNS",self.scratch("V0001__x.sql",body,exempt))
+ def test_available_at_is_declared_in_the_exemption(self):
+  columns=[x for x in M["rls_exemptions"]
+           if x["table"]=="fincilia.dispatch_pointer"][0]["columns_allowed"]
+  self.assertIn("available_at",columns)
  def test_a_missing_migrator_bites(self):
   root=Path(tempfile.mkdtemp());(root/"db"/"migrations").mkdir(parents=True)
   self.assertIn("DB-LOCAL-MIGRATOR",{x.code for x in validate_migrations(root)})

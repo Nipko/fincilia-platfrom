@@ -88,6 +88,16 @@ class DocumentUploadTests(unittest.TestCase):
                         "SELECT artifact_id FROM fincilia.source_artifact "
                         "WHERE content_sha256 = ANY(%s)))", (list(cls.created),))
                     cursor.execute(
+                        "DELETE FROM fincilia.run_attempt WHERE run_id IN ("
+                        "SELECT run_id FROM fincilia.processing_run WHERE artifact_id IN ("
+                        "SELECT artifact_id FROM fincilia.source_artifact "
+                        "WHERE content_sha256 = ANY(%s)))", (list(cls.created),))
+                    cursor.execute(
+                        "DELETE FROM fincilia.dead_letter_item WHERE work_id IN ("
+                        "SELECT run_id FROM fincilia.processing_run WHERE artifact_id IN ("
+                        "SELECT artifact_id FROM fincilia.source_artifact "
+                        "WHERE content_sha256 = ANY(%s)))", (list(cls.created),))
+                    cursor.execute(
                         "DELETE FROM fincilia.processing_run WHERE artifact_id IN ("
                         "SELECT artifact_id FROM fincilia.source_artifact "
                         "WHERE content_sha256 = ANY(%s))", (list(cls.created),))

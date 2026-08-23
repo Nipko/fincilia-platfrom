@@ -104,61 +104,72 @@ def main() -> int:
 
 
 def process_one(database: Database, store, identity: str) -> bool:
-    """Toma un trabajo y lo termina. Devuelve si habia algo que hacer.
+    """Toma un trabajo, lo hace y lo cierra. Devuelve si habia algo que hacer.
 
-    Cada paso abre su propia transaccion con el alcance que le toca. Mantener una
-    sola transaccion abierta mientras se descarga un fichero dejaria una fila
-    bloqueada durante toda la descarga.
+    Tres transacciones cortas, no una larga: mantener abierta la del reclamo
+    mientras se descarga un fichero dejaria una fila bloqueada durante toda la
+    descarga. Lo que sostiene la correccion entre ellas no es el bloqueo, es el
+    testigo de arriendo.
     """
     try:
+        # Sin contexto de empresa: la funcion lo descubre del puntero.
         with database.session() as connection:
-            jobs.release_stale(connection)
-            pointer = jobs.take_pointer(connection, identity)
+            claim = jobs.claim_next(connection, identity)
     except Exception:  # noqa: BLE001 - la base puede estar reiniciandose
-        logger.exception("could not reach the dispatch table")
+        logger.exception("could not reach the dispatch queue")
         return False
-    if pointer is None:
+    if claim is None:
         return False
 
-    run_id, company_id = pointer
+    result: dict | None = None
+    error_code: str | None = None
+    failure_class: str | None = None
     try:
-        with database.session(company_id=company_id) as connection:
-            claim = jobs.start_run(connection, run_id)
-        if claim is None:
-            with database.session() as connection:
-                jobs.drop_pointer(connection, run_id)
-            return True
+        payload = store.get("raw", _object_key(database, claim))
+    except ObjectStoreError as error:
+        # La fila dice que el objeto esta y el objeto no esta. Es reintentable:
+        # puede ser el almacen, no la evidencia.
+        logger.error("evidence unreadable for run %s: %s", claim.run_id, error)
+        error_code, failure_class = "evidence_unreadable", jobs.RETRYABLE
+    except Exception:  # noqa: BLE001
+        logger.exception("unexpected failure reading evidence for run %s", claim.run_id)
+        error_code, failure_class = "evidence_error", jobs.UNKNOWN
+    else:
+        result, error_code, failure_class = jobs.run_profile(payload)
 
-        try:
-            payload = store.get(claim.zone, claim.object_key)
-        except ObjectStoreError as error:
-            logger.error("evidence unreadable for run %s: %s", run_id, error)
-            result, error_code = None, "evidence_unreadable"
-        else:
-            result, error_code = jobs.run_profile(payload)
+    try:
+        with database.session(company_id=claim.company_id) as connection:
+            outcome = jobs.finish(connection, claim, result=result,
+                                  error_code=error_code, failure_class=failure_class)
+    except Exception:  # noqa: BLE001
+        # No se puede cerrar el trabajo. **No se toca nada mas**: el arriendo
+        # vencera y otro worker lo recuperara. Inventar aqui una limpieza es lo
+        # que antes dejaba trabajos invisibles para siempre.
+        logger.exception("could not close run %s; leaving it to the lease",
+                         claim.run_id)
+        return True
 
-        try:
-            with database.session(company_id=company_id) as connection:
-                jobs.finish_run(connection, run_id, result=result,
-                                error_code=error_code)
-        except Exception:  # noqa: BLE001
-            # Guardar el resultado puede fallar por si mismo. Dejar el trabajo en
-            # `running` para siempre es peor que declararlo fallido: un trabajo
-            # colgado no lo reintenta nadie y no aparece en ninguna lista.
-            logger.exception("could not store the result of run %s", run_id)
-            with database.session(company_id=company_id) as connection:
-                jobs.finish_run(connection, run_id, error_code="result_unstorable")
-        with database.session() as connection:
-            jobs.drop_pointer(connection, run_id)
-        logger.info("run %s finished: %s", run_id, error_code or "succeeded")
-    except Exception:  # noqa: BLE001 - un trabajo roto no tumba el worker
-        logger.exception("run %s failed unexpectedly", run_id)
-        try:
-            with database.session(company_id=company_id) as connection:
-                jobs.finish_run(connection, run_id, error_code="worker_error")
-        except Exception:  # noqa: BLE001 - ya se registro lo importante
-            logger.exception("run %s could not be marked failed", run_id)
+    if outcome == "stale_lease":
+        # Otro worker recupero este trabajo mientras tanto. No es un error a
+        # reintentar: es una orden de soltar sin escribir nada.
+        logger.warning("run %s was recovered by another worker; dropping it",
+                       claim.run_id)
+    else:
+        logger.info("run %s finished: %s", claim.run_id, outcome)
     return True
+
+
+def _object_key(database: Database, claim: "jobs.Claim") -> str:
+    """Clave del objeto del artefacto, leida dentro del alcance de su empresa."""
+    with database.session(company_id=claim.company_id) as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT object_key FROM fincilia.source_artifact WHERE artifact_id = %s",
+                (claim.artifact_id,))
+            row = cursor.fetchone()
+    if row is None:
+        raise ObjectStoreError("the artifact is not visible in its own context")
+    return row[0]
 
 
 if __name__ == "__main__":

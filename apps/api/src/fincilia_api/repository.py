@@ -306,29 +306,24 @@ def list_artifacts(connection: psycopg.Connection, *, limit: int = 50) -> list[A
 
 
 def enqueue_run(connection: psycopg.Connection, *, company_id: str,
-                artifact_id: str, kind: str) -> str | None:
-    """Encola un trabajo. `None` si ya habia uno para ese artefacto y tipo.
+                artifact_id: str, kind: str) -> str:
+    """Encola un trabajo a traves de la funcion de despacho.
 
-    La unicidad la pone `uq_run_attempt`, no una comprobacion previa: entre mirar
-    y escribir cabe otra peticion.
+    La API **no tiene ningun privilegio** sobre `fincilia.dispatch_pointer`: la
+    tabla es global y sin RLS, y darle INSERT libre seria darle la capacidad de
+    escribir en la cola de cualquier empresa. La funcion valida que la empresa
+    coincida con el contexto autorizado, que el artefacto sea visible bajo la
+    politica, y escribe trabajo y puntero en la misma transaccion.
+
+    Devuelve el `run_id`, que puede ser el de un trabajo que ya estaba vivo: dos
+    subidas de la misma evidencia son una sola entrega y un solo trabajo.
     """
-    run_id = new_id()
     with connection.cursor() as cursor:
         cursor.execute(
-            "INSERT INTO fincilia.processing_run (run_id, company_id, artifact_id, kind) "
-            "VALUES (%s, %s, %s, %s) "
-            "ON CONFLICT (artifact_id, kind, attempt) DO NOTHING RETURNING run_id::text",
-            (run_id, company_id, artifact_id, kind))
+            "SELECT fincilia.enqueue_processing_run(%s, %s, %s)::text",
+            (company_id, artifact_id, kind))
         row = cursor.fetchone()
-        if row is None:
-            return None
-        # El puntero se escribe en la misma transaccion que el trabajo. Si fueran
-        # dos, un fallo entre medias dejaria un trabajo que ningun worker ve.
-        cursor.execute(
-            "INSERT INTO fincilia.dispatch_pointer (run_id, company_id, kind) "
-            "VALUES (%s, %s, %s) ON CONFLICT (run_id) DO NOTHING",
-            (row[0], company_id, kind))
-    return row[0]
+    return row[0] if row else ""
 
 
 def list_runs(connection: psycopg.Connection, artifact_id: str) -> list[dict]:

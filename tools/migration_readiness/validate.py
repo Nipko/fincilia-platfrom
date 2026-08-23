@@ -41,8 +41,35 @@ def exempt_columns(exemptions,qualified):
  for item in exemptions:
   if isinstance(item,dict) and item.get("table")==qualified:return set(item.get("columns_allowed") or [])
  return None
+DEFINER_KEYS={"function","owner_role","granted_to","reason","gate","human_review_state"}
+# `ALTER TABLE ... ADD COLUMN` tambien anade columnas. Mirar solo `CREATE TABLE`
+# dejaba una via para meter un dato de negocio en una tabla exenta de RLS sin que
+# la lista declarada dijera nada: exactamente lo que el comentario de V0004
+# prometia que no podia pasar.
+ADD_COLUMN=re.compile(r"(?mi)^ALTER TABLE (?P<name>fincilia\.[a-z_]+)\s*$\n\s+ADD COLUMN (?:IF NOT EXISTS )?(?P<col>[a-z][a-z0-9_]*)")
+# Cualquier nombre, no solo los cualificados con el esquema: una funcion sin
+# esquema se crea donde diga el `search_path` del momento, y exigirle el
+# prefijo a la regla dejaria pasar justo la mas dificil de auditar.
+CREATE_FUNCTION=re.compile(r"CREATE (?:OR REPLACE )?FUNCTION (?P<name>[a-z_][a-z0-9_.]*)\s*\(")
+def validate_definers(items):
+ f=[]
+ if not isinstance(items,list):return [Finding("DB-DEFINER-SCHEMA","security_definer_functions","not a list")]
+ for item in items:
+  if not isinstance(item,dict) or set(item)!=DEFINER_KEYS:f.append(Finding("DB-DEFINER-SCHEMA",str((item or {}).get("function")),"unexpected keys"));continue
+  # `production_policy.security_definer` es `forbidden_without_review`. Declarar
+  # una funcion no es hacer la revision: el estado se queda en `pending` y quien
+  # lo cambie tendra que ser una persona con nombre.
+  if item["human_review_state"]!="pending":f.append(Finding("DB-DEFINER-REVIEW",str(item["function"]),"only a human review may leave this state"))
+  if len(str(item["reason"]))<40:f.append(Finding("DB-DEFINER-REASON",str(item["function"]),"the reason must say why, not just that"))
+  if not item["owner_role"] or not item["gate"]:f.append(Finding("DB-DEFINER-OWNER",str(item["function"]),"a definer function needs a controlled owner and a gate"))
+  # El dueno no puede ser quien hace DDL: eso convierte cada EXECUTE en una
+  # escalada hasta el rol que cambia el esquema.
+  if item["owner_role"] in {"fincilia_migrator","postgres"}:f.append(Finding("DB-DEFINER-OWNER",str(item["function"]),"the owner must not be the schema owner"))
+ names=[x.get("function") for x in items if isinstance(x,dict)]
+ if len(names)!=len(set(names)):f.append(Finding("DB-DEFINER-SCHEMA","security_definer_functions","duplicate function"))
+ return f
 def validate_model(m:dict[str,Any]):
- f=[];keys={"schema_version","task","status","data_ceiling","adr_002_state","selected_tool","preferred_for_spike","human_acceptance","product_migrations_allowed","criteria","candidates","spike_matrix","production_policy","gates","local_build","rls_exemptions"}
+ f=[];keys={"schema_version","task","status","data_ceiling","adr_002_state","selected_tool","preferred_for_spike","human_acceptance","product_migrations_allowed","criteria","candidates","spike_matrix","production_policy","gates","local_build","rls_exemptions","security_definer_functions"}
  if set(m)!=keys:return [Finding("DB-SCHEMA","model","unexpected keys")]
  if m["data_ceiling"]!="synthetic_only" or m["adr_002_state"]!="proposed" or m["selected_tool"] is not None or m["human_acceptance"]!="pending" or m["product_migrations_allowed"] is not False:f.append(Finding("DB-HUMAN","model","decision prematurely accepted"))
  required={"plain_sql","versioned_order","content_checksum","transaction_by_default","concurrency_lock","strict_out_of_order","dry_run_or_plan","separate_migrator_role","postgresql_17","blank_replay_upgrade_tests","immutable_applied_migrations","forward_only_production","expand_contract"}
@@ -61,6 +88,7 @@ def validate_model(m:dict[str,Any]):
  if any(g.get("state")!="not_met" for g in m["gates"]):f.append(Finding("DB-GATE","gates","premature gate"))
  f.extend(validate_local_build(m["local_build"]))
  f.extend(validate_exemptions(m["rls_exemptions"]))
+ f.extend(validate_definers(m["security_definer_functions"]))
  return f
 def validate_local_build(b:Any):
  f=[]
@@ -74,12 +102,19 @@ def validate_local_build(b:Any):
  # los incluyera.
  if b["local_product_build_allowed"] is True and not NEVER_IMPLIED.issubset(set(b["does_not_imply"])):f.append(Finding("DB-LOCAL-IMPLIES","local_build","enabling the local build must spell out what it still does not authorise"))
  return f
-def validate_migrations(root:Path,exemptions=None):
+def validate_migrations(root:Path,exemptions=None,definers=None):
  exemptions=exemptions or []
+ definers=definers or []
  f=[];directory=root/MIGRATIONS
  if not (root/MIGRATOR).is_file():
   f.append(Finding("DB-LOCAL-MIGRATOR","repository","the declared migrator does not exist"))
  if not directory.is_dir():return f
+ # Las columnas de un ALTER pueden estar en una migracion posterior a la que
+ # creo la tabla, asi que se recogen antes de juzgar ninguna.
+ added:dict[str,set[str]]={}
+ for path in sorted(directory.glob("*.sql")):
+  for match in ADD_COLUMN.finditer(path.read_text(encoding="utf-8")):
+   added.setdefault(match.group("name"),set()).add(match.group("col"))
  for path in sorted(directory.glob("*")):
   name=path.name
   # Solo el README y migraciones. Un fichero suelto en este directorio es
@@ -97,7 +132,17 @@ def validate_migrations(root:Path,exemptions=None):
   code=NEWLINE.join(line for line in text.splitlines()
                     if not line.lstrip().startswith("--"))
   if DESTRUCTIVE.search(code):f.append(Finding("DB-MIGRATION-DESTRUCTIVE",name,"destructive DDL needs expand/contract and review, not a migration"))
-  if "SECURITY DEFINER" in code:f.append(Finding("DB-MIGRATION-DEFINER",name,"SECURITY DEFINER is forbidden without review"))
+  if "SECURITY DEFINER" in code:
+   declared={str(x.get("function")):x for x in definers if isinstance(x,dict)}
+   for match in CREATE_FUNCTION.finditer(code):
+    qualified=match.group("name")
+    if "SECURITY DEFINER" not in code[match.start():match.start()+600]:continue
+    entry=declared.get(qualified)
+    if entry is None:f.append(Finding("DB-MIGRATION-DEFINER",qualified,"undeclared SECURITY DEFINER function"));continue
+    # Las tres condiciones que hacen auditable a una funcion definer.
+    if "SET search_path" not in code[match.start():match.start()+600]:f.append(Finding("DB-DEFINER-SEARCH-PATH",qualified,"a definer function must pin its search_path"))
+    if f"REVOKE ALL PRIVILEGES ON FUNCTION {qualified}" not in code:f.append(Finding("DB-DEFINER-PUBLIC",qualified,"EXECUTE must be revoked from PUBLIC"))
+    if f"ALTER FUNCTION {qualified}" not in code or str(entry.get("owner_role")) not in code:f.append(Finding("DB-DEFINER-OWNER",qualified,"the declared owner must be set in the migration"))
   if "BYPASSRLS" in code or "SUPERUSER" in code:f.append(Finding("DB-MIGRATION-PRIVILEGE",name,"a migration must not grant a role that escapes RLS"))
   declared={str(x.get("table")) for x in exemptions if isinstance(x,dict)}
   for table in CREATE_TABLE.finditer(text):
@@ -109,6 +154,7 @@ def validate_migrations(root:Path,exemptions=None):
     # invisible y vuelve a exigir una revision.
     allowed=exempt_columns(exemptions,qualified) or set()
     found={c.group("name") for c in COLUMN.finditer(table.group("body"))}
+    found|=added.get(qualified,set())
     extra=sorted(found-allowed)
     if extra:f.append(Finding("DB-RLS-EXEMPTION-COLUMNS",qualified,f"undeclared columns {extra}"))
     if f"ALTER TABLE {qualified} ENABLE ROW LEVEL SECURITY;" in text:f.append(Finding("DB-RLS-EXEMPTION-STALE",qualified,"the table has RLS; the exemption is stale and should be removed"))
@@ -122,7 +168,7 @@ def validate_migrations(root:Path,exemptions=None):
   if isinstance(item,dict) and item.get("table") not in created:f.append(Finding("DB-RLS-EXEMPTION-STALE",str(item.get("table")),"declared exemption for a table no migration creates"))
  return f
 def validate_repository(o=None,root:Path|None=None):
- base=root or ROOT;m=o or json.loads((base/MODEL).read_text(encoding="utf-8"));f=validate_model(m)+validate_migrations(base,m.get("rls_exemptions"))
+ base=root or ROOT;m=o or json.loads((base/MODEL).read_text(encoding="utf-8"));f=validate_model(m)+validate_migrations(base,m.get("rls_exemptions"),m.get("security_definer_functions"))
  return {"preferred_for_spike":m.get("preferred_for_spike"),"selected_tool":m.get("selected_tool"),"spike_tests_not_run":sum(x.get("state")=="not_run" for x in m.get("spike_matrix",[])),"local_product_build_allowed":(m.get("local_build") or {}).get("local_product_build_allowed"),"migrations":sorted(p.name for p in (base/MIGRATIONS).glob("*.sql")),"rls_exemptions":[str(x.get("table")) for x in (m.get("rls_exemptions") or []) if isinstance(x,dict)]},f
 def main():
  r,f=validate_repository();print(json.dumps({"ok":not f,"report":r,"errors":[x.as_dict() for x in f]},indent=2,sort_keys=True));return 0 if not f else 1
