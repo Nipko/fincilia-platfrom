@@ -756,6 +756,8 @@ def publish_dataset(request: Request, company_id: str, dataset_version_id: str,
     context = company_context(request, principal, company_id)
     require(context, "dataset.publish")
     database = request.app.state.database
+    refusal: datasets.PublicationError | None = None
+    published: dict | None = None
     with database.session(company_id=context.company_id,
                           subject_id=principal.subject_id) as connection:
         try:
@@ -763,22 +765,32 @@ def publish_dataset(request: Request, company_id: str, dataset_version_id: str,
                 connection, dataset_version_id=dataset_version_id,
                 subject_id=principal.subject_id)
         except datasets.PublicationError as error:
-            if error.code == "dataset-unknown":
-                raise forbidden() from None
-            status = 409 if error.code == "segregation-of-duties" else 422
+            # El rastro de la negativa **no** puede ir en esta transaccion:
+            # levantar desde aqui la deshace, y la fila de auditoria se iria con
+            # ella. Una negativa sin rastro es peor que no comprobar nada, porque
+            # parece que nadie lo intento.
+            refusal = error
+        else:
             repository.record_audit(
                 connection, subject_id=principal.subject_id,
                 company_id=context.company_id, action="dataset.publish",
                 resource_kind="dataset", resource_ref=dataset_version_id,
-                outcome="denied", detail={"reason": error.code})
-            raise ProblemError(problem(error.code, "The dataset cannot be published",
-                                       status, error.detail)) from None
-        repository.record_audit(
-            connection, subject_id=principal.subject_id,
-            company_id=context.company_id, action="dataset.publish",
-            resource_kind="dataset", resource_ref=dataset_version_id,
-            outcome="allowed", detail={"movements": published["movement_count"],
-                                       "engine": published["engine_release"]})
+                outcome="allowed", detail={"movements": published["movement_count"],
+                                           "engine": published["engine_release"]})
+
+    if refusal is not None:
+        if refusal.code == "dataset-unknown":
+            raise forbidden()
+        with database.session(company_id=context.company_id,
+                              subject_id=principal.subject_id) as connection:
+            repository.record_audit(
+                connection, subject_id=principal.subject_id,
+                company_id=context.company_id, action="dataset.publish",
+                resource_kind="dataset", resource_ref=dataset_version_id,
+                outcome="denied", detail={"reason": refusal.code})
+        status = 409 if refusal.code == "segregation-of-duties" else 422
+        raise ProblemError(problem(refusal.code, "The dataset cannot be published",
+                                   status, refusal.detail))
     return published
 
 

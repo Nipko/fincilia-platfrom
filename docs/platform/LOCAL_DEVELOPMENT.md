@@ -182,6 +182,40 @@ no está, o si el resultado no se puede guardar, la ejecución queda `failed` co
 un código. Un trabajo colgado en `running` no lo reintenta nadie y no aparece en
 ninguna lista.
 
+### De la forma a los valores
+
+Promover encola **dos** lecturas independientes, y son dos porque hacen cosas
+opuestas. Perfilar mide sin transcribir; extraer transcribe con coordenadas.
+Que una falle no impide la otra.
+
+La extracción guarda cada registro del fichero —membrete y cabecera incluidos—
+con su tramo exacto de bytes. Decidir cuáles son datos es del mapeo, y guardar
+sólo los que hoy parecen datos obligaría a releer la evidencia en cuanto alguien
+moviera la cabecera.
+
+Esos valores **no** salen por la página del documento. Van a `raw_record`, que
+exige contexto de empresa, y se leen por un endpoint aparte que pide
+`dataset.map`: el perfil dice cómo es el fichero y la vista previa dice qué pone
+en él, y son dos permisos distintos.
+
+### Mapear y publicar
+
+En la página del documento hay un enlace, **Mapear y publicar**, con cuatro
+vistas: Original, Extracción, Mapping y Canónico.
+
+Se asignan columnas eligiendo de una lista que son las columnas del fichero, con
+su cabecera y el tipo inferido. Lo que el perfilador marcó ambiguo sale con un
+formulario que nombra lo que se elige —convenio de fecha, convenio decimal— y
+**exige el motivo**. El motivo no es burocracia: dentro de un año es lo único que
+explica por qué este extracto se leyó dd/mm y el del mes siguiente no.
+
+Preparar deja los movimientos **validados**, no publicados. Publicarlos es de
+otra persona: en la demo, Ana prepara y Beto publica. Ana no puede publicar lo
+suyo aunque tuviera el permiso, y la interfaz lo dice antes de que lo intente.
+
+Desde cualquier importe publicado se llega a la celda que lo produjo: fila,
+columna, tramo de bytes y huella del artefacto, con la transformación escrita.
+
 Bajar sin perder datos:
 
 ```bash
@@ -351,3 +385,10 @@ responde a otra pregunta.
 4. No hay despliegue, ni cloud, ni proveedor externo, ni pagos.
 5. El `.env.example` contiene ejemplos seguros; las credenciales reales no viven en
    el repositorio ni en la imagen.
+6. La versión del motor con la que se publica nace `draft`. Aprobarla es una
+   decisión humana con `approval_ref`, y este entorno no la toma. Para datos
+   sintéticos no bloquea; para producción sí.
+7. No hay alta de cuentas ni de fuentes en el producto: las únicas que existen
+   las siembra este entorno.
+8. Una publicación lleva como mucho diez mil filas. Un conjunto mayor se rechaza
+   diciéndolo, en vez de tragárselo a medias.

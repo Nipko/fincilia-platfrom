@@ -90,6 +90,13 @@ son código de producto:
 | `dead_letter_item` | referencia al contenido, nunca el contenido | `CHECK` de huella sobre `payload_reference` |
 | `promotion_decision` | promovido y destino son lo mismo | `CHECK` que acopla `decision` y `raw_object_key` |
 | `promotion_decision` | una decisión por escáner y artefacto | `UNIQUE (artifact_id, scanner_release)` |
+| `raw_record` | la fila y su coordenada son un solo hecho | `CHECK` de las cuatro coordenadas del localizador |
+| `canonical_movement` | el importe es positivo y la dirección lleva el signo | `CHECK (amount > 0)`, con `direction` aparte |
+| `canonical_movement` | la referencia del proveedor **no** es identidad | índice, nunca `UNIQUE` |
+| `dataset_version` | quien preparó no publica | `ck_dataset_publisher_is_not_author` |
+| `dataset_version` | publicar dos veces es publicar una | `uq_dataset_reproduction` sobre (ejecución, mapeo, motor) |
+| `engine_release` | reproducir exige nombrar la versión | `ck_release_not_floating` rechaza `latest` |
+| `lineage_edge` | `derived_from` nombra su transformación | `ck_edge_transform` |
 
 `ALTER DEFAULT PRIVILEGES` de V0001 concede `UPDATE` a toda tabla nueva del
 esquema, así que quitarlo es un acto explícito en cada migración que crea una

@@ -3,8 +3,9 @@
 | Campo | Valor |
 |---|---|
 | Rama | `claude/principal-dev` |
-| Base de esta ejecución | `47652f1` |
-| Migraciones añadidas | `V0005`, `V0006`, `V0007` — `V0001`–`V0004` con su checksum intacto |
+| Base de esta ejecución | `cda931a` |
+| Migraciones añadidas | `V0008` — `V0001`–`V0007` con su checksum intacto |
+| Permiso nuevo | `dataset.publish`, segregado de `dataset.map` |
 | Gate S1-READY | sigue `not_met`, y nada de esto lo mueve |
 
 ---
@@ -20,113 +21,114 @@ sh infra/local/up.sh
 > Los roles nuevos los crea el bootstrap, que sólo corre sobre un volumen vacío, y
 > la migración se detiene diciéndolo en vez de conceder privilegios a medias.
 
-Deja seis servicios healthy y la web en <http://127.0.0.1:53000>. Se entra como
-`ana@demo.local` con la contraseña sintética `fincilia-demo-only`.
+Deja seis servicios healthy y la web en <http://127.0.0.1:53000>.
 
 ---
 
-## 2. Qué se corrigió en esta ejecución (FNC-P2.1)
+## 2. Qué hay ahora: la vertical de P3, entera
 
-El detalle, con la matriz de privilegios y las divergencias declaradas, está en
-[el handoff](docs/implementation/handoffs/FNC-P2.1.md).
+El detalle —permisos, estados, linaje, privilegios y divergencias declaradas—
+está en [el handoff](docs/implementation/handoffs/FNC-P3.md).
 
-| Rebanada | Qué estaba roto |
+De unos bytes a un importe publicado que se puede auditar hasta la celda:
+
+```
+subida -> cuarentena -> escaneo -> raw -> extracción -> raw_record
+                                                           |
+                                    mapeo (versión + decisiones)
+                                                           v
+                    dataset_version -> source_record -> canonical_movement
+                            |                                  |
+                            |          lineage_node / lineage_edge
+                            v
+                  reproducibility_manifest
+```
+
+| Rebanada | Qué aterrizó |
 |---|---|
-| **A1** CI | las pruebas documentales corrían sin almacén de objetos; el `-f` del lint de la web no resolvía desde el `working-directory` del job |
-| **A2** despachador | un puntero podía nombrar el trabajo de otra empresa; API y worker compartían rol |
-| **A3** arriendos | un worker que moría dejaba el trabajo en `running` sin puntero: invisible para siempre |
-| **A4** privilegios | el rol de la API podía reescribir el hash de contraseña de cualquier sujeto |
-| **A5** cuarentena | un PDF llegaba a la zona de evidencia sin que nadie leyera su contenido |
-| **A6** idempotencia | dos subidas simultáneas creaban dos filas o devolvían 500 |
+| **P3.1** | `V0008`: trece tablas company-scoped con RLS forzada, claves ajenas compuestas, `engine_release` global y versionado, importe `numeric(38,12)` siempre positivo, dirección explícita, tres fechas separadas y referencia con índice y **no** con UNIQUE |
+| **P3.2** | extracción fiel de CSV con tramo de bytes por registro y ordinal de campo por celda; vista previa paginada por endpoint propio con `dataset.map` |
+| **P3.3** | `draft → validated → published`, bloqueo por ambigüedad, drift y mapeo en borrador; preparación transaccional; publicación segregada e idempotente |
+| **P3.4** | cuatro vistas —Original, Extracción, Mapping, Canónico— con selector visual de columnas, formularios de decisión con motivo obligatorio, y navegación de un importe hasta su celda |
 
-Tres defectos adicionales aparecieron **ejecutando**, no revisando: los `REVOKE …
-FROM PUBLIC` corrían después de ceder la propiedad y sólo avisaban, dejando las
-cuatro funciones abiertas a `PUBLIC`; los manejadores `async def` con E/S
-bloqueante mataban dieciséis subidas simultáneas en `PoolTimeout`; y la lista de
-tipos de trabajo vive en tres sitios que hay que ampliar juntos.
+### Lo probado, y contra qué
+
+**55 pruebas nuevas de P3** (`TST_P3_001`–`TST_P3_055`), todas contra PostgreSQL
+y MinIO reales, más 27 unitarias de extracción y 4 de permisos:
+
+- que quien preparó no puede publicar, comprobado desde el `CHECK` de la base y
+  desde la API;
+- que cuatro publicaciones simultáneas sellan la versión una vez y no duplican un
+  movimiento;
+- que tres preparaciones simultáneas producen un solo dataset;
+- que los bytes que dice el localizador **son** la fila;
+- que el rastro de auditoría de una vista previa cuenta filas y no cita ninguna;
+- que un dataset de otra empresa es indistinguible de uno que no existe.
 
 ---
 
-## 3. Estado de la Fase B (P3)
+## 3. Tres cosas que costaron una vuelta
 
-**Una rebanada de siete.** Lo que hay es el dominio puro del mapeo
-(`packages/contracts/python/fincilia_contracts/mapping.py`, 61 pruebas): validación
-de un mapeo contra el perfil, lectura de fechas y de importes según el convenio
-declarado, las tres formas de leer la dirección, y el rechazo por fila con su
-motivo y su número de fila del fichero.
+Ninguna se vio revisando; las tres aparecieron **ejecutando**.
 
-**Lo que no hay**, y es la mayor parte: no existe `column_mapping` ni
-`canonical_movement` en la base, ni endpoint de vista previa, ni publicación, ni
-pantalla de mapeo, ni exportación. La Fase A consumió la ejecución, y el mandato
-pedía no continuar hasta tenerla verde.
+**El ordinal no puede contar líneas.** Un campo entrecomillado con un salto de
+línea dentro desplaza cada referencia posterior. Se cuentan registros, y el tramo
+de bytes sale de las líneas que el lector CSV consumió para cada uno.
 
-Lo que ya está preparado:
+**`utf-8-sig` decodifica igual de bien un fichero sin marca de orden**, así que el
+nombre del códec no dice si había marca. Lo dice el fichero, y hay que mirarlo: si
+no, los tres bytes se cuentan de más y todos los tramos quedan desplazados.
 
-- `V0008` es la siguiente versión libre.
-- El perfilador ya marca las columnas ambiguas (`ambiguous_numeric`,
-  `ambiguous_date`) y las expone en `needs_decision`, que es exactamente lo que
-  debe bloquear una publicación hasta que una persona elija.
-- `packages/contracts/python/fincilia_contracts/money.py` ya rechaza `float` en vez
-  de convertirlo, y `format_money` emite punto fijo.
-- La cola, los privilegios y la auditoría ya soportan un tipo de trabajo nuevo sin
-  tocar el despachador: basta añadirlo a las **tres** listas (restricción del
-  trabajo, restricción del puntero, validación de `enqueue_processing_run`), y hay
-  una prueba que comprueba que coinciden.
+**La comprobación de drift no se podía alcanzar.** Una versión de mapeo estaba
+atada a un artefacto, así que el perfil comparado era siempre el suyo y el digest
+nunca cambiaba. Pero una plantilla que no sirve para el extracto del mes
+siguiente no es una plantilla. Ahora lo que decide es la huella del esquema.
 
-### La siguiente rebanada, exacta
+---
 
-**`V0008` — `column_mapping` y `canonical_movement`.** El dominio ya está escrito y
-probado; falta persistirlo.
+## 4. La siguiente rebanada, exacta
 
-Antes de nada, una dependencia que hay que resolver: `canonical-model.json` declara
-`money_movement.financial_account_id` como no nulo, y la entidad `financial_account`
-**no existe** en el esquema. O se crea en `V0008`, o el movimiento canónico no puede
-satisfacer su propio contrato. Lo mismo con `engine_release_id`.
+**No hay alta de cuentas ni de fuentes en el producto.** `financial_account` y
+`data_source` existen, tienen RLS y se leen por API, pero las únicas filas que hay
+las siembra el entorno local. La pantalla de mapeo elige de esa lista; crear una
+cuenta nueva hoy exige tocar la semilla. Es la carencia que más se nota al usarlo.
 
-Y una decisión de producto pendiente: la matriz de permisos no tiene un
-`dataset.publish`. Con la matriz actual, el revisor —que es quien debería publicar
-según la SoD del mandato— no tiene `dataset.map`. O se añade el permiso y se
-declara el par segregado `("dataset.map", "dataset.publish")`, o la SoD del mapeo
-se queda en una comprobación de «autor distinto de publicador», que es más débil.
+Después, y por este orden:
 
-1. `column_mapping` versionado y company-scoped, con estados
-   `draft → validated → published`, autor y marcas de tiempo. RLS forzada.
-2. `canonical_movement` **inmutable** para el runtime, igual que `source_artifact`:
-   `GRANT SELECT, INSERT` y `REVOKE UPDATE, DELETE`. Importe `numeric(38,12)`,
-   moneda ISO explícita, dirección `credit`/`debit` explícita —nunca inferida del
-   signo—, fechas separadas cuando apliquen, referencia original y normalizada
-   pero **nunca** como unicidad dura.
-3. `source_record_id` y linaje obligatorio hasta fichero, fila, columna y celda.
-4. Publicación idempotente por `(dataset, mapping, engine release)`; unicidad por
-   `(artifact_id, row_number)`. Reprocesar crea una versión nueva y **no**
-   sobrescribe movimientos históricos.
-5. Cualquier ambigüedad de fecha, decimal, locale, signo o columna **bloquea** la
-   publicación hasta que una persona la resuelva.
-6. La vista previa sí lleva valores, y por eso va por un endpoint aparte, con
-   permiso más estricto que el perfil estadístico, con límites y paginación, y sin
-   persistirse en logs ni métricas.
-7. SoD: el preparador propone, quien tiene `close.approve`/`match.confirm` publica.
+1. **Exportación del dataset publicado.** El mandato de P3 no la pedía, pero un
+   conjunto canónico que no se puede sacar obliga a mirarlo por pantalla.
+2. **El camino de linaje completo**, si alguien aprueba el coste. Hoy hay dos
+   nodos y una arista tipada por campo; el contrato describe cinco saltos. La
+   divergencia está declarada en el handoff, sección 7.
+3. **`accounting_date`**, que hoy queda nula: asignar periodo contable es una
+   decisión de cierre, y P3 no cierra.
+4. **Formatos que no son CSV.** Un libro de cálculo sigue quedándose en
+   cuarentena con `no_scanner_for_format`, y eso es correcto: prometer que está
+   soportado sería peor que decir que no lo está.
 
 Nada de auto-match, conciliación, fraude por ML, cierre ni IA autoritativa.
 
 ---
 
-## 4. Lo que sigue esperando a una persona
+## 5. Lo que sigue esperando a una persona
 
 Ninguno de estos gates se ha movido, y ninguna decisión humana se ha marcado como
 aceptada.
 
+- **`engine_release` sin aprobar.** La versión con la que publica el entorno local
+  nace `draft`. Aprobarla es de `human_platform_owner` y exige `approval_ref`,
+  `result_diff_report` y revisión independiente. Para datos sintéticos no
+  bloquea; para producción sí.
+- **La divergencia del camino de linaje** (handoff, sección 7) no está aprobada.
 - **DB-G03**: cuatro funciones `SECURITY DEFINER` declaradas, con dueño acotado y
-  `human_review_state: pending`. `production_policy.security_definer` sigue
-  diciendo `forbidden_without_review`.
-- **DRG-01**: se amplió la excepción de RLS de `dispatch_pointer` con
-  `available_at`. Es una marca de tiempo, pero amplía una excepción de Security.
-- **S-01 / TM-005**: detección de PAN antes de `raw`. Esta ejecución **no lo
-  resuelve**; sólo deja de promover lo que no ha inspeccionado.
-- **ADR-002**: sigue `proposed`. Sin herramienta seleccionada y con
-  `product_migrations_allowed` en `false`.
-- **`retry_policy_contract`** no está satisfecho: declara trece campos, incluidos
-  `owner` y `reviewer` independientes. Lo que existe es un `max_attempts` con
-  valor por defecto local. No se han inventado los dos nombres.
+  `human_review_state: pending`.
+- **DRG-01**: la excepción de RLS de `dispatch_pointer` sigue ampliada con
+  `available_at`.
+- **S-01 / TM-005**: detección de PAN antes de `raw`. Sin resolver; lo que hay es
+  que no se promueve lo que no se ha inspeccionado.
+- **ADR-002**: sigue `proposed`, sin herramienta seleccionada.
+- **`retry_policy_contract`**: declara trece campos, incluidos `owner` y
+  `reviewer` independientes. Existe un `max_attempts` con valor por defecto local,
+  y los dos nombres no se han inventado.
 - Cuatro huecos de cadena de suministro (SBOM, firma, attestation, procedencia) y
   seis alcances OCI sin monitor, como estaban.

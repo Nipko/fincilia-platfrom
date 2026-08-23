@@ -523,17 +523,39 @@ def prepare_dataset(connection: psycopg.Connection, *, company_id: str,
                                "not a single row could be read with this mapping")
 
     artifact_sha256 = str((records[0][3] or {}).get("artifact_sha256", ""))
-    dataset_id = _write_dataset(
-        connection, company_id=company_id, artifact_id=artifact_id,
-        run_id=extract_run["run_id"], mapping_version_id=mapping_version_id,
-        release=release, subject_id=subject_id, prepared=prepared,
-        rejections=rejections, record_count=len(records),
-        data_source_id=version["data_source_id"],
-        financial_account_id=financial_account_id, mapping=mapping,
-        artifact_sha256=artifact_sha256,
-        definition_digest=version["definition_digest"],
-        source_schema_digest=version["source_schema_digest"],
-        timezone=timezone, locale=locale)
+    try:
+        # Un punto de retorno propio. `_existing_dataset` es una lectura seguida
+        # de una escritura, y bajo READ COMMITTED dos preparaciones simultaneas
+        # ven las dos que no hay nada y las dos escriben. Quien pierde la carrera
+        # deshace **solo** lo suyo y vuelve a leer; sin el savepoint la
+        # transaccion entera quedaria abortada y el conflicto saldria como 500.
+        with connection.transaction():
+            dataset_id = _write_dataset(
+                connection, company_id=company_id, artifact_id=artifact_id,
+                run_id=extract_run["run_id"], mapping_version_id=mapping_version_id,
+                release=release, subject_id=subject_id, prepared=prepared,
+                rejections=rejections, record_count=len(records),
+                data_source_id=version["data_source_id"],
+                financial_account_id=financial_account_id, mapping=mapping,
+                artifact_sha256=artifact_sha256,
+                definition_digest=version["definition_digest"],
+                source_schema_digest=version["source_schema_digest"],
+                timezone=timezone, locale=locale)
+    except psycopg.errors.UniqueViolation as error:
+        if "uq_dataset_reproduction" not in str(error):
+            raise
+        existing = _existing_dataset(connection, run_id=extract_run["run_id"],
+                                     mapping_version_id=mapping_version_id,
+                                     release_id=release["release_id"])
+        if existing is None:
+            raise
+        logger.info("another request prepared this dataset first; reusing it")
+        return Preparation(dataset_version_id=existing["dataset_version_id"],
+                           state=existing["state"],
+                           movement_count=existing["movement_count"],
+                           rejected_count=existing["rejected_count"],
+                           record_count=existing["record_count"],
+                           reused=True, rejections=())
 
     return Preparation(dataset_version_id=dataset_id, state="validated",
                        movement_count=len(prepared),
