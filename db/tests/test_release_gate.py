@@ -34,6 +34,7 @@ from db.tests.test_p3_vertical import (
     FIXTURE_REF,
     MAPPING,
     approve_fixture_release,
+    purge,
     register_release,
     statement_csv,
 )
@@ -241,34 +242,31 @@ class ReleaseGateApiTests(unittest.TestCase):
         if not MIGRATOR_DSN or not RUNTIME_DSN:
             raise unittest.SkipTest("migrator and runtime DSNs are required")
         seed(MIGRATOR_DSN, secret=DEFAULT_SECRET)
-        # Esta suite corre contra una release **en borrador** a proposito.
-        cls.release_key, cls.release_id = register_release()
-        cls.settings = build_settings(engine_release_key=cls.release_key)
+        cls.created: set[str] = set()
+        cls.store = S3ObjectStore(cls.worker_settings())
         try:
-            ensure_buckets(cls.settings)
+            ensure_buckets(build_settings())
         except Exception as error:  # noqa: BLE001 - el motivo importa mas que el tipo
             raise AssertionError(
                 "these tests need the object store: start it with "
                 f"`docker compose up -d --wait objectstore` ({type(error).__name__})"
             ) from error
-        cls.created: set[str] = set()
-        cls.store = S3ObjectStore(cls.worker_settings())
-        cls.client = TestClient(create_app(cls.settings))
-        cls.client.__enter__()
+
+    def setUp(self) -> None:
+        # Una release por prueba. Compartirla acopla el resultado al orden
+        # alfabetico de los metodos, que es la clase de dependencia que hace que
+        # una suite pase sola y falle entera.
+        self.release_key, self.release_id = register_release()
+        self.settings = build_settings(engine_release_key=self.release_key)
+        self.client = TestClient(create_app(self.settings))
+        self.client.__enter__()
+
+    def tearDown(self) -> None:
+        self.client.__exit__(None, None, None)
 
     @classmethod
     def tearDownClass(cls) -> None:
-        cls.client.__exit__(None, None, None)
-        if not cls.created:
-            return
-        from db.tests.test_p3_vertical import VerticalHarness
-        # Mismo desmontaje que la vertical: el orden lo fija la clave ajena.
-        VerticalHarness.created = cls.created
-        VerticalHarness.client = cls.client
-        try:
-            VerticalHarness.tearDownClass()
-        except Exception:  # noqa: BLE001 - el cierre del cliente ya ocurrio
-            pass
+        purge(cls.created)
 
     @classmethod
     def worker_settings(cls):

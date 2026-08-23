@@ -194,6 +194,19 @@ def seed(dsn: str, *, secret: str) -> dict[str, object]:
                      DEMO_ACCOUNT["last4"], DEMO_ACCOUNT["currency"]))
                 if cursor.rowcount:
                     created.append(f"account:{company['key']}")
+                # Sin vinculo no hay contra que publicar: un movimiento siempre
+                # ocurre contra una cuenta, y cual es lo dice la fuente.
+                cursor.execute(
+                    "INSERT INTO fincilia.data_source_account (link_id, company_id, "
+                    "data_source_id, financial_account_id, relation_role, created_by) "
+                    "VALUES (%s, %s, %s, %s, 'primary', %s) "
+                    "ON CONFLICT (link_id) DO NOTHING",
+                    (stable_id("source_account", company["key"]), company_id,
+                     stable_id("data_source", company["key"]),
+                     stable_id("account", company["key"]),
+                     stable_id("subject", PROVISIONER["key"])))
+                if cursor.rowcount:
+                    created.append(f"source_account:{company['key']}")
 
                 for person in PEOPLE:
                     role = person["grants"].get(company["key"])

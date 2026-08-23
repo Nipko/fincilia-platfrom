@@ -34,6 +34,9 @@ COMPANY_SCOPED_TABLES = (
     "mapping_decision", "dataset_version", "reproducibility_manifest",
     "raw_record", "source_record", "canonical_movement", "movement_evidence_link",
     "lineage_node", "lineage_edge",
+    # V0009
+    "data_source_account", "source_cycle", "source_expectation",
+    "lineage_transform_plan", "lineage_transform_step", "dataset_chunk",
 )
 
 
@@ -119,20 +122,42 @@ class Fixture:
              state, author, validator, validator))
         return version_id
 
+    def plan(self, mapping_version_id: str) -> str:
+        """Un plan de linaje minimo. Publicar sin el esta prohibido por CHECK."""
+        plan_id = new_id()
+        self.cursor.execute(
+            "INSERT INTO fincilia.lineage_transform_plan (plan_id, company_id, "
+            "mapping_version_id, engine_release_id, plan_digest, "
+            "canonical_schema_version, field_count) VALUES (%s, %s, %s, %s, %s, "
+            "%s, 1) ON CONFLICT (mapping_version_id, engine_release_id) DO NOTHING "
+            "RETURNING plan_id",
+            (plan_id, self.company_id, mapping_version_id, self.release_id,
+             digest(f"plan:{mapping_version_id}"), SCHEMA_VERSION))
+        row = self.cursor.fetchone()
+        if row is not None:
+            return str(row[0])
+        self.cursor.execute(
+            "SELECT plan_id FROM fincilia.lineage_transform_plan "
+            "WHERE mapping_version_id = %s AND engine_release_id = %s",
+            (mapping_version_id, self.release_id))
+        return str(self.cursor.fetchone()[0])
+
     def dataset(self, *, run_id: str, artifact_id: str, mapping_version_id: str,
                 preparer: str, state: str = "draft",
                 validator: str | None = None, publisher: str | None = None) -> str:
         dataset_id = new_id()
+        plan_id = self.plan(mapping_version_id)
         self.cursor.execute(
             "INSERT INTO fincilia.dataset_version (dataset_version_id, company_id, "
             "processing_run_id, mapping_version_id, artifact_id, engine_release_id, "
-            "canonical_schema_version, state, prepared_by, validated_by, "
-            "validated_at, published_by, published_at) VALUES (%s, %s, %s, %s, %s, "
-            "%s, %s, %s, %s, %s, CASE WHEN %s::uuid IS NULL THEN NULL ELSE now() END, "
-            "%s, CASE WHEN %s::uuid IS NULL THEN NULL ELSE now() END)",
+            "lineage_plan_id, canonical_schema_version, state, prepared_by, "
+            "validated_by, validated_at, published_by, published_at) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, "
+            "CASE WHEN %s::uuid IS NULL THEN NULL ELSE now() END, %s, "
+            "CASE WHEN %s::uuid IS NULL THEN NULL ELSE now() END)",
             (dataset_id, self.company_id, run_id, mapping_version_id, artifact_id,
-             self.release_id, SCHEMA_VERSION, state, preparer, validator, validator,
-             publisher, publisher))
+             self.release_id, plan_id, SCHEMA_VERSION, state, preparer, validator,
+             validator, publisher, publisher))
         return dataset_id
 
     def raw_record(self, *, artifact_id: str, run_id: str, ordinal: int = 1) -> str:

@@ -19,13 +19,17 @@ haria que un error de mapeo se propagara a un cierre contable.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
+import time
+import uuid
 from dataclasses import dataclass
 from typing import Any
 
 import psycopg
 
+from fincilia_contracts.extraction import MAX_EXTRACT_ROWS
 from fincilia_contracts.mapping import (
     CANONICAL_FIELDS,
     ColumnMapping,
@@ -33,36 +37,53 @@ from fincilia_contracts.mapping import (
     apply_row,
     validate_mapping,
 )
+from fincilia_contracts.lineage import (
+    LineageError,
+    TransformStep,
+    build_plan,
+    plan_digest,
+    reconstruct,
+    validate_plan,
+)
 from fincilia_contracts.release import (
     CANONICAL_SCHEMA_VERSION,
     ENGINE_RELEASE_KEY,
+    canonical_json,
     digest_of,
     reproduction_key,
 )
 
 logger = logging.getLogger("fincilia.api.datasets")
 
-# Techo de una publicacion. La extraccion admite mucho mas, pero cada campo
-# publicado escribe nodos y aristas de linaje, y un dataset que no cabe se dice
-# en vez de tragarselo a medias.
-MAX_DATASET_ROWS = 10_000
+# Techo de una publicacion. Ya no es un numero arbitrario menor que el de la
+# extraccion: es **el mismo**, porque preparar dejo de cargar el fichero entero
+# en memoria. Se comprueba con un `count(*)` antes de traer una sola fila; la
+# version anterior lo comprobaba despues de un `fetchall`, asi que el techo
+# protegia la escritura y no la memoria.
+MAX_DATASET_ROWS = MAX_EXTRACT_ROWS
+
+# Filas por lote. Cada lote es una transaccion con su punto de control: mas
+# grande amortiza mejor el viaje, mas pequeno pierde menos trabajo al reintentar.
+CHUNK_SIZE = 2_000
+
+# Cuanto trabaja una peticion antes de devolver `staging` y dejar que el llamante
+# continue. Es la contrapresion: una peticion que dura minutos retiene una
+# conexion del pool y no le sirve a nadie.
+PREPARE_BUDGET_SECONDS = 25.0
+
+# Cuantos motivos de rechazo se conservan para ensenar. La **cuenta** es exacta y
+# sale de la base; esto es una muestra. Retener cien mil motivos para ensenar
+# cincuenta es la clase de detalle que convierte una respuesta en un volcado.
+MAX_REPORTED_REJECTIONS = 50
+
+# Filas que trae de golpe el cursor de servidor al calcular la huella final.
+DIGEST_BATCH = 1_000
 
 # Cuantas filas devuelve como mucho una vista previa. La vista previa **si**
 # lleva valores, y por eso pagina siempre: devolver el fichero entero por una
 # peticion seria descargar la evidencia con otro nombre.
 MAX_PREVIEW_LIMIT = 200
 DEFAULT_PREVIEW_LIMIT = 50
-
-# Que transformacion produjo cada campo canonico. `derived_from` exige nombrarla:
-# sin eso el grafo diria «esto tiene algo que ver con aquello».
-TRANSFORMS = {
-    "occurred_on": "parse_date",
-    "description": "verbatim",
-    "reference": "normalise_reference",
-    "amount": "normalise_amount",
-    "direction": "resolve_direction",
-    "currency": "declared_currency",
-}
 
 # Que esta eligiendo la persona cuando resuelve una columna ambigua. Se deriva
 # del tipo que el perfilador no supo decidir, no de un cajon generico: quien
@@ -95,6 +116,8 @@ class PreparationError(Exception):
 
 @dataclass(frozen=True)
 class Preparation:
+    """Lo que se sabe de una preparacion, en conteos y nunca en payload."""
+
     dataset_version_id: str
     state: str
     movement_count: int
@@ -102,6 +125,22 @@ class Preparation:
     record_count: int
     reused: bool
     rejections: tuple[dict[str, Any], ...]
+    complete: bool = True
+    expected_record_count: int = 0
+    chunks: int = 0
+    last_record: int = 0
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "dataset_version_id": self.dataset_version_id, "state": self.state,
+            "movement_count": self.movement_count,
+            "rejected_count": self.rejected_count,
+            "record_count": self.record_count, "reused": self.reused,
+            "complete": self.complete,
+            "expected_record_count": self.expected_record_count,
+            "chunks": self.chunks,
+            "rejections": list(self.rejections),
+        }
 
 
 # --------------------------------------------------------------------------- #
@@ -456,11 +495,6 @@ def approved_release(connection: psycopg.Connection,
             "approved_at": row[8].isoformat() if row[8] else None}
 
 
-def _release(connection: psycopg.Connection,
-             release_key: str = ENGINE_RELEASE_KEY) -> dict[str, Any]:
-    return approved_release(connection, release_key)
-
-
 def _existing_dataset(connection: psycopg.Connection, *, run_id: str,
                       mapping_version_id: str, release_id: str) -> dict | None:
     with connection.cursor() as cursor:
@@ -478,25 +512,18 @@ def _existing_dataset(connection: psycopg.Connection, *, run_id: str,
             "record_count": row[4]}
 
 
-def prepare_dataset(connection: psycopg.Connection, *, company_id: str,
-                    artifact_id: str, mapping_version_id: str,
-                    financial_account_id: str, subject_id: str,
-                    release_key: str = ENGINE_RELEASE_KEY,
-                    timezone: str = "America/Bogota",
-                    locale: str = "es-CO") -> Preparation:
-    """Convierte las filas extraidas en movimientos canonicos, en una transaccion.
+def _preparation_context(connection: psycopg.Connection, *, company_id: str,
+                         artifact_id: str, mapping_version_id: str,
+                         release_key: str) -> dict[str, Any]:
+    """Todo lo que hay que comprobar **antes** de tocar una sola fila.
 
-    Se escribe entero o no se escribe: el dataset, los registros de origen, los
-    movimientos, los enlaces de evidencia, el grafo de linaje y el manifiesto
-    reproducible. Un dataset a medias afirmaria un total que no cuadra con sus
-    filas.
-
-    Sale en `validated`, no en `published`: quien prepara no publica.
+    Se hace en una lectura corta y aparte a proposito: si algo bloquea, bloquea
+    sin haber reservado memoria ni haber abierto una transaccion larga.
     """
     version = load_mapping_version(connection, mapping_version_id)
     if version is None:
         raise PreparationError("mapping-unknown", "no such mapping version")
-    if version["state"] != "validated":
+    if version["state"] not in ("validated", "superseded"):
         raise PreparationError(
             "mapping-not-validated",
             "a draft mapping cannot produce a dataset; validate it first")
@@ -507,6 +534,7 @@ def prepare_dataset(connection: psycopg.Connection, *, company_id: str,
             "not-extracted",
             "this document has no completed extraction; only promoted evidence "
             "is extracted, and quarantined evidence never is")
+
     # Una lectura truncada **termina bien**: `truncated` es un estado, no un
     # fallo, porque el fichero se leyo hasta donde se pudo y decirlo es mejor que
     # fingir un error. Lo que no puede pasar es publicarla como si estuviera
@@ -528,8 +556,6 @@ def prepare_dataset(connection: psycopg.Connection, *, company_id: str,
     # Reutilizar una plantilla en el extracto del mes siguiente es justo para lo
     # que sirve versionar un mapeo. Lo que **no** puede cambiar es la forma del
     # fichero: si cambia, los indices apuntan a otras columnas y nada falla.
-    # Ese es exactamente el fallo que nadie ve, y por eso se compara la huella
-    # del esquema y no el identificador del artefacto.
     if profile and schema_digest(profile) != version["source_schema_digest"]:
         raise PreparationError(
             "schema-drift",
@@ -537,9 +563,6 @@ def prepare_dataset(connection: psycopg.Connection, *, company_id: str,
             [{"code": "MAP-SCHEMA-DRIFT", "location": "columns",
               "detail": "the source schema digest changed", "resolvable": "false"}])
     if not profile and version["artifact_id"] != artifact_id:
-        # Sin perfil no hay con que comparar. Aplicar la plantilla a ciegas
-        # sobre otro fichero seria afirmar una compatibilidad que nadie ha
-        # comprobado.
         raise PreparationError(
             "mapping-unverifiable",
             "this document has no profile, so a mapping written for another "
@@ -555,214 +578,401 @@ def prepare_dataset(connection: psycopg.Connection, *, company_id: str,
             blockers)
 
     release = approved_release(connection, release_key)
-    reused = _existing_dataset(connection, run_id=extract_run["run_id"],
-                               mapping_version_id=mapping_version_id,
-                               release_id=release["release_id"])
-    if reused is not None:
-        # Misma entrada, mismo mapeo, misma version del motor: es el mismo
-        # dataset. Preparar otra vez no duplica nada.
-        return Preparation(dataset_version_id=reused["dataset_version_id"],
-                           state=reused["state"],
-                           movement_count=reused["movement_count"],
-                           rejected_count=reused["rejected_count"],
-                           record_count=reused["record_count"],
-                           reused=True, rejections=())
+    plan = _plan_for(connection, company_id=company_id,
+                     mapping_version_id=mapping_version_id, release=release,
+                     mapping=mapping, delimiter=str(summary.get("delimiter") or ","),
+                     decided_fields=frozenset(item["subject_ref"] for item in decisions))
 
     with connection.cursor() as cursor:
         cursor.execute(
-            "SELECT raw_record_id, record_ordinal, raw_values, origin_locator "
-            "FROM fincilia.raw_record WHERE processing_run_id = %s "
-            "AND record_ordinal >= %s ORDER BY record_ordinal",
-            (extract_run["run_id"], mapping.first_data_row))
-        records = cursor.fetchall()
-    if not records:
-        raise PreparationError("no-data-rows",
-                               "the declared range leaves no data rows")
-    if len(records) > MAX_DATASET_ROWS:
-        raise PreparationError(
-            "dataset-too-large",
-            f"a publication carries at most {MAX_DATASET_ROWS} rows and this one "
-            f"has {len(records)}")
+            "SELECT content_sha256 FROM fincilia.source_artifact "
+            "WHERE artifact_id = %s", (artifact_id,))
+        row = cursor.fetchone()
 
-    prepared: list[tuple[dict[str, Any], Any]] = []
+    return {
+        "artifact_id": artifact_id,
+        "artifact_sha256": str(row[0]) if row else "",
+        "run_id": extract_run["run_id"],
+        "mapping": mapping,
+        "mapping_version_id": mapping_version_id,
+        "definition_digest": version["definition_digest"],
+        "source_schema_digest": version["source_schema_digest"],
+        "data_source_id": version["data_source_id"],
+        "decisions": decisions,
+        "release": release,
+        "plan": plan,
+    }
+
+
+def linked_account(connection: psycopg.Connection, *, data_source_id: str,
+                   financial_account_id: str | None = None) -> str:
+    """La cuenta contra la que esta fuente registra movimientos.
+
+    Se exige el vinculo en vez de aceptar cualquier cuenta de la empresa. Un
+    extracto bancario que aterriza en la cuenta de otra pasarela cuadra consigo
+    mismo y descuadra el cierre, y nadie lo nota hasta que alguien concilia.
+
+    Con `financial_account_id` comprueba que ese vinculo existe y esta vivo; sin
+    el devuelve el principal, que es lo que permite reanudar una preparacion sin
+    volver a pedir el dato.
+    """
+    with connection.cursor() as cursor:
+        if financial_account_id:
+            cursor.execute(
+                "SELECT financial_account_id, relation_role "
+                "FROM fincilia.data_source_account "
+                "WHERE data_source_id = %s AND financial_account_id = %s "
+                "AND status = 'active' "
+                "AND (valid_to IS NULL OR valid_to >= CURRENT_DATE) LIMIT 1",
+                (data_source_id, financial_account_id))
+            row = cursor.fetchone()
+            if row is None:
+                raise PreparationError(
+                    "account-not-linked",
+                    "this account is not linked to the data source of this mapping; "
+                    "link them first, or pick the account the source settles into")
+        else:
+            cursor.execute(
+                "SELECT financial_account_id, relation_role "
+                "FROM fincilia.data_source_account "
+                "WHERE data_source_id = %s AND relation_role = 'primary' "
+                "AND status = 'active' LIMIT 1", (data_source_id,))
+            row = cursor.fetchone()
+            if row is None:
+                raise PreparationError(
+                    "source-without-account",
+                    "this data source has no primary account; a movement always "
+                    "happens against one")
+
+        account_id = str(row[0])
+        cursor.execute(
+            "SELECT status FROM fincilia.financial_account WHERE account_id = %s",
+            (account_id,))
+        status = cursor.fetchone()
+        cursor.execute(
+            "SELECT status FROM fincilia.data_source WHERE data_source_id = %s",
+            (data_source_id,))
+        source_status = cursor.fetchone()
+
+    # Una cuenta suspendida o cerrada no recibe movimientos nuevos. Lo publicado
+    # con ella se conserva: cerrar una cuenta no borra su historia.
+    if not status or status[0] != "active":
+        raise PreparationError(
+            "account-not-active",
+            f"the account is {status[0] if status else 'missing'}; a suspended or "
+            "closed account does not take new publications")
+    if not source_status or source_status[0] != "active":
+        raise PreparationError(
+            "source-not-active",
+            f"the data source is {source_status[0] if source_status else 'missing'}")
+    return account_id
+
+
+def _plan_for(connection: psycopg.Connection, *, company_id: str,
+              mapping_version_id: str, release: dict[str, Any],
+              mapping: ColumnMapping, delimiter: str,
+              decided_fields: frozenset[str]) -> dict[str, Any]:
+    """El plan de transformacion de este mapeo con esta version del motor.
+
+    Idempotente por `(mapping_version_id, engine_release_id)`: preparar dos veces
+    reutiliza el plan, y cambiar la transformacion cambia el par, luego es otro
+    plan y el anterior sigue existiendo para reconstruir lo que ya publico.
+    """
+    steps = build_plan(mapping, engine_release_key=release["release_key"],
+                       delimiter=delimiter, decided_fields=decided_fields)
+    problems = validate_plan(steps, frozenset(mapping.columns))
+    if problems:
+        # `on_incomplete: block_publication`. Un campo publicado sin sus seis
+        # etapas no se puede auditar, y publicarlo seria afirmar que si.
+        raise PreparationError(
+            "lineage-incomplete",
+            "the lineage plan does not reconstruct every stage of every field",
+            [{"code": "LIN-INCOMPLETE", "location": "plan", "detail": problem,
+              "resolvable": "false"} for problem in problems])
+
+    digest = plan_digest(steps)
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT plan_id, plan_digest FROM fincilia.lineage_transform_plan "
+            "WHERE mapping_version_id = %s AND engine_release_id = %s",
+            (mapping_version_id, release["release_id"]))
+        row = cursor.fetchone()
+        if row is not None:
+            if row[1] != digest:
+                # El plan guardado dice otra cosa que el que produce este codigo.
+                # Reconstruir con el nuevo seria explicar lo publicado con reglas
+                # que no lo produjeron.
+                raise PreparationError(
+                    "lineage-plan-drift",
+                    "the stored transform plan for this mapping and release differs "
+                    "from the one this engine builds; reproducing with it would "
+                    "explain the data with rules that did not produce it")
+            return {"plan_id": str(row[0]), "steps": steps, "digest": digest}
+
+        cursor.execute(
+            "INSERT INTO fincilia.lineage_transform_plan (plan_id, company_id, "
+            "mapping_version_id, engine_release_id, plan_digest, "
+            "canonical_schema_version, field_count) "
+            "VALUES (gen_random_uuid(), %s, %s, %s, %s, %s, %s) "
+            "RETURNING plan_id",
+            (company_id, mapping_version_id, release["release_id"], digest,
+             release["canonical_schema_version"], len(mapping.columns)))
+        plan_id = str(cursor.fetchone()[0])
+        cursor.executemany(
+            "INSERT INTO fincilia.lineage_transform_step (step_id, company_id, "
+            "plan_id, canonical_field, step_ordinal, stage, operation, "
+            "input_semantic_type, output_semantic_type, transform_ref, "
+            "configuration_digest, parser_version, rule_version, source_column) "
+            "VALUES (gen_random_uuid(), %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, "
+            "%s, %s, %s)",
+            [(company_id, plan_id, step.canonical_field, step.step_ordinal,
+              step.stage, step.operation, step.input_semantic_type,
+              step.output_semantic_type, step.transform_ref,
+              step.configuration_digest, step.parser_version, step.rule_version,
+              step.source_column) for step in steps])
+    return {"plan_id": plan_id, "steps": steps, "digest": digest}
+
+
+def _count_records(connection: psycopg.Connection, run_id: str,
+                   first_data_row: int) -> int:
+    """Cuantas filas hay que preparar, **antes** de traer ninguna.
+
+    La version anterior contaba despues de un `fetchall`: el techo protegia la
+    escritura y no la memoria, asi que un fichero de cien mil filas reservaba
+    doscientos megabytes y despues decia que era demasiado grande.
+    """
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT count(*) FROM fincilia.raw_record "
+            "WHERE processing_run_id = %s AND record_ordinal >= %s",
+            (run_id, first_data_row))
+        return int(cursor.fetchone()[0])
+
+
+def _resume_point(connection: psycopg.Connection,
+                  dataset_version_id: str) -> tuple[int, int]:
+    """Por donde sigue una preparacion interrumpida: `(siguiente lote, ordinal)`.
+
+    La fila de `dataset_chunk` entra en la misma transaccion que sus movimientos,
+    asi que si esta, el lote entero esta. Su ausencia es igual de informativa: lo
+    que no figura, no ocurrio.
+    """
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT coalesce(max(chunk_ordinal) + 1, 0), coalesce(max(last_record), 0) "
+            "FROM fincilia.dataset_chunk WHERE dataset_version_id = %s",
+            (dataset_version_id,))
+        row = cursor.fetchone()
+    return int(row[0]), int(row[1])
+
+
+def _stage_dataset(connection: psycopg.Connection, *, company_id: str,
+                   artifact_id: str, run_id: str, mapping_version_id: str,
+                   release: dict[str, Any], plan_id: str, subject_id: str,
+                   expected: int) -> tuple[str, str]:
+    """Crea o recupera el dataset en `staging`. Devuelve `(id, estado)`.
+
+    `staging` existe para que un dataset a medias **nunca** parezca publicado.
+    Sin ese estado, la unica forma de que no lo pareciera seria una transaccion
+    que abarcara las cien mil filas, que es lo que este rediseno quita.
+    """
+    existing = _existing_dataset(connection, run_id=run_id,
+                                mapping_version_id=mapping_version_id,
+                                release_id=release["release_id"])
+    if existing is not None:
+        return existing["dataset_version_id"], existing["state"]
+
+    with connection.cursor() as cursor:
+        try:
+            with connection.transaction():
+                cursor.execute(
+                    "INSERT INTO fincilia.dataset_version (dataset_version_id, "
+                    "company_id, processing_run_id, mapping_version_id, artifact_id, "
+                    "engine_release_id, lineage_plan_id, canonical_schema_version, "
+                    "state, completeness_state, lineage_state, record_count, "
+                    "expected_record_count, movement_count, rejected_count, "
+                    "prepared_by) VALUES (gen_random_uuid(), %s, %s, %s, %s, %s, %s, "
+                    "%s, 'staging', 'unknown', 'required_pending', 0, %s, 0, 0, %s) "
+                    "RETURNING dataset_version_id",
+                    (company_id, run_id, mapping_version_id, artifact_id,
+                     release["release_id"], plan_id,
+                     release["canonical_schema_version"], expected, subject_id))
+                return str(cursor.fetchone()[0]), "staging"
+        except psycopg.errors.UniqueViolation:
+            # Otra peticion lo creo entre la lectura y la escritura. Es el mismo
+            # dataset: la terna es su identidad.
+            found = _existing_dataset(connection, run_id=run_id,
+                                      mapping_version_id=mapping_version_id,
+                                      release_id=release["release_id"])
+            if found is None:
+                raise
+            return found["dataset_version_id"], found["state"]
+
+
+def _seal_artifact(cursor, *, company_id: str, artifact_id: str,
+                   artifact_sha256: str, release: dict[str, Any],
+                   run_id: str, subject_id: str, dataset_version_id: str) -> None:
+    """El unico nodo de grafo por dataset: la evidencia terminal y su sello.
+
+    Todo lo demas se reconstruye. Esto no: que **este** artefacto quedo sellado
+    dentro de **este** dataset es un hecho del grafo, y es de cardinalidad uno.
+    """
+    schema_version = release["canonical_schema_version"]
+    artifact_node = _node(cursor, company_id=company_id,
+                          node_type="artifact_version", entity_ref=artifact_id,
+                          field_name="", locator=None,
+                          value_digest=artifact_sha256 or None,
+                          release_id=release["release_id"],
+                          schema_version=schema_version)
+    dataset_node = _node(cursor, company_id=company_id,
+                         node_type="source_record_field",
+                         entity_ref=dataset_version_id, field_name="dataset",
+                         locator=None, value_digest=None,
+                         release_id=release["release_id"],
+                         schema_version=schema_version)
+    cursor.execute(
+        "INSERT INTO fincilia.lineage_edge (edge_id, company_id, from_node_id, "
+        "to_node_id, operation, actor_kind, actor_id, workload_identity, "
+        "processing_run_id, engine_release_id, canonical_schema_version) "
+        "VALUES (gen_random_uuid(), %s, %s, %s, 'included_in_snapshot', 'human', "
+        "%s, 'api', %s, %s, %s) "
+        "ON CONFLICT (from_node_id, to_node_id, operation) DO NOTHING",
+        (company_id, artifact_node, dataset_node, subject_id, run_id,
+         release["release_id"], schema_version))
+
+
+def _seal_decisions(cursor, *, company_id: str, decisions: list[dict[str, Any]],
+                    dataset_version_id: str, release: dict[str, Any],
+                    run_id: str, subject_id: str) -> None:
+    """`decided_using`: una decision humana entro en este dataset sin derivar valor.
+
+    Es la operacion que el contrato distingue de `derived_from` a proposito, y
+    mezclarlas borraria la diferencia entre «esto se calculo» y «alguien eligio».
+    """
+    schema_version = release["canonical_schema_version"]
+    dataset_node = _node(cursor, company_id=company_id,
+                         node_type="source_record_field",
+                         entity_ref=dataset_version_id, field_name="dataset",
+                         locator=None, value_digest=None,
+                         release_id=release["release_id"],
+                         schema_version=schema_version)
+    for decision in decisions:
+        decision_node = _node(cursor, company_id=company_id, node_type="decision",
+                              entity_ref=decision["decision_id"],
+                              field_name=decision["subject_ref"][:64], locator=None,
+                              value_digest=digest_of(decision["resolved_value"]),
+                              release_id=release["release_id"],
+                              schema_version=schema_version)
+        cursor.execute(
+            "INSERT INTO fincilia.lineage_edge (edge_id, company_id, from_node_id, "
+            "to_node_id, operation, actor_kind, actor_id, workload_identity, "
+            "processing_run_id, engine_release_id, canonical_schema_version) "
+            "VALUES (gen_random_uuid(), %s, %s, %s, 'decided_using', 'human', %s, "
+            "'api', %s, %s, %s) "
+            "ON CONFLICT (from_node_id, to_node_id, operation) DO NOTHING",
+            (company_id, decision_node, dataset_node, subject_id, run_id,
+             release["release_id"], schema_version))
+
+
+def _write_chunk(connection: psycopg.Connection, *, company_id: str,
+                 dataset_version_id: str, chunk_ordinal: int,
+                 rows: list[tuple], mapping: ColumnMapping,
+                 data_source_id: str, financial_account_id: str,
+                 release: dict[str, Any]) -> tuple[int, int, list[dict[str, Any]]]:
+    """Un lote entero en una transaccion: registros, movimientos y enlaces.
+
+    Tres `COPY` en vez de veintitres sentencias por fila. Los identificadores se
+    generan aqui y no con `RETURNING`, que es justo lo que permite el `COPY`: sin
+    eso cada fila costaria un viaje de ida y vuelta, y cien mil filas costarian
+    dos millones y medio.
+    """
+    schema_version = release["canonical_schema_version"]
+    release_id = release["release_id"]
+
+    records: list[tuple] = []
+    movements: list[tuple] = []
+    links: list[tuple] = []
     rejections: list[dict[str, Any]] = []
-    for raw_id, ordinal, values, locator in records:
+
+    for raw_id, ordinal, values, locator in rows:
         try:
             movement = apply_row(mapping, list(values), ordinal)
         except Exception as error:  # noqa: BLE001 - una fila rara no tumba el lote
-            # El motivo lleva el numero de fila del fichero, que es como la
-            # persona la encuentra. Nunca lleva el valor que fallo.
             rejections.append({
                 "record_ordinal": ordinal, "code": "row_not_mappable",
                 "detail": str(error) if isinstance(error, MappingError)
                 else type(error).__name__})
             continue
-        prepared.append(({"raw_record_id": str(raw_id), "record_ordinal": ordinal,
-                          "locator": locator or {}}, movement))
 
-    if not prepared:
-        raise PreparationError("no-mappable-rows",
-                               "not a single row could be read with this mapping")
+        source_record_id = str(uuid.uuid4())
+        movement_id = str(uuid.uuid4())
+        reference = _normalise_reference(movement.reference)
+        # Huellas por campo publicado: es la etapa terminal del linaje, y cabe en
+        # la propia fila. Nunca el valor.
+        digests = {field: digest_of(getattr(movement, field, None))
+                   for field in sorted(movement.source_column)}
 
-    artifact_sha256 = str((records[0][3] or {}).get("artifact_sha256", ""))
-    try:
-        # Un punto de retorno propio. `_existing_dataset` es una lectura seguida
-        # de una escritura, y bajo READ COMMITTED dos preparaciones simultaneas
-        # ven las dos que no hay nada y las dos escriben. Quien pierde la carrera
-        # deshace **solo** lo suyo y vuelve a leer; sin el savepoint la
-        # transaccion entera quedaria abortada y el conflicto saldria como 500.
-        with connection.transaction():
-            dataset_id = _write_dataset(
-                connection, company_id=company_id, artifact_id=artifact_id,
-                run_id=extract_run["run_id"], mapping_version_id=mapping_version_id,
-                release=release, subject_id=subject_id, prepared=prepared,
-                rejections=rejections, record_count=len(records),
-                data_source_id=version["data_source_id"],
-                financial_account_id=financial_account_id, mapping=mapping,
-                artifact_sha256=artifact_sha256,
-                definition_digest=version["definition_digest"],
-                source_schema_digest=version["source_schema_digest"],
-                timezone=timezone, locale=locale)
-    except psycopg.errors.UniqueViolation as error:
-        if "uq_dataset_reproduction" not in str(error):
-            raise
-        existing = _existing_dataset(connection, run_id=extract_run["run_id"],
-                                     mapping_version_id=mapping_version_id,
-                                     release_id=release["release_id"])
-        if existing is None:
-            raise
-        logger.info("another request prepared this dataset first; reusing it")
-        return Preparation(dataset_version_id=existing["dataset_version_id"],
-                           state=existing["state"],
-                           movement_count=existing["movement_count"],
-                           rejected_count=existing["rejected_count"],
-                           record_count=existing["record_count"],
-                           reused=True, rejections=())
+        records.append((
+            source_record_id, company_id, dataset_version_id, data_source_id,
+            str(raw_id), "bank_statement_line",
+            dumps_compact({"record_ordinal": ordinal,
+                           "source_column": dict(movement.source_column)}),
+            "published", release_id, schema_version, "complete"))
+        movements.append((
+            movement_id, company_id, dataset_version_id, source_record_id,
+            financial_account_id, "other", f"{movement.amount:.12f}",
+            movement.currency, movement.direction,
+            movement.description or "(sin descripcion)",
+            movement.reference or None, reference, movement.occurred_on,
+            _fingerprint(company_id, financial_account_id, movement), "proposed",
+            release_id, schema_version, "complete", dumps_compact(digests)))
+        links.append((
+            str(uuid.uuid4()), company_id, movement_id, source_record_id, "origin",
+            f"{movement.amount:.12f}", movement.currency, release_id,
+            schema_version, "complete"))
 
-    return Preparation(dataset_version_id=dataset_id, state="validated",
-                       movement_count=len(prepared),
-                       rejected_count=len(rejections), record_count=len(records),
-                       reused=False, rejections=tuple(rejections[:50]))
-
-
-def _write_dataset(connection: psycopg.Connection, *, company_id: str,
-                   artifact_id: str, run_id: str, mapping_version_id: str,
-                   release: dict[str, Any], subject_id: str,
-                   prepared: list[tuple[dict[str, Any], Any]],
-                   rejections: list[dict[str, Any]], record_count: int,
-                   data_source_id: str, financial_account_id: str,
-                   mapping: ColumnMapping, artifact_sha256: str,
-                   definition_digest: str, source_schema_digest: str,
-                   timezone: str, locale: str) -> str:
-    """Escribe el dataset entero. Todo dentro de la transaccion del llamante."""
-    schema_version = release["canonical_schema_version"] or CANONICAL_SCHEMA_VERSION
+    first = int(rows[0][1])
+    last = int(rows[-1][1])
     with connection.cursor() as cursor:
-        cursor.execute(
-            "INSERT INTO fincilia.dataset_version (dataset_version_id, company_id, "
-            "processing_run_id, mapping_version_id, artifact_id, engine_release_id, "
-            "canonical_schema_version, state, completeness_state, lineage_state, "
-            "record_count, movement_count, rejected_count, prepared_by, "
-            "validated_by, validated_at) VALUES (gen_random_uuid(), %s, %s, %s, %s, "
-            "%s, %s, 'validated', %s, 'complete', %s, %s, %s, %s, %s, now()) "
-            "RETURNING dataset_version_id",
-            (company_id, run_id, mapping_version_id, artifact_id,
-             release["release_id"], schema_version,
-             # Una fila rechazada es un descuadre declarado, no un detalle.
-             "verified" if not rejections else "mismatch",
-             record_count, len(prepared), len(rejections), subject_id, subject_id))
-        dataset_id = str(cursor.fetchone()[0])
-
-        # El nodo terminal de evidencia: el artefacto y su huella.
-        artifact_node = _node(cursor, company_id=company_id,
-                              node_type="artifact_version", entity_ref=artifact_id,
-                              field_name="", locator=None,
-                              value_digest=artifact_sha256 or None,
-                              release_id=release["release_id"],
-                              schema_version=schema_version)
-
-        for origin, movement in prepared:
-            cursor.execute(
-                "INSERT INTO fincilia.source_record (source_record_id, company_id, "
+        if records:
+            with cursor.copy(
+                "COPY fincilia.source_record (source_record_id, company_id, "
                 "dataset_version_id, data_source_id, raw_record_id, record_family, "
                 "source_payload, state, engine_release_id, canonical_schema_version, "
-                "lineage_state) VALUES (gen_random_uuid(), %s, %s, %s, %s, "
-                "'bank_statement_line', %s::jsonb, 'published', %s, %s, 'complete') "
-                "RETURNING source_record_id",
-                (company_id, dataset_id, data_source_id, origin["raw_record_id"],
-                 json.dumps({"record_ordinal": origin["record_ordinal"],
-                             "source_column": dict(movement.source_column)}),
-                 release["release_id"], schema_version))
-            source_record_id = str(cursor.fetchone()[0])
-
-            amount = movement.amount
-            cursor.execute(
-                "INSERT INTO fincilia.canonical_movement (movement_id, company_id, "
+                "lineage_state) FROM STDIN") as copy:
+                for row in records:
+                    copy.write_row(row)
+            with cursor.copy(
+                "COPY fincilia.canonical_movement (movement_id, company_id, "
                 "dataset_version_id, source_record_id, financial_account_id, kind, "
                 "amount, currency_code, direction, description, reference_original, "
                 "reference_normalised, occurred_on, dedupe_fingerprint, state, "
-                "engine_release_id, canonical_schema_version, lineage_state) "
-                "VALUES (gen_random_uuid(), %s, %s, %s, %s, 'other', %s, %s, %s, %s, "
-                "%s, %s, %s, %s, 'proposed', %s, %s, 'complete') "
-                "RETURNING movement_id",
-                (company_id, dataset_id, source_record_id, financial_account_id,
-                 amount, movement.currency, movement.direction,
-                 movement.description or "(sin descripcion)",
-                 movement.reference or None,
-                 _normalise_reference(movement.reference),
-                 movement.occurred_on,
-                 _fingerprint(company_id, financial_account_id, movement),
-                 release["release_id"], schema_version))
-            movement_id = str(cursor.fetchone()[0])
-
-            cursor.execute(
-                "INSERT INTO fincilia.movement_evidence_link (link_id, company_id, "
+                "engine_release_id, canonical_schema_version, lineage_state, "
+                "field_digests) FROM STDIN") as copy:
+                for row in movements:
+                    copy.write_row(row)
+            with cursor.copy(
+                "COPY fincilia.movement_evidence_link (link_id, company_id, "
                 "movement_id, source_record_id, link_role, allocated_amount, "
                 "currency_code, engine_release_id, canonical_schema_version, "
-                "lineage_state) VALUES (gen_random_uuid(), %s, %s, %s, 'origin', "
-                "%s, %s, %s, %s, 'complete')",
-                (company_id, movement_id, source_record_id, amount,
-                 movement.currency, release["release_id"], schema_version))
-
-            _write_lineage(cursor, company_id=company_id, movement=movement,
-                           movement_id=movement_id, origin=origin,
-                           artifact_node=artifact_node, artifact_sha256=artifact_sha256,
-                           mapping=mapping, release=release,
-                           schema_version=schema_version, run_id=run_id,
-                           subject_id=subject_id)
-
-        manifest = {
-            "canonical_schema_version": schema_version,
-            "company_id": company_id,
-            "deterministic_config": {
-                "date_format": mapping.date_format,
-                "decimal_format": mapping.decimal_format,
-                "direction_mode": mapping.direction_mode,
-                "first_data_row": mapping.first_data_row,
-                "header_row": mapping.header_row,
-            },
-            "engine_release_key": release["release_key"],
-            "input_artifact_sha256": artifact_sha256,
-            "locale": locale,
-            "mapping_definition_digest": definition_digest,
-            "mapping_version_id": mapping_version_id,
-            "random_seed": 0,
-            "source_schema_digest": source_schema_digest,
-            "timezone": timezone,
-        }
+                "lineage_state) FROM STDIN") as copy:
+                for row in links:
+                    copy.write_row(row)
+        # El punto de control va **con** los datos, no despues: si esta la fila,
+        # esta el lote, y si no esta, el lote no ocurrio.
         cursor.execute(
-            "INSERT INTO fincilia.reproducibility_manifest (manifest_id, company_id, "
-            "dataset_version_id, engine_release_id, input_artifact_sha256, "
-            "mapping_version_id, deterministic_config, locale, timezone, "
-            "random_seed, output_digests, reproduction_key) "
-            "VALUES (gen_random_uuid(), %s, %s, %s, %s, %s, %s::jsonb, %s, %s, 0, "
-            "%s::jsonb, %s)",
-            (company_id, dataset_id, release["release_id"],
-             artifact_sha256 or "0" * 64, mapping_version_id,
-             json.dumps(manifest["deterministic_config"]), locale, timezone,
-             json.dumps({"movements": digest_of(
-                 [str(item[1].amount) for item in prepared])}),
-             reproduction_key(manifest)))
-    return dataset_id
+            "INSERT INTO fincilia.dataset_chunk (chunk_id, company_id, "
+            "dataset_version_id, chunk_ordinal, first_record, last_record, "
+            "movement_count, rejected_count) VALUES (gen_random_uuid(), %s, %s, "
+            "%s, %s, %s, %s, %s)",
+            (company_id, dataset_version_id, chunk_ordinal, first, last,
+             len(movements), len(rejections)))
+    return len(movements), len(rejections), rejections
+
+
+def dumps_compact(payload: Any) -> str:
+    return json.dumps(payload, sort_keys=True, separators=(",", ":"),
+                      ensure_ascii=False)
 
 
 def _node(cursor, *, company_id: str, node_type: str, entity_ref: str,
@@ -793,60 +1003,6 @@ def _node(cursor, *, company_id: str, node_type: str, entity_ref: str,
     return str(cursor.fetchone()[0])
 
 
-def _write_lineage(cursor, *, company_id: str, movement, movement_id: str,
-                   origin: dict[str, Any], artifact_node: str, artifact_sha256: str,
-                   mapping: ColumnMapping, release: dict[str, Any],
-                   schema_version: str, run_id: str, subject_id: str) -> None:
-    """Un camino por campo publicado: celda -> valor, con la operacion tipada.
-
-    Cobertura del 100% de los campos publicados, no una media: el contrato dice
-    `average_coverage_allowed: false`, y un campo sin camino bloquea. Cada arista
-    `derived_from` nombra su transformacion, porque `derived_from` significa que
-    el valor fluyo y no «esto tiene algo que ver con aquello».
-    """
-    release_id = release["release_id"]
-    for field, column in sorted(movement.source_column.items()):
-        cell = dict(origin["locator"])
-        cell["field_ordinal"] = int(column)
-        cell_node = _node(cursor, company_id=company_id, node_type="raw_locator",
-                          entity_ref=origin["raw_record_id"], field_name=field,
-                          locator=cell, value_digest=None, release_id=release_id,
-                          schema_version=schema_version)
-        fact_node = _node(cursor, company_id=company_id,
-                          node_type="financial_fact_field", entity_ref=movement_id,
-                          field_name=field, locator=None,
-                          # La huella del valor, jamas el valor: un grafo que
-                          # copia importes es una segunda base de datos que nadie
-                          # protege.
-                          value_digest=digest_of(getattr(movement, field, None)),
-                          release_id=release_id, schema_version=schema_version)
-        transform = TRANSFORMS.get(field, "verbatim")
-        if field == "occurred_on":
-            transform = f"parse_date:{mapping.date_format}"
-        elif field == "amount":
-            transform = f"normalise_amount:{mapping.decimal_format}"
-        elif field == "direction":
-            transform = f"resolve_direction:{mapping.direction_mode}"
-        cursor.execute(
-            "INSERT INTO fincilia.lineage_edge (edge_id, company_id, from_node_id, "
-            "to_node_id, operation, transform_ref, actor_kind, actor_id, "
-            "workload_identity, processing_run_id, engine_release_id, "
-            "canonical_schema_version) VALUES (gen_random_uuid(), %s, %s, %s, "
-            "'derived_from', %s, 'human', %s, 'api', %s, %s, %s) "
-            "ON CONFLICT (from_node_id, to_node_id, operation) DO NOTHING",
-            (company_id, cell_node, fact_node, transform, subject_id, run_id,
-             release_id, schema_version))
-        cursor.execute(
-            "INSERT INTO fincilia.lineage_edge (edge_id, company_id, from_node_id, "
-            "to_node_id, operation, actor_kind, actor_id, workload_identity, "
-            "processing_run_id, engine_release_id, canonical_schema_version) "
-            "VALUES (gen_random_uuid(), %s, %s, %s, 'included_in_snapshot', "
-            "'service', %s, 'api', %s, %s, %s) "
-            "ON CONFLICT (from_node_id, to_node_id, operation) DO NOTHING",
-            (company_id, artifact_node, cell_node, subject_id, run_id, release_id,
-             schema_version))
-
-
 def _normalise_reference(reference: str | None) -> str | None:
     """Referencia comparable, sin espacios ni mayusculas.
 
@@ -871,6 +1027,332 @@ def _fingerprint(company_id: str, account_id: str, movement) -> str:
                       "direction": movement.direction,
                       "occurred_on": movement.occurred_on,
                       "reference": _normalise_reference(movement.reference) or ""})
+
+
+def prepare_dataset(database, *, company_id: str, artifact_id: str,
+                    mapping_version_id: str, financial_account_id: str,
+                    subject_id: str, release_key: str = ENGINE_RELEASE_KEY,
+                    timezone: str = "America/Bogota", locale: str = "es-CO",
+                    chunk_size: int = CHUNK_SIZE,
+                    time_budget: float = PREPARE_BUDGET_SECONDS) -> Preparation:
+    """Convierte las filas extraidas en movimientos canonicos, por lotes.
+
+    **No es una transaccion.** Serlo obligaria a sostener cien mil filas en
+    memoria y una conexion abierta durante todo el trabajo, que es exactamente lo
+    que hacia la version anterior y por lo que tenia un techo de diez mil.
+
+    En su lugar: el dataset nace en `staging` —invisible como publicado—, cada
+    lote entra en su propia transaccion junto a su punto de control, y el paso
+    final lo pasa a `validated` de una vez. Si el proceso se cae en medio, lo que
+    entro esta y el resto se reanuda desde el ultimo lote; si nunca se reanuda,
+    se queda en `staging`, que es la respuesta correcta a «esto esta a medias».
+
+    Devuelve `state='staging'` cuando se agota el presupuesto de tiempo: el
+    llamante continua. Sale en `validated` y jamas en `published`: quien prepara
+    no publica.
+    """
+    started = time.monotonic()
+    with database.session(company_id=company_id, subject_id=subject_id) as connection:
+        context = _preparation_context(
+            connection, company_id=company_id, artifact_id=artifact_id,
+            mapping_version_id=mapping_version_id, release_key=release_key)
+        context["financial_account_id"] = linked_account(
+            connection, data_source_id=context["data_source_id"],
+            financial_account_id=financial_account_id)
+        expected = _count_records(connection, context["run_id"],
+                                  context["mapping"].first_data_row)
+        if expected == 0:
+            raise PreparationError("no-data-rows",
+                                   "the declared range leaves no data rows")
+        if expected > MAX_DATASET_ROWS:
+            raise PreparationError(
+                "dataset-too-large",
+                f"a publication carries at most {MAX_DATASET_ROWS} rows and this "
+                f"one has {expected}")
+        dataset_id, state = _stage_dataset(
+            connection, company_id=company_id, artifact_id=artifact_id,
+            run_id=context["run_id"], mapping_version_id=mapping_version_id,
+            release=context["release"], plan_id=context["plan"]["plan_id"],
+            subject_id=subject_id, expected=expected)
+
+    if state not in ("staging", "draft"):
+        # Ya estaba terminado. Preparar otra vez no duplica nada.
+        with database.session(company_id=company_id,
+                              subject_id=subject_id) as connection:
+            done = load_dataset(connection, dataset_id) or {}
+        return Preparation(dataset_version_id=dataset_id, state=state,
+                           movement_count=int(done.get("movement_count", 0)),
+                           rejected_count=int(done.get("rejected_count", 0)),
+                           record_count=int(done.get("record_count", 0)),
+                           reused=True, rejections=(), complete=True,
+                           expected_record_count=expected)
+
+    return _drive_chunks(database, company_id=company_id, subject_id=subject_id,
+                         dataset_id=dataset_id, context=context, expected=expected,
+                         chunk_size=chunk_size, time_budget=time_budget,
+                         started=started, timezone=timezone, locale=locale)
+
+
+def continue_dataset(database, *, company_id: str, dataset_version_id: str,
+                     subject_id: str, release_key: str = ENGINE_RELEASE_KEY,
+                     chunk_size: int = CHUNK_SIZE,
+                     time_budget: float = PREPARE_BUDGET_SECONDS,
+                     timezone: str = "America/Bogota",
+                     locale: str = "es-CO") -> Preparation:
+    """Sigue una preparacion que se quedo en `staging`. Reanudar es idempotente."""
+    started = time.monotonic()
+    with database.session(company_id=company_id, subject_id=subject_id) as connection:
+        dataset = load_dataset(connection, dataset_version_id)
+        if dataset is None:
+            raise PreparationError("dataset-unknown", "no such dataset version")
+        if dataset["state"] != "staging":
+            return Preparation(
+                dataset_version_id=dataset_version_id, state=dataset["state"],
+                movement_count=dataset["movement_count"],
+                rejected_count=dataset["rejected_count"],
+                record_count=dataset["record_count"], reused=True, rejections=(),
+                complete=dataset["state"] != "staging",
+                expected_record_count=dataset.get("expected_record_count") or 0)
+        context = _preparation_context(
+            connection, company_id=company_id, artifact_id=dataset["artifact_id"],
+            mapping_version_id=dataset["mapping_version_id"],
+            release_key=release_key)
+        context["financial_account_id"] = _account_of(
+            connection, dataset_version_id, context["data_source_id"])
+        expected = dataset.get("expected_record_count") or _count_records(
+            connection, context["run_id"], context["mapping"].first_data_row)
+
+    return _drive_chunks(database, company_id=company_id, subject_id=subject_id,
+                         dataset_id=dataset_version_id, context=context,
+                         expected=expected, chunk_size=chunk_size,
+                         time_budget=time_budget, started=started,
+                         timezone=timezone, locale=locale)
+
+
+def _account_of(connection: psycopg.Connection, dataset_version_id: str,
+                data_source_id: str) -> str:
+    """La cuenta con la que ya se estaba preparando este dataset.
+
+    Reanudar tiene que usar **la misma**: cambiarla a mitad partiria el conjunto
+    entre dos cuentas y ninguna de las dos cuadraria.
+    """
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT financial_account_id FROM fincilia.canonical_movement "
+            "WHERE dataset_version_id = %s LIMIT 1", (dataset_version_id,))
+        row = cursor.fetchone()
+    if row is not None:
+        return str(row[0])
+    return linked_account(connection, data_source_id=data_source_id)
+
+
+def _drive_chunks(database, *, company_id: str, subject_id: str, dataset_id: str,
+                  context: dict[str, Any], expected: int, chunk_size: int,
+                  time_budget: float, started: float, timezone: str,
+                  locale: str) -> Preparation:
+    """El bucle de lotes. Una transaccion por lote y ni una fila de mas en memoria."""
+    rejections: list[dict[str, Any]] = []
+    movements = 0
+    rejected = 0
+    processed = 0
+
+    with database.session(company_id=company_id, subject_id=subject_id) as connection:
+        chunk_ordinal, last_record = _resume_point(connection, dataset_id)
+        if chunk_ordinal == 0:
+            # El sello del artefacto y las decisiones humanas: cardinalidad uno,
+            # asi que se escriben una vez y no por lote.
+            with connection.cursor() as cursor:
+                _seal_artifact(cursor, company_id=company_id,
+                               artifact_id=context["artifact_id"],
+                               artifact_sha256=context["artifact_sha256"],
+                               release=context["release"], run_id=context["run_id"],
+                               subject_id=subject_id, dataset_version_id=dataset_id)
+                _seal_decisions(cursor, company_id=company_id,
+                                decisions=context["decisions"],
+                                dataset_version_id=dataset_id,
+                                release=context["release"], run_id=context["run_id"],
+                                subject_id=subject_id)
+
+    while True:
+        if time.monotonic() - started > time_budget:
+            # Presupuesto agotado. El dataset se queda en `staging`, que es la
+            # respuesta honesta: ni publicado, ni perdido, ni a medias en silencio.
+            return _report(database, company_id=company_id, subject_id=subject_id,
+                           dataset_id=dataset_id, state="staging",
+                           expected=expected, rejections=rejections)
+
+        with database.session(company_id=company_id,
+                              subject_id=subject_id) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT raw_record_id, record_ordinal, raw_values, origin_locator "
+                    "FROM fincilia.raw_record WHERE processing_run_id = %s "
+                    "AND record_ordinal >= %s AND record_ordinal > %s "
+                    "ORDER BY record_ordinal LIMIT %s",
+                    (context["run_id"], context["mapping"].first_data_row,
+                     last_record, chunk_size))
+                rows = cursor.fetchall()
+            if not rows:
+                break
+            accepted, refused, detail = _write_chunk(
+                connection, company_id=company_id, dataset_version_id=dataset_id,
+                chunk_ordinal=chunk_ordinal, rows=rows,
+                mapping=context["mapping"],
+                data_source_id=context["data_source_id"],
+                financial_account_id=context["financial_account_id"],
+                release=context["release"])
+
+        movements += accepted
+        rejected += refused
+        processed += len(rows)
+        # Solo se guardan los primeros rechazos: la cuenta es exacta y la lista es
+        # una muestra. Retener cien mil motivos para ensenar cincuenta es la clase
+        # de detalle que convierte una respuesta en un volcado de memoria.
+        for item in detail:
+            if len(rejections) < MAX_REPORTED_REJECTIONS:
+                rejections.append(item)
+        last_record = int(rows[-1][1])
+        chunk_ordinal += 1
+        del rows
+
+    return _finalise(database, company_id=company_id, subject_id=subject_id,
+                     dataset_id=dataset_id, context=context, expected=expected,
+                     rejections=rejections, timezone=timezone, locale=locale)
+
+
+def _report(database, *, company_id: str, subject_id: str, dataset_id: str,
+            state: str, expected: int,
+            rejections: list[dict[str, Any]]) -> Preparation:
+    """Progreso por conteos, nunca por payload."""
+    with database.session(company_id=company_id, subject_id=subject_id) as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT coalesce(sum(movement_count), 0), "
+                "       coalesce(sum(rejected_count), 0), "
+                "       coalesce(max(last_record), 0), count(*) "
+                "FROM fincilia.dataset_chunk WHERE dataset_version_id = %s",
+                (dataset_id,))
+            movements, rejected, last_record, chunks = cursor.fetchone()
+    return Preparation(
+        dataset_version_id=dataset_id, state=state, movement_count=int(movements),
+        rejected_count=int(rejected), record_count=int(movements) + int(rejected),
+        reused=False, rejections=tuple(rejections), complete=state != "staging",
+        expected_record_count=expected, chunks=int(chunks),
+        last_record=int(last_record))
+
+
+def _movements_digest(connection: psycopg.Connection, dataset_id: str) -> str:
+    """Huella de lo publicado, leida de la base y no de la memoria.
+
+    Se digiere lo que **quedo escrito**, no lo que se pretendia escribir: si un
+    lote no entro, la huella cambia y el manifiesto deja de cuadrar, que es
+    exactamente lo que un manifiesto sirve para detectar.
+
+    Se recorre con un cursor de servidor: cien mil importes no caben en una lista
+    y tampoco hacen falta.
+    """
+    running = hashlib.sha256()
+    name = f"movements_{uuid.uuid4().hex}"
+    with connection.cursor(name=name) as cursor:
+        cursor.itersize = DIGEST_BATCH
+        cursor.execute(
+            "SELECT r.record_ordinal, m.amount, m.currency_code, m.direction, "
+            "       m.occurred_on, m.field_digests "
+            "FROM fincilia.canonical_movement m "
+            "JOIN fincilia.source_record s ON s.source_record_id = m.source_record_id "
+            "JOIN fincilia.raw_record r ON r.raw_record_id = s.raw_record_id "
+            "WHERE m.dataset_version_id = %s ORDER BY r.record_ordinal",
+            (dataset_id,))
+        for ordinal, amount, currency, direction, occurred_on, digests in cursor:
+            running.update(canonical_json({
+                "ordinal": int(ordinal), "amount": f"{amount:.12f}",
+                "currency": currency, "direction": direction,
+                "occurred_on": occurred_on.isoformat(),
+                "fields": digests or {},
+            }).encode("utf-8"))
+    return running.hexdigest()
+
+
+def _finalise(database, *, company_id: str, subject_id: str, dataset_id: str,
+              context: dict[str, Any], expected: int,
+              rejections: list[dict[str, Any]], timezone: str,
+              locale: str) -> Preparation:
+    """El paso que hace visible el conjunto entero, y solo si esta entero.
+
+    Aqui es donde `staging` se convierte en `validated`, en **una** sentencia. No
+    hay ventana en la que medio dataset parezca completo: o los conteos cuadran
+    con lo esperado, o no se pasa.
+    """
+    with database.session(company_id=company_id, subject_id=subject_id) as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT coalesce(sum(movement_count), 0), "
+                "       coalesce(sum(rejected_count), 0), count(*) "
+                "FROM fincilia.dataset_chunk WHERE dataset_version_id = %s",
+                (dataset_id,))
+            movements, rejected, chunks = cursor.fetchone()
+        movements, rejected, chunks = int(movements), int(rejected), int(chunks)
+
+        if movements + rejected != expected:
+            raise PreparationError(
+                "dataset-incomplete",
+                f"the chunks account for {movements + rejected} rows and the "
+                f"document has {expected}; a dataset that does not add up is not "
+                "published")
+        if movements == 0:
+            raise PreparationError("no-mappable-rows",
+                                   "not a single row could be read with this mapping")
+
+        digest = _movements_digest(connection, dataset_id)
+        manifest = {
+            "canonical_schema_version": context["release"]["canonical_schema_version"],
+            "company_id": company_id,
+            "deterministic_config": {
+                "chunk_size": CHUNK_SIZE,
+                "date_format": context["mapping"].date_format,
+                "decimal_format": context["mapping"].decimal_format,
+                "direction_mode": context["mapping"].direction_mode,
+                "first_data_row": context["mapping"].first_data_row,
+                "header_row": context["mapping"].header_row,
+                "lineage_plan_digest": context["plan"]["digest"],
+            },
+            "engine_release_key": context["release"]["release_key"],
+            "input_artifact_sha256": context["artifact_sha256"],
+            "locale": locale,
+            "mapping_definition_digest": context["definition_digest"],
+            "mapping_version_id": context["mapping_version_id"],
+            "random_seed": 0,
+            "source_schema_digest": context["source_schema_digest"],
+            "timezone": timezone,
+        }
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO fincilia.reproducibility_manifest (manifest_id, "
+                "company_id, dataset_version_id, engine_release_id, "
+                "input_artifact_sha256, mapping_version_id, deterministic_config, "
+                "locale, timezone, random_seed, output_digests, reproduction_key) "
+                "VALUES (gen_random_uuid(), %s, %s, %s, %s, %s, %s::jsonb, %s, %s, "
+                "0, %s::jsonb, %s) ON CONFLICT (dataset_version_id) DO NOTHING",
+                (company_id, dataset_id, context["release"]["release_id"],
+                 context["artifact_sha256"] or "0" * 64,
+                 context["mapping_version_id"],
+                 dumps_compact(manifest["deterministic_config"]), locale, timezone,
+                 dumps_compact({"movements": digest, "count": movements}),
+                 reproduction_key(manifest)))
+            cursor.execute(
+                "UPDATE fincilia.dataset_version SET state = 'validated', "
+                "completeness_state = %s, lineage_state = 'complete', "
+                "record_count = %s, movement_count = %s, rejected_count = %s, "
+                "validated_by = %s, validated_at = now() "
+                "WHERE dataset_version_id = %s AND state = 'staging'",
+                ("verified" if rejected == 0 else "mismatch", movements + rejected,
+                 movements, rejected, subject_id, dataset_id))
+
+    return Preparation(
+        dataset_version_id=dataset_id, state="validated", movement_count=movements,
+        rejected_count=rejected, record_count=movements + rejected, reused=False,
+        rejections=tuple(rejections), complete=True, expected_record_count=expected,
+        chunks=chunks, last_record=0)
 
 
 # --------------------------------------------------------------------------- #
@@ -1063,13 +1545,36 @@ def _movement_row(row) -> dict[str, Any]:
     }
 
 
+def load_plan_steps(connection: psycopg.Connection,
+                    plan_id: str) -> tuple[TransformStep, ...]:
+    """Las etapas guardadas de un plan, tal y como se escribieron.
+
+    Se leen de la base y **no** se vuelven a construir del mapeo: reconstruir con
+    el codigo de hoy explicaria lo publicado con reglas que no lo produjeron, que
+    es el `latest` que el manifiesto prohibe con otro nombre.
+    """
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT canonical_field, step_ordinal, stage, operation, "
+            "       input_semantic_type, output_semantic_type, transform_ref, "
+            "       configuration_digest, parser_version, rule_version, source_column "
+            "FROM fincilia.lineage_transform_step WHERE plan_id = %s "
+            "ORDER BY canonical_field, step_ordinal", (plan_id,))
+        return tuple(TransformStep(*row) for row in cursor)
+
+
 def load_movement(connection: psycopg.Connection,
                   movement_id: str) -> dict[str, Any] | None:
-    """Un movimiento con su camino hasta la celda que lo produjo.
+    """Un movimiento con las **seis etapas logicas** de cada campo publicado.
 
     Esto es lo que hace auditable un importe: no «viene de este fichero», sino
-    «viene de la fila 42, columna 3, bytes 1180 a 1236 de este sha256, y la
-    transformacion fue `normalise_amount:comma`».
+    «los bytes de este sha256, la celda de la fila 42 columna 3 en los bytes 1180
+    a 1236, el texto `-1.234,56`, leido como decimal con coma en la etapa
+    `transformed_value`, canonizado y publicado con esta huella».
+
+    El camino se **reconstruye**: el plan pone el como y la fila pone el cual. Si
+    falta cualquiera de las dos partes, `lineage_complete` sale en falso y lo
+    dice, en vez de devolver un camino a medias que parezca entero.
     """
     with connection.cursor() as cursor:
         cursor.execute(
@@ -1077,37 +1582,66 @@ def load_movement(connection: psycopg.Connection,
             "       m.description, m.reference_original, m.occurred_on, "
             "       m.posted_on, m.value_date, m.accounting_date, m.state, "
             "       m.kind, r.record_ordinal, m.dataset_version_id, "
-            "       r.origin_locator, r.raw_values, a.filename, d.state "
+            "       r.origin_locator, r.raw_values, a.filename, d.state, "
+            "       m.field_digests, d.lineage_plan_id, s.source_record_id, "
+            "       r.raw_record_id, e.release_key "
             "FROM fincilia.canonical_movement m "
             "JOIN fincilia.source_record s ON s.source_record_id = m.source_record_id "
             "JOIN fincilia.raw_record r ON r.raw_record_id = s.raw_record_id "
             "JOIN fincilia.source_artifact a ON a.artifact_id = r.artifact_id "
             "JOIN fincilia.dataset_version d "
             "       ON d.dataset_version_id = m.dataset_version_id "
+            "JOIN fincilia.engine_release e ON e.release_id = m.engine_release_id "
             "WHERE m.movement_id = %s", (movement_id,))
         row = cursor.fetchone()
         if row is None:
             return None
-        payload = _movement_row(row)
-        payload.update({
-            "dataset_version_id": str(row[13]),
-            "dataset_state": row[17],
-            "origin": {"filename": row[16], "locator": row[14],
-                       "values": row[15]},
-        })
-        cursor.execute(
-            "SELECT fact.field_name, cell.locator, edge.transform_ref, "
-            "       fact.value_digest, edge.operation "
-            "FROM fincilia.lineage_node fact "
-            "JOIN fincilia.lineage_edge edge ON edge.to_node_id = fact.node_id "
-            "JOIN fincilia.lineage_node cell ON cell.node_id = edge.from_node_id "
-            "WHERE fact.node_type = 'financial_fact_field' AND fact.entity_ref = %s "
-            "AND edge.operation = 'derived_from' ORDER BY fact.field_name",
-            (movement_id,))
-        payload["lineage"] = [
-            {"field": field, "cell": locator, "transform": transform,
-             "value_digest": digest, "operation": operation}
-            for field, locator, transform, digest, operation in cursor]
+
+    payload = _movement_row(row)
+    locator = row[14] or {}
+    digests = row[18] or {}
+    plan_id = str(row[19]) if row[19] else None
+    payload.update({
+        "dataset_version_id": str(row[13]),
+        "dataset_state": row[17],
+        "engine_release": row[22],
+        "origin": {"filename": row[16], "locator": locator, "values": row[15]},
+    })
+
+    if plan_id is None:
+        # Publicado antes de que existiera el plan. Decirlo es mas honesto que
+        # devolver un camino corto y dejar que parezca el contrato entero.
+        payload["lineage"] = []
+        payload["lineage_complete"] = False
+        payload["lineage_reason"] = (
+            "this dataset was published before the transform plan existed and "
+            "cannot reconstruct the six stages")
+        return payload
+
+    steps = load_plan_steps(connection, plan_id)
+    fields = sorted({step.canonical_field for step in steps})
+    reconstructed: dict[str, list[dict[str, Any]]] = {}
+    problems: list[str] = []
+    for field in fields:
+        try:
+            reconstructed[field] = reconstruct(
+                steps, canonical_field=field, origin_locator=locator,
+                raw_record_id=str(row[21]), source_record_id=str(row[20]),
+                movement_id=movement_id, value_digest=digests.get(field))
+        except LineageError as error:
+            problems.append(f"{field}: {error}")
+
+    payload["lineage"] = [
+        {"field": field, "stages": stages,
+         # Lo que la interfaz ensena de un vistazo: donde estaba y como se leyo.
+         "cell": stages[1]["identity"]["cell"],
+         "transform": stages[3]["transform_ref"],
+         "value_digest": stages[5]["identity"]["value_digest"],
+         "operation": stages[5]["operation"]}
+        for field, stages in sorted(reconstructed.items())]
+    payload["lineage_complete"] = not problems and bool(reconstructed)
+    if problems:
+        payload["lineage_reason"] = "; ".join(problems)
     return payload
 
 

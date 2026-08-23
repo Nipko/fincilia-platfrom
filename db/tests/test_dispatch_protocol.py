@@ -220,7 +220,14 @@ class DispatchProtocolTests(unittest.TestCase):
                 "FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace "
                 "WHERE n.nspname = 'fincilia'")
             rows = cursor.fetchall()
-        self.assertEqual(4, len(rows))
+        # Se nombran en vez de contarse: anadir una funcion al esquema tiene que
+        # ser un acto deliberado que actualice esta lista, no algo que un numero
+        # deje pasar. `engine_release_is_frozen` es un disparador y no una puerta
+        # de entrada, y aun asi se le exige lo mismo.
+        self.assertEqual(
+            {"enqueue_processing_run", "claim_next_run", "finish_run",
+             "send_to_dead_letter", "engine_release_is_frozen"},
+            {name for name, _, _ in rows})
         for name, missing_acl, public in rows:
             with self.subTest(function=name):
                 self.assertFalse(missing_acl, f"{name} has no ACL, so PUBLIC may execute it")

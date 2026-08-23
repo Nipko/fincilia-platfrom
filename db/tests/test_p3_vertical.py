@@ -139,6 +139,98 @@ def approve_fixture_release(key: str | None = None) -> str:
     return release_key
 
 
+def purge(created: set[str]) -> None:
+    """Borra lo que subio una suite, en el orden que fija la clave ajena.
+
+    Ninguna lleva `ON DELETE CASCADE`: que borrar un dataset se llevara por
+    delante su evidencia sin decirlo es justo lo que `ON DELETE RESTRICT`
+    existe para impedir, y por eso el orden es explicito.
+    """
+    if not created:
+        return
+        statements = (
+        "DELETE FROM fincilia.lineage_edge WHERE processing_run_id IN ("
+        " SELECT run_id FROM fincilia.processing_run WHERE artifact_id IN ("
+        "  SELECT artifact_id FROM fincilia.source_artifact"
+        "  WHERE content_sha256 = ANY(%s)))",
+        "DELETE FROM fincilia.lineage_node WHERE entity_ref IN ("
+        " SELECT movement_id FROM fincilia.canonical_movement WHERE"
+        " dataset_version_id IN (SELECT dataset_version_id"
+        "  FROM fincilia.dataset_version WHERE artifact_id IN ("
+        "   SELECT artifact_id FROM fincilia.source_artifact"
+        "   WHERE content_sha256 = ANY(%s))))",
+        "DELETE FROM fincilia.lineage_node WHERE entity_ref IN ("
+        " SELECT raw_record_id FROM fincilia.raw_record WHERE artifact_id IN ("
+        "  SELECT artifact_id FROM fincilia.source_artifact"
+        "  WHERE content_sha256 = ANY(%s)))",
+        "DELETE FROM fincilia.lineage_node WHERE entity_ref IN ("
+        " SELECT artifact_id FROM fincilia.source_artifact"
+        " WHERE content_sha256 = ANY(%s))",
+        "DELETE FROM fincilia.movement_evidence_link WHERE movement_id IN ("
+        " SELECT movement_id FROM fincilia.canonical_movement"
+        " WHERE dataset_version_id IN (SELECT dataset_version_id"
+        "  FROM fincilia.dataset_version WHERE artifact_id IN ("
+        "   SELECT artifact_id FROM fincilia.source_artifact"
+        "   WHERE content_sha256 = ANY(%s))))",
+        "DELETE FROM fincilia.canonical_movement WHERE dataset_version_id IN ("
+        " SELECT dataset_version_id FROM fincilia.dataset_version"
+        " WHERE artifact_id IN (SELECT artifact_id FROM fincilia.source_artifact"
+        "  WHERE content_sha256 = ANY(%s)))",
+        "DELETE FROM fincilia.source_record WHERE dataset_version_id IN ("
+        " SELECT dataset_version_id FROM fincilia.dataset_version"
+        " WHERE artifact_id IN (SELECT artifact_id FROM fincilia.source_artifact"
+        "  WHERE content_sha256 = ANY(%s)))",
+        "DELETE FROM fincilia.reproducibility_manifest WHERE dataset_version_id IN ("
+        " SELECT dataset_version_id FROM fincilia.dataset_version"
+        " WHERE artifact_id IN (SELECT artifact_id FROM fincilia.source_artifact"
+        "  WHERE content_sha256 = ANY(%s)))",
+        "DELETE FROM fincilia.dataset_version WHERE artifact_id IN ("
+        " SELECT artifact_id FROM fincilia.source_artifact"
+        " WHERE content_sha256 = ANY(%s))",
+        "DELETE FROM fincilia.mapping_decision WHERE mapping_version_id IN ("
+        " SELECT mapping_version_id FROM fincilia.column_mapping_version"
+        " WHERE artifact_id IN (SELECT artifact_id FROM fincilia.source_artifact"
+        "  WHERE content_sha256 = ANY(%s)))",
+        "DELETE FROM fincilia.column_mapping_version WHERE artifact_id IN ("
+        " SELECT artifact_id FROM fincilia.source_artifact"
+        " WHERE content_sha256 = ANY(%s))",
+        "DELETE FROM fincilia.column_mapping WHERE mapping_id NOT IN ("
+        " SELECT mapping_id FROM fincilia.column_mapping_version)",
+        "DELETE FROM fincilia.raw_record WHERE artifact_id IN ("
+        " SELECT artifact_id FROM fincilia.source_artifact"
+        " WHERE content_sha256 = ANY(%s))",
+        "DELETE FROM fincilia.dispatch_pointer WHERE run_id IN ("
+        " SELECT run_id FROM fincilia.processing_run WHERE artifact_id IN ("
+        "  SELECT artifact_id FROM fincilia.source_artifact"
+        "  WHERE content_sha256 = ANY(%s)))",
+        "DELETE FROM fincilia.run_attempt WHERE run_id IN ("
+        " SELECT run_id FROM fincilia.processing_run WHERE artifact_id IN ("
+        "  SELECT artifact_id FROM fincilia.source_artifact"
+        "  WHERE content_sha256 = ANY(%s)))",
+        "DELETE FROM fincilia.dead_letter_item WHERE work_id IN ("
+        " SELECT run_id FROM fincilia.processing_run WHERE artifact_id IN ("
+        "  SELECT artifact_id FROM fincilia.source_artifact"
+        "  WHERE content_sha256 = ANY(%s)))",
+        "DELETE FROM fincilia.processing_run WHERE artifact_id IN ("
+        " SELECT artifact_id FROM fincilia.source_artifact"
+        " WHERE content_sha256 = ANY(%s))",
+        "DELETE FROM fincilia.promotion_decision WHERE artifact_id IN ("
+        " SELECT artifact_id FROM fincilia.source_artifact"
+        " WHERE content_sha256 = ANY(%s))",
+        "DELETE FROM fincilia.source_artifact WHERE content_sha256 = ANY(%s)",
+    )
+    keys = list(created)
+    with psycopg.connect(MIGRATOR_DSN, autocommit=True) as connection:
+        with connection.cursor() as cursor:
+            for company in (ESPIGA, ANDINOS):
+                cursor.execute(
+                    "SELECT set_config('fincilia.company_id', %s, false)",
+                    (company,))
+                for statement in statements:
+                    cursor.execute(statement,
+                                   () if "%s" not in statement else (keys,))
+
+
 class VerticalHarness(unittest.TestCase):
     """Montaje compartido: sembrar, arrancar la API y ejercer el worker.
 
@@ -171,92 +263,7 @@ class VerticalHarness(unittest.TestCase):
     @classmethod
     def tearDownClass(cls) -> None:
         cls.client.__exit__(None, None, None)
-        if not cls.created:
-            return
-        # El orden lo fija la clave ajena, y ninguna lleva ON DELETE CASCADE: que
-        # borrar un dataset se llevara por delante su evidencia sin decirlo es
-        # justo lo que `ON DELETE RESTRICT` existe para impedir.
-        statements = (
-            "DELETE FROM fincilia.lineage_edge WHERE processing_run_id IN ("
-            " SELECT run_id FROM fincilia.processing_run WHERE artifact_id IN ("
-            "  SELECT artifact_id FROM fincilia.source_artifact"
-            "  WHERE content_sha256 = ANY(%s)))",
-            "DELETE FROM fincilia.lineage_node WHERE entity_ref IN ("
-            " SELECT movement_id FROM fincilia.canonical_movement WHERE"
-            " dataset_version_id IN (SELECT dataset_version_id"
-            "  FROM fincilia.dataset_version WHERE artifact_id IN ("
-            "   SELECT artifact_id FROM fincilia.source_artifact"
-            "   WHERE content_sha256 = ANY(%s))))",
-            "DELETE FROM fincilia.lineage_node WHERE entity_ref IN ("
-            " SELECT raw_record_id FROM fincilia.raw_record WHERE artifact_id IN ("
-            "  SELECT artifact_id FROM fincilia.source_artifact"
-            "  WHERE content_sha256 = ANY(%s)))",
-            "DELETE FROM fincilia.lineage_node WHERE entity_ref IN ("
-            " SELECT artifact_id FROM fincilia.source_artifact"
-            " WHERE content_sha256 = ANY(%s))",
-            "DELETE FROM fincilia.movement_evidence_link WHERE movement_id IN ("
-            " SELECT movement_id FROM fincilia.canonical_movement"
-            " WHERE dataset_version_id IN (SELECT dataset_version_id"
-            "  FROM fincilia.dataset_version WHERE artifact_id IN ("
-            "   SELECT artifact_id FROM fincilia.source_artifact"
-            "   WHERE content_sha256 = ANY(%s))))",
-            "DELETE FROM fincilia.canonical_movement WHERE dataset_version_id IN ("
-            " SELECT dataset_version_id FROM fincilia.dataset_version"
-            " WHERE artifact_id IN (SELECT artifact_id FROM fincilia.source_artifact"
-            "  WHERE content_sha256 = ANY(%s)))",
-            "DELETE FROM fincilia.source_record WHERE dataset_version_id IN ("
-            " SELECT dataset_version_id FROM fincilia.dataset_version"
-            " WHERE artifact_id IN (SELECT artifact_id FROM fincilia.source_artifact"
-            "  WHERE content_sha256 = ANY(%s)))",
-            "DELETE FROM fincilia.reproducibility_manifest WHERE dataset_version_id IN ("
-            " SELECT dataset_version_id FROM fincilia.dataset_version"
-            " WHERE artifact_id IN (SELECT artifact_id FROM fincilia.source_artifact"
-            "  WHERE content_sha256 = ANY(%s)))",
-            "DELETE FROM fincilia.dataset_version WHERE artifact_id IN ("
-            " SELECT artifact_id FROM fincilia.source_artifact"
-            " WHERE content_sha256 = ANY(%s))",
-            "DELETE FROM fincilia.mapping_decision WHERE mapping_version_id IN ("
-            " SELECT mapping_version_id FROM fincilia.column_mapping_version"
-            " WHERE artifact_id IN (SELECT artifact_id FROM fincilia.source_artifact"
-            "  WHERE content_sha256 = ANY(%s)))",
-            "DELETE FROM fincilia.column_mapping_version WHERE artifact_id IN ("
-            " SELECT artifact_id FROM fincilia.source_artifact"
-            " WHERE content_sha256 = ANY(%s))",
-            "DELETE FROM fincilia.column_mapping WHERE mapping_id NOT IN ("
-            " SELECT mapping_id FROM fincilia.column_mapping_version)",
-            "DELETE FROM fincilia.raw_record WHERE artifact_id IN ("
-            " SELECT artifact_id FROM fincilia.source_artifact"
-            " WHERE content_sha256 = ANY(%s))",
-            "DELETE FROM fincilia.dispatch_pointer WHERE run_id IN ("
-            " SELECT run_id FROM fincilia.processing_run WHERE artifact_id IN ("
-            "  SELECT artifact_id FROM fincilia.source_artifact"
-            "  WHERE content_sha256 = ANY(%s)))",
-            "DELETE FROM fincilia.run_attempt WHERE run_id IN ("
-            " SELECT run_id FROM fincilia.processing_run WHERE artifact_id IN ("
-            "  SELECT artifact_id FROM fincilia.source_artifact"
-            "  WHERE content_sha256 = ANY(%s)))",
-            "DELETE FROM fincilia.dead_letter_item WHERE work_id IN ("
-            " SELECT run_id FROM fincilia.processing_run WHERE artifact_id IN ("
-            "  SELECT artifact_id FROM fincilia.source_artifact"
-            "  WHERE content_sha256 = ANY(%s)))",
-            "DELETE FROM fincilia.processing_run WHERE artifact_id IN ("
-            " SELECT artifact_id FROM fincilia.source_artifact"
-            " WHERE content_sha256 = ANY(%s))",
-            "DELETE FROM fincilia.promotion_decision WHERE artifact_id IN ("
-            " SELECT artifact_id FROM fincilia.source_artifact"
-            " WHERE content_sha256 = ANY(%s))",
-            "DELETE FROM fincilia.source_artifact WHERE content_sha256 = ANY(%s)",
-        )
-        keys = list(cls.created)
-        with psycopg.connect(MIGRATOR_DSN, autocommit=True) as connection:
-            with connection.cursor() as cursor:
-                for company in (ESPIGA, ANDINOS):
-                    cursor.execute(
-                        "SELECT set_config('fincilia.company_id', %s, false)",
-                        (company,))
-                    for statement in statements:
-                        cursor.execute(statement,
-                                       () if "%s" not in statement else (keys,))
+        purge(cls.created)
 
     # ---------------------------------------------------------------- helpers #
 

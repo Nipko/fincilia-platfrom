@@ -15,7 +15,7 @@ import time
 
 import psycopg
 
-from fastapi import APIRouter, Depends, File, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Request, Response, UploadFile
 from pydantic import BaseModel, ConfigDict, Field
 
 from fincilia_contracts.ingestion import MAX_UPLOAD_BYTES, RejectedUpload, admit
@@ -680,8 +680,14 @@ def validate_mapping(request: Request, company_id: str, mapping_version_id: str,
 
 @router.post("/companies/{company_id}/datasets", tags=["datasets"], status_code=201)
 def prepare_dataset(request: Request, company_id: str, body: DatasetRequest,
+                    response: Response,
                     principal: Principal = Depends(principal_dependency)) -> dict:
-    """Convierte las filas extraidas en movimientos canonicos.
+    """Convierte las filas extraidas en movimientos canonicos, por lotes.
+
+    Devuelve **201** cuando el conjunto entero cabe en el presupuesto de tiempo, y
+    **202** cuando no: entonces queda en `staging` —invisible como publicado— y se
+    continua con `/continue`. Una peticion que durara minutos retendria una
+    conexion del pool y no le serviria a nadie.
 
     Sale en `validated`, nunca en `published`: publicarlo es de otra persona.
     """
@@ -691,20 +697,23 @@ def prepare_dataset(request: Request, company_id: str, body: DatasetRequest,
     with database.session(company_id=context.company_id,
                           subject_id=principal.subject_id) as connection:
         _artifact_or_forbidden(connection, body.artifact_id)
-        try:
-            prepared = datasets.prepare_dataset(
-                connection, company_id=context.company_id,
-                artifact_id=body.artifact_id,
-                mapping_version_id=body.mapping_version_id,
-                financial_account_id=body.financial_account_id,
-                subject_id=principal.subject_id,
-                release_key=request.app.state.settings.engine_release_key)
-        except datasets.PreparationError as error:
-            raise _preparation_problem(error) from None
-        except psycopg.errors.ForeignKeyViolation:
-            # Una cuenta o una fuente de otra empresa. Indistinguible de que no
-            # exista, por la misma razon de siempre.
-            raise forbidden() from None
+
+    try:
+        prepared = datasets.prepare_dataset(
+            database, company_id=context.company_id, artifact_id=body.artifact_id,
+            mapping_version_id=body.mapping_version_id,
+            financial_account_id=body.financial_account_id,
+            subject_id=principal.subject_id,
+            release_key=request.app.state.settings.engine_release_key)
+    except datasets.PreparationError as error:
+        raise _preparation_problem(error) from None
+    except psycopg.errors.ForeignKeyViolation:
+        # Una cuenta o una fuente de otra empresa. Indistinguible de que no
+        # exista, por la misma razon de siempre.
+        raise forbidden() from None
+
+    with database.session(company_id=context.company_id,
+                          subject_id=principal.subject_id) as connection:
         repository.record_audit(
             connection, subject_id=principal.subject_id,
             company_id=context.company_id, action="dataset.prepare",
@@ -712,12 +721,35 @@ def prepare_dataset(request: Request, company_id: str, body: DatasetRequest,
             outcome="allowed",
             detail={"movements": prepared.movement_count,
                     "rejected": prepared.rejected_count,
-                    "reused": prepared.reused})
-    return {"dataset_version_id": prepared.dataset_version_id,
-            "state": prepared.state, "movement_count": prepared.movement_count,
-            "rejected_count": prepared.rejected_count,
-            "record_count": prepared.record_count, "reused": prepared.reused,
-            "rejections": list(prepared.rejections)}
+                    "chunks": prepared.chunks, "complete": prepared.complete})
+    response.status_code = 201 if prepared.complete else 202
+    return prepared.as_dict()
+
+
+@router.post("/companies/{company_id}/datasets/{dataset_version_id}/continue",
+             tags=["datasets"])
+def continue_dataset(request: Request, company_id: str, dataset_version_id: str,
+                     response: Response,
+                     principal: Principal = Depends(principal_dependency)) -> dict:
+    """Sigue una preparacion que se quedo en `staging`.
+
+    Reanudar es idempotente: los lotes que ya entraron no se repiten, porque su
+    fila de control entro con ellos y lo que no figura es lo que no ocurrio.
+    """
+    context = company_context(request, principal, company_id)
+    require(context, "dataset.map")
+    database = request.app.state.database
+    try:
+        prepared = datasets.continue_dataset(
+            database, company_id=context.company_id,
+            dataset_version_id=dataset_version_id, subject_id=principal.subject_id,
+            release_key=request.app.state.settings.engine_release_key)
+    except datasets.PreparationError as error:
+        if error.code == "dataset-unknown":
+            raise forbidden() from None
+        raise _preparation_problem(error) from None
+    response.status_code = 200 if prepared.complete else 202
+    return prepared.as_dict()
 
 
 @router.get("/companies/{company_id}/datasets", tags=["datasets"])
