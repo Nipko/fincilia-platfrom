@@ -1,174 +1,382 @@
 {
-  "schema_version": "1.0.0",
-  "task": "FNC-ARC-006",
-  "status": "review_pending",
-  "data_ceiling": "synthetic_only",
-  "human_acceptance": "pending",
-  "agent_may_accept": false,
-  "required_s1_adrs": ["ADR-001", "ADR-002", "ADR-003", "ADR-004", "ADR-005", "ADR-006", "ADR-007", "ADR-008", "ADR-009", "ADR-010", "ADR-023"],
-  "allowed_readiness": ["documented", "conditional", "blocked"],
-  "release_rule": {
-    "gate": "S1-READY",
-    "state": "not_met",
-    "requires_no_blocked_core": true,
-    "requires_assigned_human_owners": true,
-    "requires_independent_reviews": true,
-    "requires_evidence_refs": true
-  },
   "adrs": [
     {
+      "blockers": [
+        "human_stack_ratification",
+        "named_owner_assignment"
+      ],
+      "evidence": [
+        "docs/implementation/evidence/FNC-PLT-001/README.md"
+      ],
       "id": "ADR-001",
+      "owners": [
+        "Architecture"
+      ],
       "path": "docs/adr/ADR-001-modular-monolith-workers.md",
       "readiness": "conditional",
-      "scope": "scaffolding_and_spikes",
-      "owners": ["Architecture"],
-      "reviewers": ["Platform", "Security"],
-      "evidence": ["docs/implementation/evidence/FNC-PLT-001/README.md"],
-      "blockers": ["human_stack_ratification", "named_owner_assignment"]
+      "reviewers": [
+        "Platform",
+        "Security"
+      ],
+      "scope": "scaffolding_and_spikes"
     },
     {
+      "blockers": [
+        "migration_tool_decision",
+        "transaction_wrapper_contract",
+        "named_owner_assignment"
+      ],
+      "evidence": [
+        "docs/implementation/evidence/FNC-PLT-001/README.md"
+      ],
       "id": "ADR-002",
+      "owners": [
+        "Architecture",
+        "Security"
+      ],
       "path": "docs/adr/ADR-002-postgresql-rls.md",
       "readiness": "blocked",
-      "scope": "spike_only",
-      "owners": ["Architecture", "Security"],
-      "reviewers": ["Platform"],
-      "evidence": ["docs/implementation/evidence/FNC-PLT-001/README.md"],
-      "blockers": ["migration_tool_decision", "transaction_wrapper_contract", "named_owner_assignment"]
+      "reviewers": [
+        "Platform"
+      ],
+      "scope": "spike_only"
     },
     {
+      "blockers": [
+        "named_owner_assignment",
+        "independent_review"
+      ],
+      "evidence": [
+        "docs/domain/TENANCY_MODEL.md"
+      ],
       "id": "ADR-003",
+      "owners": [
+        "Architecture",
+        "Product",
+        "Legal"
+      ],
       "path": "docs/adr/ADR-003-organization-company-engagement.md",
       "readiness": "conditional",
-      "scope": "domain_contract",
-      "owners": ["Architecture", "Product", "Legal"],
-      "reviewers": ["Security", "Privacy"],
-      "evidence": ["docs/domain/TENANCY_MODEL.md"],
-      "blockers": ["named_owner_assignment", "independent_review"]
+      "reviewers": [
+        "Security",
+        "Privacy"
+      ],
+      "scope": "domain_contract"
     },
     {
+      "blockers": [
+        "L-01",
+        "cloud_region_A-02",
+        "named_owner_assignment"
+      ],
+      "evidence": [
+        "docs/architecture/cross-contract-vocabulary.json"
+      ],
       "id": "ADR-004",
+      "owners": [
+        "Architecture",
+        "Security",
+        "Privacy"
+      ],
       "path": "docs/adr/ADR-004-object-storage-evidence-zones.md",
       "readiness": "conditional",
-      "scope": "local_contract_only",
-      "owners": ["Architecture", "Security", "Privacy"],
-      "reviewers": ["Legal", "Platform"],
-      "evidence": ["docs/architecture/cross-contract-vocabulary.json"],
-      "blockers": ["L-01", "cloud_region_A-02", "named_owner_assignment"]
+      "reviewers": [
+        "Legal",
+        "Platform"
+      ],
+      "scope": "local_contract_only"
     },
     {
+      "blockers": [
+        "named_owner_assignment",
+        "locator_storage_decision"
+      ],
+      "evidence": [
+        "docs/domain/lineage-model.json"
+      ],
       "id": "ADR-005",
+      "owners": [
+        "Data",
+        "Accounting"
+      ],
       "path": "docs/adr/ADR-005-field-lineage.md",
       "readiness": "conditional",
-      "scope": "domain_contract",
-      "owners": ["Data", "Accounting"],
-      "reviewers": ["Architecture", "Privacy"],
-      "evidence": ["docs/domain/lineage-model.json"],
-      "blockers": ["named_owner_assignment", "locator_storage_decision"]
+      "reviewers": [
+        "Architecture",
+        "Privacy"
+      ],
+      "scope": "domain_contract"
     },
     {
+      "blockers": [
+        "named_owner_assignment",
+        "overlay_sod_review"
+      ],
+      "evidence": [
+        "docs/domain/lineage-model.json"
+      ],
       "id": "ADR-006",
+      "owners": [
+        "Data",
+        "Product"
+      ],
       "path": "docs/adr/ADR-006-recipes-overlays.md",
       "readiness": "conditional",
-      "scope": "domain_contract",
-      "owners": ["Data", "Product"],
-      "reviewers": ["Accounting", "Security"],
-      "evidence": ["docs/domain/lineage-model.json"],
-      "blockers": ["named_owner_assignment", "overlay_sod_review"]
+      "reviewers": [
+        "Accounting",
+        "Security"
+      ],
+      "scope": "domain_contract"
     },
     {
+      "blockers": [
+        "queue_selection",
+        "named_owner_assignment"
+      ],
+      "evidence": [
+        "docs/architecture/events-retries.json",
+        "spikes/FNC-PLT-005"
+      ],
       "id": "ADR-007",
+      "owners": [
+        "Architecture",
+        "Platform"
+      ],
       "path": "docs/adr/ADR-007-outbox-retry.md",
       "readiness": "conditional",
-      "scope": "pattern_and_spike",
-      "owners": ["Architecture", "Platform"],
-      "reviewers": ["Security", "Data"],
-      "evidence": ["docs/architecture/events-retries.json", "spikes/FNC-PLT-005"],
-      "blockers": ["queue_selection", "named_owner_assignment"]
+      "reviewers": [
+        "Security",
+        "Data"
+      ],
+      "scope": "pattern_and_spike"
     },
     {
+      "blockers": [
+        "provider_and_cost_decision",
+        "named_owner_assignment"
+      ],
+      "evidence": [
+        "docs/architecture/events-retries.json"
+      ],
       "id": "ADR-008",
+      "owners": [
+        "Architecture",
+        "Platform"
+      ],
       "path": "docs/adr/ADR-008-temporal-execution.md",
       "readiness": "conditional",
-      "scope": "pattern_only",
-      "owners": ["Architecture", "Platform"],
-      "reviewers": ["Security", "Finance"],
-      "evidence": ["docs/architecture/events-retries.json"],
-      "blockers": ["provider_and_cost_decision", "named_owner_assignment"]
+      "reviewers": [
+        "Security",
+        "Finance"
+      ],
+      "scope": "pattern_only"
     },
     {
+      "blockers": [
+        "DRG-01",
+        "eval_dataset",
+        "named_owner_assignment"
+      ],
+      "evidence": [
+        "docs/security/threat-model.json"
+      ],
       "id": "ADR-009",
+      "owners": [
+        "Security",
+        "ML",
+        "Privacy"
+      ],
       "path": "docs/adr/ADR-009-ai-gateway.md",
       "readiness": "conditional",
-      "scope": "prohibitions_only_until_phase_4",
-      "owners": ["Security", "ML", "Privacy"],
-      "reviewers": ["Legal", "Accounting"],
-      "evidence": ["docs/security/threat-model.json"],
-      "blockers": ["DRG-01", "eval_dataset", "named_owner_assignment"]
+      "reviewers": [
+        "Legal",
+        "Accounting"
+      ],
+      "scope": "prohibitions_only_until_phase_4"
     },
     {
+      "blockers": [
+        "human_usability_review",
+        "named_owner_assignment"
+      ],
+      "evidence": [
+        "docs/ux/INFORMATION_ARCHITECTURE.md",
+        "docs/ux/prototypes/index.html"
+      ],
       "id": "ADR-010",
+      "owners": [
+        "Product",
+        "UX",
+        "Mobile",
+        "Security"
+      ],
       "path": "docs/adr/ADR-010-web-mobile-boundary.md",
       "readiness": "conditional",
-      "scope": "ux_contract",
-      "owners": ["Product", "UX", "Mobile", "Security"],
-      "reviewers": ["Accounting", "Accessibility"],
-      "evidence": ["docs/ux/INFORMATION_ARCHITECTURE.md", "docs/ux/prototypes/index.html"],
-      "blockers": ["human_usability_review", "named_owner_assignment"]
+      "reviewers": [
+        "Accounting",
+        "Accessibility"
+      ],
+      "scope": "ux_contract"
     },
     {
+      "blockers": [
+        "named_owner_assignment",
+        "accounting_review"
+      ],
+      "evidence": [
+        "docs/domain/completeness-balances.json"
+      ],
       "id": "ADR-014",
+      "owners": [
+        "Accounting",
+        "Data",
+        "Product"
+      ],
       "path": "docs/adr/ADR-014-completeness-balances.md",
       "readiness": "conditional",
-      "scope": "domain_contract",
-      "owners": ["Accounting", "Data", "Product"],
-      "reviewers": ["Architecture"],
-      "evidence": ["docs/domain/completeness-balances.json"],
-      "blockers": ["named_owner_assignment", "accounting_review"]
+      "reviewers": [
+        "Architecture"
+      ],
+      "scope": "domain_contract"
     },
     {
+      "blockers": [
+        "named_owner_assignment",
+        "accounting_review"
+      ],
+      "evidence": [
+        "docs/domain/idempotency-dedupe.json"
+      ],
       "id": "ADR-015",
+      "owners": [
+        "Data",
+        "Accounting"
+      ],
       "path": "docs/adr/ADR-015-safe-deduplication.md",
       "readiness": "conditional",
-      "scope": "domain_contract",
-      "owners": ["Data", "Accounting"],
-      "reviewers": ["Architecture", "Security"],
-      "evidence": ["docs/domain/idempotency-dedupe.json"],
-      "blockers": ["named_owner_assignment", "accounting_review"]
+      "reviewers": [
+        "Architecture",
+        "Security"
+      ],
+      "scope": "domain_contract"
     },
     {
+      "blockers": [
+        "A02-G01..G10",
+        "human_region_decision",
+        "provider_contracts"
+      ],
+      "evidence": [
+        "docs/architecture/region-transmission-decision.json"
+      ],
       "id": "ADR-020",
+      "owners": [
+        "Architecture",
+        "Legal"
+      ],
       "path": "docs/adr/ADR-020-region-transmission-subprocessors.md",
       "readiness": "blocked",
-      "scope": "no_cloud_authorization",
-      "owners": ["Architecture", "Legal"],
-      "reviewers": ["Privacy", "Security", "Platform", "Finance"],
-      "evidence": ["docs/architecture/region-transmission-decision.json"],
-      "blockers": ["A02-G01..G10", "human_region_decision", "provider_contracts"]
+      "reviewers": [
+        "Privacy",
+        "Security",
+        "Platform",
+        "Finance"
+      ],
+      "scope": "no_cloud_authorization"
     },
     {
+      "blockers": [
+        "platform_security_ratification",
+        "build_pipeline",
+        "named_owner_assignment"
+      ],
+      "evidence": [
+        "docs/domain/lineage-model.json",
+        "docs/architecture/cross-contract-vocabulary.json"
+      ],
       "id": "ADR-023",
+      "owners": [
+        "Architecture",
+        "Data",
+        "Security"
+      ],
       "path": "docs/adr/ADR-023-engine-release.md",
       "readiness": "conditional",
-      "scope": "release_contract",
-      "owners": ["Architecture", "Data", "Security"],
-      "reviewers": ["Platform", "QA"],
-      "evidence": ["docs/domain/lineage-model.json", "docs/architecture/cross-contract-vocabulary.json"],
-      "blockers": ["platform_security_ratification", "build_pipeline", "named_owner_assignment"]
+      "reviewers": [
+        "Platform",
+        "QA"
+      ],
+      "scope": "release_contract"
+    },
+    {
+      "blockers": [
+        "named_owner_assignment",
+        "data_architecture_ratification",
+        "lineage_contract_amendment"
+      ],
+      "evidence": [
+        "docs/domain/lineage-model.json",
+        "docs/implementation/handoffs/FNC-P3.md",
+        "db/migrations/V0009__onboarding_release_gate_and_lineage_plan.sql"
+      ],
+      "id": "ADR-024",
+      "owners": [
+        "Data",
+        "Architecture"
+      ],
+      "path": "docs/adr/ADR-024-lineage-logical-vs-physical.md",
+      "readiness": "blocked",
+      "reviewers": [
+        "Security",
+        "QA"
+      ],
+      "scope": "lineage_representation"
     }
   ],
+  "agent_may_accept": false,
+  "allowed_readiness": [
+    "documented",
+    "conditional",
+    "blocked"
+  ],
+  "data_ceiling": "synthetic_only",
   "decisions": [
     {
       "id": "ADR-RDY-001",
-      "state": "pending_human",
       "owner": "Architecture",
-      "question": "Ratificar el stack y asignar owners nominales para ADR-001..010 y ADR-023"
+      "question": "Ratificar el stack y asignar owners nominales para ADR-001..010 y ADR-023",
+      "state": "pending_human"
     },
     {
       "id": "ADR-RDY-002",
-      "state": "pending_human",
       "owner": "Architecture + Security + Platform",
-      "question": "Cerrar herramienta de migración y wrapper transaccional de ADR-002"
+      "question": "Cerrar herramienta de migración y wrapper transaccional de ADR-002",
+      "state": "pending_human"
     }
-  ]
+  ],
+  "human_acceptance": "pending",
+  "release_rule": {
+    "gate": "S1-READY",
+    "requires_assigned_human_owners": true,
+    "requires_evidence_refs": true,
+    "requires_independent_reviews": true,
+    "requires_no_blocked_core": true,
+    "state": "not_met"
+  },
+  "required_s1_adrs": [
+    "ADR-001",
+    "ADR-002",
+    "ADR-003",
+    "ADR-004",
+    "ADR-005",
+    "ADR-006",
+    "ADR-007",
+    "ADR-008",
+    "ADR-009",
+    "ADR-010",
+    "ADR-023"
+  ],
+  "schema_version": "1.0.0",
+  "status": "review_pending",
+  "task": "FNC-ARC-006"
 }

@@ -697,7 +697,8 @@ def prepare_dataset(request: Request, company_id: str, body: DatasetRequest,
                 artifact_id=body.artifact_id,
                 mapping_version_id=body.mapping_version_id,
                 financial_account_id=body.financial_account_id,
-                subject_id=principal.subject_id)
+                subject_id=principal.subject_id,
+                release_key=request.app.state.settings.engine_release_key)
         except datasets.PreparationError as error:
             raise _preparation_problem(error) from None
         except psycopg.errors.ForeignKeyViolation:
@@ -791,7 +792,8 @@ def publish_dataset(request: Request, company_id: str, dataset_version_id: str,
                 company_id=context.company_id, action="dataset.publish",
                 resource_kind="dataset", resource_ref=dataset_version_id,
                 outcome="denied", detail={"reason": refusal.code})
-        status = 409 if refusal.code == "segregation-of-duties" else 422
+        status = 409 if refusal.code in (
+            "segregation-of-duties", "engine-release-not-approved") else 422
         raise ProblemError(problem(refusal.code, "The dataset cannot be published",
                                    status, refusal.detail))
     return published

@@ -400,21 +400,65 @@ def blockers_for(mapping: ColumnMapping, profile: dict[str, Any],
 # Preparacion
 # --------------------------------------------------------------------------- #
 
-def _release(connection: psycopg.Connection) -> dict[str, Any]:
-    """La version del motor con la que se publica. Nunca `latest`."""
+def approved_release(connection: psycopg.Connection,
+                     release_key: str = ENGINE_RELEASE_KEY) -> dict[str, Any]:
+    """La version del motor con la que se puede publicar hoy.
+
+    Cuatro cosas tienen que darse, y ninguna es opcional:
+
+    * la release existe y se llama por su nombre, nunca `latest`;
+    * su estado es `approved`. `draft` no publica —nadie ha mirado que produce— y
+      `superseded` tampoco: reproduce lo que ya salio de ella, pero no empieza
+      nada nuevo;
+    * tiene referencia de aprobacion, que es quien responde de ella;
+    * **lo aprobado es lo que corre.** Si los componentes cambiaron despues de la
+      firma, la firma cubria otra cosa. Un disparador de la base lo impide, y
+      esto lo vuelve a comprobar al leer: una integridad que solo se comprueba en
+      un sitio es una integridad que se pierde el dia que ese sitio falla.
+    """
     with connection.cursor() as cursor:
         cursor.execute(
-            "SELECT release_id, release_key, canonical_schema_version "
-            "FROM fincilia.engine_release WHERE release_key = %s",
-            (ENGINE_RELEASE_KEY,))
+            "SELECT r.release_id, r.release_key, r.canonical_schema_version, "
+            "       r.state, r.approval_ref, r.components, a.components_digest, "
+            "       a.actor_identity, a.occurred_at "
+            "FROM fincilia.engine_release r "
+            "LEFT JOIN fincilia.release_approval a "
+            "       ON a.release_id = r.release_id AND a.action = 'approved' "
+            "WHERE r.release_key = %s", (release_key,))
         row = cursor.fetchone()
+
     if row is None:
         raise PreparationError(
             "engine-release-missing",
-            f"the engine release {ENGINE_RELEASE_KEY} is not registered; "
-            "a dataset cannot claim to be reproducible without it")
+            f"the engine release {release_key} is not registered; a dataset "
+            "cannot claim to be reproducible against a release that does not exist")
+    state = row[3]
+    if state != "approved":
+        raise PreparationError(
+            "engine-release-not-approved",
+            f"the engine release {release_key} is in {state}; publishing needs an "
+            "approved release, and approving one is a human decision this service "
+            "does not take")
+    if not row[4] or row[6] is None:
+        raise PreparationError(
+            "engine-release-unattested",
+            f"the engine release {release_key} says it is approved but carries no "
+            "record of who approved it")
+    if digest_of(row[5] or []) != row[6]:
+        raise PreparationError(
+            "engine-release-tampered",
+            f"the components of {release_key} changed after it was approved; the "
+            "approval covered something else")
+
     return {"release_id": str(row[0]), "release_key": row[1],
-            "canonical_schema_version": row[2]}
+            "canonical_schema_version": row[2], "state": state,
+            "approval_ref": row[4], "approved_by": row[7],
+            "approved_at": row[8].isoformat() if row[8] else None}
+
+
+def _release(connection: psycopg.Connection,
+             release_key: str = ENGINE_RELEASE_KEY) -> dict[str, Any]:
+    return approved_release(connection, release_key)
 
 
 def _existing_dataset(connection: psycopg.Connection, *, run_id: str,
@@ -437,6 +481,7 @@ def _existing_dataset(connection: psycopg.Connection, *, run_id: str,
 def prepare_dataset(connection: psycopg.Connection, *, company_id: str,
                     artifact_id: str, mapping_version_id: str,
                     financial_account_id: str, subject_id: str,
+                    release_key: str = ENGINE_RELEASE_KEY,
                     timezone: str = "America/Bogota",
                     locale: str = "es-CO") -> Preparation:
     """Convierte las filas extraidas en movimientos canonicos, en una transaccion.
@@ -462,6 +507,21 @@ def prepare_dataset(connection: psycopg.Connection, *, company_id: str,
             "not-extracted",
             "this document has no completed extraction; only promoted evidence "
             "is extracted, and quarantined evidence never is")
+    # Una lectura truncada **termina bien**: `truncated` es un estado, no un
+    # fallo, porque el fichero se leyo hasta donde se pudo y decirlo es mejor que
+    # fingir un error. Lo que no puede pasar es publicarla como si estuviera
+    # entera: el total cuadraria consigo mismo y le faltarian filas.
+    summary = extract_run["result"] or {}
+    if summary.get("truncated"):
+        raise PreparationError(
+            "extraction-truncated",
+            "the extraction stopped before the end of the file "
+            f"({summary.get('truncation_reason') or 'unknown reason'}); publishing "
+            "it would report a total that is missing rows",
+            [{"code": "EXTRACT-TRUNCATED", "location": "extraction",
+              "detail": str(summary.get("truncation_reason") or ""),
+              "resolvable": "false"}])
+
     profile_run = latest_run(connection, artifact_id, "profile")
     profile = (profile_run or {}).get("result") or {}
 
@@ -494,7 +554,7 @@ def prepare_dataset(connection: psycopg.Connection, *, company_id: str,
             "the mapping still has unresolved findings; a person has to decide",
             blockers)
 
-    release = _release(connection)
+    release = approved_release(connection, release_key)
     reused = _existing_dataset(connection, run_id=extract_run["run_id"],
                                mapping_version_id=mapping_version_id,
                                release_id=release["release_id"])
@@ -826,6 +886,18 @@ class PublicationError(Exception):
         self.detail = detail
 
 
+def release_state_of(connection: psycopg.Connection,
+                     dataset_version_id: str) -> str:
+    """Estado actual de la release con la que se preparo un dataset."""
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT e.state FROM fincilia.dataset_version d "
+            "JOIN fincilia.engine_release e ON e.release_id = d.engine_release_id "
+            "WHERE d.dataset_version_id = %s", (dataset_version_id,))
+        row = cursor.fetchone()
+    return str(row[0]) if row else "unknown"
+
+
 def publish_dataset(connection: psycopg.Connection, *, dataset_version_id: str,
                     subject_id: str) -> dict[str, Any]:
     """Sella un dataset validado. Idempotente y segregada.
@@ -853,6 +925,15 @@ def publish_dataset(connection: psycopg.Connection, *, dataset_version_id: str,
         raise PublicationError(
             "segregation-of-duties",
             "the subject who prepared this version cannot publish it")
+
+    # Entre preparar y publicar pueden pasar dias, y una release puede quedar
+    # superseded en medio. Sellar con ella seria firmar lo que ya no vale.
+    state = release_state_of(connection, dataset_version_id)
+    if state != "approved":
+        raise PublicationError(
+            "engine-release-not-approved",
+            f"the engine release behind this dataset is now {state}; prepare it "
+            "again against an approved release")
 
     with connection.cursor() as cursor:
         cursor.execute(

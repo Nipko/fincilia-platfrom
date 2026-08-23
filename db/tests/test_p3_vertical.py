@@ -17,6 +17,7 @@ usar aqui su rol haria que la prueba no probara el recorrido real.
 from __future__ import annotations
 
 import io
+import json
 import sys
 import unittest
 import uuid
@@ -33,6 +34,7 @@ from db.seed.local import DEFAULT_SECRET, seed, stable_id
 from db.tests.test_api_authorization import MIGRATOR_DSN, RUNTIME_DSN, build_settings
 from fincilia_api.main import create_app
 from fincilia_contracts.ingestion import sha256_bytes
+from fincilia_contracts.release import digest_of
 from fincilia_platform.objects import S3ObjectStore
 from fincilia_platform.probes import ensure_buckets
 from fincilia_worker.main import process_one
@@ -42,6 +44,11 @@ ESPIGA = stable_id("company", "espiga")
 ANDINOS = stable_id("company", "andinos")
 SOURCE = stable_id("data_source", "espiga")
 ACCOUNT = stable_id("account", "espiga")
+
+# Marcados a gritos: una aprobacion sintetica que pareciera humana seria peor
+# que no tenerla.
+FIXTURE_ACTOR = "SYNTHETIC-TEST-FIXTURE"
+FIXTURE_REF = "FIXTURE-NOT-A-HUMAN-APPROVAL"
 
 PREPARER = "ana@demo.local"      # tiene dataset.map, no dataset.publish
 REVIEWER = "beto@demo.local"     # tiene dataset.publish, no dataset.map
@@ -86,6 +93,52 @@ MAPPING = {
 }
 
 
+def register_release(*, state: str = "draft", key: str | None = None,
+                     components: list | None = None) -> tuple[str, str]:
+    """Registra una version del motor para una prueba. Devuelve `(clave, id)`."""
+    release_key = key or f"test-fixture-{uuid.uuid4().hex[:10]}"
+    payload = components if components is not None else []
+    with psycopg.connect(MIGRATOR_DSN, autocommit=True) as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO fincilia.engine_release (release_id, release_key, "
+                "canonical_schema_version, classification, state, components) "
+                "VALUES (gen_random_uuid(), %s, '0.1.0', 'neutral', %s, %s::jsonb) "
+                "ON CONFLICT (release_key) DO NOTHING RETURNING release_id",
+                (release_key, state, json.dumps(payload)))
+            row = cursor.fetchone()
+            if row is None:
+                cursor.execute(
+                    "SELECT release_id FROM fincilia.engine_release "
+                    "WHERE release_key = %s", (release_key,))
+                row = cursor.fetchone()
+    return release_key, str(row[0])
+
+
+def approve_fixture_release(key: str | None = None) -> str:
+    """Aprueba una version **de prueba**, marcada como tal sin ambiguedad.
+
+    El actor y la referencia dicen a gritos que esto no es la decision de nadie:
+    una aprobacion sintetica que pareciera humana seria peor que no tenerla, y
+    ninguna prueba puede mover un gate del programa.
+    """
+    release_key, release_id = register_release(key=key)
+    with psycopg.connect(MIGRATOR_DSN, autocommit=True) as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO fincilia.release_approval (approval_id, release_id, "
+                "action, actor_identity, approval_ref, rationale, components_digest) "
+                "VALUES (gen_random_uuid(), %s, 'approved', %s, %s, %s, %s) "
+                "ON CONFLICT (release_id, action) DO NOTHING",
+                (release_id, FIXTURE_ACTOR, FIXTURE_REF,
+                 "aprobacion sintetica de una prueba automatizada; no aprueba nada real",
+                 digest_of([])))
+            cursor.execute(
+                "UPDATE fincilia.engine_release SET state = 'approved', "
+                "approval_ref = %s WHERE release_id = %s", (FIXTURE_REF, release_id))
+    return release_key
+
+
 class VerticalHarness(unittest.TestCase):
     """Montaje compartido: sembrar, arrancar la API y ejercer el worker.
 
@@ -98,7 +151,11 @@ class VerticalHarness(unittest.TestCase):
         if not MIGRATOR_DSN or not RUNTIME_DSN:
             raise unittest.SkipTest("migrator and runtime DSNs are required")
         seed(MIGRATOR_DSN, secret=DEFAULT_SECRET)
-        settings = build_settings()
+        # Cada suite trabaja contra **su** version del motor. Compartir una haria
+        # que aprobar la de una prueba hiciera pasar por aprobada la de la que
+        # comprueba que un borrador bloquea.
+        cls.release_key = approve_fixture_release()
+        settings = build_settings(engine_release_key=cls.release_key)
         try:
             ensure_buckets(settings)
         except Exception as error:  # noqa: BLE001 - el motivo importa mas que el tipo
