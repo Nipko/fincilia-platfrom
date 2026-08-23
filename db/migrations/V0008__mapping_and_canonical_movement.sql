@@ -270,7 +270,7 @@ CREATE TABLE fincilia.dataset_version (
 );
 
 -- El manifiesto que hace reproducible al dataset. `reproduction_key` es el
--- sha256 del JSON canonico de todo lo que entra, sin los digests de salida:
+-- sha256 del JSON canonico de cada entrada declarada, sin digests de salida:
 -- dos ejecuciones con la misma clave deben producir los mismos bytes, o
 -- fallar diciendolo.
 CREATE TABLE fincilia.reproducibility_manifest (
