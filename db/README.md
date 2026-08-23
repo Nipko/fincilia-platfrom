@@ -97,6 +97,16 @@ son código de producto:
 | `dataset_version` | publicar dos veces es publicar una | `uq_dataset_reproduction` sobre (ejecución, mapeo, motor) |
 | `engine_release` | reproducir exige nombrar la versión | `ck_release_not_floating` rechaza `latest` |
 | `lineage_edge` | `derived_from` nombra su transformación | `ck_edge_transform` |
+| `engine_release` | lo aprobado no se edita | disparador `engine_release_frozen` |
+| `engine_release` | aprobada o sustituida lleva firma; un borrador no | `ck_release_approval` |
+| `release_approval` | una firma por acción y versión | `UNIQUE (release_id, action)` |
+| `data_source_account` | una sola cuenta principal viva por fuente | índice único parcial sobre `status = 'active'` |
+| `source_cycle` | un solo ciclo vivo por fuente | índice único parcial |
+| `source_expectation` | un periodo, un deber | `UNIQUE (data_source_id, period_start, period_end)` |
+| `lineage_transform_plan` | un plan por mapeo y versión del motor | `uq_plan_binding` |
+| `lineage_transform_step` | una etapa por campo y por fase | `uq_step_stage` |
+| `dataset_version` | publicar exige plan de linaje | `ck_dataset_published_has_plan` |
+| `dataset_chunk` | el punto de control entra con sus datos | `UNIQUE (dataset_version_id, chunk_ordinal)` |
 
 `ALTER DEFAULT PRIVILEGES` de V0001 concede `UPDATE` a toda tabla nueva del
 esquema, así que quitarlo es un acto explícito en cada migración que crea una
@@ -133,6 +143,12 @@ ninguno tiene `BYPASSRLS`.
 | `fincilia_app` | leer y escribir datos de producto | no hace DDL, no reescribe auditoría, **no toca la cola**, **no escribe credenciales** |
 | `fincilia_worker` | escanear y perfilar | no lee identidad ni credenciales, **no tiene UPDATE** sobre la cola |
 | `fincilia_dispatch` | ser dueño de las funciones de cola | no inicia sesión, no crea nada |
+
+Y un rol que **no** existe: ninguno del runtime puede escribir `engine_release`
+ni `release_approval`. Aprobar una versión del motor es un acto de plataforma que
+se hace con `db/admin/releases.py`, corriendo como migrador. Que la API no pueda
+hacerlo es una propiedad del motor, no una promesa del código, y hay una prueba
+que lo comprueba consultando privilegios reales.
 
 `fincilia_dispatch` existe por una razón concreta. Las funciones de cola son
 `SECURITY DEFINER`, y una función `SECURITY DEFINER` **sí** se salta los

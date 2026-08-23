@@ -3,9 +3,10 @@
 | Campo | Valor |
 |---|---|
 | Rama | `claude/principal-dev` |
-| Base de esta ejecución | `cda931a` |
-| Migraciones añadidas | `V0008` — `V0001`–`V0007` con su checksum intacto |
-| Permiso nuevo | `dataset.publish`, segregado de `dataset.map` |
+| Base de esta ejecución | `31e791a` |
+| Migraciones añadidas | `V0009`, `V0010`, `V0011` — `V0001`–`V0008` con su checksum intacto |
+| Permisos nuevos | `financial_account.manage`, `data_source.manage` |
+| ADR propuesta | ADR-024 — representación lógica y física del linaje |
 | Gate S1-READY | sigue `not_met`, y nada de esto lo mueve |
 
 ---
@@ -18,93 +19,87 @@ sh infra/local/up.sh
 
 > **Si tu volumen local es anterior a `V0005`**, recréalo primero con
 > `docker compose -f infra/local/compose.yaml -p fincilia-local down --volumes`.
-> Los roles nuevos los crea el bootstrap, que sólo corre sobre un volumen vacío, y
-> la migración se detiene diciéndolo en vez de conceder privilegios a medias.
+> Los roles nuevos los crea el bootstrap, que sólo corre sobre un volumen vacío.
 
-Deja seis servicios healthy y la web en <http://127.0.0.1:53000>.
+Y una cosa que **hay que hacer una vez** antes de poder publicar:
+
+```bash
+docker compose -f infra/local/compose.yaml -p fincilia-local --profile migrate run --rm migrate python -m db.admin.releases approve --release fnc-p3-mapping-0.1.0 --actor "tu.nombre" --ref "ACTA-LOCAL" --rationale "entorno sintetico local"
+```
+
+No es burocracia de demo. Publicar afirma que algo se puede reproducir, y esa
+afirmación se apoya en una versión del motor que alguien miró. La semilla la deja
+en `draft` a propósito: aprobar es una decisión humana, y ni el agente ni el
+sembrador la toman por ti. Antes de firmar, `show --release ...` enseña qué
+componentes y qué digests estás aprobando.
 
 ---
 
-## 2. Qué hay ahora: la vertical de P3, entera
+## 2. Qué hay ahora
 
-El detalle —permisos, estados, linaje, privilegios y divergencias declaradas—
-está en [el handoff](docs/implementation/handoffs/FNC-P3.md).
+El detalle está en [el handoff](docs/implementation/handoffs/FNC-P3.5.md). En
+corto, tres cosas que P3 dejó abiertas:
 
-De unos bytes a un importe publicado que se puede auditar hasta la celda:
-
-```
-subida -> cuarentena -> escaneo -> raw -> extracción -> raw_record
-                                                           |
-                                    mapeo (versión + decisiones)
-                                                           v
-                    dataset_version -> source_record -> canonical_movement
-                            |                                  |
-                            |          lineage_node / lineage_edge
-                            v
-                  reproducibility_manifest
-```
-
-| Rebanada | Qué aterrizó |
+| Antes | Ahora |
 |---|---|
-| **P3.1** | `V0008`: trece tablas company-scoped con RLS forzada, claves ajenas compuestas, `engine_release` global y versionado, importe `numeric(38,12)` siempre positivo, dirección explícita, tres fechas separadas y referencia con índice y **no** con UNIQUE |
-| **P3.2** | extracción fiel de CSV con tramo de bytes por registro y ordinal de campo por celda; vista previa paginada por endpoint propio con `dataset.map` |
-| **P3.3** | `draft → validated → published`, bloqueo por ambigüedad, drift y mapeo en borrador; preparación transaccional; publicación segregada e idempotente |
-| **P3.4** | cuatro vistas —Original, Extracción, Mapping, Canónico— con selector visual de columnas, formularios de decisión con motivo obligatorio, y navegación de un importe hasta su celda |
+| una release en borrador podía publicar | preparar y publicar exigen `approved`, con constancia de quién firmó y digest de lo firmado |
+| no había alta de cuentas ni de fuentes | pantalla de onboarding con cuentas, fuentes, vínculos tipados y ciclos esperados |
+| el linaje crecía por fila × campo | las seis etapas viven en un plan por columna; **24 nodos** para 100.000 filas |
+| techo de 10.000 filas | 100.000 medidas en CI: 11,2 s de preparación, 50 lotes, 81,3 MiB de pico |
 
-### Lo probado, y contra qué
-
-**55 pruebas nuevas de P3** (`TST_P3_001`–`TST_P3_055`), todas contra PostgreSQL
-y MinIO reales, más 27 unitarias de extracción y 4 de permisos:
-
-- que quien preparó no puede publicar, comprobado desde el `CHECK` de la base y
-  desde la API;
-- que cuatro publicaciones simultáneas sellan la versión una vez y no duplican un
-  movimiento;
-- que tres preparaciones simultáneas producen un solo dataset;
-- que los bytes que dice el localizador **son** la fila;
-- que el rastro de auditoría de una vista previa cuenta filas y no cita ninguna;
-- que un dataset de otra empresa es indistinguible de uno que no existe.
+Y un defecto de P3 que salió revisando: una lectura truncada terminaba bien
+—`truncated` es un estado, no un fallo— y la preparación no lo miraba. Un fichero
+cortado por el límite de tiempo podía publicarse como completo.
 
 ---
 
 ## 3. Tres cosas que costaron una vuelta
 
-Ninguna se vio revisando; las tres aparecieron **ejecutando**.
+**`COPY FROM` no funciona bajo seguridad por filas.** Era la pieza central del
+diseño de escala y PostgreSQL simplemente no lo admite sobre una tabla con RLS.
+Se cambió por sentencias multifila de 500. Entre perder el aislamiento y perder
+velocidad, se pierde velocidad.
 
-**El ordinal no puede contar líneas.** Un campo entrecomillado con un salto de
-línea dentro desplaza cada referencia posterior. Se cuentan registros, y el tramo
-de bytes sale de las líneas que el lector CSV consumió para cada uno.
+**Un CHECK de V0008 hacía imposible retirar una release.** Decía «sólo una
+aprobada tiene referencia de aprobación», y al pasar a `superseded` la referencia
+sigue ahí porque tiene que seguir. El error estaba en el enunciado, no en el
+estado: `V0010` lo corrige.
 
-**`utf-8-sig` decodifica igual de bien un fichero sin marca de orden**, así que el
-nombre del códec no dice si había marca. Lo dice el fichero, y hay que mirarlo: si
-no, los tres bytes se cuentan de más y todos los tramos quedan desplazados.
-
-**La comprobación de drift no se podía alcanzar.** Una versión de mapeo estaba
-atada a un artefacto, así que el perfil comparado era siempre el suyo y el digest
-nunca cambiaba. Pero una plantilla que no sirve para el extracto del mes
-siguiente no es una plantilla. Ahora lo que decide es la huella del esquema.
+**Una función nueva nace ejecutable por `PUBLIC`.** Los privilegios por defecto
+de V0005 no se aplicaron al disparador de V0009, y un `proacl` nulo significa el
+valor por defecto del motor. Lo delató la misma prueba que en V0005 destapó que
+un `REVOKE` de quien no es dueño avisa y no hace nada.
 
 ---
 
 ## 4. La siguiente rebanada, exacta
 
-**No hay alta de cuentas ni de fuentes en el producto.** `financial_account` y
-`data_source` existen, tienen RLS y se leen por API, pero las únicas filas que hay
-las siembra el entorno local. La pantalla de mapeo elige de esa lista; crear una
-cuenta nueva hoy exige tocar la semilla. Es la carencia que más se nota al usarlo.
+**La extracción sigue sin ser streaming, y es el cuello que queda.** La
+publicación se rediseñó por lotes; leer el fichero no. `extraction.py` construye
+la lista completa de filas y `_LineFeeder` guarda dos listas más del fichero
+entero. Medido en CI: 55,2 s para 100.000 filas, **a cinco segundos** del límite
+declarado de 60 s. Con 150.000 filas se trunca, y truncar ahora bloquea la
+publicación, que es correcto pero no es lo que uno quiere descubrir en
+producción.
 
-Después, y por este orden:
+Lo que hay que hacer, por orden:
 
-1. **Exportación del dataset publicado.** El mandato de P3 no la pedía, pero un
-   conjunto canónico que no se puede sacar obliga a mirarlo por pantalla.
-2. **El camino de linaje completo**, si alguien aprueba el coste. Hoy hay dos
-   nodos y una arista tipada por campo; el contrato describe cinco saltos. La
-   divergencia está declarada en el handoff, sección 7.
-3. **`accounting_date`**, que hoy queda nula: asignar periodo contable es una
-   decisión de cierre, y P3 no cierra.
-4. **Formatos que no son CSV.** Un libro de cálculo sigue quedándose en
-   cuarentena con `no_scanner_for_format`, y eso es correcto: prometer que está
-   soportado sería peor que decir que no lo está.
+1. **Extracción incremental.** `extract()` debería emitir filas en vez de
+   devolverlas todas, y el worker escribirlas por tandas según llegan. La
+   coordenada de bytes ya se calcula por registro, así que el cambio es de forma,
+   no de fondo.
+2. **Preparación en el worker.** Hoy la API prepara con presupuesto de tiempo y
+   devuelve `202` para que el llamante continúe. Funciona y es honesto, pero un
+   trabajo de minutos pertenece a la cola, no a una petición HTTP. La cola ya
+   admite un tipo nuevo sin tocar el despachador: basta añadirlo a las **tres**
+   listas, y hay una prueba que comprueba que coinciden.
+3. **Exportación del dataset publicado.** Un conjunto canónico que no se puede
+   sacar obliga a mirarlo por pantalla.
+4. **Lectura de miembros de la empresa.** El desplegable de responsables del
+   ciclo lista sólo a quien tiene sesión, porque no hay endpoint que devuelva los
+   miembros.
+5. **Formatos que no son CSV.** Un libro de cálculo sigue quedándose en
+   cuarentena con `no_scanner_for_format`, y eso es correcto.
 
 Nada de auto-match, conciliación, fraude por ML, cierre ni IA autoritativa.
 
@@ -112,23 +107,33 @@ Nada de auto-match, conciliación, fraude por ML, cierre ni IA autoritativa.
 
 ## 5. Lo que sigue esperando a una persona
 
-Ninguno de estos gates se ha movido, y ninguna decisión humana se ha marcado como
-aceptada.
+Ninguno se ha movido y ninguno se ha marcado como aceptado.
 
-- **`engine_release` sin aprobar.** La versión con la que publica el entorno local
-  nace `draft`. Aprobarla es de `human_platform_owner` y exige `approval_ref`,
-  `result_diff_report` y revisión independiente. Para datos sintéticos no
-  bloquea; para producción sí.
-- **La divergencia del camino de linaje** (handoff, sección 7) no está aprobada.
-- **DB-G03**: cuatro funciones `SECURITY DEFINER` declaradas, con dueño acotado y
-  `human_review_state: pending`.
-- **DRG-01**: la excepción de RLS de `dispatch_pointer` sigue ampliada con
-  `available_at`.
-- **S-01 / TM-005**: detección de PAN antes de `raw`. Sin resolver; lo que hay es
-  que no se promueve lo que no se ha inspeccionado.
+- **Aprobación real de `engine_release`** en cualquier entorno que no sea el
+  local sintético: exige `approval_ref`, `result_diff_report` y revisión
+  independiente, y es de `human_platform_owner`.
+- **ADR-024**, `Proposed` y registrada `blocked`. Propone separar la
+  representación lógica del linaje de la física; falta ratificación de Data y
+  Architecture y la enmienda del contrato ejecutable.
+- **Vault o KMS** para `FINCILIA_IDENTIFIER_TOKENIZATION_KEY` fuera de local. Hoy
+  el validador levanta si `env` no es `local` ni `test`, que es la trampa para el
+  día que alguien añada `staging`.
+- **DB-G03**: cuatro funciones `SECURITY DEFINER` con `human_review_state:
+  pending`.
+- **DRG-01**: la excepción de RLS de `dispatch_pointer` sigue ampliada.
+- **S-01 / TM-005**: detección de PAN antes de `raw`. Sin resolver.
 - **ADR-002**: sigue `proposed`, sin herramienta seleccionada.
-- **`retry_policy_contract`**: declara trece campos, incluidos `owner` y
-  `reviewer` independientes. Existe un `max_attempts` con valor por defecto local,
-  y los dos nombres no se han inventado.
+- **`retry_policy_contract`**: trece campos declarados, incluidos `owner` y
+  `reviewer` independientes, que no se han inventado.
 - Cuatro huecos de cadena de suministro (SBOM, firma, attestation, procedencia) y
   seis alcances OCI sin monitor, como estaban.
+
+---
+
+## 6. Divergencias declaradas
+
+Las cinco están en la [sección 9 del handoff](docs/implementation/handoffs/FNC-P3.5.md).
+La que más pesa: **seis tablas nuevas no están en `canonical-model.json`**, porque
+añadirlas exige editar la lista de entidades del validador, que es la guarda
+contra la deriva accidental del modelo. Hacerlo en silencio la volvería inútil, y
+por eso lo propone ADR-024 en vez de darlo por hecho.

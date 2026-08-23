@@ -198,6 +198,51 @@ exige contexto de empresa, y se leen por un endpoint aparte que pide
 `dataset.map`: el perfil dice cómo es el fichero y la vista previa dice qué pone
 en él, y son dos permisos distintos.
 
+### Antes de poder publicar: aprobar la versión del motor
+
+Publicar afirma que algo se puede reproducir, y esa afirmación se apoya en una
+versión del motor que alguien miró. La semilla la deja en `draft` a propósito:
+aprobar es una decisión humana y ni el agente ni el sembrador la toman por ti.
+
+Primero mira qué vas a firmar:
+
+```bash
+docker compose -f infra/local/compose.yaml -p fincilia-local --profile migrate run --rm migrate python -m db.admin.releases show --release fnc-p3-mapping-0.1.0
+```
+
+Y después fírmalo con tu nombre:
+
+```bash
+docker compose -f infra/local/compose.yaml -p fincilia-local --profile migrate run --rm migrate python -m db.admin.releases approve --release fnc-p3-mapping-0.1.0 --actor "tu.nombre" --ref "ACTA-LOCAL" --rationale "entorno sintetico local"
+```
+
+Queda escrito quién, cuándo, con qué referencia y sobre qué digest de
+componentes. Si alguien cambia los componentes después, la API deja de publicar y
+dice por qué: la firma cubría otra cosa.
+
+`datasets --release ...` contesta qué se produjo con una versión, que es lo
+primero que hay que saber antes de retirarla con `supersede`.
+
+### Fuentes y cuentas: el orden importa
+
+Un movimiento canónico ocurre siempre contra una cuenta, y un registro de origen
+viene siempre de una fuente. En **Fuentes y cuentas** se crean las dos y se
+vinculan, y hasta que ese vínculo existe no hay contra qué publicar.
+
+El identificador de la cuenta se pide una vez y **no se guarda**: se convierte en
+una huella con clave dedicada y de lo que escribes sólo quedan los cuatro últimos
+dígitos. No aparece en la fila, ni en el rastro de auditoría, ni en el mensaje de
+un error.
+
+Una fuente se vincula con varias cuentas y con un papel: una pasarela liquida a
+una cuenta bancaria y concilia contra un libro contable. Sólo hay una principal
+viva a la vez, porque «contra qué cuenta se publica esto» tiene que tener una
+sola respuesta.
+
+Y el ciclo esperado dice cada cuánto llega un documento, con cuántos días de
+plazo y de gracia. El atraso se calcula al leer, contra la fecha de hoy: guardarlo
+exigiría un proceso nocturno, y el día que no corriera nada estaría atrasado.
+
 ### Mapear y publicar
 
 En la página del documento hay un enlace, **Mapear y publicar**, con cuatro
@@ -390,5 +435,10 @@ responde a otra pregunta.
    sintéticos no bloquea; para producción sí.
 7. No hay alta de cuentas ni de fuentes en el producto: las únicas que existen
    las siembra este entorno.
-8. Una publicación lleva como mucho diez mil filas. Un conjunto mayor se rechaza
-   diciéndolo, en vez de tragárselo a medias.
+8. Una publicación admite lo mismo que la extracción: doscientas mil filas.
+   Medido en CI con cien mil: 11,2 s de preparación en 50 lotes, con un pico de
+   81,3 MiB. Un conjunto mayor se rechaza diciéndolo.
+9. **La extracción todavía no es incremental.** Leer cien mil filas tardó 55,2 s
+   contra un límite declarado de 60 s, así que un fichero bastante mayor se
+   trunca. Truncar bloquea la publicación, que es correcto, pero es el cuello que
+   queda por resolver.
