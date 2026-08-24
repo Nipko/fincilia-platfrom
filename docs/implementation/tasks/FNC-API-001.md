@@ -2,7 +2,7 @@
 id: FNC-API-001
 alias: FNC-P4.1
 title: Creacion atomica y segura de mapeos
-status: in_progress
+status: review_pending
 implementer: Codex principal dev + Integration Steward
 base_sha: 0d9f022
 gate: S1-READY
