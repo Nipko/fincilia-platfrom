@@ -336,7 +336,11 @@ class RowOverrideTests(OverrideHarness):
         aprobado bloquea por su cuenta.
         """
         dataset_id, record_id, published = self.dataset_with_a_row("ovr-missing")
-        created = self.override(dataset_id, record_id,
+        # El override cuelga de la tercera etapa y la que se borra es la cuarta:
+        # `fk_override_plan_step` es `RESTRICT`, asi que borrar justo la etapa de
+        # la que cuelga no probaria que falta una, probaria que la clave ajena
+        # funciona —que ya tiene su prueba—.
+        created = self.override(dataset_id, record_id, base_step_ordinal=3,
                                 resulting_value_digest=published)
         self.assertEqual(201, created.status_code, created.text)
         refused = self.publish(dataset_id)

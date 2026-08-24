@@ -206,7 +206,8 @@ class PerformanceLaneTests(unittest.TestCase):
 
     def test_the_staging_spike_at_scale_TST_P36_040(self) -> None:
         """La comparacion INSERT/COPY con el volumen que la hace significativa."""
-        result = staging_run(TARGET_ROWS, app_dsn=RUNTIME_DSN,
+        result = staging_run(TARGET_ROWS,
+                             app_dsn=os.environ["FINCILIA_WORKER_URL"],
                              migrator_dsn=MIGRATOR_DSN, company_id=ESPIGA,
                              other_company_id=ANDINOS)
         self.measurements["staging_spike"] = result

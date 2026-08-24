@@ -404,10 +404,13 @@ def main() -> int:
                         default=os.environ.get("FINCILIA_SPIKE_OTHER_COMPANY"))
     arguments = parser.parse_args()
 
-    app_dsn = os.environ.get("FINCILIA_DATABASE_URL", "")
+    # El rol que escribe `raw_record` es el del worker, no el de la API: la API
+    # solo la lee. Medir con el rol equivocado compararia dos rutas que en
+    # produccion no existen.
+    app_dsn = os.environ.get("FINCILIA_WORKER_URL", "")
     migrator_dsn = os.environ.get("FINCILIA_MIGRATOR_URL", "")
     if not app_dsn or not migrator_dsn or not arguments.company:
-        print(json.dumps({"skipped": "app/migrator DSNs and a company are required"}))
+        print(json.dumps({"skipped": "worker/migrator DSNs and a company are required"}))
         return 0
     result = run(arguments.rows, app_dsn=app_dsn, migrator_dsn=migrator_dsn,
                  company_id=arguments.company,

@@ -20,7 +20,11 @@ import os
 import unittest
 
 from db.seed.local import DEFAULT_SECRET, seed, stable_id
-from db.tests.test_api_authorization import MIGRATOR_DSN, RUNTIME_DSN
+from db.tests.test_api_authorization import MIGRATOR_DSN
+
+# `raw_record` la escribe el worker; la API solo la lee. La comparacion se
+# hace con el rol que hace el trabajo en produccion.
+WORKER_DSN = os.environ.get("FINCILIA_WORKER_URL", "")
 from db.spikes.staging_benchmark import REQUIRED_CHECKS, run
 
 ESPIGA = stable_id("company", "espiga")
@@ -34,10 +38,10 @@ ROWS = int(os.environ.get("FINCILIA_STAGING_SPIKE_ROWS", "5000"))
 class StagingBenchmarkTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
-        if not MIGRATOR_DSN or not RUNTIME_DSN:
-            raise unittest.SkipTest("migrator and runtime DSNs are required")
+        if not MIGRATOR_DSN or not WORKER_DSN:
+            raise unittest.SkipTest("migrator and worker DSNs are required")
         seed(MIGRATOR_DSN, secret=DEFAULT_SECRET)
-        cls.result = run(ROWS, app_dsn=RUNTIME_DSN, migrator_dsn=MIGRATOR_DSN,
+        cls.result = run(ROWS, app_dsn=WORKER_DSN, migrator_dsn=MIGRATOR_DSN,
                          company_id=ESPIGA, other_company_id=ANDINOS)
 
     @classmethod
