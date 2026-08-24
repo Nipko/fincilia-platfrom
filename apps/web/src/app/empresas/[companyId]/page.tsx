@@ -184,6 +184,9 @@ export default async function CompanyPage({
           </span>
         </div>
         <nav aria-label="Navegacion de la empresa">
+          {company.permissions.includes('movement.read') ? (
+            <><Link href={`/empresas/${companyId}/conciliacion`}>Conciliacion</Link>{' '}</>
+          ) : null}
           <Link href={`/empresas/${companyId}/fuentes`}>Fuentes y cuentas</Link>{' '}
           <Link href="/empresas">Empresas</Link>
         </nav>

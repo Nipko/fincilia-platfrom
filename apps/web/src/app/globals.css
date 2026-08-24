@@ -259,7 +259,8 @@ label {
   font-size: 0.9rem;
 }
 
-input {
+input,
+select {
   font: inherit;
   padding: 0.55rem 0.7rem;
   border: 1px solid var(--line);
@@ -379,6 +380,115 @@ code.digest {
   word-break: break-all;
   display: block;
   margin: 0.25rem 0 0.5rem;
+}
+
+.reconciliation-warning {
+  border-inline-start: 4px solid var(--warning);
+  background: var(--warning-soft);
+  color: var(--warning);
+  margin-bottom: 1rem;
+}
+
+.reconciliation-filter {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.85rem;
+  margin-bottom: 2rem;
+}
+
+.reconciliation-filter button {
+  align-self: end;
+}
+
+.candidate-heading {
+  align-items: start;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.candidate-heading h2 {
+  margin-bottom: 0.2rem;
+}
+
+.candidate-list {
+  display: grid;
+  gap: 1rem;
+}
+
+.candidate-pair {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(10rem, 0.65fr) minmax(0, 1fr);
+  gap: 1rem;
+  padding: 0;
+  overflow: hidden;
+}
+
+.candidate-movement {
+  display: grid;
+  gap: 0.35rem;
+  padding: 1.1rem;
+}
+
+.candidate-movement strong {
+  font-size: 1.2rem;
+}
+
+.candidate-movement a {
+  color: var(--accent);
+  font-weight: 700;
+  margin-top: 0.4rem;
+}
+
+.candidate-side {
+  color: var(--ink-soft);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.candidate-signals {
+  align-content: center;
+  background: var(--accent-soft);
+  border-inline: 1px solid var(--line);
+  display: grid;
+  justify-items: center;
+  padding: 1rem;
+  text-align: center;
+}
+
+.candidate-signals ul {
+  list-style: none;
+  padding: 0;
+}
+
+.candidate-signals li {
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+}
+
+.candidate-pagination {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 1rem;
+}
+
+.candidate-pagination a {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+@media (max-width: 44rem) {
+  .reconciliation-filter,
+  .candidate-pair {
+    grid-template-columns: 1fr;
+  }
+
+  .candidate-signals {
+    border-inline: 0;
+    border-block: 1px solid var(--line);
+  }
 }
 
 .correction-list,

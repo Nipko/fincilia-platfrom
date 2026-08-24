@@ -370,6 +370,48 @@ export type Movement = {
   record_ordinal: number;
 };
 
+export type CandidateMovement = Pick<
+  Movement,
+  | 'movement_id'
+  | 'amount'
+  | 'currency'
+  | 'direction'
+  | 'description'
+  | 'reference'
+  | 'occurred_on'
+  | 'state'
+  | 'record_ordinal'
+>;
+
+export type ReconciliationCandidate = {
+  left: CandidateMovement;
+  right: CandidateMovement;
+  date_distance_days: number;
+  signals: string[];
+};
+
+export type CandidateDataset = {
+  dataset_version_id: string;
+  state: string;
+  completeness_state: string;
+  lineage_state: string;
+  movement_count: number;
+};
+
+export type CandidatePage = {
+  mode: 'candidate_only';
+  proves_balance_reconciliation: false;
+  rules: string[];
+  reference_role: 'explanatory_order_only';
+  max_days: number;
+  offset: number;
+  limit: number;
+  truncated: boolean;
+  left_dataset: CandidateDataset;
+  right_dataset: CandidateDataset;
+  candidates: ReconciliationCandidate[];
+};
+
 /** Una etapa logica del camino de un campo publicado. */
 export type LineageStage = {
   canonical_field: string;
@@ -658,6 +700,29 @@ export function fetchMovement(
   const movement = encodeURIComponent(movementId);
   return request<MovementDetail>(
     `/api/v1/companies/${company}/movements/${movement}`,
+    { token },
+  );
+}
+
+export function fetchReconciliationCandidates(
+  token: string,
+  companyId: string,
+  leftDatasetId: string,
+  rightDatasetId: string,
+  maxDays: number,
+  offset: number,
+  limit: number,
+): Promise<CandidatePage> {
+  const company = encodeURIComponent(companyId);
+  const query = new URLSearchParams({
+    left_dataset_id: leftDatasetId,
+    right_dataset_id: rightDatasetId,
+    max_days: String(maxDays),
+    offset: String(offset),
+    limit: String(limit),
+  });
+  return request<CandidatePage>(
+    `/api/v1/companies/${company}/reconciliation/candidates?${query.toString()}`,
     { token },
   );
 }
