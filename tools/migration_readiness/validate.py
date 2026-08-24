@@ -146,7 +146,12 @@ def validate_migrations(root:Path,exemptions=None,definers=None):
   for match in CREATE_FUNCTION.finditer(code):
    qualified=match.group("name")
    window=code[match.start():match.start()+600]
-   if f"REVOKE ALL PRIVILEGES ON FUNCTION {qualified}" not in revoked:f.append(Finding("DB-FUNCTION-PUBLIC",qualified,"EXECUTE must be revoked from PUBLIC: a null ACL means PUBLIC may execute it"))
+   # PostgreSQL acepta `ALL` y `ALL PRIVILEGES` como formas equivalentes.
+   # Exigir solo la segunda produce un falso positivo aunque el ACL efectivo
+   # ya niegue EXECUTE a PUBLIC.
+   revoke_all=f"REVOKE ALL ON FUNCTION {qualified}"
+   revoke_all_privileges=f"REVOKE ALL PRIVILEGES ON FUNCTION {qualified}"
+   if revoke_all not in revoked and revoke_all_privileges not in revoked:f.append(Finding("DB-FUNCTION-PUBLIC",qualified,"EXECUTE must be revoked from PUBLIC: a null ACL means PUBLIC may execute it"))
    if "SECURITY DEFINER" not in window:continue
    entry=declared.get(qualified)
    if entry is None:f.append(Finding("DB-MIGRATION-DEFINER",qualified,"undeclared SECURITY DEFINER function"));continue

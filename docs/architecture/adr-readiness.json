@@ -359,6 +359,32 @@
         "Database"
       ],
       "scope": "staged_field_overlay"
+    },
+    {
+      "blockers": [
+        "accounting_architecture_ratification",
+        "security_database_ratification",
+        "reversal_and_match_group_semantics"
+      ],
+      "evidence": [
+        "docs/adr/ADR-027-reconciliation-review-ledger.md",
+        "docs/implementation/tasks/FNC-REC-002.md",
+        "db/migrations/V0017__reconciliation_review_ledger.sql",
+        "docs/implementation/handoffs/FNC-REC-002.md"
+      ],
+      "id": "ADR-027",
+      "owners": [
+        "Accounting",
+        "Architecture"
+      ],
+      "path": "docs/adr/ADR-027-reconciliation-review-ledger.md",
+      "readiness": "blocked",
+      "reviewers": [
+        "Security",
+        "Database",
+        "QA"
+      ],
+      "scope": "reconciliation_review_ledger"
     }
   ],
   "agent_may_accept": false,

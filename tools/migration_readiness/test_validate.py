@@ -193,6 +193,11 @@ class MigrationTest(unittest.TestCase):
  def test_a_plain_trigger_function_with_its_revoke_passes(self):
   body='CREATE FUNCTION fincilia.g() RETURNS trigger\nLANGUAGE plpgsql\nAS $x$ BEGIN RETURN NEW; END; $x$;\nREVOKE ALL PRIVILEGES ON FUNCTION fincilia.g() FROM PUBLIC;\n'
   self.assertEqual(set(),self.scratch("V0001__x.sql",body,None,[]))
+
+ def test_postgresql_all_synonym_revokes_public_execute(self):
+  body='CREATE FUNCTION fincilia.g() RETURNS trigger\nLANGUAGE plpgsql\nAS $x$ BEGIN RETURN NEW; END; $x$;\nREVOKE ALL ON FUNCTION fincilia.g() FROM PUBLIC;\n'
+  self.assertEqual(set(),self.scratch("V0001__x.sql",body,None,[]))
+
  def test_a_definer_whose_owner_is_never_set_bites(self):
   body='CREATE FUNCTION fincilia.f() RETURNS void\nLANGUAGE plpgsql SECURITY DEFINER\nSET search_path = pg_catalog, fincilia\nAS $x$ BEGIN NULL; END; $x$;\nREVOKE ALL PRIVILEGES ON FUNCTION fincilia.f() FROM PUBLIC;\nALTER FUNCTION fincilia.f() OWNER TO fincilia_dispatch;\n'.replace("ALTER FUNCTION fincilia.f() OWNER TO fincilia_dispatch;","")
   self.assertIn("DB-DEFINER-OWNER",self.scratch("V0001__x.sql",body,None,[json.loads('{"function":"fincilia.f","owner_role":"fincilia_dispatch","granted_to":["fincilia_app"],"reason":"una razon suficientemente larga para que el validador la acepte como explicacion","gate":"DB-G03","human_review_state":"pending"}')]))
