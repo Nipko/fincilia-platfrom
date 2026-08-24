@@ -5,12 +5,17 @@ import {
   ApiError,
   fetchAudit,
   fetchCompany,
+  fetchDatasets,
   fetchDocuments,
+  fetchExpectations,
   fetchSourcesFull,
   type ArtifactSummary,
   type AuditEvent,
+  type DatasetSummary,
+  type Expectation,
   type Source,
 } from '@/lib/api';
+import { summarizeDatasets, summarizeExpectations } from '@/lib/portfolio';
 import { readSession } from '@/lib/session';
 import { UploadForm } from './upload';
 
@@ -113,6 +118,43 @@ export default async function CompanyPage({
     ? requestedSource
     : '';
 
+  let datasets: DatasetSummary[] | null = null;
+  if (company.permissions.includes('movement.read')) {
+    try {
+      datasets = await fetchDatasets(session.token, companyId);
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401) {
+        redirect('/entrar');
+      }
+      if (!(error instanceof ApiError) || error.status !== 403) {
+        throw error;
+      }
+    }
+  }
+
+  let expectations: Expectation[] | null = null;
+  if (company.permissions.includes('document.read')) {
+    try {
+      expectations = await fetchExpectations(session.token, companyId);
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401) {
+        redirect('/entrar');
+      }
+      if (!(error instanceof ApiError) || error.status !== 403) {
+        throw error;
+      }
+    }
+  }
+
+  const datasetMetric = datasets === null ? null : summarizeDatasets(datasets).value;
+  const expectationMetric =
+    expectations === null
+      ? null
+      : summarizeExpectations(
+          expectations,
+          new Date().toISOString().slice(0, 10),
+        ).value;
+
   // La web no decide: pregunta al servidor si el permiso esta, y si no esta, no
   // pide la auditoria. El servidor volveria a denegarla de todas formas.
   let audit: AuditEvent[] = [];
@@ -166,6 +208,43 @@ export default async function CompanyPage({
             </span>
           ))}
         </div>
+      </section>
+
+      <h2>Carga operativa</h2>
+      <section className="card" aria-label="Carga operativa de la empresa">
+        <p className="meta">
+          Conteos de actividad y vencimiento; no son saldos ni una conciliacion.
+        </p>
+        <dl className="metric-grid">
+          <div>
+            <dt>Documentos visibles</dt>
+            <dd>{documentsVisible ? documents.length : 'Sin acceso para este rol'}</dd>
+          </div>
+          <div>
+            <dt>Por revisar</dt>
+            <dd>
+              {datasetMetric
+                ? `${datasetMetric.pendingReview} version(es) validada(s)`
+                : 'Sin acceso para este rol'}
+            </dd>
+          </div>
+          <div>
+            <dt>Preparaciones parciales</dt>
+            <dd>
+              {datasetMetric
+                ? `${datasetMetric.partial} version(es)`
+                : 'Sin acceso para este rol'}
+            </dd>
+          </div>
+          <div>
+            <dt>Ciclos vencidos</dt>
+            <dd>
+              {expectationMetric
+                ? `${expectationMetric.overdue} vencido(s) · ${expectationMetric.dueSoon} proximo(s)`
+                : 'Sin acceso para este rol'}
+            </dd>
+          </div>
+        </dl>
       </section>
 
       <h2>Documentos</h2>

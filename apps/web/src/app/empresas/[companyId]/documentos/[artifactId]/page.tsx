@@ -55,6 +55,7 @@ export default async function DocumentPage({
   searchParams: Promise<{
     fuente?: string | string[];
     mapeo?: string | string[];
+    dataset?: string | string[];
     pagina?: string | string[];
     movimientosPagina?: string | string[];
   }>;
@@ -108,12 +109,15 @@ export default async function DocumentPage({
     }
   }
   const requestedMapping = singleQueryValue(query.mapeo);
+  const requestedDataset = singleQueryValue(query.dataset);
   const flowContext = {
     documento: artifactId,
     fuente: source?.data_source_id ?? null,
     // La version se vuelve a autorizar en MappingPage; aqui solo se conserva
     // si al menos tiene la forma de un identificador, nunca se consulta con ella.
     mapeo: isUuid(requestedMapping) ? requestedMapping : null,
+    // La pagina de mapeo lo contrasta contra las versiones del artefacto.
+    dataset: isUuid(requestedDataset) ? requestedDataset : null,
     pagina: pageFromQuery(query.pagina),
     movimientosPagina: pageFromQuery(query.movimientosPagina),
   };

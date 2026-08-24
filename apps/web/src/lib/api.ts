@@ -536,12 +536,14 @@ export function prepareDataset(
 export function fetchDatasets(
   token: string,
   companyId: string,
-  artifactId: string,
+  artifactId?: string,
 ): Promise<DatasetSummary[]> {
   const company = encodeURIComponent(companyId);
-  const artifact = encodeURIComponent(artifactId);
+  const query = artifactId
+    ? `?artifact_id=${encodeURIComponent(artifactId)}`
+    : '';
   return request<DatasetSummary[]>(
-    `/api/v1/companies/${company}/datasets?artifact_id=${artifact}`,
+    `/api/v1/companies/${company}/datasets${query}`,
     { token },
   );
 }

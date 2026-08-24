@@ -25,6 +25,7 @@ import {
 } from '@/lib/api';
 import {
   pageFromQuery,
+  selectDatasetVersion,
   selectMappingVersion,
   singleQueryValue,
   withFlowContext,
@@ -148,6 +149,7 @@ export default async function MappingPage({
     movimientosPagina?: string | string[];
     mapeo?: string | string[];
     fuente?: string | string[];
+    dataset?: string | string[];
   }>;
 }) {
   const session = await readSession();
@@ -256,13 +258,27 @@ export default async function MappingPage({
     return <AccessDenied companyId={companyId} />;
   }
   const datasets = loadedDatasets.value;
-  const latest = datasets[0] ?? null;
+  const requestedDatasetId = singleQueryValue(query.dataset);
+  const datasetSelection = selectDatasetVersion(
+    requestedDatasetId,
+    query.dataset !== undefined,
+    datasets.map((item) => item.dataset_version_id),
+  );
+  const selectedDatasetSummary = datasetSelection.selectedId
+    ? datasets.find(
+        (item) => item.dataset_version_id === datasetSelection.selectedId,
+      ) ?? null
+    : null;
   let dataset: DatasetDetail | null = null;
   let movements: Movement[] = [];
   let overrides: RowOverrideSummary[] = [];
-  if (latest) {
+  if (selectedDatasetSummary) {
     const loadedDataset = await loadAuthorized(
-      fetchDataset(session.token, companyId, latest.dataset_version_id),
+      fetchDataset(
+        session.token,
+        companyId,
+        selectedDatasetSummary.dataset_version_id,
+      ),
     );
     if (!loadedDataset.allowed) {
       return <AccessDenied companyId={companyId} />;
@@ -272,7 +288,7 @@ export default async function MappingPage({
       fetchMovements(
         session.token,
         companyId,
-        latest.dataset_version_id,
+        selectedDatasetSummary.dataset_version_id,
         movementPage * movementPageSize,
         movementPageSize + 1,
       ),
@@ -282,7 +298,11 @@ export default async function MappingPage({
     }
     movements = loadedMovements.value;
     const loadedOverrides = await loadAuthorized(
-      fetchOverrides(session.token, companyId, latest.dataset_version_id),
+      fetchOverrides(
+        session.token,
+        companyId,
+        selectedDatasetSummary.dataset_version_id,
+      ),
     );
     if (!loadedOverrides.allowed) {
       return <AccessDenied companyId={companyId} />;
@@ -334,6 +354,7 @@ export default async function MappingPage({
     // nuevos como si hubiera pasado la validacion.
     fuente: dataSourceId || null,
     mapeo: selectedId,
+    dataset: datasetSelection.selectedId,
     pagina: page,
     movimientosPagina: movementPage,
   };
@@ -647,12 +668,44 @@ export default async function MappingPage({
       {/* ------------------------------------------------------- Canonico --- */}
       <h2 id="canonico">Canonico</h2>
       <p className="meta">
-        Se consultan hasta 50 versiones del conjunto; esta vista abre la mas
-        reciente y el API actual no expone otra pagina.
+        Se consultan hasta 50 versiones del conjunto. La mas reciente se abre
+        por defecto; una version elegida permanece en la URL y el API actual no
+        expone otra pagina.
       </p>
+      {datasets.length > 0 ? (
+        <nav className="card version-picker" aria-label="Versiones del conjunto">
+          <span className="meta">Historico:</span>
+          {datasets.map((item, index) => (
+            <Link
+              key={item.dataset_version_id}
+              aria-current={
+                item.dataset_version_id === datasetSelection.selectedId
+                  ? 'page'
+                  : undefined
+              }
+              href={withFlowContext(flowPath, {
+                ...flowContext,
+                dataset: item.dataset_version_id,
+                movimientosPagina: 0,
+              })}
+            >
+              {index === 0 ? 'Mas reciente' : item.prepared_at.slice(0, 10)} ·{' '}
+              {STATE_LABELS[item.state] ?? item.state}
+            </Link>
+          ))}
+        </nav>
+      ) : null}
+      {datasetSelection.invalidRequestedId ? (
+        <p className="notice error" role="alert">
+          La version solicitada no pertenece a este documento o ya no esta
+          disponible. Elige una version del historico autorizado.
+        </p>
+      ) : null}
       {dataset === null ? (
         <p className="card">
-          Todavia no hay ningun conjunto canonico para este documento.
+          {datasets.length === 0
+            ? 'Todavia no hay ningun conjunto canonico para este documento.'
+            : 'No hay una version autorizada seleccionada.'}
         </p>
       ) : (
         <>
@@ -722,7 +775,7 @@ export default async function MappingPage({
                             {item.approved ? (
                               <span className="outcome">aprobada</span>
                             ) : item.needs_approval ? (
-                              canPublish ? (
+                              canPublish && dataset.state === 'validated' ? (
                                 <OverrideApprovalForm
                                   companyId={companyId}
                                   artifactId={artifactId}
@@ -772,6 +825,13 @@ export default async function MappingPage({
               <p className="notice ok" role="status">
                 Publicado. Reprocesar creara otra version y esta se conserva: lo
                 publicado no se reescribe.
+              </p>
+            ) : dataset.state === 'rejected' ? (
+              <p className="notice error" role="status">
+                Version rechazada y conservada solo para consulta.
+                {dataset.rejected_reason
+                  ? ` Motivo: ${dataset.rejected_reason}`
+                  : ''}
               </p>
             ) : (
               <PublishForm

@@ -9,6 +9,7 @@ export type FlowContext = {
   documento?: string | null;
   fuente?: string | null;
   mapeo?: string | null;
+  dataset?: string | null;
   pagina?: number | null;
   movimientosPagina?: number | null;
 };
@@ -35,6 +36,7 @@ export function withFlowContext(pathname: string, context: FlowContext): string 
   const artifactId = nonEmpty(context.documento);
   const sourceId = nonEmpty(context.fuente);
   const mappingId = nonEmpty(context.mapeo);
+  const datasetId = nonEmpty(context.dataset);
 
   if (artifactId) {
     query.set('documento', artifactId);
@@ -44,6 +46,9 @@ export function withFlowContext(pathname: string, context: FlowContext): string 
   }
   if (mappingId) {
     query.set('mapeo', mappingId);
+  }
+  if (datasetId) {
+    query.set('dataset', datasetId);
   }
   if (
     context.pagina !== null &&
@@ -94,4 +99,18 @@ export function selectMappingVersion(
     selectedId: hasExplicitSource ? null : (authorizedIds[0] ?? null),
     invalidRequestedId: false,
   };
+}
+
+/** Una version historica explicita nunca se sustituye por "la mas reciente". */
+export function selectDatasetVersion(
+  requestedId: string | null,
+  requested: boolean,
+  authorizedIds: readonly string[],
+): { selectedId: string | null; invalidRequestedId: boolean } {
+  if (requested) {
+    return requestedId !== null && authorizedIds.includes(requestedId)
+      ? { selectedId: requestedId, invalidRequestedId: false }
+      : { selectedId: null, invalidRequestedId: true };
+  }
+  return { selectedId: authorizedIds[0] ?? null, invalidRequestedId: false };
 }

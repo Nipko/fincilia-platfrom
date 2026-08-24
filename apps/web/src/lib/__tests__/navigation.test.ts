@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   MAX_NAVIGATION_PAGE,
   pageFromQuery,
+  selectDatasetVersion,
   selectMappingVersion,
   singleQueryValue,
   withFlowContext,
@@ -14,12 +15,13 @@ describe('withFlowContext', () => {
       withFlowContext('/empresas/c-1/documentos/a-1/mapeo', {
         fuente: 'fuente con espacios',
         mapeo: 'mapping/2',
+        dataset: 'dataset/3',
         pagina: 7,
         movimientosPagina: 3,
       }),
     ).toBe(
       '/empresas/c-1/documentos/a-1/mapeo?' +
-        'fuente=fuente+con+espacios&mapeo=mapping%2F2&pagina=7&movimientosPagina=3',
+        'fuente=fuente+con+espacios&mapeo=mapping%2F2&dataset=dataset%2F3&pagina=7&movimientosPagina=3',
     );
   });
 
@@ -63,6 +65,33 @@ describe('withFlowContext', () => {
     });
 
     expect(returnUrl).toBe(mappingUrl);
+  });
+});
+
+describe('selectDatasetVersion', () => {
+  it('abre la mas reciente solo cuando no se pidio una version', () => {
+    expect(selectDatasetVersion(null, false, ['d-2', 'd-1'])).toEqual({
+      selectedId: 'd-2',
+      invalidRequestedId: false,
+    });
+  });
+
+  it('rechaza una repetida, vacia o ajena sin caer silenciosamente en latest', () => {
+    expect(selectDatasetVersion(null, true, ['d-2'])).toEqual({
+      selectedId: null,
+      invalidRequestedId: true,
+    });
+    expect(selectDatasetVersion('ajena', true, ['d-2'])).toEqual({
+      selectedId: null,
+      invalidRequestedId: true,
+    });
+  });
+
+  it('acepta una version incluida en la lista autorizada', () => {
+    expect(selectDatasetVersion('d-1', true, ['d-2', 'd-1'])).toEqual({
+      selectedId: 'd-1',
+      invalidRequestedId: false,
+    });
   });
 });
 

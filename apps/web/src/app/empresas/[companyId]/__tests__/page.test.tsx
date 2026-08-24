@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+vi.mock('server-only', () => ({}));
+
 const mocks = vi.hoisted(() => {
   class ApiError extends Error {
     readonly status: number;
@@ -27,11 +29,17 @@ vi.mock('next/navigation', () => ({
   redirect: mocks.redirect,
 }));
 vi.mock('@/lib/session', () => ({ readSession: mocks.readSession }));
+vi.mock('@/lib/portfolio', () => ({
+  summarizeDatasets: vi.fn(),
+  summarizeExpectations: vi.fn(),
+}));
 vi.mock('@/lib/api', () => ({
   ApiError: mocks.ApiError,
   fetchAudit: vi.fn(),
   fetchCompany: mocks.fetchCompany,
   fetchDocuments: vi.fn(),
+  fetchDatasets: vi.fn(),
+  fetchExpectations: vi.fn(),
   fetchSourcesFull: vi.fn(),
 }));
 

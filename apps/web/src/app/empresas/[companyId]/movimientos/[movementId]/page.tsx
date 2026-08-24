@@ -128,6 +128,8 @@ export default async function MovementPage({
     documento: artifactId,
     fuente: mapping.data_source_id,
     mapeo: mapping.mapping_version_id,
+    // Se deriva de la cadena autorizada movimiento -> dataset, no de la URL.
+    dataset: movement.dataset_version_id,
     pagina: pageFromQuery(query.pagina),
     movimientosPagina: pageFromQuery(query.movimientosPagina),
   };
