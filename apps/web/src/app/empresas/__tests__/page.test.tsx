@@ -68,10 +68,9 @@ describe('CompaniesPage portfolio', () => {
 
     expect(screen.getAllByText('Sin acceso para este rol')).toHaveLength(3);
     expect(screen.queryByText(/0 total/)).not.toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Abrir empresa' })).toHaveAttribute(
-      'href',
-      '/empresas/company-synthetic-a',
-    );
+    expect(
+      screen.getByRole('link', { name: 'Abrir Empresa Sintetica A' }),
+    ).toHaveAttribute('href', '/empresas/company-synthetic-a');
   });
 
   it('presenta conteos como carga operativa y no como saldos', async () => {

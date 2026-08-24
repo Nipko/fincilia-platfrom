@@ -37,7 +37,12 @@ function CompanyCard({ snapshot }: { snapshot: PortfolioSnapshot }) {
               {company.country_code} · {company.status}
             </div>
           </div>
-          <Link href={`/empresas/${company.company_id}`}>Abrir empresa</Link>
+          <Link
+            aria-label={`Abrir ${company.legal_name}`}
+            href={`/empresas/${company.company_id}`}
+          >
+            Abrir empresa
+          </Link>
         </div>
 
         {snapshot.access !== 'available' ? (
