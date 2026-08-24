@@ -192,12 +192,26 @@ class RowOverrideTests(OverrideHarness):
         self.assertEqual(201, created.status_code, created.text)
         self.assertIs(True, created.json()["needs_approval"])
 
+        readiness = self.client.get(
+            f"/api/v1/companies/{ESPIGA}/datasets/{dataset_id}",
+            headers=self.auth(REVIEWER))
+        self.assertEqual(200, readiness.status_code, readiness.text)
+        self.assertIs(False, readiness.json()["can_publish"])
+        self.assertEqual(
+            ["override-not-approved"],
+            [item["code"] for item in readiness.json()["publish_blockers"]])
+
         refused = self.publish(dataset_id)
         self.assertEqual(422, refused.status_code, refused.text)
         self.assertEqual("override-not-approved", slug_of(refused))
 
         # Y despues de que lo mire otro, si.
         self.assertEqual(200, self.approve(created.json()["override_id"]).status_code)
+        ready = self.client.get(
+            f"/api/v1/companies/{ESPIGA}/datasets/{dataset_id}",
+            headers=self.auth(REVIEWER)).json()
+        self.assertIs(True, ready["can_publish"])
+        self.assertEqual([], ready["publish_blockers"])
         self.assertEqual(200, self.publish(dataset_id, OWNER).status_code)
 
     def test_the_author_of_an_override_cannot_approve_it_TST_P36_021(self) -> None:

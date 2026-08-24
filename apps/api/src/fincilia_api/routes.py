@@ -814,12 +814,17 @@ def read_dataset(request: Request, company_id: str, dataset_version_id: str,
         dataset = datasets.load_dataset(connection, dataset_version_id)
         if dataset is None:
             raise forbidden()
-        # Quien puede publicar necesita saber si **el** puede: la respuesta
-        # incluye si este sujeto seria el autor, para que el boton no mienta.
-        dataset["can_publish"] = (
-            "dataset.publish" in context.permissions
-            and dataset["state"] == "validated"
-            and dataset["prepared_by"] != principal.subject_id)
+        # Quien puede publicar necesita saber si **el** puede. Permiso, estado,
+        # SoD, release y overrides se resuelven aqui; el navegador no es una
+        # segunda autoridad y el POST usa la misma funcion de dominio.
+        if "dataset.publish" not in context.permissions:
+            blockers = [{"code": "permission-denied",
+                         "detail": "this role cannot publish datasets"}]
+        else:
+            blockers = [item.as_dict() for item in datasets.publication_blockers(
+                connection, dataset=dataset, subject_id=principal.subject_id)]
+        dataset["publish_blockers"] = blockers
+        dataset["can_publish"] = not blockers
     return dataset
 
 

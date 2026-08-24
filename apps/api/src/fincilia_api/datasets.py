@@ -1710,6 +1710,17 @@ class PublicationError(Exception):
         self.detail = detail
 
 
+@dataclass(frozen=True)
+class PublicationBlocker:
+    """Una razon estable por la que este sujeto no puede sellar el dataset."""
+
+    code: str
+    detail: str
+
+    def as_dict(self) -> dict[str, str]:
+        return {"code": self.code, "detail": self.detail}
+
+
 def release_state_of(connection: psycopg.Connection,
                      dataset_version_id: str) -> str:
     """Estado actual de la release con la que se preparo un dataset."""
@@ -1720,6 +1731,46 @@ def release_state_of(connection: psycopg.Connection,
             "WHERE d.dataset_version_id = %s", (dataset_version_id,))
         row = cursor.fetchone()
     return str(row[0]) if row else "unknown"
+
+
+def publication_blockers(connection: psycopg.Connection, *, dataset: dict[str, Any],
+                         subject_id: str) -> tuple[PublicationBlocker, ...]:
+    """Calcula readiness una sola vez para lectura y para publicacion.
+
+    La web no puede reconstruir esta respuesta: estado, autor, release y
+    overrides viven en PostgreSQL y pueden cambiar entre dos pantallas. El POST
+    vuelve a calcularla dentro de su transaccion; el GET la usa para que el
+    boton no prometa una operacion que el mismo servidor rechazaria.
+    """
+    blockers: list[PublicationBlocker] = []
+    state = str(dataset["state"])
+    if state != "validated":
+        blockers.append(PublicationBlocker(
+            "dataset-not-validated",
+            f"a dataset in {state} cannot be published"))
+        return tuple(blockers)
+
+    if str(dataset["prepared_by"]) == subject_id:
+        blockers.append(PublicationBlocker(
+            "segregation-of-duties",
+            "the subject who prepared this version cannot publish it"))
+
+    release_state = release_state_of(connection, dataset["dataset_version_id"])
+    if release_state != "approved":
+        blockers.append(PublicationBlocker(
+            "engine-release-not-approved",
+            f"the engine release behind this dataset is now {release_state}; "
+            "prepare it again against an approved release"))
+
+    override_issues = override_problems(
+        load_overrides(connection,
+                       dataset_version_id=dataset["dataset_version_id"]))
+    override_issues.extend(override_digest_problems(
+        connection, dataset_version_id=dataset["dataset_version_id"]))
+    if override_issues:
+        blockers.append(PublicationBlocker(
+            "override-not-approved", "; ".join(override_issues)))
+    return tuple(blockers)
 
 
 def publish_dataset(connection: psycopg.Connection, *, dataset_version_id: str,
@@ -1741,33 +1792,11 @@ def publish_dataset(connection: psycopg.Connection, *, dataset_version_id: str,
         # Ya estaba publicado. Repetir la llamada no crea otra version ni cambia
         # quien la publico.
         return dataset
-    if dataset["state"] != "validated":
-        raise PublicationError(
-            "dataset-not-validated",
-            f"a dataset in {dataset['state']} cannot be published")
-    if dataset["prepared_by"] == subject_id:
-        raise PublicationError(
-            "segregation-of-duties",
-            "the subject who prepared this version cannot publish it")
-
-    # Entre preparar y publicar pueden pasar dias, y una release puede quedar
-    # superseded en medio. Sellar con ella seria firmar lo que ya no vale.
-    state = release_state_of(connection, dataset_version_id)
-    if state != "approved":
-        raise PublicationError(
-            "engine-release-not-approved",
-            f"the engine release behind this dataset is now {state}; prepare it "
-            "again against an approved release")
-
-    # Un override sobre un importe que nadie ha mirado detiene la publicacion.
-    # Es la misma regla que la segregacion de deberes, aplicada a la fila: lo que
-    # se publica lo ha revisado alguien distinto de quien lo escribio.
-    problems = override_problems(
-        load_overrides(connection, dataset_version_id=dataset_version_id))
-    problems.extend(override_digest_problems(
-        connection, dataset_version_id=dataset_version_id))
-    if problems:
-        raise PublicationError("override-not-approved", "; ".join(problems))
+    blockers = publication_blockers(
+        connection, dataset=dataset, subject_id=subject_id)
+    if blockers:
+        first = blockers[0]
+        raise PublicationError(first.code, first.detail)
 
     with connection.cursor() as cursor:
         cursor.execute(

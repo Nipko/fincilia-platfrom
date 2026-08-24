@@ -822,6 +822,8 @@ class VerticalTests(VerticalHarness):
                     f"/api/v1/companies/{ESPIGA}/datasets/{dataset_id}",
                     headers=self.auth(user)).json()
                 self.assertEqual(dataset["can_publish"], expected)
+                codes = [item["code"] for item in dataset["publish_blockers"]]
+                self.assertEqual(codes, [] if expected else ["permission-denied"])
 
     # ---------------------------------------------------------------- linaje #
 
