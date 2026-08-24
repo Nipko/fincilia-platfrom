@@ -44,7 +44,7 @@ corto, cuatro de las cinco divergencias que P3.5 dejó declaradas:
 |---|---|
 | seis tablas sin contrato que dijera de quién eran | cada una bajo su autoridad, y `DOM-FOREIGN-AUTHORITY` impide meterlas en el modelo financiero por comodidad |
 | ADR-024 no contestaba qué pasa con la fila que no sigue el plan | `lineage_row_override`: siete clases, huellas sin valores, autor ≠ aprobador, intercalado en su posición lógica |
-| la extracción cargaba el fichero entero | generador real: 100.000 filas en 110,9 s, 193,7 MiB de pico y **52,0 de crecimiento** |
+| la extracción cargaba el fichero entero | generador real y `COPY` a temporal: 100.000 filas en 94,2 s —17,1 de extracción, frente a 33,0 en P3.5— con 195,9 MiB de pico |
 | el desplegable de responsables listaba sólo a quien tenía sesión | endpoint de miembros elegibles con las tres condiciones del autorizador |
 
 Y `accounting_date` sigue nula **a propósito**, ahora con nueve pruebas que
@@ -99,8 +99,11 @@ Ninguno se ha movido y ninguno se ha marcado como aceptado.
   entrada se re-anotaron porque los ficheros cambiaron de verdad —paso 2 del
   procedimiento—; el **paso 3**, revisión independiente por quien no tocó el
   contrato, sigue pendiente. Ninguna expectativa se movió.
-- **Adopción o descarte formal de la ruta `COPY`/temporal.** El spike mide y
-  comprueba; adoptar es una decisión que se toma leyendo los números.
+- **Revisión de la adopción de la ruta `COPY`/temporal.** El spike midió, las
+  diez comprobaciones salieron y el worker ya escribe por ahí. Lo que falta es
+  que alguien de Security lea la propiedad en la que se apoya —`TEMPORARY` sobre
+  la base es un privilegio que PostgreSQL concede a `PUBLIC` por defecto— y diga
+  si le vale.
 - **Vault o KMS** para `FINCILIA_IDENTIFIER_TOKENIZATION_KEY` fuera de local. Hoy
   el validador levanta si `env` no es `local` ni `test`, que es la trampa para el
   día que alguien añada `staging`.

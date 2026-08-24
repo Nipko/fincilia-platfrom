@@ -61,15 +61,17 @@ TARGET_ROWS = 100_000
 # del medidor que del codigo.
 #
 # La corrida verde de P3.5 —fichero entero en memoria— dio 229,1 MiB de pico. La
-# primera corrida verde con extraccion en corriente dio 193,7 de pico y 52,0 de
-# crecimiento sobre la linea base del proceso. Los techos se ponen con holgura
-# sobre esos numeros y no sobre el deseo: un techo que no se puede rozar no mide
-# nada, y uno que se roza en cada corrida convierte una regresion real en ruido.
+# corrida verde con extraccion en corriente y `COPY` a temporal dio 195,9 de pico
+# y 49,2 de crecimiento sobre la linea base del proceso. Los techos se ponen con
+# holgura sobre esos numeros y no sobre el deseo: un techo que no se puede rozar
+# no mide nada, y uno que se roza en cada corrida convierte una regresion real en
+# ruido.
 MAX_PEAK_MIB = 400
 MAX_GROWTH_MIB = 150
 
 # La meta del mandato: la importacion entera por debajo de tres minutos. La
-# corrida verde de referencia tardo 110,9 s.
+# corrida verde de referencia tardo 94,2 s: 17,1 de extraccion y 76,9 de
+# preparacion.
 MAX_TOTAL_SECONDS = 180
 
 

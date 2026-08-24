@@ -434,12 +434,13 @@ responde a otra pregunta.
    decisión humana con `approval_ref`, y este entorno no la toma. Para datos
    sintéticos no bloquea; para producción sí.
 7. Una publicación admite lo mismo que la extracción: doscientas mil filas.
-   Medido en CI con cien mil: **110,9 s** en total —29,8 de extracción y 80,8 de
-   preparación en 50 lotes—, con un pico de **193,7 MiB** de memoria residente y
-   **52,0 MiB** de crecimiento sobre la línea base del proceso. Un conjunto mayor
+   Medido en CI con cien mil: **94,2 s** en total —17,1 de extracción y 76,9 de
+   preparación en 50 lotes—, con un pico de **195,9 MiB** de memoria residente y
+   **49,2 MiB** de crecimiento sobre la línea base del proceso. Un conjunto mayor
    se rechaza diciéndolo.
-8. La extracción lee en corriente y escribe por tandas: el proceso nunca sostiene
-   más de una. Reanudar tras fallar entre dos tandas no duplica ni una fila, y el
+8. La extracción lee en corriente y escribe por tandas, cada una por `COPY` a una
+   tabla temporal que desaparece al confirmar: el proceso nunca sostiene más de
+   una tanda. Reanudar tras fallar entre dos no duplica ni una fila, y el
    recuento y el digest son los mismos que los de una lectura entera.
 9. **La preparación sigue viviendo en la API**, con presupuesto de tiempo y un
    `202` para que el llamante continúe. Funciona y es honesto, pero un trabajo de

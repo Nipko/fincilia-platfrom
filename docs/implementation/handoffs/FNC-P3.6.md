@@ -124,22 +124,27 @@ truncada nunca alimenta una publicación.
 
 ### Números, de la corrida verde
 
-| Medida | P3.5 (fichero entero) | P3.6 (corriente) |
-|---|---|---|
-| Filas | 100.000 | 100.000 |
-| Extracción | 33,0 s | 29,8 s |
-| Preparación | 75,8 s | 80,8 s |
-| Total | — | **110,9 s** (presupuesto: 180) |
-| Pico de RSS | 229,1 MiB | **193,7 MiB** |
-| Crecimiento sobre la línea base | no medido | **52,0 MiB** |
-| Tramos | 50 | 50 |
-| Nodos de linaje en toda la empresa | 2 | 2 |
-| Rechazadas | 0 | 0 |
+| Medida | P3.5 (fichero entero) | Corriente + `INSERT` | Corriente + `COPY` |
+|---|---|---|---|
+| Filas | 100.000 | 100.000 | 100.000 |
+| Extracción | 33,0 s | 28,5 s | **17,1 s** |
+| Preparación | 75,8 s | 74,1 s | 76,9 s |
+| Total | — | 102,8 s | **94,2 s** (presupuesto: 180) |
+| Pico de RSS | 229,1 MiB | 184,8 MiB | **195,9 MiB** |
+| Crecimiento sobre la línea base | no medido | 37,3 MiB | **49,2 MiB** |
+| Tramos | 50 | 50 | 50 |
+| Nodos de linaje en toda la empresa | 2 | 2 | 2 |
+| Rechazadas | 0 | 0 | 0 |
+
+Las tres columnas son corridas verdes distintas de CI, no estimaciones. La
+tercera es la que corre hoy.
 
 El crecimiento es el número que de verdad dice si el fichero se sostiene en
 memoria: un pico alto puede venir del intérprete, uno alto de crecimiento sólo
-puede venir de lo que se acumula. Los techos del test se ponen sobre estos
-números —400 MiB de pico, 150 de crecimiento, 180 s— y no sobre el deseo.
+puede venir de lo que se acumula. La diferencia entre 37,3 y 49,2 MiB cae dentro
+del ruido de dos corridas en máquinas que no se reservan. Los techos del test se
+ponen sobre estos números —400 MiB de pico, 150 de crecimiento, 180 s— y no sobre
+el deseo.
 
 Se mide con `getrusage` y **no** con `tracemalloc`: trazar cada reserva multiplica
 el tiempo por varias veces, y entonces el número de tiempo diría más del medidor
@@ -176,12 +181,35 @@ Dos cosas que la medida hace explícitas:
   `CREATE TEMPORARY TABLE` por tanda.** Es el precio de la propiedad, no un
   detalle de implementación, y por eso se mide también con tandas grandes.
 
-**Veredicto: no se adopta la ruta B en P3.6.** El worker sigue con el `INSERT`
-multifila. La razón no es que la seguridad falle —las diez comprobaciones salen—
-sino que el criterio ocho, «mejora medible», es el que decide, y cambiar la ruta
-de escritura del camino de evidencia por una mejora que sólo aparece con tandas
-diez veces mayores no se paga solo. Los números de cada corrida quedan en el log
-de CI bajo `[staging]`, y la decisión se puede revisar leyéndolos.
+### Veredicto: se adopta
+
+Los ocho criterios se cumplen, incluido el octavo. La medida, con cinco mil filas
+y el rol que escribe de verdad:
+
+| Ruta | Tanda | Filas/s | Frente a A |
+|---|---:|---:|---:|
+| `INSERT` multifila | 500 | 4.100 | — |
+| `COPY` a temporal | 500 | 7.871 | **1,91×** |
+| `COPY` a temporal | 5.000 | 8.206 | **2,00×** |
+
+Y las diez comprobaciones de seguridad salieron: `rls_still_enabled`,
+`rls_still_forced`, `company_context_before_load`, `temp_privilege_already_held`,
+`invisible_to_another_session`, `dropped_on_commit`,
+`no_persistent_shared_staging`, `rollback_leaves_nothing`,
+`rollback_drops_the_temp_table` y `cross_company_refused` —esta última con
+`InsufficientPrivilege`, que es la política del destino haciendo su trabajo—.
+
+El worker escribe por esta ruta desde `ea02807`, y el efecto extremo a extremo se
+midió: la extracción de cien mil filas pasó de 28,5 s a **17,1 s**.
+
+Un riesgo que este veredicto obliga a cubrir: `COPY` tiene formato de texto
+propio, y una tabulación, una barra invertida o un salto de línea dentro de un
+campo entrecomillado son justo lo que ese formato escapa. Una diferencia de
+escapado corrompería la evidencia **sin que nada lo dijera**, porque el digest se
+calcula antes de escribir. `TST-P36-043` comprueba que los tres sobreviven el
+viaje.
+
+La versión anterior de este handoff decía lo contrario, y lo decía sin la medida.
 
 ---
 
@@ -250,7 +278,11 @@ Ninguno se ha movido y ninguno se ha marcado como aceptado.
   entrada se re-anotaron porque los ficheros cambiaron de verdad —paso 2 del
   procedimiento de `GOLDEN_HARNESS.md`—. El **paso 3**, revisión independiente
   por quien no tocó el contrato, sigue pendiente. Ninguna expectativa se movió.
-- **Adopción o descarte formal de la ruta `COPY`/temporal**, leyendo la medida.
+- **Revisión de la adopción de la ruta `COPY`/temporal.** El spike midió, las
+  diez comprobaciones salieron y el worker ya escribe por ahí. Lo que falta es
+  que alguien de Security lea la propiedad en la que se apoya —`TEMPORARY`
+  sobre la base es un privilegio que PostgreSQL concede a `PUBLIC` por
+  defecto— y diga si le vale.
 - **DB-G03**: cuatro funciones `SECURITY DEFINER` con `human_review_state: pending`.
 - **DRG-01**: la excepción de RLS de `dispatch_pointer` sigue ampliada.
 - **S-01 / TM-005**: detección de PAN antes de `raw`, sin resolver.
