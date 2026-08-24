@@ -433,12 +433,17 @@ responde a otra pregunta.
 6. La versión del motor con la que se publica nace `draft`. Aprobarla es una
    decisión humana con `approval_ref`, y este entorno no la toma. Para datos
    sintéticos no bloquea; para producción sí.
-7. No hay alta de cuentas ni de fuentes en el producto: las únicas que existen
-   las siembra este entorno.
-8. Una publicación admite lo mismo que la extracción: doscientas mil filas.
-   Medido en CI con cien mil: 75,8 s de preparación en 50 lotes, con un pico de
-   229 MiB de memoria residente. Un conjunto mayor se rechaza diciéndolo.
-9. **La extracción todavía no es incremental.** Leer cien mil filas tardó 33 s
-   contra un límite declarado de 60 s, así que un fichero bastante mayor se
-   trunca. Truncar bloquea la publicación, que es correcto, pero es el cuello que
-   queda por resolver.
+7. Una publicación admite lo mismo que la extracción: doscientas mil filas.
+   Medido en CI con cien mil: **110,9 s** en total —29,8 de extracción y 80,8 de
+   preparación en 50 lotes—, con un pico de **193,7 MiB** de memoria residente y
+   **52,0 MiB** de crecimiento sobre la línea base del proceso. Un conjunto mayor
+   se rechaza diciéndolo.
+8. La extracción lee en corriente y escribe por tandas: el proceso nunca sostiene
+   más de una. Reanudar tras fallar entre dos tandas no duplica ni una fila, y el
+   recuento y el digest son los mismos que los de una lectura entera.
+9. **La preparación sigue viviendo en la API**, con presupuesto de tiempo y un
+   `202` para que el llamante continúe. Funciona y es honesto, pero un trabajo de
+   minutos pertenece a la cola: es el cuello que queda por resolver.
+10. La excepción por fila (`lineage_row_override`) se crea y se aprueba por API, y
+    el camino de un movimiento la enseña en su posición lógica. **No hay pantalla
+    para escribirla.**
