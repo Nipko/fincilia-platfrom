@@ -141,10 +141,11 @@ class MigrationTest(unittest.TestCase):
   self.assertIn("DB-MIGRATION-PRIVILEGE",self.scratch("V0001__x.sql","ALTER ROLE r BYPASSRLS;"))
 
  # ---- funciones SECURITY DEFINER declaradas ----------------------------- #
- def test_the_declared_definers_are_the_four_dispatch_functions(self):
+ def test_the_declared_definers_are_the_dispatch_functions(self):
   names=sorted(x["function"] for x in M["security_definer_functions"])
   self.assertEqual(["fincilia.claim_next_run","fincilia.enqueue_processing_run",
-                    "fincilia.finish_run","fincilia.send_to_dead_letter"],names)
+                    "fincilia.finish_run","fincilia.hold_processing_lease",
+                    "fincilia.send_to_dead_letter"],names)
  def test_no_definer_is_owned_by_the_schema_owner(self):
   # Si el dueno fuera el migrador, cada EXECUTE seria una escalada hasta el
   # rol que puede cambiar el esquema.

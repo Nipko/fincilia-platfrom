@@ -1,8 +1,8 @@
-"""Carril de rendimiento: 250.000 filas, fuera de la corrida de cada commit.
+"""Carril de rendimiento: limite productivo, fuera de cada corrida por push.
 
 La corrida bloqueante prueba cien mil filas porque ese es el numero del mandato y
-porque cabe en el presupuesto de tiempo de CI. Doscientas cincuenta mil no caben,
-y meterlas convertiria cada commit en una espera de veinte minutos: el coste no
+porque cabe en el presupuesto de tiempo de CI. El limite productivo completo no
+cabe en cada empuje, y meterlo convertiria cada commit en una espera larga: el coste no
 lo paga quien escribe la prueba, lo paga cada persona que empuja un cambio.
 
 Asi que vive aparte y **no corre por defecto**. Se enciende con

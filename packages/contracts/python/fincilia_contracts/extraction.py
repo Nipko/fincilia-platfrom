@@ -307,6 +307,7 @@ def extract(payload: bytes, *, header_row: int = 1, first_data_row: int | None =
     truncated = False
     reason: str | None = None
     ordinal = 0
+    emitted = 0
     started = time.monotonic()
 
     while True:
@@ -337,15 +338,20 @@ def extract(payload: bytes, *, header_row: int = 1, first_data_row: int | None =
             # la fila 7 del fichero se llama 7 en la pantalla y en el localizador.
             continue
 
-        if header and ordinal >= first_data_row and len(values) != len(header):
+        is_data = ordinal >= first_data_row
+        # `max_rows` significa filas de datos en las dos rutas. Hay que mirar
+        # si existe una fila adicional antes de declarar truncamiento: un
+        # fichero con exactamente el limite esta completo, no cortado.
+        if is_data and emitted >= max_rows:
+            truncated, reason = True, "row_limit"
+            break
+        if header and is_data and len(values) != len(header):
             ragged += 1
         start, end = feeder.span(first_line)
         rows.append(ExtractedRow(record_ordinal=ordinal, byte_start=start,
                                  byte_end=end, values=tuple(values)))
-
-        if len(rows) >= max_rows:
-            truncated, reason = True, "row_limit"
-            break
+        if is_data:
+            emitted += 1
         if len(rows) % DEADLINE_EVERY == 0 and time.monotonic() - started > max_seconds:
             truncated, reason = True, "time_limit"
             break
@@ -780,7 +786,13 @@ def stream_records(reader, preamble: Preamble, *, artifact_sha256: str = "",
                 report.reason = "malformed_delimited_file"
                 raise ExtractionError(f"malformed delimited file: {error}") from error
 
-            span = feeder.take_span() or (0, 0)
+            span = feeder.take_span()
+            if span is None or span[1] <= span[0]:
+                report.state = "failed"
+                report.reason = "locator_unavailable"
+                raise ExtractionError(
+                    f"record {ordinal + 1} has no non-empty byte span; its "
+                    "evidence locator cannot be proven")
             ordinal += 1
             if len(values) > MAX_COLUMNS:
                 report.state = "failed"
@@ -826,15 +838,31 @@ def stream_records(reader, preamble: Preamble, *, artifact_sha256: str = "",
                 digest.update(f"{len(encoded)}:".encode("ascii"))
                 digest.update(encoded)
 
-            report.records = ordinal
+            # `record_count` describe cuantas filas se emitieron y, por tanto,
+            # cuantas puede haber en `raw_record`. El ordinal conserva la
+            # posicion fisica e incluye huecos en blanco; usarlo como recuento
+            # hacia que el resumen afirmara mas filas que las persistidas.
+            report.records += 1
             if is_data:
                 emitted += 1
                 report.data_rows = emitted
                 if preamble.header and len(values) != len(preamble.header):
                     report.ragged_rows += 1
 
-            yield ExtractedRow(record_ordinal=ordinal, byte_start=span[0],
-                               byte_end=span[1], values=tuple(values))
+            # El limite pertenece a la extraccion, no al consumidor. Mientras
+            # el generador esta suspendido en ``yield`` el worker puede estar
+            # esperando a PostgreSQL, aplicando backpressure o renovando un
+            # lease. Contar esa espera convertia una persistencia lenta en un
+            # fichero truncado y hacia depender el resultado financiero de la
+            # latencia de infraestructura. Desplazar el origen del reloj por el
+            # tiempo suspendido conserva el limite sobre lectura/parsing sin
+            # esconder un lector realmente lento.
+            suspended_at = time.monotonic()
+            try:
+                yield ExtractedRow(record_ordinal=ordinal, byte_start=span[0],
+                                   byte_end=span[1], values=tuple(values))
+            finally:
+                started += time.monotonic() - suspended_at
 
         if report.state == "complete":
             # Lo leido tiene que ser lo subido. Solo se puede comprobar sobre una

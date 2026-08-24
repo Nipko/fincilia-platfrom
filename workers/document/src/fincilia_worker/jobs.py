@@ -134,6 +134,14 @@ class RawRecordConflict(RuntimeError):
     """
 
 
+class StaleLease(RuntimeError):
+    """El worker ya no puede demostrar que posee el trabajo.
+
+    No se clasifica como fallo del documento ni se intenta cerrar el run: el
+    propietario vigente o el recuperador son los unicos que pueden decidirlo.
+    """
+
+
 def classify_extraction(error: Exception) -> tuple[str, str]:
     """Que hacer con un fallo al extraer: `(codigo, clase_de_fallo)`.
 

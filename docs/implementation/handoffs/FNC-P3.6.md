@@ -3,11 +3,15 @@
 P3.5 dejó cinco divergencias declaradas. Cuatro se cierran aquí y la quinta
 —`accounting_date`— se blinda a propósito en vez de resolverse.
 
+> **Actualización R2 (2026-08-24):** la sección 11 contiene la evidencia de
+> cierre posterior a la auditoría de R1. Sus medidas y estado sustituyen a los
+> números históricos de las secciones 3 y 4 cuando se hable del HEAD actual.
+
 | Campo | Valor |
 |---|---|
 | Rama | `claude/principal-dev` |
 | Base | `5aa8c53` |
-| Migraciones añadidas | `V0012` — `V0001`–`V0011` con su checksum intacto |
+| Migraciones añadidas | `V0012`–`V0015` — `V0001`–`V0011` con su checksum intacto |
 | Rutas nuevas | 3 (`GET`/`POST` de overrides, `POST` de aprobación) más `GET` de asignables |
 | ADR-024 | actualizada y **`Proposed`**; no aceptada |
 | Gate S1-READY | sigue `not_met`, y nada de esto lo mueve |
@@ -283,7 +287,7 @@ Ninguno se ha movido y ninguno se ha marcado como aceptado.
   que alguien de Security lea la propiedad en la que se apoya —`TEMPORARY`
   sobre la base es un privilegio que PostgreSQL concede a `PUBLIC` por
   defecto— y diga si le vale.
-- **DB-G03**: cuatro funciones `SECURITY DEFINER` con `human_review_state: pending`.
+- **DB-G03**: cinco funciones `SECURITY DEFINER` con `human_review_state: pending`.
 - **DRG-01**: la excepción de RLS de `dispatch_pointer` sigue ampliada.
 - **S-01 / TM-005**: detección de PAN antes de `raw`, sin resolver.
 - **ADR-002**: sigue `proposed`.
@@ -329,3 +333,112 @@ Y el carril de rendimiento, que no corre en cada empuje:
 ```bash
 docker compose -f infra/local/compose.yaml -p fincilia-local --profile migrate run --rm -e FINCILIA_PERF_LANE=true migrate python -m unittest db.tests.test_perf_lane -v
 ```
+
+---
+
+## 11. Cierre R2 — integridad de corriente, fencing y escala real
+
+R2 parte de `eb33133` y cierra los pendientes que dejó el traspaso temporal
+`HANDOFF_FNC-P3.6-R1.md`. No mueve ningún gate humano ni cambia el techo del
+producto para hacer pasar una prueba.
+
+### 11.1 Correcciones que quedaron autoritativas
+
+- El reloj de extracción mide trabajo activo del lector. El tiempo durante el
+  que el generador está suspendido porque PostgreSQL consume una tanda no gasta
+  el presupuesto de lectura.
+- `max_rows` significa filas de datos tanto en el lector materializado como en
+  corriente. Exactamente `N` queda `complete`; `N + 1` queda `truncated` sin
+  emitir la fila adicional. Membrete, cabecera y filas blancas no inflan el
+  recuento.
+- Un registro sin span de bytes válido falla cerrado con
+  `locator_unavailable`; ya no existe el localizador inventado `(0, 0)`.
+- `record_count` cuenta registros realmente emitidos y no el ordinal máximo.
+- `V0013` añade `hold_processing_lease()`: la primera sentencia de cada `_flush`
+  valida empresa, token, estado y expiración, y sostiene un bloqueo de fila hasta
+  el commit de la tanda. Un worker con lease obsoleto no escribe ni clasifica el
+  caso como fallo documental.
+- La inserción ocurre antes de buscar divergencias. Sólo cuando
+  `ON CONFLICT DO NOTHING` omitió alguna fila se compara la tanda exacta; una
+  divergencia en empresa, artefacto, localizador, valores o digest revierte toda
+  la transacción.
+- Conteo durable, `finish_run` y auditoría de éxito comparten una transacción. Si
+  el conteo o la auditoría fallan, el run queda recuperable y no aparece un éxito
+  sin rastro.
+- El spike usa el mismo `digest_of()` canónico que el worker.
+
+`hold_processing_lease()` es la quinta función `SECURITY DEFINER` declarada. Su
+`human_review_state` continúa `pending` y el gate **DB-G03 no se acepta aquí**.
+
+### 11.2 Defecto de escala encontrado por la limpieza
+
+La primera corrida completa importó correctamente 200.000 filas, pero limpiar
+600.000 registros del spike tardó más de quince minutos. No era el recorrido del
+producto: PostgreSQL comprobaba claves foráneas sin índices que comenzaran por la
+columna hija y repetía barridos grandes por cada padre.
+
+Se corrigió sólo hacia adelante:
+
+| Migración | Índices |
+|---|---|
+| `V0014` | artefacto → `raw_record`; `source_record` y override → `raw_record` |
+| `V0015` | movimiento, vínculo y override → `source_record` |
+
+Una prueba contra `pg_indexes` exige los seis caminos exactos. RLS, ACL,
+mutabilidad y semántica financiera no cambian. `V0014` no se reescribió después
+de aplicada: el segundo nivel descubierto se materializó en `V0015`.
+
+### 11.3 Evidencia local contra PostgreSQL 17 y MinIO
+
+| Suite | Resultado |
+|---|---:|
+| Contratos compartidos | 321, OK |
+| Worker puro | 8, OK |
+| Base completa | 274, OK; 1 omitida por ser carril manual |
+| Reanudación/fencing/asentamiento | 8, OK |
+| Despacho y lease real | 31, OK |
+| Staging e índices de FK | 5, OK |
+
+La corrida bloqueante de 100.000 filas produjo 100.001 registros crudos contando
+la cabecera, con 100.000 movimientos: 7,0 s de extracción, 35,4 s de preparación
+y 42,5 s totales.
+
+El carril manual del límite productivo terminó verde:
+
+| Medida | Resultado |
+|---|---:|
+| Filas de datos | 200.000 |
+| Bytes | 11.622.262 |
+| Extracción | 15,0 s |
+| Total hasta dataset validado | 85,5 s |
+| Tramos | 100 |
+| Movimientos / rechazadas | 200.000 / 0 |
+| Pico RSS / crecimiento | 230,3 MiB / 3,5 MiB |
+| Una fila por encima | 200.000 emitidas; `truncated`, `row_limit` |
+
+El spike del mismo carril, siempre bajo RLS, midió:
+
+| Ruta | Tanda | Tiempo | Filas/s | Frente a INSERT |
+|---|---:|---:|---:|---:|
+| `INSERT` multifila | 500 | 19,04 s | 10.506 | — |
+| `COPY` a temporal | 500 | 13,31 s | 15.024 | 1,43× |
+| `COPY` a temporal | 5.000 | 10,97 s | 18.230 | 1,74× |
+
+Las comprobaciones de seguridad del spike quedaron todas verdaderas. La revisión
+humana de la dependencia en el privilegio `TEMPORARY` sigue pendiente; una prueba
+de rendimiento no puede aprobarla.
+
+### 11.4 Infraestructura local durante la prueba
+
+La repetición llenó C: por cachés de desarrollo y provocó un cierre de WSL/Docker.
+Se recuperaron 26,7 GiB retirando únicamente artefactos regenerables
+(`apps/web/node_modules`, caché de Jest y caché de descargas de pip). PostgreSQL
+reinició sano, el migrador confirmó `head: V0015`, `mutated: false`, y el carril
+anterior se repitió completo después de la recuperación. No se borraron volúmenes
+ni datos del repositorio.
+
+### 11.5 Estado de integración
+
+La evidencia local está verde. La URL y el resultado del workflow remoto se
+añaden después del push; el job manual queda separado del push por
+`github.event_name` en el grupo de concurrencia, para que ninguno cancele al otro.

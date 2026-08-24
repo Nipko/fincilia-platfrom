@@ -165,10 +165,18 @@ class LimitTests(unittest.TestCase):
     def test_reaching_the_row_limit_is_declared_and_not_silent(self) -> None:
         payload = b"a,b\n" + b"".join(b"%d,x\n" % index for index in range(50))
         result = extract(payload, max_rows=10)
-        self.assertEqual(len(result.rows), 10)
-        self.assertEqual(len(result.data_rows()), 9)
+        self.assertEqual(len(result.rows), 11)
+        self.assertEqual(len(result.data_rows()), 10)
         self.assertTrue(result.truncated)
         self.assertEqual(result.truncation_reason, "row_limit")
+
+    def test_exactly_the_data_row_limit_is_complete(self) -> None:
+        payload = b"a,b\n" + b"".join(b"%d,x\n" % index for index in range(10))
+        result = extract(payload, max_rows=10)
+        self.assertEqual(len(result.rows), 11)
+        self.assertEqual(len(result.data_rows()), 10)
+        self.assertFalse(result.truncated)
+        self.assertIsNone(result.truncation_reason)
 
     def test_a_complete_read_is_not_marked_truncated(self) -> None:
         result = extract(BANK)

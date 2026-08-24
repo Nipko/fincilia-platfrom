@@ -20,6 +20,7 @@ import io
 import sys
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -255,6 +256,24 @@ class LimitTests(unittest.TestCase):
         self.assertNotIn("REF-000006", "".join(
             value for row in emitted for value in row.values))
 
+    def test_whole_and_streaming_limits_agree_after_a_preamble(self) -> None:
+        """`max_rows` siempre cuenta datos, no membrete ni cabecera."""
+        for data_rows, expected_state in ((5, "complete"), (6, "truncated")):
+            with self.subTest(data_rows=data_rows):
+                payload = b"ESTADO DE CUENTA SINTETICO\n" + HEADER + ascii_rows(data_rows)
+                whole = extract(payload, header_row=2, max_rows=5)
+                preamble, reader = sniff(io.BytesIO(payload), header_row=2)
+                outcome = StreamOutcome()
+                streamed = list(stream_records(reader, preamble, outcome=outcome,
+                                               max_rows=5))
+
+                self.assertEqual([row.values for row in whole.rows],
+                                 [row.values for row in streamed])
+                self.assertEqual(expected_state, outcome.state)
+                self.assertEqual(expected_state == "truncated", whole.truncated)
+                self.assertEqual(5, len(whole.data_rows()))
+                self.assertEqual(5, outcome.data_rows)
+
     def test_the_byte_limit_is_applied(self) -> None:
         """`MAX_EXTRACT_BYTES` existe para la corriente tambien.
 
@@ -295,6 +314,43 @@ class LimitTests(unittest.TestCase):
         self.assertEqual("truncated", outcome.state)
         self.assertEqual("time_limit", outcome.reason)
 
+    def test_blank_records_do_not_inflate_the_emitted_record_count(self) -> None:
+        payload = HEADER + b"\n" + ascii_rows(2)
+        _, rows, outcome = read(payload)
+        self.assertEqual(len(rows), outcome.records)
+        self.assertEqual(3, outcome.records)  # cabecera + dos filas de datos
+        self.assertEqual(2, outcome.data_rows)
+        self.assertEqual([1, 3, 4], [row.record_ordinal for row in rows])
+
+    def test_consumer_backpressure_does_not_spend_the_extraction_budget(self) -> None:
+        """Esperar al consumidor no convierte evidencia completa en truncada.
+
+        El generador se suspende en cada ``yield`` mientras el worker persiste
+        un lote. Ese tiempo no es lectura ni parsing y puede variar con la
+        latencia de PostgreSQL. La misma evidencia debe tener el mismo desenlace
+        aunque el consumidor tarde en pedir el registro siguiente.
+        """
+        payload = HEADER + ascii_rows(3)
+        preamble, reader = sniff(io.BytesIO(payload))
+        outcome = StreamOutcome()
+        now = [0.0]
+
+        with patch("fincilia_contracts.extraction.time.monotonic",
+                   side_effect=lambda: now[0]):
+            records = stream_records(reader, preamble, outcome=outcome,
+                                     max_seconds=1.0)
+            emitted = []
+            while True:
+                try:
+                    emitted.append(next(records))
+                except StopIteration:
+                    break
+                now[0] += 30.0  # trabajo del consumidor, no de la extraccion
+
+        self.assertEqual(4, len(emitted))
+        self.assertEqual("complete", outcome.state, outcome.reason)
+        self.assertIsNone(outcome.reason)
+
     def test_a_file_with_only_a_header_fails(self) -> None:
         """Una cabecera sin filas no es un extracto vacio: es un fichero roto.
 
@@ -327,6 +383,20 @@ class LimitTests(unittest.TestCase):
         self.assertEqual("failed", outcome.state)
         self.assertEqual("reader_error", outcome.reason)
         self.assertTrue(reader.closed, "la corriente quedo abierta tras el fallo")
+
+    def test_a_record_without_a_byte_span_fails_closed(self) -> None:
+        """Un localizador inventado `(0, 0)` no puede llegar a evidencia."""
+        payload = HEADER + ascii_rows(1)
+        preamble, reader = sniff(io.BytesIO(payload))
+        outcome = StreamOutcome()
+
+        with patch("fincilia_contracts.extraction._StreamFeeder.take_span",
+                   return_value=None):
+            with self.assertRaises(ExtractionError):
+                list(stream_records(reader, preamble, outcome=outcome))
+
+        self.assertEqual("failed", outcome.state)
+        self.assertEqual("locator_unavailable", outcome.reason)
 
 
 # --------------------------------------------------------------------------- #

@@ -115,6 +115,13 @@ class DispatchProtocolTests(unittest.TestCase):
                            (run_id, token, result, error, failure))
             return cursor.fetchone()[0]
 
+    def hold(self, run_id: str, token: str,
+             company: str = SANDBOX_A) -> bool:
+        with connect(WORKER_DSN, company) as connection, connection.cursor() as cursor:
+            cursor.execute("SELECT fincilia.hold_processing_lease(%s, %s)",
+                           (run_id, token))
+            return cursor.fetchone()[0]
+
     def run_row(self, run_id: str, company: str = SANDBOX_A) -> dict:
         with connect(MIGRATOR_DSN, company) as connection, connection.cursor() as cursor:
             cursor.execute(
@@ -197,6 +204,47 @@ class DispatchProtocolTests(unittest.TestCase):
                 cursor.execute("UPDATE fincilia.processing_run SET status = 'succeeded'")
             with self.assertRaises(psycopg.errors.InsufficientPrivilege):
                 cursor.execute("SELECT count(*) FROM fincilia.dispatch_pointer")
+
+    def test_only_the_current_company_and_token_can_hold_a_lease(self) -> None:
+        artifact = self.artifact(SANDBOX_A)
+        run_id = self.enqueue(artifact, SANDBOX_A)
+        claimed = self.claim("lease-holder")
+        self.assertEqual(run_id, claimed[0])
+        try:
+            self.assertTrue(self.hold(run_id, claimed[5], SANDBOX_A))
+            self.assertFalse(self.hold(run_id, str(uuid.uuid4()), SANDBOX_A))
+            self.assertFalse(self.hold(run_id, claimed[5], SANDBOX_B))
+        finally:
+            self.finish(run_id, claimed[5], result='{"test":"cleanup"}')
+
+    def test_holding_a_lease_locks_the_run_until_the_batch_commits(self) -> None:
+        artifact = self.artifact(SANDBOX_A)
+        run_id = self.enqueue(artifact, SANDBOX_A)
+        claimed = self.claim("lease-lock")
+        self.assertEqual(run_id, claimed[0])
+
+        holder = psycopg.connect(WORKER_DSN)
+        try:
+            with holder.cursor() as cursor:
+                cursor.execute("SELECT set_config('fincilia.company_id', %s, true)",
+                               (SANDBOX_A,))
+                cursor.execute("SELECT fincilia.hold_processing_lease(%s, %s)",
+                               (run_id, claimed[5]))
+                self.assertTrue(cursor.fetchone()[0])
+
+            # Recuperar o reemplazar el token necesita actualizar esta misma
+            # fila. Mientras el lote no confirme, ese UPDATE debe esperar.
+            with connect(MIGRATOR_DSN, SANDBOX_A) as contender:
+                with contender.cursor() as cursor:
+                    cursor.execute("SET statement_timeout = '300ms'")
+                    with self.assertRaises(psycopg.errors.QueryCanceled):
+                        cursor.execute(
+                            "UPDATE fincilia.processing_run SET claimed_by = "
+                            "'SYNTHETIC-CONTENDER' WHERE run_id = %s", (run_id,))
+        finally:
+            holder.rollback()
+            holder.close()
+            self.finish(run_id, claimed[5], result='{"test":"cleanup"}')
 
     def test_no_runtime_role_can_disable_row_level_security(self) -> None:
         for dsn, label in ((APP_DSN, "app"), (WORKER_DSN, "worker")):

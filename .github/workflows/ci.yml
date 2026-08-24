@@ -9,7 +9,9 @@ permissions:
   contents: read
 
 concurrency:
-  group: fincilia-ci-${{ github.workflow }}-${{ github.ref }}
+  # Un despacho manual mide rendimiento y un push valida integracion. Son dos
+  # trabajos distintos: compartir grupo hacia que uno cancelara al otro.
+  group: fincilia-ci-${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
   cancel-in-progress: true
 
 jobs:
@@ -302,8 +304,8 @@ jobs:
         run: docker compose --profile test down --volumes --remove-orphans
 
   performance-lane:
-    name: Performance lane (250k rows, on demand)
-    # No corre en cada commit a proposito: doscientas cincuenta mil filas no
+    name: Performance lane (productive ceiling, on demand)
+    # No corre en cada commit a proposito: el limite productivo completo no
     # caben en el presupuesto de tiempo de una corrida por empuje, y el coste no
     # lo paga quien escribe la prueba sino cada persona que empuja un cambio.
     # Se lanza a mano desde la pestana de acciones.
@@ -324,7 +326,7 @@ jobs:
         run: >-
           docker compose --profile migrate run --rm migrate
           python -m db.seed.local
-      - name: A quarter of a million rows, measured
+      - name: The productive row ceiling, measured
         run: >-
           docker compose --profile migrate run --rm
           -e FINCILIA_PERF_LANE=true migrate

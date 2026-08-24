@@ -3,11 +3,12 @@
 | Campo | Valor |
 |---|---|
 | Rama | `claude/principal-dev` |
-| Base de esta ejecución | `5aa8c53` |
-| Migraciones añadidas | `V0012` — `V0001`–`V0011` con su checksum intacto |
+| Base de R2 | `eb33133` |
+| Migraciones añadidas | `V0012`–`V0015` — `V0001`–`V0011` con su checksum intacto |
 | Rutas nuevas | overrides de linaje (listar, crear, aprobar) y miembros asignables |
 | ADR propuesta | ADR-024 — actualizada, **sigue `Proposed`** |
 | Gate S1-READY | sigue `not_met`, y nada de esto lo mueve |
+| Prioridad de producto | plataforma web primero; móvil queda al final |
 
 ---
 
@@ -66,23 +67,38 @@ del contrato y el de migraciones mira el SQL. Ahora `cross-contract` los cruza.
 
 ---
 
-## 4. La siguiente rebanada, exacta
+## 4. La siguiente rebanada, exacta: plataforma web
 
-1. **Preparación en el worker.** Hoy la API prepara con presupuesto de tiempo y
-   devuelve `202` para que el llamante continúe. Funciona y es honesto, pero un
-   trabajo de minutos pertenece a la cola, no a una petición HTTP. La cola admite
-   un tipo nuevo sin tocar el despachador: basta añadirlo a las **tres** listas, y
-   hay una prueba que comprueba que coinciden.
-2. **`accounting_date` en P4.** Periodo contable, reglas y revisión humana. Está
-   blindada para que nadie la invente antes.
-3. **Exportación del dataset publicado.** Un conjunto canónico que no se puede
-   sacar obliga a mirarlo por pantalla.
-4. **Pantalla de overrides.** La API los crea, aprueba y lista, y el drill-down
-   los enseña; no hay interfaz para escribirlos.
-5. **Formatos que no son CSV.** Un libro de cálculo sigue quedándose en
-   cuarentena con `no_scanner_for_format`, y eso es correcto.
+El siguiente bloque se registra como **FNC-P3.7 — endurecimiento verificable del
+recorrido web P3**. La app móvil no participa en esta ruta crítica y se retoma
+después de que la plataforma web complete conciliación, revisión e informes.
 
-Nada de auto-match, conciliación, fraude por ML, cierre ni IA autoritativa.
+Orden de implementación:
+
+1. **Confianza del recorrido actual.** El ciclo de una fuente se carga de verdad,
+   se conserva al editar y el estado huérfano es alcanzable. El mapeo obliga a
+   elegir visiblemente una fuente; nunca cae en `sourceRows[0]` ni pierde
+   `sourceId` al navegar desde la carga.
+2. **Carga contractual de 25 MiB.** Reemplazar el Server Action limitado por
+   defecto a 1 MiB con un Route Handler/BFF de streaming y límite explícito.
+   Mantener token y bytes fuera del navegador, logs y memoria no acotada; probar
+   límite exacto y límite + 1.
+3. **Estados y accesibilidad.** Separar 401, 403, 503, vacío exitoso y reintento;
+   añadir `loading`, `error` y `not-found`, skip link, foco visible completo,
+   captions/scope y `prefers-reduced-motion`.
+4. **Navegación y volumen.** Conservar fuente, mapeo y página en query params;
+   paginar o divulgar todos los topes de 25/50/100 registros.
+5. **Verificación web.** Restaurar dependencias con `npm ci --ignore-scripts`,
+   mantener versiones exactas, añadir pruebas de componentes y E2E/a11y en CI, y
+   ejecutar build, typecheck y lint dentro de la imagen.
+6. **Capacidad de negocio visible.** Después del endurecimiento: exportación de
+   dataset publicado, pantalla de overrides y preparación larga en worker. Sólo
+   entonces comienza el contrato P4 de completitud, candidatos deterministas,
+   excepciones y `ready_to_close`.
+
+Durante `PRE_SPRINT_1` no se habilitan auto-match, cierre, reporte certificado,
+fraude por ML ni IA autoritativa. `accounting_date` sigue nula hasta su decisión
+contable de P4.
 
 ---
 
@@ -107,7 +123,7 @@ Ninguno se ha movido y ninguno se ha marcado como aceptado.
 - **Vault o KMS** para `FINCILIA_IDENTIFIER_TOKENIZATION_KEY` fuera de local. Hoy
   el validador levanta si `env` no es `local` ni `test`, que es la trampa para el
   día que alguien añada `staging`.
-- **DB-G03**: cuatro funciones `SECURITY DEFINER` con `human_review_state:
+- **DB-G03**: cinco funciones `SECURITY DEFINER` con `human_review_state:
   pending`.
 - **DRG-01**: la excepción de RLS de `dispatch_pointer` sigue ampliada.
 - **S-01 / TM-005**: detección de PAN antes de `raw`. Sin resolver.

@@ -279,6 +279,8 @@ def _extract_streaming(database: Database, store, claim: "jobs.Claim") -> bool:
     error_code: str | None = None
     failure_class: str | None = None
     result: dict | None = None
+    settled: str | None = None
+    stale_lease = False
 
     try:
         artifact = _artifact_row(database, claim)
@@ -295,19 +297,27 @@ def _extract_streaming(database: Database, store, claim: "jobs.Claim") -> bool:
                 database, claim, artifact,
                 stream_records(reader, preamble, outcome=outcome,
                                artifact_sha256=artifact["content_sha256"]))
+            result = extraction_summary(preamble, outcome)
+            # Dos cifras distintas y las dos ciertas: cuantas filas escribio
+            # **este** intento, y cuantas hay. Al reanudar se separan, y es
+            # justo entonces cuando una sola no basta para saber que paso.
+            #
+            # El recuento y la auditoria pertenecen al mismo limite de fallo que
+            # la extraccion. Si cualquiera falla, el run no puede declararse
+            # exitoso con evidencia sin contar o sin rastro.
+            result["inserted_records"] = written
+            settled = _settle_extraction(database, claim, result)
+        except jobs.StaleLease:
+            # No es un fallo de la evidencia. Este proceso dejo de ser el dueno
+            # y no puede escribir ni decidir el desenlace del trabajo.
+            stale_lease = True
+            result = None
         except Exception as error:  # noqa: BLE001 - un fallo raro no tumba el worker
             # La clasificacion vive en `jobs` porque de ella depende si el
             # trabajo se reintenta, muere o acaba delante de una persona, y eso
             # se prueba sin base de datos.
             error_code, failure_class = jobs.classify_extraction(error)
-        else:
-            result = extraction_summary(preamble, outcome)
-            # Dos cifras distintas y las dos ciertas: cuantas filas escribio
-            # **este** intento, y cuantas hay. Al reanudar se separan, y es
-            # justo entonces cuando una sola no basta para saber que paso.
-            result["inserted_records"] = written
-            result["stored_records"] = _stored_records(database, claim)
-            _audit_extraction(database, claim, result)
+            result = None
         finally:
             # Cerrar pase lo que pase: una corriente abierta retiene una conexion
             # del pool de HTTP del almacen hasta que alguien la suelta.
@@ -317,6 +327,22 @@ def _extract_streaming(database: Database, store, claim: "jobs.Claim") -> bool:
                     closer()
                 except Exception:  # noqa: BLE001 - cerrar no puede tumbar nada
                     logger.debug("the evidence stream was already closed")
+
+    if stale_lease:
+        logger.warning("run %s lost its lease while storing; dropping it",
+                       claim.run_id)
+        return True
+
+    # El camino exitoso ya cerro run y auditoria en una sola transaccion. No se
+    # invoca `finish_run` dos veces: el segundo resultado seria `stale_lease` y
+    # esconderia el desenlace real que acabamos de obtener.
+    if settled is not None:
+        if settled == "stale_lease":
+            logger.warning("run %s was recovered by another worker; dropping it",
+                           claim.run_id)
+        else:
+            logger.info("run %s finished: %s", claim.run_id, settled)
+        return True
 
     try:
         with database.session(company_id=claim.company_id) as connection:
@@ -371,9 +397,13 @@ DIVERGENT_ROWS = (
     "JOIN fincilia.raw_record r "
     "  ON r.processing_run_id = s.processing_run_id "
     " AND r.record_ordinal = s.record_ordinal "
-    "WHERE r.origin_locator IS DISTINCT FROM s.origin_locator "
-    "   OR r.raw_values     IS DISTINCT FROM s.raw_values "
-    "   OR r.values_digest  IS DISTINCT FROM s.values_digest "
+    "WHERE r.processing_run_id = %s "
+    "  AND r.record_ordinal = ANY(%s::integer[]) "
+    "  AND (r.company_id      IS DISTINCT FROM s.company_id "
+    "   OR r.artifact_id      IS DISTINCT FROM s.artifact_id "
+    "   OR r.origin_locator   IS DISTINCT FROM s.origin_locator "
+    "   OR r.raw_values       IS DISTINCT FROM s.raw_values "
+    "   OR r.values_digest    IS DISTINCT FROM s.values_digest) "
     "ORDER BY s.record_ordinal LIMIT 5")
 
 
@@ -400,6 +430,14 @@ def _flush(database: Database, claim: "jobs.Claim", batch: list[tuple]) -> int:
     with database.session(company_id=claim.company_id) as connection:
         with connection.cursor() as cursor:
             cursor.execute(
+                "SELECT fincilia.hold_processing_lease(%s, %s)",
+                (claim.run_id, claim.lease_token))
+            held = cursor.fetchone()
+            if not held or held[0] is not True:
+                raise jobs.StaleLease(
+                    "the processing lease is expired, replaced or outside the "
+                    "current company context")
+            cursor.execute(
                 "CREATE TEMPORARY TABLE staging_raw_record ("
                 "  company_id uuid, artifact_id uuid, processing_run_id uuid,"
                 "  record_ordinal integer, origin_locator jsonb, raw_values jsonb,"
@@ -408,15 +446,6 @@ def _flush(database: Database, claim: "jobs.Claim", batch: list[tuple]) -> int:
                              ", ".join(STAGED_COLUMNS) + ") FROM STDIN") as copy:
                 for row in batch:
                     copy.write_row(row)
-            cursor.execute(DIVERGENT_ROWS)
-            clash = [int(row[0]) for row in cursor.fetchall()]
-            if clash:
-                # Levantar aqui deshace la transaccion entera de la tanda: no
-                # queda media tanda escrita ni la tabla temporal.
-                raise jobs.RawRecordConflict(
-                    "records " + ", ".join(str(item) for item in clash) +
-                    " of this run already exist with different content; two "
-                    "readings of the same file do not agree")
             cursor.execute(
                 "INSERT INTO fincilia.raw_record (raw_record_id, company_id, "
                 "artifact_id, processing_run_id, record_ordinal, origin_locator, "
@@ -428,10 +457,45 @@ def _flush(database: Database, claim: "jobs.Claim", batch: list[tuple]) -> int:
             # que `DO NOTHING` salto no entran. Es el unico numero de aqui que
             # puede sostener una afirmacion sobre lo que hay en la base.
             inserted = cursor.rowcount
-    return max(inserted, 0)
+            if inserted < 0 or inserted > len(batch):
+                raise RuntimeError(
+                    "PostgreSQL did not report a valid inserted row count")
+            # La ruta normal no tiene conflictos. Comparar toda la temporal con
+            # lo ya acumulado antes de cada INSERT hacia que el coste creciera
+            # con cada tanda y convirtio 100.000 filas en un truncamiento por
+            # tiempo. Solo hay algo que adjudicar cuando PostgreSQL salto al
+            # menos una fila. La comprobacion sigue dentro de la transaccion:
+            # si encuentra una divergencia, tambien revierte lo insertado por
+            # esta tanda.
+            if inserted != len(batch):
+                cursor.execute(DIVERGENT_ROWS,
+                               (claim.run_id, [row[3] for row in batch]))
+                clash = [int(row[0]) for row in cursor.fetchall()]
+                if clash:
+                    raise jobs.RawRecordConflict(
+                        "records " + ", ".join(str(item) for item in clash) +
+                        " of this run already exist with different content; two "
+                        "readings of the same file do not agree")
+    return inserted
 
 
-def _stored_records(database: Database, claim: "jobs.Claim") -> int:
+def _settle_extraction(database: Database, claim: "jobs.Claim",
+                       result: dict) -> str:
+    """Cuenta, cierra y audita el éxito como un único hecho durable.
+
+    Si contar o auditar falla, la transacción revierte también `finish_run` y el
+    arriendo sigue recuperable. Si el arriendo ya no pertenece a este worker,
+    no deja una auditoría de éxito para un resultado que la cola rechazó.
+    """
+    with database.session(company_id=claim.company_id) as connection:
+        result["stored_records"] = _stored_records(connection, claim)
+        settled = jobs.finish(connection, claim, result=result)
+        if settled == "succeeded":
+            _audit_extraction(connection, claim, result)
+        return settled
+
+
+def _stored_records(connection, claim: "jobs.Claim") -> int:
     """Cuantas filas de esta ejecucion hay en PostgreSQL. Sin interpretar.
 
     Contar lo que se intento escribir da otro numero en cuanto hay una
@@ -439,37 +503,35 @@ def _stored_records(database: Database, claim: "jobs.Claim") -> int:
     audita y se lee para decidir. Una cifra que dice «se escribieron mil» cuando
     hay novecientas es peor que no tener cifra.
     """
-    with database.session(company_id=claim.company_id) as connection:
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "SELECT count(*) FROM fincilia.raw_record "
-                "WHERE processing_run_id = %s", (claim.run_id,))
-            return int(cursor.fetchone()[0])
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT count(*) FROM fincilia.raw_record "
+            "WHERE processing_run_id = %s", (claim.run_id,))
+        return int(cursor.fetchone()[0])
 
 
-def _audit_extraction(database: Database, claim: "jobs.Claim",
+def _audit_extraction(connection, claim: "jobs.Claim",
                       summary: dict) -> None:
     """Cuantos registros se leyeron y como acabo. **Ni un valor**.
 
     El evento lo lee quien tiene `audit.read`, que no es necesariamente quien
     puede ver el contenido del documento.
     """
-    with database.session(company_id=claim.company_id) as connection:
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "INSERT INTO fincilia.audit_event (audit_event_id, company_id, "
-                "subject_id, action, resource_kind, resource_ref, outcome, detail) "
-                "VALUES (gen_random_uuid(), %s, NULL, 'document.extraction', "
-                "'document', %s, %s, %s::jsonb)",
-                (claim.company_id, claim.artifact_id,
-                 "allowed" if summary.get("state") == "complete" else "denied",
-                 jobs.dumps({"records": summary.get("record_count"),
-                             "stored": summary.get("stored_records"),
-                             "state": summary.get("state"),
-                             "reason": summary.get("truncation_reason"),
-                             "object_digest": summary.get("object_digest"),
-                             "record_digest": summary.get("record_digest"),
-                             "run": claim.run_id})))
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "INSERT INTO fincilia.audit_event (audit_event_id, company_id, "
+            "subject_id, action, resource_kind, resource_ref, outcome, detail) "
+            "VALUES (gen_random_uuid(), %s, NULL, 'document.extraction', "
+            "'document', %s, %s, %s::jsonb)",
+            (claim.company_id, claim.artifact_id,
+             "allowed" if summary.get("state") == "complete" else "denied",
+             jobs.dumps({"records": summary.get("record_count"),
+                         "stored": summary.get("stored_records"),
+                         "state": summary.get("state"),
+                         "reason": summary.get("truncation_reason"),
+                         "object_digest": summary.get("object_digest"),
+                         "record_digest": summary.get("record_digest"),
+                         "run": claim.run_id})))
 
 
 if __name__ == "__main__":

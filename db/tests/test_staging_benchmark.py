@@ -19,6 +19,8 @@ from __future__ import annotations
 import os
 import unittest
 
+import psycopg
+
 from db.seed.local import DEFAULT_SECRET, seed, stable_id
 from db.tests.test_api_authorization import MIGRATOR_DSN
 
@@ -84,6 +86,33 @@ class StagingBenchmarkTests(unittest.TestCase):
         self.assertIsInstance(self.result["security_clean"], bool)
         for label in ("insert_multirow_500", "copy_through_temp_5000"):
             self.assertGreater(self.result[label]["rows_per_second"], 0)
+
+    def test_raw_evidence_foreign_keys_have_supporting_indexes(self) -> None:
+        """Retirar evidencia no puede buscar hijos con un barrido por cada fila."""
+        expected = {
+            "idx_raw_record_artifact_company":
+                "CREATE INDEX idx_raw_record_artifact_company ON fincilia.raw_record USING btree (artifact_id, company_id)",
+            "idx_source_record_raw_company":
+                "CREATE INDEX idx_source_record_raw_company ON fincilia.source_record USING btree (raw_record_id, company_id)",
+            "idx_lineage_row_override_raw_company":
+                "CREATE INDEX idx_lineage_row_override_raw_company ON fincilia.lineage_row_override USING btree (raw_record_id, company_id)",
+            "idx_canonical_movement_source_company":
+                "CREATE INDEX idx_canonical_movement_source_company ON fincilia.canonical_movement USING btree (source_record_id, company_id)",
+            "idx_movement_evidence_source_company":
+                "CREATE INDEX idx_movement_evidence_source_company ON fincilia.movement_evidence_link USING btree (source_record_id, company_id)",
+            "idx_lineage_row_override_source_company":
+                "CREATE INDEX idx_lineage_row_override_source_company ON fincilia.lineage_row_override USING btree (source_record_id, company_id)",
+        }
+        with psycopg.connect(MIGRATOR_DSN, autocommit=True) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT indexname, indexdef FROM pg_indexes "
+                    "WHERE schemaname = 'fincilia' AND indexname = ANY(%s) "
+                    "ORDER BY indexname",
+                    (list(expected),),
+                )
+                actual = dict(cursor.fetchall())
+        self.assertEqual(expected, actual)
 
 
 if __name__ == "__main__":

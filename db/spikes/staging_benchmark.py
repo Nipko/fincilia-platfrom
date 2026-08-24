@@ -38,6 +38,7 @@ import uuid
 from typing import Any
 
 import psycopg
+from fincilia_contracts.release import digest_of
 
 LOCATOR_KIND = "tabular_delimited"
 
@@ -56,11 +57,6 @@ TEMP_TABLE = (
     "  company_id uuid, artifact_id uuid, processing_run_id uuid,"
     "  record_ordinal integer, origin_locator jsonb, raw_values jsonb,"
     "  values_digest char(64)) ON COMMIT DROP")
-
-
-def digest_of(values: list[str]) -> str:
-    payload = json.dumps(values, ensure_ascii=False, sort_keys=True)
-    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
 def synthetic_rows(count: int, *, company_id: str, artifact_id: str,

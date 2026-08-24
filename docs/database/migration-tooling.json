@@ -231,6 +231,16 @@
       "reason": "registrar carta muerta; no se concede EXECUTE a nadie, solo la llaman las otras funciones del mismo dueno",
       "gate": "DB-G03",
       "human_review_state": "pending"
+    },
+    {
+      "function": "fincilia.hold_processing_lease",
+      "owner_role": "fincilia_dispatch",
+      "granted_to": [
+        "fincilia_worker"
+      ],
+      "reason": "vallar cada lote de extraccion con el token vigente sin conceder UPDATE directo al worker; el bloqueo vive hasta el commit de la tanda",
+      "gate": "DB-G03",
+      "human_review_state": "pending"
     }
   ]
 }

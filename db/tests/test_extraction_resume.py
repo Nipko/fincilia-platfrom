@@ -36,8 +36,11 @@ from db.tests.test_scale_publication import synthetic_statement
 from fincilia_api.main import create_app
 from fincilia_contracts.extraction import StreamOutcome, sniff, stream_records
 from fincilia_contracts.ingestion import sha256_bytes
+from fincilia_contracts.release import digest_of
+from fincilia_platform.db import Database
 from fincilia_platform.objects import S3ObjectStore
 from fincilia_platform.probes import ensure_buckets
+from fincilia_worker import jobs
 from fincilia_worker import main as worker_main
 from fincilia_worker.main import process_one
 
@@ -106,7 +109,7 @@ class ExtractionResumeTests(unittest.TestCase):
         finally:
             database.close()
 
-    def available_now(self) -> None:
+    def available_now(self, run_id: str) -> None:
         """Adelanta la espera del reintento.
 
         Esta prueba no mide el `backoff` —eso lo decide `finish_run` y ya tiene
@@ -117,7 +120,9 @@ class ExtractionResumeTests(unittest.TestCase):
         with psycopg.connect(MIGRATOR_DSN, autocommit=True) as connection:
             with connection.cursor() as cursor:
                 cursor.execute("UPDATE fincilia.dispatch_pointer "
-                               "SET available_at = now() WHERE available_at > now()")
+                               "SET available_at = now() "
+                               "WHERE run_id = %s AND available_at > now()",
+                               (run_id,))
 
     def reference(self, payload: bytes) -> tuple[int, str]:
         """Lo que una lectura entera y sin sobresaltos produce.
@@ -139,14 +144,17 @@ class ExtractionResumeTests(unittest.TestCase):
                 cursor.execute(
                     "SELECT set_config('fincilia.company_id', %s, false)", (ESPIGA,))
                 cursor.execute(
-                    "SELECT run_id, status, attempt, result "
+                    "SELECT run_id, status, attempt, result, error_code, "
+                    "       failure_class, lease_token::text "
                     "FROM fincilia.processing_run "
                     "WHERE artifact_id = %s AND kind = 'extract'", (artifact_id,))
                 rows = cursor.fetchall()
         self.assertEqual(1, len(rows), "there should be exactly one extract run")
-        run_id, status, attempt, result = rows[0]
+        (run_id, status, attempt, result, error_code, failure_class,
+         lease_token) = rows[0]
         return {"run_id": str(run_id), "status": status, "attempt": attempt,
-                "result": result or {}}
+                "result": result or {}, "error_code": error_code,
+                "failure_class": failure_class, "lease_token": lease_token}
 
     def stored(self, run_id: str) -> tuple[int, int]:
         with psycopg.connect(MIGRATOR_DSN, autocommit=True) as connection:
@@ -158,6 +166,86 @@ class ExtractionResumeTests(unittest.TestCase):
                     "FROM fincilia.raw_record WHERE processing_run_id = %s",
                     (run_id,))
                 return cursor.fetchone()
+
+    def ordinals(self, run_id: str) -> list[int]:
+        with psycopg.connect(MIGRATOR_DSN, autocommit=True) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT set_config('fincilia.company_id', %s, false)", (ESPIGA,))
+                cursor.execute(
+                    "SELECT record_ordinal FROM fincilia.raw_record "
+                    "WHERE processing_run_id = %s ORDER BY record_ordinal", (run_id,))
+                return [int(row[0]) for row in cursor]
+
+    def attempts(self, run_id: str) -> list[tuple]:
+        with psycopg.connect(MIGRATOR_DSN, autocommit=True) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT set_config('fincilia.company_id', %s, false)", (ESPIGA,))
+                cursor.execute(
+                    "SELECT attempt_number, outcome, failure_class, reason_code "
+                    "FROM fincilia.run_attempt WHERE run_id = %s "
+                    "ORDER BY attempt_number", (run_id,))
+                return cursor.fetchall()
+
+    def pointer_count(self, run_id: str) -> int:
+        with psycopg.connect(MIGRATOR_DSN, autocommit=True) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT count(*) FROM fincilia.dispatch_pointer WHERE run_id = %s",
+                    (run_id,))
+                return int(cursor.fetchone()[0])
+
+    def extraction_audit_count(self, run_id: str) -> int:
+        with psycopg.connect(MIGRATOR_DSN, autocommit=True) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT set_config('fincilia.company_id', %s, false)", (ESPIGA,))
+                cursor.execute(
+                    "SELECT count(*) FROM fincilia.audit_event "
+                    "WHERE action = 'document.extraction' "
+                    "AND detail ->> 'run' = %s", (run_id,))
+                return int(cursor.fetchone()[0])
+
+    def settlement_failure_is_recoverable(self, helper_name: str) -> None:
+        payload = ("fecha;descripcion;referencia;valor\n"
+                   f"01/02/2026;Fallo {helper_name};SETTLE-{RUN};1,00\n").encode()
+        type(self).created.add(sha256_bytes(payload))
+        upload = self.client.post(
+            f"/api/v1/companies/{ESPIGA}/documents", headers=self.auth(PREPARER),
+            files={"file": (f"settle-{helper_name}-{RUN}.csv", io.BytesIO(payload),
+                            "text/csv")})
+        self.assertEqual(200, upload.status_code, upload.text)
+        artifact_id = upload.json()["artifact_id"]
+
+        original = getattr(worker_main, helper_name)
+
+        def failing(*args, **kwargs):
+            claim = args[1]
+            if str(claim.artifact_id) == artifact_id:
+                raise RuntimeError(f"SYNTHETIC-{helper_name}-FAILURE")
+            return original(*args, **kwargs)
+
+        setattr(worker_main, helper_name, failing)
+        try:
+            self.drain()
+        finally:
+            setattr(worker_main, helper_name, original)
+
+        pending = self.extraction_of(artifact_id)
+        self.assertEqual("queued", pending["status"], pending)
+        self.assertEqual(2, pending["attempt"])
+        self.assertIsNone(pending["error_code"])
+        self.assertEqual(1, self.pointer_count(pending["run_id"]))
+        self.assertEqual([(1, "failed", "unknown", "extraction_error")],
+                         self.attempts(pending["run_id"]))
+        self.assertEqual(0, self.extraction_audit_count(pending["run_id"]))
+
+        self.available_now(pending["run_id"])
+        self.drain()
+        settled = self.extraction_of(artifact_id)
+        self.assertEqual("succeeded", settled["status"], settled)
+        self.assertEqual(1, self.extraction_audit_count(settled["run_id"]))
 
     # ------------------------------------------------------------------ el caso
 
@@ -202,7 +290,7 @@ class ExtractionResumeTests(unittest.TestCase):
 
             # Y ahora se reanuda, con el mismo trabajo y el mismo identificador.
             worker_main._flush = original_flush
-            self.available_now()
+            self.available_now(partial["run_id"])
             self.drain()
         finally:
             worker_main._flush = original_flush
@@ -228,6 +316,181 @@ class ExtractionResumeTests(unittest.TestCase):
         rows, ordinals = self.stored(settled["run_id"])
         self.assertEqual(expected_rows, rows)
         self.assertEqual(rows, ordinals)
+        # El conflicto identico de las dos primeras tandas fue una reanudacion,
+        # no un error. PostgreSQL las ignoro y el intento final solo cuenta lo
+        # que realmente inserto; `stored_records` cuenta el estado durable.
+        self.assertEqual(rows, settled["result"].get("stored_records"))
+        self.assertEqual(expected_rows - 2 * BATCH,
+                         settled["result"].get("inserted_records"))
+        self.assertLess(settled["result"]["inserted_records"],
+                        settled["result"]["stored_records"])
+
+    def test_a_divergent_conflict_aborts_the_whole_batch(self) -> None:
+        """Una segunda lectura distinta falla fatal y no deja media tanda."""
+        payload = synthetic_statement(1_200).replace(
+            b"Movimiento sintetico 1", b"Movimiento sintetico D1", 1)
+        type(self).created.add(sha256_bytes(payload))
+        upload = self.client.post(
+            f"/api/v1/companies/{ESPIGA}/documents", headers=self.auth(PREPARER),
+            files={"file": (f"divergent-{RUN}.csv", io.BytesIO(payload),
+                            "text/csv")})
+        self.assertEqual(200, upload.status_code, upload.text)
+        artifact_id = upload.json()["artifact_id"]
+
+        original_flush = worker_main._flush
+        original_batch = worker_main.STORE_BATCH
+        injected: dict[str, object] = {}
+
+        def divergent_flush(database, claim, batch):
+            if not injected and str(claim.artifact_id) == artifact_id:
+                poisoned = list(batch[len(batch) // 2])
+                values = json.loads(poisoned[5])
+                values[-1] = "SYNTHETIC-DIVERGENT-READING"
+                poisoned[5] = jobs.dumps(values)
+                poisoned[6] = digest_of(values)
+                with psycopg.connect(MIGRATOR_DSN, autocommit=True) as connection:
+                    with connection.cursor() as cursor:
+                        cursor.execute(
+                            "SELECT set_config('fincilia.company_id', %s, false)",
+                            (claim.company_id,))
+                        cursor.execute(
+                            "INSERT INTO fincilia.raw_record (raw_record_id, "
+                            "company_id, artifact_id, processing_run_id, "
+                            "record_ordinal, origin_locator, raw_values, "
+                            "values_digest) VALUES (gen_random_uuid(), %s, %s, "
+                            "%s, %s, %s::jsonb, %s::jsonb, %s)", tuple(poisoned))
+                injected["run_id"] = str(claim.run_id)
+                injected["ordinal"] = poisoned[3]
+            return original_flush(database, claim, batch)
+
+        worker_main._flush = divergent_flush
+        worker_main.STORE_BATCH = BATCH
+        try:
+            self.drain()
+        finally:
+            worker_main._flush = original_flush
+            worker_main.STORE_BATCH = original_batch
+
+        self.assertTrue(injected, "the divergent row was never injected")
+        settled = self.extraction_of(artifact_id)
+        self.assertEqual("failed", settled["status"], settled)
+        self.assertEqual(1, settled["attempt"])
+        self.assertEqual("raw_record_conflict", settled["error_code"])
+        self.assertEqual("fatal", settled["failure_class"])
+        self.assertEqual({}, settled["result"])
+
+        rows, ordinals = self.stored(str(injected["run_id"]))
+        self.assertEqual(1, rows,
+                         "the insert before conflict detection was not rolled back")
+        self.assertEqual(1, ordinals)
+        self.assertEqual([int(injected["ordinal"])],
+                         self.ordinals(str(injected["run_id"])))
+        self.assertEqual([(1, "failed", "fatal", "raw_record_conflict")],
+                         self.attempts(str(injected["run_id"])))
+        self.assertEqual(0, self.pointer_count(str(injected["run_id"])))
+
+    def test_a_stale_lease_cannot_flush_even_one_record(self) -> None:
+        """El vallado ocurre dentro de la transaccion que escribiria el lote."""
+        artifact_id = str(uuid.uuid4())
+        content_digest = uuid.uuid4().hex + uuid.uuid4().hex
+        type(self).created.add(content_digest)
+        with psycopg.connect(MIGRATOR_DSN, autocommit=True) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT set_config('fincilia.company_id', %s, false)", (ESPIGA,))
+                cursor.execute(
+                    "INSERT INTO fincilia.source_artifact (artifact_id, "
+                    "company_id, filename, byte_size, content_sha256, media_type, "
+                    "zone, object_key, status, uploaded_by) VALUES (%s, %s, "
+                    "'stale-synthetic.csv', 10, %s, 'text/csv', 'raw', %s, "
+                    "'stored', %s)",
+                    (artifact_id, ESPIGA, content_digest,
+                     f"synthetic/{content_digest}", stable_id("subject", "ana")))
+
+        with psycopg.connect(RUNTIME_DSN, autocommit=True) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT set_config('fincilia.company_id', %s, false)", (ESPIGA,))
+                cursor.execute(
+                    "SELECT fincilia.enqueue_processing_run(%s, %s, 'extract')",
+                    (ESPIGA, artifact_id))
+                run_id = str(cursor.fetchone()[0])
+
+        database = Database(self.worker_settings())
+        old_claim = None
+        fresh_claim = None
+        try:
+            with database.session() as connection:
+                old_claim = jobs.claim_next(connection, f"stale-old-{RUN}")
+            self.assertIsNotNone(old_claim)
+            self.assertEqual(run_id, old_claim.run_id,
+                             "another queued job made the fencing test ambiguous")
+
+            values = ["fecha", "descripcion"]
+            locator = {"locator_kind": "tabular_delimited",
+                       "artifact_sha256": content_digest,
+                       "record_ordinal": 1, "byte_start": 1, "byte_end": 9,
+                       "field_count": 2}
+            batch = [(ESPIGA, artifact_id, run_id, 1, jobs.dumps(locator),
+                      jobs.dumps(values), digest_of(values))]
+
+            # El primer worker deja vencer el arriendo. El puntero vuelve a
+            # quedar disponible y otro worker recupera exactamente el mismo
+            # run con un token nuevo.
+            with psycopg.connect(MIGRATOR_DSN, autocommit=True) as connection:
+                with connection.cursor() as cursor:
+                    cursor.execute(
+                        "SELECT set_config('fincilia.company_id', %s, false)",
+                        (ESPIGA,))
+                    cursor.execute(
+                        "UPDATE fincilia.processing_run SET lease_expires_at = "
+                        "clock_timestamp() - interval '1 second' "
+                        "WHERE run_id = %s AND lease_token = %s",
+                        (run_id, old_claim.lease_token))
+                    self.assertEqual(1, cursor.rowcount)
+                    cursor.execute(
+                        "UPDATE fincilia.dispatch_pointer SET available_at = "
+                        "clock_timestamp() - interval '1 second' WHERE run_id = %s",
+                        (run_id,))
+                    self.assertEqual(1, cursor.rowcount)
+
+            with self.assertRaises(jobs.StaleLease):
+                worker_main._flush(database, old_claim, batch)
+            self.assertEqual((0, 0), self.stored(run_id))
+
+            with database.session() as connection:
+                fresh_claim = jobs.claim_next(connection, f"stale-fresh-{RUN}")
+            self.assertIsNotNone(fresh_claim)
+            self.assertEqual(run_id, fresh_claim.run_id)
+            self.assertNotEqual(old_claim.lease_token, fresh_claim.lease_token)
+
+            with self.assertRaises(jobs.StaleLease):
+                worker_main._flush(database, old_claim, batch)
+            self.assertEqual((0, 0), self.stored(run_id))
+
+            current = self.extraction_of(artifact_id)
+            self.assertEqual("running", current["status"])
+            self.assertEqual(2, current["attempt"])
+            self.assertEqual(fresh_claim.lease_token, current["lease_token"])
+            self.assertIsNone(current["error_code"])
+            self.assertIsNone(current["failure_class"])
+            self.assertEqual(1, self.pointer_count(run_id))
+            self.assertEqual(
+                [(1, "abandoned", "unknown", "lease_expired"),
+                 (2, "running", None, None)], self.attempts(run_id))
+        finally:
+            if fresh_claim is not None and fresh_claim.run_id == run_id:
+                with database.session(company_id=ESPIGA) as connection:
+                    jobs.finish(connection, fresh_claim,
+                                error_code="synthetic_test_abort",
+                                failure_class=jobs.FATAL)
+            database.close()
+
+    def test_a_count_failure_cannot_finish_the_extraction(self) -> None:
+        self.settlement_failure_is_recoverable("_stored_records")
+
+    def test_an_audit_failure_rolls_back_the_successful_finish(self) -> None:
+        self.settlement_failure_is_recoverable("_audit_extraction")
 
     def test_the_partial_extraction_never_looked_complete_TST_P36_034(self) -> None:
         """Mientras estuvo a medias, nadie pudo tomarla por terminada.
