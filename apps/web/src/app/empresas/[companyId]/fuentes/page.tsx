@@ -1,28 +1,24 @@
 import Link from 'next/link';
-import { redirect } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 
 import {
   ApiError,
   fetchAccountsFull,
-  fetchAssignees,
   fetchCompany,
   fetchExpectations,
   fetchLinks,
   fetchSourcesFull,
   type Account,
-  type Assignee,
   type Expectation,
   type Source,
-  type SourceCycle,
   type SourceLink,
 } from '@/lib/api';
+import { withFlowContext } from '@/lib/navigation';
 import { readSession } from '@/lib/session';
 
 import {
   AccountForm,
   AccountStatusForm,
-  CycleForm,
-  LinkForm,
   SourceForm,
 } from './onboarding-forms';
 
@@ -54,6 +50,13 @@ const STATUS_LABELS: Record<string, string> = {
   closed: 'cerrada',
 };
 
+function settledValue<T>(result: PromiseSettledResult<T>): T {
+  if (result.status === 'rejected') {
+    throw result.reason;
+  }
+  return result.value;
+}
+
 export default async function SourcesPage({
   params,
 }: {
@@ -72,45 +75,66 @@ export default async function SourcesPage({
     if (error instanceof ApiError && error.status === 401) {
       redirect('/entrar');
     }
-    return (
-      <main>
-        <header className="bar">
-          <h1>Sin acceso</h1>
-          <Link href="/empresas">Volver</Link>
-        </header>
-        <p className="card">Esta cuenta no tiene acceso vigente a lo que has pedido.</p>
-      </main>
-    );
+    if (error instanceof ApiError && error.status === 404) {
+      notFound();
+    }
+    if (error instanceof ApiError && error.status === 403) {
+      return (
+        <main>
+          <header className="bar">
+            <h1>Sin acceso</h1>
+            <Link href="/empresas">Volver</Link>
+          </header>
+          <p className="card">Esta cuenta no tiene acceso vigente a lo que has pedido.</p>
+        </main>
+      );
+    }
+    throw error;
   }
 
   const canManageAccounts = company.permissions.includes('financial_account.manage');
   const canManageSources = company.permissions.includes('data_source.manage');
 
-  const [accounts, sources, links, expectations, people] = await Promise.all([
-    fetchAccountsFull(session.token, companyId).catch(() => [] as Account[]),
-    fetchSourcesFull(session.token, companyId).catch(() => [] as Source[]),
-    fetchLinks(session.token, companyId).catch(() => [] as SourceLink[]),
-    fetchExpectations(session.token, companyId).catch(() => [] as Expectation[]),
-    // Quien puede responder de un ciclo sale de la base, no de quien mira la
-    // pantalla: la version anterior ofrecia un solo candidato —tu— porque no
-    // habia de donde sacar los demas.
-    canManageSources
-      ? fetchAssignees(session.token, companyId).catch(() => [] as Assignee[])
-      : Promise.resolve([] as Assignee[]),
-  ]);
+  const loaded = await Promise.allSettled([
+    fetchAccountsFull(session.token, companyId),
+    fetchSourcesFull(session.token, companyId),
+    fetchLinks(session.token, companyId),
+    fetchExpectations(session.token, companyId),
+  ] as const);
+  for (const result of loaded) {
+    if (result.status === 'fulfilled') {
+      continue;
+    }
+    const error: unknown = result.reason;
+    if (error instanceof ApiError && error.status === 401) {
+      redirect('/entrar');
+    }
+    if (error instanceof ApiError && error.status === 403) {
+      return (
+        <main>
+          <header className="bar">
+            <h1>Sin acceso</h1>
+            <Link href="/empresas">Volver</Link>
+          </header>
+          <p className="card">
+            Esta cuenta no tiene acceso vigente a cuentas, fuentes y ciclos.
+          </p>
+        </main>
+      );
+    }
+    throw error;
+  }
+  const accounts: Account[] = settledValue(loaded[0]);
+  const sources: Source[] = settledValue(loaded[1]);
+  const links: SourceLink[] = settledValue(loaded[2]);
+  const expectations: Expectation[] = settledValue(loaded[3]);
 
   const linksBySource = new Map<string, SourceLink[]>();
   for (const link of links) {
     linksBySource.set(link.data_source_id,
                       [...(linksBySource.get(link.data_source_id) ?? []), link]);
   }
-  const activeAccounts = accounts.filter((account) => account.status === 'active');
-  // El ciclo vivo de cada fuente, para que el formulario sepa si su responsable
-  // sigue valiendo. Se lee al abrir la fuente, no aqui, para no pedir uno por
-  // fuente en cada carga de la pantalla.
-  const cycleOf = new Map<string, SourceCycle>();
   const overdue = expectations.filter((item) => item.state === 'late');
-  const today = new Date().toISOString().slice(0, 10);
 
   return (
     <main>
@@ -276,25 +300,21 @@ export default async function SourcesPage({
                 </p>
               ) : null}
 
-              {canManageSources ? (
-                <>
-                  <details>
-                    <summary>Vincular una cuenta</summary>
-                    <LinkForm companyId={companyId} source={source}
-                              accounts={activeAccounts} />
-                  </details>
-                  <details>
-                    <summary>Ciclo esperado</summary>
-                    <CycleForm companyId={companyId} source={source}
-                               people={people} cycle={cycleOf.get(source.data_source_id) ?? null}
-                               today={today} />
-                  </details>
-                </>
-              ) : null}
+              <p className="meta">
+                <Link
+                  href={`/empresas/${companyId}/fuentes/${source.data_source_id}`}
+                >
+                  {canManageSources ? 'Ver y configurar la fuente' : 'Ver la fuente'}
+                </Link>
+              </p>
 
               {primary ? (
                 <p className="meta">
-                  <Link href={`/empresas/${companyId}`}>
+                  <Link
+                    href={withFlowContext(`/empresas/${companyId}`, {
+                      fuente: source.data_source_id,
+                    })}
+                  >
                     Subir un documento para esta fuente
                   </Link>
                 </p>
@@ -328,7 +348,8 @@ export default async function SourcesPage({
             <caption className="meta">
               El atraso se calcula al leer, contra la fecha de hoy. Guardarlo
               exigiria un proceso nocturno, y el dia que no corriera nada
-              estaria atrasado.
+              estaria atrasado. Se muestran hasta 100 expectativas; el API actual
+              no expone una pagina siguiente.
             </caption>
             <thead>
               <tr>

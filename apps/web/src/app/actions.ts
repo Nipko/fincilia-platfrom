@@ -15,6 +15,7 @@ import {
   createAccount,
   createMapping,
   createSource,
+  fetchSource,
   generateExpectations,
   linkAccount,
   setCycle,
@@ -23,7 +24,6 @@ import {
   prepareDataset,
   publishDataset,
   signIn,
-  uploadDocument,
   validateMapping,
 } from '@/lib/api';
 import { clearSession, readSession, writeSession } from '@/lib/session';
@@ -63,51 +63,6 @@ export async function signOutAction(): Promise<void> {
   await clearSession();
   redirect('/entrar');
 }
-
-export type UploadState = { error: string | null; uploaded: string | null };
-
-export async function uploadDocumentAction(
-  _previous: UploadState,
-  formData: FormData,
-): Promise<UploadState> {
-  const session = await readSession();
-  if (!session) {
-    redirect('/entrar');
-  }
-  const companyId = String(formData.get('companyId') ?? '');
-  const file = formData.get('file');
-  if (!(file instanceof File) || file.size === 0) {
-    return { error: 'Elige un fichero.', uploaded: null };
-  }
-
-  let artifact;
-  try {
-    artifact = await uploadDocument(session.token, companyId, file);
-  } catch (error) {
-    if (error instanceof ApiError && error.status === 401) {
-      redirect('/entrar');
-    }
-    if (error instanceof ApiError && error.status === 403) {
-      return { error: 'Este rol no puede subir documentos.', uploaded: null };
-    }
-    if (error instanceof ApiError && (error.status === 413 || error.status === 415)) {
-      // El detalle viene de la API y ya esta escrito para no filtrar nada; se
-      // pasa tal cual porque explica exactamente por que no se admitio.
-      return { error: error.message, uploaded: null };
-    }
-    return { error: 'No se pudo subir el fichero.', uploaded: null };
-  }
-
-  revalidatePath(`/empresas/${companyId}`);
-  const summary =
-    artifact.zone === 'quarantine'
-      ? `${artifact.filename} quedo en cuarentena: se detecto informacion sensible.`
-      : artifact.already_present
-        ? `${artifact.filename} ya estaba: los mismos bytes son la misma entrega.`
-        : `${artifact.filename} almacenado.`;
-  return { error: null, uploaded: summary };
-}
-
 
 // --------------------------------------------------------------------------- //
 // Mapeo, preparacion y publicacion (FNC-P3)
@@ -183,6 +138,19 @@ export async function createMappingAction(
 
   let created;
   try {
+    const source = await fetchSource(
+      session.token,
+      companyId,
+      dataSourceId,
+    );
+    if (source.status !== 'active') {
+      return {
+        error:
+          'La fuente fue retirada antes de guardar. Elige una fuente activa y revisa el mapeo.',
+        mappingVersionId: null,
+        blockers: [],
+      };
+    }
     created = await createMapping(session.token, companyId, {
       artifact_id: artifactId,
       data_source_id: dataSourceId,
@@ -204,7 +172,15 @@ export async function createMappingAction(
     }
     if (error instanceof ApiError && error.status === 403) {
       return {
-        error: 'Este rol no puede mapear columnas.',
+        error:
+          'La fuente ya no esta disponible o este rol no puede mapear columnas.',
+        mappingVersionId: null,
+        blockers: [],
+      };
+    }
+    if (error instanceof ApiError && error.status === 404) {
+      return {
+        error: 'La fuente ya no esta disponible. Elige otra fuente activa.',
         mappingVersionId: null,
         blockers: [],
       };
@@ -421,6 +397,9 @@ function refresh(companyId: string): void {
 }
 
 function explain(error: unknown, fallback: string): string {
+  if (error instanceof ApiError && error.status === 401) {
+    redirect('/entrar');
+  }
   if (error instanceof ApiError && error.status === 403) {
     return 'Este rol no puede administrar cuentas ni fuentes.';
   }
@@ -572,22 +551,46 @@ export async function setCycleAction(
       timezone: String(formData.get('timezone') ?? 'America/Bogota'),
       anchor_date: String(formData.get('anchorDate') ?? ''),
     });
-    const until = String(formData.get('until') ?? '');
-    if (until) {
-      const report = await generateExpectations(
-        session.token, companyId, sourceId, until,
-      );
-      refresh(companyId);
-      return {
-        error: null,
-        done: `Ciclo guardado y ${report.periods} periodo(s) calculados, ` +
-          `${report.created} nuevo(s).`,
-      };
-    }
     refresh(companyId);
+    revalidatePath(`/empresas/${companyId}/fuentes/${sourceId}`);
     return { error: null, done: 'Ciclo guardado.' };
   } catch (error) {
     return { error: explain(error, 'No se pudo guardar el ciclo.'), done: null };
+  }
+}
+
+export async function generateExpectationsAction(
+  _previous: OnboardingState,
+  formData: FormData,
+): Promise<OnboardingState> {
+  const session = await readSession();
+  if (!session) {
+    redirect('/entrar');
+  }
+  const companyId = String(formData.get('companyId') ?? '');
+  const sourceId = String(formData.get('sourceId') ?? '');
+  const until = String(formData.get('until') ?? '');
+  if (!until) {
+    return { error: 'Elige hasta que fecha calcular los periodos.', done: null };
+  }
+  try {
+    const report = await generateExpectations(
+      session.token,
+      companyId,
+      sourceId,
+      until,
+    );
+    refresh(companyId);
+    revalidatePath(`/empresas/${companyId}/fuentes/${sourceId}`);
+    return {
+      error: null,
+      done: `${report.periods} periodo(s) calculados; ${report.created} nuevo(s).`,
+    };
+  } catch (error) {
+    return {
+      error: explain(error, 'El ciclo se conserva, pero no se pudieron calcular los periodos.'),
+      done: null,
+    };
   }
 }
 

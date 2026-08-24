@@ -1,13 +1,15 @@
 import Link from 'next/link';
-import { redirect } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 
 import {
   ApiError,
   fetchAudit,
   fetchCompany,
   fetchDocuments,
+  fetchSourcesFull,
   type ArtifactSummary,
   type AuditEvent,
+  type Source,
 } from '@/lib/api';
 import { readSession } from '@/lib/session';
 import { UploadForm } from './upload';
@@ -31,14 +33,16 @@ function formatWhen(value: string): string {
 
 export default async function CompanyPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ companyId: string }>;
+  searchParams: Promise<{ fuente?: string | string[] }>;
 }) {
   const session = await readSession();
   if (!session) {
     redirect('/entrar');
   }
-  const { companyId } = await params;
+  const [{ companyId }, query] = await Promise.all([params, searchParams]);
 
   let company;
   try {
@@ -46,6 +50,9 @@ export default async function CompanyPage({
   } catch (error) {
     if (error instanceof ApiError && error.status === 401) {
       redirect('/entrar');
+    }
+    if (error instanceof ApiError && error.status === 404) {
+      notFound();
     }
     if (error instanceof ApiError && error.status === 403) {
       return (
@@ -65,9 +72,46 @@ export default async function CompanyPage({
   }
 
   let documents: ArtifactSummary[] = [];
+  let documentsVisible = company.permissions.includes('document.read');
   if (company.permissions.includes('document.read')) {
-    documents = await fetchDocuments(session.token, companyId);
+    try {
+      documents = await fetchDocuments(session.token, companyId);
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401) {
+        redirect('/entrar');
+      }
+      if (error instanceof ApiError && error.status === 403) {
+        documentsVisible = false;
+      } else {
+        throw error;
+      }
+    }
   }
+
+  let uploadSources: Source[] = [];
+  let uploadSourcesVisible = company.permissions.includes('document.upload');
+  if (uploadSourcesVisible) {
+    try {
+      uploadSources = (await fetchSourcesFull(session.token, companyId)).filter(
+        (source) => source.status === 'active',
+      );
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401) {
+        redirect('/entrar');
+      }
+      if (error instanceof ApiError && error.status === 403) {
+        uploadSourcesVisible = false;
+      } else {
+        throw error;
+      }
+    }
+  }
+  const requestedSource = typeof query.fuente === 'string' ? query.fuente : '';
+  const initialSourceId = uploadSources.some(
+    (source) => source.data_source_id === requestedSource,
+  )
+    ? requestedSource
+    : '';
 
   // La web no decide: pregunta al servidor si el permiso esta, y si no esta, no
   // pide la auditoria. El servidor volveria a denegarla de todas formas.
@@ -77,6 +121,9 @@ export default async function CompanyPage({
     try {
       audit = await fetchAudit(session.token, companyId);
     } catch (error) {
+      if (error instanceof ApiError && error.status === 401) {
+        redirect('/entrar');
+      }
       if (!(error instanceof ApiError) || error.status !== 403) {
         throw error;
       }
@@ -122,9 +169,13 @@ export default async function CompanyPage({
       </section>
 
       <h2>Documentos</h2>
-      {company.permissions.includes('document.upload') ? (
+      {uploadSourcesVisible ? (
         <div className="card">
-          <UploadForm companyId={companyId} />
+          <UploadForm
+            companyId={companyId}
+            sources={uploadSources}
+            initialSourceId={initialSourceId}
+          />
           <p className="meta">
             CSV, PDF o libro de calculo, hasta 25 MB. El tipo se decide por los
             primeros bytes, no por la extension.
@@ -139,30 +190,38 @@ export default async function CompanyPage({
         </div>
       ) : null}
 
-      {documents.length === 0 ? (
+      {!documentsVisible ? (
+        <p className="card">
+          Este rol no puede consultar documentos. No se presenta como una lista
+          vacia porque la ausencia de acceso no dice si existen o no.
+        </p>
+      ) : documents.length === 0 ? (
         <p className="card">Todavia no hay documentos en esta empresa.</p>
       ) : (
         <div className="card scroll">
           <table>
+            <caption className="meta">
+              Ultimos 50 documentos. El API actual no expone una pagina siguiente.
+            </caption>
             <thead>
               <tr>
-                <th>Fichero</th>
-                <th>Tipo</th>
-                <th>Tamano</th>
-                <th>Zona</th>
-                <th>Huella</th>
+                <th scope="col">Fichero</th>
+                <th scope="col">Tipo</th>
+                <th scope="col">Tamano</th>
+                <th scope="col">Zona</th>
+                <th scope="col">Huella</th>
               </tr>
             </thead>
             <tbody>
               {documents.map((document) => (
                 <tr key={document.artifact_id}>
-                  <td>
+                  <th scope="row">
                     <Link
                       href={`/empresas/${companyId}/documentos/${document.artifact_id}`}
                     >
                       {document.filename}
                     </Link>
-                  </td>
+                  </th>
                   <td className="outcome">{document.media_type}</td>
                   <td className="when">{document.byte_size.toLocaleString('es-CO')} B</td>
                   <td>
@@ -190,18 +249,21 @@ export default async function CompanyPage({
       {auditVisible ? (
         <div className="card scroll">
           <table>
+            <caption className="meta">
+              Ultimos 25 eventos. El API actual no expone una pagina siguiente.
+            </caption>
             <thead>
               <tr>
-                <th>Cuando</th>
-                <th>Accion</th>
-                <th>Recurso</th>
-                <th>Resultado</th>
+                <th scope="col">Cuando</th>
+                <th scope="col">Accion</th>
+                <th scope="col">Recurso</th>
+                <th scope="col">Resultado</th>
               </tr>
             </thead>
             <tbody>
               {audit.map((event) => (
                 <tr key={event.audit_event_id}>
-                  <td className="when">{formatWhen(event.occurred_at)}</td>
+                  <th scope="row" className="when">{formatWhen(event.occurred_at)}</th>
                   <td>{event.action}</td>
                   <td>{event.resource_kind}</td>
                   <td>

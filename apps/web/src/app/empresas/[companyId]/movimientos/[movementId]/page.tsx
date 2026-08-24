@@ -1,7 +1,16 @@
 import Link from 'next/link';
-import { redirect } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 
-import { ApiError, fetchMovement } from '@/lib/api';
+import {
+  ApiError,
+  fetchDataset,
+  fetchMapping,
+  fetchMovement,
+} from '@/lib/api';
+import {
+  pageFromQuery,
+  withFlowContext,
+} from '@/lib/navigation';
 import { readSession } from '@/lib/session';
 
 export const dynamic = 'force-dynamic';
@@ -60,34 +69,68 @@ function money(amount: string, currency: string): string {
 
 export default async function MovementPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ companyId: string; movementId: string }>;
+  searchParams: Promise<{
+    pagina?: string | string[];
+    movimientosPagina?: string | string[];
+  }>;
 }) {
   const session = await readSession();
   if (!session) {
     redirect('/entrar');
   }
-  const { companyId, movementId } = await params;
+  const [{ companyId, movementId }, query] = await Promise.all([params, searchParams]);
 
   let movement;
+  let dataset;
+  let mapping;
   try {
     movement = await fetchMovement(session.token, companyId, movementId);
+    // El contexto de regreso se deriva de la cadena autorizada, no de UUID que
+    // envie el navegador: movimiento -> dataset -> mapping -> fuente/artefacto.
+    dataset = await fetchDataset(
+      session.token,
+      companyId,
+      movement.dataset_version_id,
+    );
+    mapping = await fetchMapping(
+      session.token,
+      companyId,
+      dataset.mapping_version_id,
+    );
   } catch (error) {
     if (error instanceof ApiError && error.status === 401) {
       redirect('/entrar');
     }
-    return (
-      <main>
-        <header className="bar">
-          <h1>Sin acceso</h1>
-          <Link href={`/empresas/${companyId}`}>Volver</Link>
-        </header>
-        <p className="card">
-          Esta cuenta no tiene acceso vigente a lo que has pedido.
-        </p>
-      </main>
-    );
+    if (error instanceof ApiError && error.status === 404) {
+      notFound();
+    }
+    if (error instanceof ApiError && error.status === 403) {
+      return (
+        <main>
+          <header className="bar">
+            <h1>Sin acceso</h1>
+            <Link href={`/empresas/${companyId}`}>Volver</Link>
+          </header>
+          <p className="card">
+            Esta cuenta no tiene acceso vigente a lo que has pedido.
+          </p>
+        </main>
+      );
+    }
+    throw error;
   }
+
+  const artifactId = mapping.artifact_id;
+  const flowContext = {
+    documento: artifactId,
+    fuente: mapping.data_source_id,
+    mapeo: mapping.mapping_version_id,
+    pagina: pageFromQuery(query.pagina),
+    movimientosPagina: pageFromQuery(query.movimientosPagina),
+  };
 
   const cellOf = (field: string) =>
     movement.lineage.find((step) => step.field === field)?.cell ?? null;
@@ -104,7 +147,16 @@ export default async function MovementPage({
           </span>
         </div>
         <nav aria-label="Navegacion del movimiento">
-          <Link href={`/empresas/${companyId}`}>Volver</Link>
+          <Link
+            href={withFlowContext(
+              artifactId
+                ? `/empresas/${companyId}/documentos/${artifactId}/mapeo`
+                : `/empresas/${companyId}`,
+              flowContext,
+            )}
+          >
+            Volver
+          </Link>
         </nav>
       </header>
 

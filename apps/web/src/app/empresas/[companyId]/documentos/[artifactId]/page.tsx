@@ -1,8 +1,20 @@
 import Link from 'next/link';
-import { redirect } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 
-import { ApiError, fetchDocument, type TableProfile } from '@/lib/api';
+import {
+  ApiError,
+  fetchDocument,
+  fetchSource,
+  type SourceDetail,
+  type TableProfile,
+} from '@/lib/api';
+import {
+  pageFromQuery,
+  singleQueryValue,
+  withFlowContext,
+} from '@/lib/navigation';
 import { readSession } from '@/lib/session';
+import { isUuid } from '@/lib/upload-policy';
 
 export const dynamic = 'force-dynamic';
 
@@ -37,14 +49,21 @@ function asProfile(value: unknown): TableProfile | null {
 
 export default async function DocumentPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ companyId: string; artifactId: string }>;
+  searchParams: Promise<{
+    fuente?: string | string[];
+    mapeo?: string | string[];
+    pagina?: string | string[];
+    movimientosPagina?: string | string[];
+  }>;
 }) {
   const session = await readSession();
   if (!session) {
     redirect('/entrar');
   }
-  const { companyId, artifactId } = await params;
+  const [{ companyId, artifactId }, query] = await Promise.all([params, searchParams]);
 
   let document;
   try {
@@ -52,6 +71,9 @@ export default async function DocumentPage({
   } catch (error) {
     if (error instanceof ApiError && error.status === 401) {
       redirect('/entrar');
+    }
+    if (error instanceof ApiError && error.status === 404) {
+      notFound();
     }
     if (error instanceof ApiError && error.status === 403) {
       return (
@@ -69,6 +91,33 @@ export default async function DocumentPage({
     throw error;
   }
 
+  const requestedSource = singleQueryValue(query.fuente);
+  let source: SourceDetail | null = null;
+  if (isUuid(requestedSource)) {
+    try {
+      const candidate = await fetchSource(session.token, companyId, requestedSource);
+      source = candidate.status === 'active' ? candidate : null;
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401) {
+        redirect('/entrar');
+      }
+      if (!(error instanceof ApiError) || ![403, 404].includes(error.status)) {
+        throw error;
+      }
+      // Un contexto retirado o ajeno se descarta sin revelar cual de los dos era.
+    }
+  }
+  const requestedMapping = singleQueryValue(query.mapeo);
+  const flowContext = {
+    documento: artifactId,
+    fuente: source?.data_source_id ?? null,
+    // La version se vuelve a autorizar en MappingPage; aqui solo se conserva
+    // si al menos tiene la forma de un identificador, nunca se consulta con ella.
+    mapeo: isUuid(requestedMapping) ? requestedMapping : null,
+    pagina: pageFromQuery(query.pagina),
+    movimientosPagina: pageFromQuery(query.movimientosPagina),
+  };
+
   const run = document.runs.find((item) => item.kind === 'profile');
   const profile = run?.status === 'succeeded' ? asProfile(run.result) : null;
 
@@ -83,12 +132,26 @@ export default async function DocumentPage({
           </span>
         </div>
         <nav aria-label="Navegacion del documento">
-          <Link href={`/empresas/${companyId}/documentos/${artifactId}/mapeo`}>
+          <Link
+            href={withFlowContext(
+              `/empresas/${companyId}/documentos/${artifactId}/mapeo`,
+              flowContext,
+            )}
+          >
             Mapear y publicar
           </Link>{' '}
-          <Link href={`/empresas/${companyId}`}>Volver</Link>
+          <Link href={withFlowContext(`/empresas/${companyId}`, flowContext)}>
+            Volver
+          </Link>
         </nav>
       </header>
+
+      {source ? (
+        <p className="notice" role="status">
+          Fuente seleccionada: <strong>{source.display_name}</strong>. Se volvera a
+          validar antes de guardar el mapeo.
+        </p>
+      ) : null}
 
       <section className="card">
         <div className="meta">Huella del contenido</div>
@@ -191,20 +254,23 @@ export default async function DocumentPage({
 
           <div className="card scroll">
             <table>
+              <caption className="meta">
+                Forma detectada de cada columna; no muestra valores del documento.
+              </caption>
               <thead>
                 <tr>
-                  <th>Columna</th>
-                  <th>Tipo</th>
-                  <th>Confianza</th>
-                  <th>Con valor</th>
-                  <th>Vacias</th>
-                  <th>Longitud</th>
+                  <th scope="col">Columna</th>
+                  <th scope="col">Tipo</th>
+                  <th scope="col">Confianza</th>
+                  <th scope="col">Con valor</th>
+                  <th scope="col">Vacias</th>
+                  <th scope="col">Longitud</th>
                 </tr>
               </thead>
               <tbody>
                 {profile.columns.map((column) => (
                   <tr key={column.index}>
-                    <td>{column.header}</td>
+                    <th scope="row">{column.header}</th>
                     <td>
                       <span className={`outcome ${column.ambiguous ? 'denied' : ''}`}>
                         {TYPE_LABELS[column.inferred_type] ?? column.inferred_type}

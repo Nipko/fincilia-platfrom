@@ -31,6 +31,12 @@ la contrasena sintetica los crea `db/seed/local.py`; estan documentados en
 ~~~bash
 docker compose -f infra/local/compose.yaml -p fincilia-local run --rm --no-deps web npm run typecheck
 docker compose -f infra/local/compose.yaml -p fincilia-local run --rm --no-deps web npm run lint
+cd apps/web
+npm ci --ignore-scripts
+npm run test:unit
+npx --no-install playwright install chromium
+FINCILIA_E2E_BASE_URL=http://127.0.0.1:53000 npm run test:e2e
+FINCILIA_E2E_BASE_URL=http://127.0.0.1:53000 npm run test:a11y
 ~~~
 
 ## Configuracion
@@ -42,15 +48,18 @@ docker compose -f infra/local/compose.yaml -p fincilia-local run --rm --no-deps 
 
 ## Que se puede hacer hoy
 
-Entrar, ver la firma y las empresas con acceso vigente, abrir una y ver sus roles,
-sus permisos, sus documentos y su auditoria; y subir un extracto o un soporte, si
-el rol incluye `document.upload`.
+Entrar, ver la firma y las empresas con acceso vigente; administrar cuentas,
+fuentes y ciclos; subir evidencia por una fuente; revisar su perfil; mapear
+columnas; preparar una version canonica; y navegar sus movimientos y linaje. Todo
+usa datos sinteticos y conserva las decisiones financieras en la API.
 
-El formulario de subida solo aparece cuando el servidor dice que ese permiso
-esta. No es la comprobacion: la comprobacion la hace la API y volveria a denegar.
-Ocultarlo evita ofrecer una accion que va a fallar.
+El formulario de subida solo aparece cuando el servidor concede el permiso. El
+navegador envia el documento a un BFF same-origin por streaming; el token
+`httpOnly` nunca entra en JavaScript. La API vuelve a validar permiso, fuente,
+tipo y el limite exacto de 25 MiB.
 
 ## Lo que todavia no hay
 
-Mapping, conciliacion, reglas, informes y cierre. La interfaz llega hasta la
-evidencia almacenada; lo que se hace con ella todavia no existe.
+Conciliacion P4, excepciones contables, informes y cierre autorizado. La interfaz
+actual llega hasta movimientos canonicos para revision; no hace auto-match ni
+declara un cierre.

@@ -14,7 +14,7 @@ WORKDIR /build
 COPY apps/web/package.json apps/web/package-lock.json ./
 RUN npm ci --ignore-scripts --include=dev
 
-COPY apps/web/next.config.mjs apps/web/tsconfig.json apps/web/eslint.config.mjs ./
+COPY apps/web/next.config.mjs apps/web/tsconfig.json apps/web/eslint.config.mjs apps/web/vitest.setup.ts ./
 COPY apps/web/src ./src
 RUN npm run typecheck && npm run build
 

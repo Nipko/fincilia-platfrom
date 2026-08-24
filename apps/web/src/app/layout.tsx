@@ -12,7 +12,12 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="es">
       <body>
-        <div className="shell">{children}</div>
+        <a className="skip-link" href="#main-content">
+          Saltar al contenido principal
+        </a>
+        <div className="shell" id="main-content" tabIndex={-1}>
+          {children}
+        </div>
         <footer className="ceiling">
           Entorno local · datos sinteticos · sin proveedores externos
         </footer>

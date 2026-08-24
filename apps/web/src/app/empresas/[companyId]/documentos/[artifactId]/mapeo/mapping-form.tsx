@@ -1,8 +1,10 @@
 'use client';
 
+import Link from 'next/link';
 import { useActionState, useState } from 'react';
 
 import type { Blocker, ColumnProfile, PreviewPage } from '@/lib/api';
+import { withFlowContext } from '@/lib/navigation';
 import {
   continueDatasetAction,
   createMappingAction,
@@ -68,16 +70,28 @@ const PUBLISH_INITIAL: PublishState = { error: null, published: null };
 export function MappingForm({
   companyId,
   artifactId,
-  dataSourceId,
+  sources,
+  selectedDataSourceId,
+  page,
+  movementPage,
   preview,
 }: {
   companyId: string;
   artifactId: string;
-  dataSourceId: string;
+  sources: {
+    data_source_id: string;
+    display_name: string;
+    source_family: string;
+    status: string;
+  }[];
+  selectedDataSourceId: string;
+  page: number;
+  movementPage: number;
   preview: PreviewPage;
 }) {
   const [state, action, pending] = useActionState(createMappingAction, MAPPING_INITIAL);
   const [directionMode, setDirectionMode] = useState('signed_amount');
+  const [dataSourceId, setDataSourceId] = useState(selectedDataSourceId);
 
   const columns: ColumnProfile[] = preview.columns.length
     ? preview.columns
@@ -97,7 +111,30 @@ export function MappingForm({
     <form className="upload" action={action}>
       <input type="hidden" name="companyId" value={companyId} />
       <input type="hidden" name="artifactId" value={artifactId} />
-      <input type="hidden" name="dataSourceId" value={dataSourceId} />
+
+      <label htmlFor="dataSourceId">
+        Fuente de estos datos
+        <select
+          id="dataSourceId"
+          name="dataSourceId"
+          value={dataSourceId}
+          onChange={(event) => setDataSourceId(event.target.value)}
+          required
+        >
+          <option value="">elige una fuente</option>
+          {sources.map((source) => (
+            <option key={source.data_source_id} value={source.data_source_id}>
+              {source.display_name} · {source.source_family} · {source.status}
+            </option>
+          ))}
+        </select>
+      </label>
+      {sources.length === 0 ? (
+        <p className="notice error" role="status">
+          No hay fuentes autorizadas disponibles. Crea o recupera una fuente
+          antes de guardar el mapeo.
+        </p>
+      ) : null}
 
       <label htmlFor="displayName">
         Nombre del mapeo
@@ -203,7 +240,7 @@ export function MappingForm({
       </fieldset>
 
       <div>
-        <button type="submit" disabled={pending}>
+        <button type="submit" disabled={pending || sources.length === 0}>
           {pending ? 'Guardando...' : 'Guardar mapeo'}
         </button>
       </div>
@@ -219,6 +256,21 @@ export function MappingForm({
           {state.blockers.length > 0
             ? ` Quedan ${state.blockers.length} cosa(s) por resolver antes de poder preparar.`
             : ' No queda nada por resolver.'}
+          {' '}
+          <Link
+            href={withFlowContext(
+              `/empresas/${companyId}/documentos/${artifactId}/mapeo`,
+              {
+                documento: artifactId,
+                fuente: dataSourceId,
+                mapeo: state.mappingVersionId,
+                pagina: page,
+                movimientosPagina: movementPage,
+              },
+            )}
+          >
+            Abrir esta version
+          </Link>
         </p>
       ) : null}
     </form>

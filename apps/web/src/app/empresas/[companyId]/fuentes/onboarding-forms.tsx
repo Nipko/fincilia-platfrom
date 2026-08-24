@@ -1,12 +1,14 @@
 'use client';
 
-import { useActionState, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useActionState, useEffect, useState } from 'react';
 
 import type { Account, Assignee, Source, SourceCycle } from '@/lib/api';
 import {
   closeAccountAction,
   createAccountAction,
   createSourceAction,
+  generateExpectationsAction,
   linkAccountAction,
   setCycleAction,
   type OnboardingState,
@@ -39,6 +41,18 @@ const ROLES: { id: string; label: string; hint: string }[] = [
   { id: 'ledger', label: 'Libro contable', hint: 'contra la que se concilia' },
   { id: 'supporting', label: 'Soporte', hint: 'evidencia adicional' },
 ];
+
+function useRefreshOnDone(state: OnboardingState): void {
+  const router = useRouter();
+  useEffect(() => {
+    if (state.done) {
+      // Las acciones historicas revalidan la lista de fuentes. El detalle es
+      // dinamico y debe volver a pedir SourceDetail para mostrar ciclo/vinculos
+      // recien guardados sin duplicar estado en el cliente.
+      router.refresh();
+    }
+  }, [router, state.done]);
+}
 
 function Feedback({ state }: { state: OnboardingState }) {
   return (
@@ -217,6 +231,7 @@ export function LinkForm({
   accounts: Account[];
 }) {
   const [state, action, pending] = useActionState(linkAccountAction, INITIAL);
+  useRefreshOnDone(state);
   const usable = accounts.filter((account) => account.status === 'active');
 
   return (
@@ -279,23 +294,36 @@ export function CycleForm({
   today: string;
 }) {
   const [state, action, pending] = useActionState(setCycleAction, INITIAL);
-  const [periodicity, setPeriodicity] = useState('monthly');
+  useRefreshOnDone(state);
+  const [generationState, generationAction, generating] = useActionState(
+    generateExpectationsAction,
+    INITIAL,
+  );
+  useRefreshOnDone(generationState);
+  const [periodicity, setPeriodicity] = useState(cycle?.periodicity ?? 'monthly');
+  const currentResponsibleIsListed = cycle
+    ? people.some((person) => person.subject_id === cycle.responsible_subject_id)
+    : false;
+  const orphaned =
+    cycle !== null &&
+    (cycle.responsible_eligible === false || !currentResponsibleIsListed);
 
   if (people.length === 0) {
     // Sin candidatos no hay ciclo posible, y decirlo con el motivo es mejor que
     // un desplegable vacio que parece un fallo.
     return (
       <p className="notice error" role="status">
-        Nadie de esta empresa puede recibir la responsabilidad todavia. Hace
-        falta una persona con delegacion viva de la firma, membresia activa y
-        una concesion sin revocar sobre esta empresa.
+        {orphaned
+          ? 'El responsable historico ya no es elegible y no hay nadie disponible para reemplazarlo. '
+          : 'Nadie de esta empresa puede recibir la responsabilidad todavia. '}
+        Hace falta una persona con delegacion viva de la firma, membresia activa
+        y una concesion sin revocar sobre esta empresa.
       </p>
     );
   }
 
-  const orphaned = cycle !== null && cycle.responsible_eligible === false;
-
   return (
+    <div>
     <form className="upload" action={action}>
       <input type="hidden" name="companyId" value={companyId} />
       <input type="hidden" name="sourceId" value={source.data_source_id} />
@@ -314,18 +342,21 @@ export function CycleForm({
         <label htmlFor={`cycle_days_${source.data_source_id}`}>
           Cada cuantos dias
           <input id={`cycle_days_${source.data_source_id}`} name="customDays"
-                 type="number" min={1} max={366} defaultValue={30} required />
+                 type="number" min={1} max={366}
+                 defaultValue={cycle?.custom_days ?? 30} required />
         </label>
       ) : null}
       <label htmlFor={`cycle_due_${source.data_source_id}`}>
         Dias de plazo tras el cierre del periodo
         <input id={`cycle_due_${source.data_source_id}`} name="dueDayOffset"
-               type="number" min={0} max={120} defaultValue={5} />
+               type="number" min={0} max={120}
+               defaultValue={cycle?.due_day_offset ?? 5} />
       </label>
       <label htmlFor={`cycle_grace_${source.data_source_id}`}>
         Dias de gracia antes de llamarlo atraso
         <input id={`cycle_grace_${source.data_source_id}`} name="graceDays"
-               type="number" min={0} max={120} defaultValue={3} />
+               type="number" min={0} max={120}
+               defaultValue={cycle?.grace_days ?? 3} />
       </label>
       {orphaned ? (
         <p className="notice error" role="alert"
@@ -366,14 +397,14 @@ export function CycleForm({
       <label htmlFor={`cycle_anchor_${source.data_source_id}`}>
         Desde cuando
         <input id={`cycle_anchor_${source.data_source_id}`} name="anchorDate"
-               type="date" required defaultValue={today.slice(0, 8) + '01'} />
+               type="date" required
+               defaultValue={cycle?.anchor_date ?? today.slice(0, 8) + '01'} />
       </label>
-      <label htmlFor={`cycle_until_${source.data_source_id}`}>
-        Calcular periodos hasta
-        <input id={`cycle_until_${source.data_source_id}`} name="until" type="date"
-               defaultValue={today} />
-      </label>
-      <input type="hidden" name="timezone" value={source.timezone} />
+      <input
+        type="hidden"
+        name="timezone"
+        value={cycle?.timezone ?? source.timezone}
+      />
       <div>
         <button type="submit" disabled={pending}>
           {pending ? 'Guardando...' : 'Guardar ciclo'}
@@ -381,5 +412,35 @@ export function CycleForm({
       </div>
       <Feedback state={state} />
     </form>
+    {cycle ? (
+      <form className="upload" action={generationAction}>
+        <input type="hidden" name="companyId" value={companyId} />
+        <input type="hidden" name="sourceId" value={source.data_source_id} />
+        <label htmlFor={`cycle_until_${source.data_source_id}`}>
+          Calcular periodos esperados hasta
+          <input
+            id={`cycle_until_${source.data_source_id}`}
+            name="until"
+            type="date"
+            defaultValue={today}
+            min={cycle.anchor_date}
+            required
+          />
+        </label>
+        <div>
+          <button type="submit" disabled={generating}>
+            {generating ? 'Calculando...' : 'Calcular periodos'}
+          </button>
+        </div>
+        <p className="meta">
+          Esta accion no vuelve a guardar el ciclo. Si falla, la configuracion
+          anterior permanece y el error no se presenta como un fallo de guardado.
+        </p>
+        <Feedback state={generationState} />
+      </form>
+    ) : (
+      <p className="meta">Guarda el ciclo antes de calcular sus periodos.</p>
+    )}
+    </div>
   );
 }

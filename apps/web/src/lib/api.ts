@@ -1,3 +1,7 @@
+import 'server-only';
+
+import { apiUrl } from './server-config';
+
 /**
  * Cliente de la API de Fincilia. **Solo servidor.**
  *
@@ -63,16 +67,6 @@ export class ApiError extends Error {
 
 const REQUEST_TIMEOUT_MS = 8000;
 
-function baseUrl(): string {
-  const configured = process.env.FINCILIA_API_BASE_URL;
-  if (!configured) {
-    // Sin base de API no hay nada que ensenar. Fallar aqui es mejor que
-    // adivinar un `localhost` que en un contenedor no existe.
-    throw new Error('FINCILIA_API_BASE_URL is required');
-  }
-  return configured.replace(/\/+$/, '');
-}
-
 async function request<T>(
   path: string,
   init: RequestInit & { token?: string } = {},
@@ -80,9 +74,8 @@ async function request<T>(
   const { token, headers, ...rest } = init;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-  let response: Response;
   try {
-    response = await fetch(`${baseUrl()}${path}`, {
+    const response = await fetch(apiUrl(path), {
       ...rest,
       // Nada de la API se cachea: una lista de empresas cacheada es la lista de
       // otra persona en cuanto dos usuarios comparten el proceso.
@@ -94,27 +87,31 @@ async function request<T>(
         ...headers,
       },
     });
-  } catch {
+    if (!response.ok) {
+      // El detalle de la API ya esta escrito para no filtrar datos; se pasa tal
+      // cual y no se enriquece con nada que el servidor haya decidido callar.
+      let detail = 'la peticion no se pudo completar';
+      try {
+        const problem = (await response.json()) as { detail?: unknown };
+        if (typeof problem.detail === 'string') {
+          detail = problem.detail;
+        }
+      } catch {
+        /* un cuerpo ilegible no cambia el codigo de estado */
+      }
+      throw new ApiError(response.status, detail);
+    }
+    // El deadline cubre tambien el cuerpo. Recibir headers no basta: un servidor
+    // que entregue JSON gota a gota no puede colgar una pantalla indefinidamente.
+    return (await response.json()) as T;
+  } catch (error) {
+    if (error instanceof ApiError) {
+      throw error;
+    }
     throw new ApiError(503, 'no se pudo contactar con la API');
   } finally {
     clearTimeout(timer);
   }
-
-  if (!response.ok) {
-    // El detalle de la API ya esta escrito para no filtrar datos; se pasa tal
-    // cual y no se enriquece con nada que el servidor haya decidido callar.
-    let detail = 'la peticion no se pudo completar';
-    try {
-      const problem = (await response.json()) as { detail?: unknown };
-      if (typeof problem.detail === 'string') {
-        detail = problem.detail;
-      }
-    } catch {
-      /* un cuerpo ilegible no cambia el codigo de estado */
-    }
-    throw new ApiError(response.status, detail);
-  }
-  return (await response.json()) as T;
 }
 
 export function signIn(username: string, secret: string): Promise<Session> {
@@ -174,21 +171,6 @@ export function fetchDocuments(
   return request<ArtifactSummary[]>(
     `/api/v1/companies/${encodeURIComponent(companyId)}/documents?limit=50`,
     { token },
-  );
-}
-
-export function uploadDocument(
-  token: string,
-  companyId: string,
-  file: File,
-): Promise<ArtifactSummary> {
-  const body = new FormData();
-  body.append('file', file, file.name);
-  // Sin `content-type` a mano: lo pone `fetch` con el `boundary` que corresponde,
-  // y escribirlo aqui produce un cuerpo que el servidor no sabe partir.
-  return request<ArtifactSummary>(
-    `/api/v1/companies/${encodeURIComponent(companyId)}/documents`,
-    { method: 'POST', body, token },
   );
 }
 

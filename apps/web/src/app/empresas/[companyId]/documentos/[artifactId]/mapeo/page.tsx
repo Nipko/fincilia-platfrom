@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { redirect } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 
 import {
   ApiError,
@@ -16,9 +16,17 @@ import {
   type Blocker,
   type DatasetDetail,
   type MappingDetail,
+  type MappingSummary,
   type Movement,
   type PreviewPage,
+  type Source,
 } from '@/lib/api';
+import {
+  pageFromQuery,
+  selectMappingVersion,
+  singleQueryValue,
+  withFlowContext,
+} from '@/lib/navigation';
 import { readSession } from '@/lib/session';
 
 import {
@@ -70,12 +78,53 @@ function money(amount: string, currency: string): string {
   return `${grouped}${trimmed ? `,${trimmed}` : ''} ${currency}`;
 }
 
+type AuthorizedLoad<T> =
+  | { allowed: true; value: T }
+  | { allowed: false };
+
+async function loadAuthorized<T>(operation: Promise<T>): Promise<AuthorizedLoad<T>> {
+  try {
+    return { allowed: true, value: await operation };
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) {
+      redirect('/entrar');
+    }
+    if (error instanceof ApiError && error.status === 403) {
+      return { allowed: false };
+    }
+    if (error instanceof ApiError && error.status === 404) {
+      notFound();
+    }
+    throw error;
+  }
+}
+
+function AccessDenied({ companyId }: { companyId: string }) {
+  return (
+    <main>
+      <header className="bar">
+        <h1>Sin acceso</h1>
+        <Link href={`/empresas/${companyId}`}>Volver</Link>
+      </header>
+      <p className="card">
+        Esta cuenta no tiene acceso vigente a lo que has pedido. La respuesta no
+        revela si el recurso existe.
+      </p>
+    </main>
+  );
+}
+
 export default async function MappingPage({
   params,
   searchParams,
 }: {
   params: Promise<{ companyId: string; artifactId: string }>;
-  searchParams: Promise<{ pagina?: string; mapeo?: string }>;
+  searchParams: Promise<{
+    pagina?: string | string[];
+    movimientosPagina?: string | string[];
+    mapeo?: string | string[];
+    fuente?: string | string[];
+  }>;
 }) {
   const session = await readSession();
   if (!session) {
@@ -83,8 +132,11 @@ export default async function MappingPage({
   }
   const { companyId, artifactId } = await params;
   const query = await searchParams;
-  const page = Math.max(0, Number.parseInt(query.pagina ?? '0', 10) || 0);
+  const page = pageFromQuery(query.pagina);
+  const movementPage = pageFromQuery(query.movimientosPagina);
   const pageSize = 25;
+  const movementPageSize = 50;
+  const flowPath = `/empresas/${companyId}/documentos/${artifactId}/mapeo`;
 
   let company;
   let document;
@@ -97,17 +149,13 @@ export default async function MappingPage({
     if (error instanceof ApiError && error.status === 401) {
       redirect('/entrar');
     }
-    return (
-      <main>
-        <header className="bar">
-          <h1>Sin acceso</h1>
-          <Link href={`/empresas/${companyId}`}>Volver</Link>
-        </header>
-        <p className="card">
-          Esta cuenta no tiene acceso vigente a lo que has pedido.
-        </p>
-      </main>
-    );
+    if (error instanceof ApiError && error.status === 404) {
+      notFound();
+    }
+    if (error instanceof ApiError && error.status === 403) {
+      return <AccessDenied companyId={companyId} />;
+    }
+    throw error;
   }
 
   const canMap = company.permissions.includes('dataset.map');
@@ -127,6 +175,18 @@ export default async function MappingPage({
         pageSize,
       );
     } catch (error) {
+      if (error instanceof ApiError && error.status === 401) {
+        redirect('/entrar');
+      }
+      if (error instanceof ApiError && error.status === 403) {
+        return <AccessDenied companyId={companyId} />;
+      }
+      if (error instanceof ApiError && error.status === 404) {
+        notFound();
+      }
+      if (error instanceof ApiError && error.status === 503) {
+        throw error;
+      }
       previewError =
         error instanceof ApiError
           ? error.message
@@ -134,44 +194,88 @@ export default async function MappingPage({
     }
   }
 
-  const mappings = canMap
-    ? await fetchMappings(session.token, companyId, artifactId).catch(() => [])
-    : [];
-  const selectedId = query.mapeo ?? mappings[0]?.mapping_version_id ?? null;
+  let mappings: MappingSummary[] = [];
+  if (canMap) {
+    const loaded = await loadAuthorized(
+      fetchMappings(session.token, companyId, artifactId),
+    );
+    if (!loaded.allowed) {
+      return <AccessDenied companyId={companyId} />;
+    }
+    mappings = loaded.value;
+  }
+  const requestedMappingId = singleQueryValue(query.mapeo);
+  const mappingSelection = selectMappingVersion(
+    requestedMappingId,
+    query.fuente !== undefined,
+    mappings.map((item) => item.mapping_version_id),
+  );
+  const invalidMappingRequested =
+    (query.mapeo !== undefined && requestedMappingId === null) ||
+    mappingSelection.invalidRequestedId;
+  const selectedId = mappingSelection.selectedId;
   let mapping: MappingDetail | null = null;
   if (canMap && selectedId) {
-    mapping = await fetchMapping(session.token, companyId, selectedId).catch(
-      () => null,
+    const loaded = await loadAuthorized(
+      fetchMapping(session.token, companyId, selectedId),
     );
+    if (!loaded.allowed) {
+      return <AccessDenied companyId={companyId} />;
+    }
+    mapping = loaded.value;
   }
 
-  const datasets = await fetchDatasets(session.token, companyId, artifactId).catch(
-    () => [],
+  const loadedDatasets = await loadAuthorized(
+    fetchDatasets(session.token, companyId, artifactId),
   );
+  if (!loadedDatasets.allowed) {
+    return <AccessDenied companyId={companyId} />;
+  }
+  const datasets = loadedDatasets.value;
   const latest = datasets[0] ?? null;
   let dataset: DatasetDetail | null = null;
   let movements: Movement[] = [];
   if (latest) {
-    dataset = await fetchDataset(
-      session.token,
-      companyId,
-      latest.dataset_version_id,
-    ).catch(() => null);
-    movements = await fetchMovements(
-      session.token,
-      companyId,
-      latest.dataset_version_id,
-      0,
-      50,
-    ).catch(() => []);
+    const loadedDataset = await loadAuthorized(
+      fetchDataset(session.token, companyId, latest.dataset_version_id),
+    );
+    if (!loadedDataset.allowed) {
+      return <AccessDenied companyId={companyId} />;
+    }
+    dataset = loadedDataset.value;
+    const loadedMovements = await loadAuthorized(
+      fetchMovements(
+        session.token,
+        companyId,
+        latest.dataset_version_id,
+        movementPage * movementPageSize,
+        movementPageSize + 1,
+      ),
+    );
+    if (!loadedMovements.allowed) {
+      return <AccessDenied companyId={companyId} />;
+    }
+    movements = loadedMovements.value;
   }
 
   // Los maestros salen de la API, no de una constante: una cuenta escrita a
   // mano en la interfaz seria una cuenta que la base no conoce.
-  const [accountRows, sourceRows] = await Promise.all([
-    fetchAccountsFull(session.token, companyId).catch(() => []),
-    fetchSourcesFull(session.token, companyId).catch(() => []),
-  ]);
+  const loadedAccounts = await loadAuthorized(
+    fetchAccountsFull(session.token, companyId),
+  );
+  if (!loadedAccounts.allowed) {
+    return <AccessDenied companyId={companyId} />;
+  }
+  const accountRows = loadedAccounts.value;
+  const loadedSources = await loadAuthorized(
+    fetchSourcesFull(session.token, companyId),
+  );
+  if (!loadedSources.allowed) {
+    return <AccessDenied companyId={companyId} />;
+  }
+  const sourceRows: Source[] = loadedSources.value.filter(
+    (source) => source.status === 'active',
+  );
   const accounts = accountRows
     .filter((account) => account.status === 'active')
     .map((account) => ({
@@ -180,8 +284,27 @@ export default async function MappingPage({
       `${account.display_name} · ${account.currency_code}` +
       (account.identifier_last4 ? ` · ...${account.identifier_last4}` : ''),
   }));
-  const dataSourceId =
-    mapping?.data_source_id ?? sourceRows[0]?.data_source_id ?? '';
+  const requestedSourceId = singleQueryValue(query.fuente);
+  const requestedSource = requestedSourceId
+    ? sourceRows.find((source) => source.data_source_id === requestedSourceId) ?? null
+    : null;
+  const invalidSourceRequested =
+    query.fuente !== undefined &&
+    (requestedSourceId === null || requestedSource === null);
+  const mappingSourceConflict =
+    mapping !== null &&
+    requestedSource !== null &&
+    mapping.data_source_id !== requestedSource.data_source_id;
+  const dataSourceId = mapping?.data_source_id ?? requestedSource?.data_source_id ?? '';
+  const flowContext = {
+    documento: artifactId,
+    // Una fuente no autorizada se explica, pero nunca se propaga a enlaces
+    // nuevos como si hubiera pasado la validacion.
+    fuente: dataSourceId || null,
+    mapeo: selectedId,
+    pagina: page,
+    movimientosPagina: movementPage,
+  };
 
   return (
     <main>
@@ -193,7 +316,12 @@ export default async function MappingPage({
           </span>
         </div>
         <nav aria-label="Navegacion del documento">
-          <Link href={`/empresas/${companyId}/documentos/${artifactId}`}>
+          <Link
+            href={withFlowContext(
+              `/empresas/${companyId}/documentos/${artifactId}`,
+              flowContext,
+            )}
+          >
             Ver el perfil
           </Link>{' '}
           <Link href={`/empresas/${companyId}`}>Volver</Link>
@@ -300,7 +428,10 @@ export default async function MappingPage({
           <nav className="card" aria-label="Paginacion de la vista previa">
             {page > 0 ? (
               <Link
-                href={`/empresas/${companyId}/documentos/${artifactId}/mapeo?pagina=${page - 1}`}
+                href={withFlowContext(flowPath, {
+                  ...flowContext,
+                  pagina: page - 1,
+                })}
               >
                 Pagina anterior
               </Link>
@@ -310,7 +441,10 @@ export default async function MappingPage({
             ·{' '}
             {(page + 1) * pageSize < preview.total_records ? (
               <Link
-                href={`/empresas/${companyId}/documentos/${artifactId}/mapeo?pagina=${page + 1}`}
+                href={withFlowContext(flowPath, {
+                  ...flowContext,
+                  pagina: page + 1,
+                })}
               >
                 Pagina siguiente
               </Link>
@@ -331,14 +465,38 @@ export default async function MappingPage({
         </p>
       ) : (
         <>
+          {invalidSourceRequested ? (
+            <p className="notice error" role="alert">
+              La fuente indicada en la URL no pertenece a las fuentes que el
+              servidor autorizo para esta empresa. Elige una fuente de la lista.
+            </p>
+          ) : null}
+          {invalidMappingRequested ? (
+            <p className="notice error" role="alert">
+              La version de mapeo indicada no pertenece a este documento o ya no
+              esta disponible. No se ha sustituido por otra version en silencio.
+            </p>
+          ) : null}
+          {mappingSourceConflict ? (
+            <p className="notice error" role="alert">
+              La fuente de la URL y la version de mapeo elegida son distintas.
+              Se muestra la fuente historica del mapeo, pero no se sustituyo el
+              contexto en silencio. Abre otra version o crea un mapeo nuevo.
+            </p>
+          ) : null}
           {mappings.length > 0 ? (
             <nav className="card" aria-label="Versiones de mapeo">
-              <div className="meta">Versiones</div>
+              <div className="meta">
+                Versiones · hasta 100; el API actual no expone otra pagina
+              </div>
               <ul>
                 {mappings.map((item) => (
                   <li key={item.mapping_version_id}>
                     <Link
-                      href={`/empresas/${companyId}/documentos/${artifactId}/mapeo?mapeo=${item.mapping_version_id}`}
+                      href={withFlowContext(flowPath, {
+                        ...flowContext,
+                        mapeo: item.mapping_version_id,
+                      })}
                       aria-current={
                         item.mapping_version_id === selectedId ? 'true' : undefined
                       }
@@ -419,9 +577,18 @@ export default async function MappingPage({
           <section className="card" aria-label="Asignar columnas">
             <h3>Asignar columnas</h3>
             <MappingForm
+              key={`${selectedId ?? 'nuevo'}:${dataSourceId}`}
               companyId={companyId}
               artifactId={artifactId}
-              dataSourceId={dataSourceId}
+              sources={sourceRows.map((source) => ({
+                data_source_id: source.data_source_id,
+                display_name: source.display_name,
+                source_family: source.source_family,
+                status: source.status,
+              }))}
+              selectedDataSourceId={dataSourceId}
+              page={page}
+              movementPage={movementPage}
               preview={preview}
             />
           </section>
@@ -447,6 +614,10 @@ export default async function MappingPage({
 
       {/* ------------------------------------------------------- Canonico --- */}
       <h2 id="canonico">Canonico</h2>
+      <p className="meta">
+        Se consultan hasta 50 versiones del conjunto; esta vista abre la mas
+        reciente y el API actual no expone otra pagina.
+      </p>
       {dataset === null ? (
         <p className="card">
           Todavia no hay ningun conjunto canonico para este documento.
@@ -505,6 +676,7 @@ export default async function MappingPage({
           </section>
 
           {movements.length > 0 ? (
+            <>
             <div className="card scroll">
               <table>
                 <caption className="meta">
@@ -522,11 +694,14 @@ export default async function MappingPage({
                   </tr>
                 </thead>
                 <tbody>
-                  {movements.map((movement) => (
+                  {movements.slice(0, movementPageSize).map((movement) => (
                     <tr key={movement.movement_id}>
                       <th scope="row" className="when">
                         <Link
-                          href={`/empresas/${companyId}/movimientos/${movement.movement_id}`}
+                          href={withFlowContext(
+                            `/empresas/${companyId}/movimientos/${movement.movement_id}`,
+                            flowContext,
+                          )}
                         >
                           {movement.record_ordinal}
                         </Link>
@@ -547,7 +722,36 @@ export default async function MappingPage({
                 </tbody>
               </table>
             </div>
-          ) : null}
+            <nav className="card bar" aria-label="Paginas de movimientos">
+              {movementPage > 0 ? (
+                <Link
+                  href={withFlowContext(flowPath, {
+                    ...flowContext,
+                    movimientosPagina: movementPage - 1,
+                  })}
+                >
+                  Movimientos anteriores
+                </Link>
+              ) : (
+                <span className="meta">Primera pagina de movimientos</span>
+              )}
+              {movements.length > movementPageSize ? (
+                <Link
+                  href={withFlowContext(flowPath, {
+                    ...flowContext,
+                    movimientosPagina: movementPage + 1,
+                  })}
+                >
+                  Movimientos siguientes
+                </Link>
+              ) : (
+                <span className="meta">Ultima pagina de movimientos</span>
+              )}
+            </nav>
+            </>
+          ) : (
+            <p className="card">Este conjunto no tiene movimientos en esta pagina.</p>
+          )}
         </>
       )}
     </main>
