@@ -206,32 +206,60 @@ class DispatchProtocolTests(unittest.TestCase):
                         cursor.execute(
                             "ALTER TABLE fincilia.processing_run DISABLE ROW LEVEL SECURITY")
 
-    def test_public_cannot_execute_the_dispatch_functions(self) -> None:
+    def test_public_cannot_execute_any_function_in_the_schema(self) -> None:
         # Un `REVOKE` de quien no es dueno no falla: avisa y no hace nada. La
         # primera version de V0005 dejo asi las cuatro funciones abiertas a PUBLIC,
         # y solo lo delato consultar el ACL real.
         # PUBLIC es la entrada del ACL **sin concesionario**: empieza por `=`. La
         # del propietario es `fincilia_dispatch=X/...` y no cuenta.
+        #
+        # Se descubren, no se nombran. La version anterior de esta prueba llevaba
+        # una lista fija y hubo que ampliarla a mano al anadir un disparador en
+        # V0009 —que nacio ejecutable por PUBLIC justamente porque nadie se
+        # acordo—. Una lista que hay que recordar actualizar protege hasta el dia
+        # que alguien no se acuerda, y ese es el dia que importa.
         with connect(MIGRATOR_DSN) as connection, connection.cursor() as cursor:
             cursor.execute(
-                "SELECT p.proname, p.proacl IS NULL AS sin_acl, "
+                "SELECT p.proname, p.prokind, p.proacl IS NULL AS sin_acl, "
                 "  EXISTS (SELECT 1 FROM unnest(coalesce(p.proacl, ARRAY[]::aclitem[])) a "
                 "          WHERE a::text LIKE '=%%') AS publico "
                 "FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace "
-                "WHERE n.nspname = 'fincilia'")
+                "WHERE n.nspname = 'fincilia' ORDER BY p.proname")
             rows = cursor.fetchall()
-        # Se nombran en vez de contarse: anadir una funcion al esquema tiene que
-        # ser un acto deliberado que actualice esta lista, no algo que un numero
-        # deje pasar. `engine_release_is_frozen` es un disparador y no una puerta
-        # de entrada, y aun asi se le exige lo mismo.
-        self.assertEqual(
-            {"enqueue_processing_run", "claim_next_run", "finish_run",
-             "send_to_dead_letter", "engine_release_is_frozen"},
-            {name for name, _, _ in rows})
-        for name, missing_acl, public in rows:
-            with self.subTest(function=name):
+
+        # Un resultado vacio pasaria todas las afirmaciones de abajo sin
+        # comprobar nada. El esquema tiene funciones desde V0005.
+        self.assertGreaterEqual(len(rows), 5,
+                                "the schema should have functions; an empty result "
+                                "would pass this test vacuously")
+        for name, kind, missing_acl, public in rows:
+            with self.subTest(function=name, kind=kind):
                 self.assertFalse(missing_acl, f"{name} has no ACL, so PUBLIC may execute it")
                 self.assertFalse(public, f"{name} is executable by PUBLIC")
+
+    def test_every_function_the_migrations_create_exists_with_its_acl(self) -> None:
+        # El validador estatico exige un `REVOKE ... FROM PUBLIC` por cada
+        # `CREATE FUNCTION`. Esto comprueba la otra mitad: que lo que las
+        # migraciones dicen crear es lo que la base tiene.
+        import re
+        from pathlib import Path
+
+        declared = set()
+        for path in sorted(Path("/app/db/migrations").glob("*.sql")):
+            body = path.read_text(encoding="utf-8")
+            code = "\n".join(line for line in body.splitlines()
+                             if not line.lstrip().startswith("--"))
+            declared |= {match.group(1) for match in
+                         re.finditer(r"CREATE (?:OR REPLACE )?FUNCTION "
+                                     r"fincilia\.([a-z_][a-z0-9_]*)\s*\(", code)}
+        with connect(MIGRATOR_DSN) as connection, connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT p.proname FROM pg_proc p "
+                "JOIN pg_namespace n ON n.oid = p.pronamespace "
+                "WHERE n.nspname = 'fincilia'")
+            live = {row[0] for row in cursor}
+        self.assertTrue(declared, "no migration declares a function")
+        self.assertEqual(declared, live)
 
     def test_the_dispatch_owner_cannot_create_anything(self) -> None:
         with connect(MIGRATOR_DSN) as connection, connection.cursor() as cursor:

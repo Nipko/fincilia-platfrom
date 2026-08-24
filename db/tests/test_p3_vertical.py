@@ -639,6 +639,57 @@ class VerticalTests(VerticalHarness):
         self.assertNotIn(dataset["engine_release"].lower(),
                          {"latest", "main", "head", "stable", "current"})
 
+    def test_the_accounting_period_is_never_inferred_TST_P36_001(self) -> None:
+        # Cuando ocurrio, cuando se asento y a que periodo contable pertenece son
+        # tres hechos distintos. Los dos primeros los trae el fichero; el tercero
+        # es una decision de cierre, y rellenarlo con la ocurrencia moveria
+        # asientos de mes sin que nada fallara.
+        artifact = self.promoted(statement_csv("periodo"), "extracto.csv")
+        version_id = self.validated_mapping(artifact)
+        dataset_id = self.prepared(artifact, version_id).json()["dataset_version_id"]
+        movements = self.client.get(
+            f"/api/v1/companies/{ESPIGA}/datasets/{dataset_id}/movements",
+            headers=self.auth(REVIEWER)).json()
+        self.assertTrue(movements)
+        for movement in movements:
+            with self.subTest(row=movement["record_ordinal"]):
+                self.assertIsNone(movement["accounting_date"])
+                self.assertIsNotNone(movement["occurred_on"])
+        with psycopg.connect(MIGRATOR_DSN, autocommit=True) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT set_config('fincilia.company_id', %s, false)", (ESPIGA,))
+                cursor.execute(
+                    "SELECT count(*) FROM fincilia.canonical_movement "
+                    "WHERE dataset_version_id = %s AND accounting_date IS NOT NULL",
+                    (dataset_id,))
+                self.assertEqual(cursor.fetchone()[0], 0)
+
+    def test_no_insert_writes_an_accounting_date_TST_P36_002(self) -> None:
+        # Mirar solo el resultado de un caso feliz dejaria pasar una escritura en
+        # una rama que esta prueba no recorre. Se leen las sentencias.
+        #
+        # Leer la columna para devolverla esta bien —la interfaz dice «todavia
+        # sin asignar»—. Escribirla es lo que no puede pasar hasta P4.
+        import re
+        from pathlib import Path
+
+        for module in ("datasets.py", "routes.py", "onboarding.py"):
+            with self.subTest(module=module):
+                source = Path(f"/app/src/fincilia_api/{module}").read_text(
+                    encoding="utf-8")
+                code = "\n".join(line for line in source.splitlines()
+                                 if not line.lstrip().startswith("#"))
+                # Cada lista de columnas de un INSERT, con los saltos de la
+                # cadena SQL ya unidos.
+                flat = re.sub(r'"\s*\n\s*"', "", code)
+                for statement in re.findall(r"INSERT INTO fincilia\.\w+\s*\(([^)]*)\)",
+                                            flat):
+                    self.assertNotIn("accounting_date", statement)
+                for statement in re.findall(r"UPDATE fincilia\.\w+ SET (.{0,400})",
+                                            flat):
+                    self.assertNotIn("accounting_date", statement)
+
     def test_the_publish_button_never_lies_about_who_may_press_it_TST_P3_042(self) -> None:
         artifact = self.promoted(statement_csv("button"), "extracto.csv")
         version_id = self.validated_mapping(artifact)

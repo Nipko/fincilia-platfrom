@@ -115,6 +115,10 @@ def validate_migrations(root:Path,exemptions=None,definers=None):
  for path in sorted(directory.glob("*.sql")):
   for match in ADD_COLUMN.finditer(path.read_text(encoding="utf-8")):
    added.setdefault(match.group("name"),set()).add(match.group("col"))
+ # Y el `REVOKE` de una funcion puede vivir en una migracion posterior a la que
+ # la creo: lo que importa es como acaba el esquema, no en que fichero se dijo.
+ revoked=NEWLINE.join(path.read_text(encoding="utf-8")
+                      for path in sorted(directory.glob("*.sql")))
  for path in sorted(directory.glob("*")):
   name=path.name
   # Solo el README y migraciones. Un fichero suelto en este directorio es
@@ -132,17 +136,23 @@ def validate_migrations(root:Path,exemptions=None,definers=None):
   code=NEWLINE.join(line for line in text.splitlines()
                     if not line.lstrip().startswith("--"))
   if DESTRUCTIVE.search(code):f.append(Finding("DB-MIGRATION-DESTRUCTIVE",name,"destructive DDL needs expand/contract and review, not a migration"))
-  if "SECURITY DEFINER" in code:
-   declared={str(x.get("function")):x for x in definers if isinstance(x,dict)}
-   for match in CREATE_FUNCTION.finditer(code):
-    qualified=match.group("name")
-    if "SECURITY DEFINER" not in code[match.start():match.start()+600]:continue
-    entry=declared.get(qualified)
-    if entry is None:f.append(Finding("DB-MIGRATION-DEFINER",qualified,"undeclared SECURITY DEFINER function"));continue
-    # Las tres condiciones que hacen auditable a una funcion definer.
-    if "SET search_path" not in code[match.start():match.start()+600]:f.append(Finding("DB-DEFINER-SEARCH-PATH",qualified,"a definer function must pin its search_path"))
-    if f"REVOKE ALL PRIVILEGES ON FUNCTION {qualified}" not in code:f.append(Finding("DB-DEFINER-PUBLIC",qualified,"EXECUTE must be revoked from PUBLIC"))
-    if f"ALTER FUNCTION {qualified}" not in code or str(entry.get("owner_role")) not in code:f.append(Finding("DB-DEFINER-OWNER",qualified,"the declared owner must be set in the migration"))
+  # **Toda** funcion que cree una migracion, no solo las `SECURITY DEFINER`. Una
+  # funcion nace con `proacl` nulo, y un ACL nulo significa el valor por defecto
+  # del motor: ejecutable por PUBLIC. Los privilegios por defecto de V0005 no
+  # alcanzaron al disparador de V0009, y solo lo delato consultar el ACL real.
+  # La regla descubre las funciones sola, en vez de mirar una lista que alguien
+  # tiene que acordarse de ampliar.
+  declared={str(x.get("function")):x for x in definers if isinstance(x,dict)}
+  for match in CREATE_FUNCTION.finditer(code):
+   qualified=match.group("name")
+   window=code[match.start():match.start()+600]
+   if f"REVOKE ALL PRIVILEGES ON FUNCTION {qualified}" not in revoked:f.append(Finding("DB-FUNCTION-PUBLIC",qualified,"EXECUTE must be revoked from PUBLIC: a null ACL means PUBLIC may execute it"))
+   if "SECURITY DEFINER" not in window:continue
+   entry=declared.get(qualified)
+   if entry is None:f.append(Finding("DB-MIGRATION-DEFINER",qualified,"undeclared SECURITY DEFINER function"));continue
+   # Las tres condiciones que hacen auditable a una funcion definer.
+   if "SET search_path" not in window:f.append(Finding("DB-DEFINER-SEARCH-PATH",qualified,"a definer function must pin its search_path"))
+   if f"ALTER FUNCTION {qualified}" not in code or str(entry.get("owner_role")) not in code:f.append(Finding("DB-DEFINER-OWNER",qualified,"the declared owner must be set in the migration"))
   if "BYPASSRLS" in code or "SUPERUSER" in code:f.append(Finding("DB-MIGRATION-PRIVILEGE",name,"a migration must not grant a role that escapes RLS"))
   declared={str(x.get("table")) for x in exemptions if isinstance(x,dict)}
   for table in CREATE_TABLE.finditer(text):
