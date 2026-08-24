@@ -80,3 +80,22 @@ test('FNC-REC-002 un revisor confirma sin alterar ni certificar saldos', async (
   await expect(page.getByText(/demuestra que los saldos esten conciliados/))
     .toBeVisible();
 });
+
+test('FNC-REC-003 prioriza revisiones multiempresa y abre el expediente exacto', async ({
+  page,
+}) => {
+  await signInReviewer(page);
+  await page.getByRole('link', { name: 'Abrir bandeja de revisiones multiempresa' })
+    .click();
+  await expect(page).toHaveURL(/\/revisiones$/);
+  await expect(page.getByRole('heading', { name: 'Bandeja de revisiones' }))
+    .toBeVisible();
+  await expect(page.getByText(/no prueba saldos/i)).toBeVisible();
+
+  const first = page.getByRole('link', { name: 'Abrir expediente' }).first();
+  await expect(first).toBeVisible();
+  await first.click();
+  await expect(page).toHaveURL(/\/conciliacion\?izquierda=.+&derecha=.+#revision-/);
+  await expect(page.getByLabel('Estado de revision').first()).toBeVisible();
+  await expect(page.getByText(/sin efecto financiero/i).first()).toBeVisible();
+});

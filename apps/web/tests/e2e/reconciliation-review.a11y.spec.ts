@@ -15,3 +15,16 @@ test('FNC-REC-002 no introduce violaciones axe en el expediente', async ({ page,
 
   expect(result.violations).toEqual([]);
 });
+
+test('FNC-REC-003 no introduce violaciones axe en la bandeja multiempresa', async ({ page }) => {
+  await signInReviewer(page);
+  await page.goto('/revisiones');
+  await expect(page.getByRole('heading', { name: 'Bandeja de revisiones' }))
+    .toBeVisible();
+
+  const result = await new AxeBuilder({ page })
+    .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
+    .analyze();
+
+  expect(result.violations).toEqual([]);
+});
