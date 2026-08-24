@@ -901,11 +901,12 @@ def create_override(request: Request, company_id: str, dataset_version_id: str,
                     principal: Principal = Depends(principal_dependency)) -> dict:
     """Deja constancia de que una fila no se leyo como dice el plan.
 
-    Exige `dataset.prepare`: escribir el override es parte de preparar el
-    dataset. Aprobarlo no, y por eso es otra ruta y otro permiso.
+    Exige `dataset.map`, el permiso de quien prepara: escribir el override es
+    parte de preparar el dataset. Aprobarlo no, y por eso es otra ruta y otro
+    permiso.
     """
     context = company_context(request, principal, company_id)
-    require(context, "dataset.prepare")
+    require(context, "dataset.map")
     database = request.app.state.database
     with database.session(company_id=context.company_id,
                           subject_id=principal.subject_id) as connection:
