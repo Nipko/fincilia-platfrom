@@ -171,6 +171,24 @@ class AssigneeTests(unittest.TestCase):
         self.assertEqual(200, response.status_code, response.text)
         self.assertEqual(response.json()["responsible_subject_id"], ANA)
 
+    def test_naming_a_responsible_leaves_a_trail_with_the_opaque_id_TST_P36_042(self) -> None:
+        """Quien queda como responsable es el hecho que importa de la llamada.
+
+        Se registra por su identificador opaco: el nombre no anade nada que el
+        `subject_id` no resuelva, y si anade una copia de un dato personal donde
+        no toca.
+        """
+        source = self.new_source("rastro")
+        self.assertEqual(200, self.set_cycle(source, ANA).status_code)
+        events = self.client.get(f"/api/v1/companies/{ESPIGA}/audit?limit=25",
+                                 headers=self.auth(REVIEWER)).json()
+        assigned = [event for event in events if event["action"] == "source.cycle"]
+        self.assertTrue(assigned, "naming a responsible left no trail")
+        self.assertEqual(ANA, assigned[0]["detail"]["responsible"])
+        rendered = str(assigned[0])
+        for name in ("Ana", "Beto", "Sofia", "@demo.local"):
+            self.assertNotIn(name, rendered)
+
     def test_a_cycle_cannot_name_someone_from_another_company_TST_P36_011(self) -> None:
         # Carla no tiene concesion en Espiga. Asignarla seria darle una tarea en
         # una empresa a la que no puede entrar.

@@ -18,6 +18,7 @@ hace cierto por construccion, y esto lo comprueba en vez de suponerlo.
 from __future__ import annotations
 
 import io
+import json
 import os
 import sys
 import unittest
@@ -239,6 +240,35 @@ class ExtractionResumeTests(unittest.TestCase):
         self.assertEqual("unknown", row[1])
         # Y el motivo no transcribe el mensaje de la excepcion ni un valor.
         self.assertEqual("extraction_error", row[2])
+
+    def test_the_extraction_audit_counts_and_quotes_nothing_TST_P36_041(self) -> None:
+        """El rastro dice cuanto se leyo y como acabo. Ni un valor.
+
+        Quien tiene `audit.read` no es necesariamente quien puede ver el
+        contenido del documento, asi que un rastro que transcribiera importes
+        seria una copia parcial del extracto viviendo bajo otras reglas de
+        acceso.
+        """
+        with psycopg.connect(MIGRATOR_DSN, autocommit=True) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT set_config('fincilia.company_id', %s, false)", (ESPIGA,))
+                cursor.execute(
+                    "SELECT detail FROM fincilia.audit_event "
+                    "WHERE action = 'document.extraction' "
+                    "ORDER BY occurred_at DESC LIMIT 5")
+                rows = [row[0] for row in cursor]
+        self.assertTrue(rows, "the extraction should be audited")
+        for detail in rows:
+            with self.subTest(detail=sorted(detail)):
+                # Las claves son exactamente estas: nada de valores, columnas ni
+                # nombres de fichero.
+                self.assertLessEqual(
+                    set(detail), {"records", "state", "reason", "digest", "run"})
+                rendered = json.dumps(detail, ensure_ascii=False)
+                for quoted in ("Movimiento sintetico", "1.000.000,00", "REF-",
+                               "Apertura"):
+                    self.assertNotIn(quoted, rendered)
 
 
 if __name__ == "__main__":

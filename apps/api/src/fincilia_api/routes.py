@@ -1380,8 +1380,13 @@ def set_cycle(request: Request, company_id: str, data_source_id: str,
             connection, subject_id=principal.subject_id,
             company_id=context.company_id, action="source.cycle",
             resource_kind="data_source", resource_ref=data_source_id,
+            # Quien queda como responsable es el hecho que importa de esta
+            # llamada, y se registra por su identificador opaco: el nombre no
+            # anade nada que el `subject_id` no resuelva, y si anade una copia
+            # de un dato personal donde no toca.
             outcome="allowed", detail={"periodicity": cycle["periodicity"],
-                                       "due_day_offset": cycle["due_day_offset"]})
+                                       "due_day_offset": cycle["due_day_offset"],
+                                       "responsible": body.responsible_subject_id})
     return cycle
 
 
