@@ -333,6 +333,32 @@
         "QA"
       ],
       "scope": "lineage_representation"
+    },
+    {
+      "blockers": [
+        "named_owner_assignment",
+        "data_architecture_ratification",
+        "accounting_security_database_ratification"
+      ],
+      "evidence": [
+        "docs/adr/ADR-026-staged-field-overlay.md",
+        "docs/implementation/tasks/FNC-CLN-001.md",
+        "db/migrations/V0016__staged_field_overlay.sql",
+        "docs/implementation/handoffs/FNC-CLN-001.md"
+      ],
+      "id": "ADR-026",
+      "owners": [
+        "Data",
+        "Architecture"
+      ],
+      "path": "docs/adr/ADR-026-staged-field-overlay.md",
+      "readiness": "blocked",
+      "reviewers": [
+        "Accounting",
+        "Security",
+        "Database"
+      ],
+      "scope": "staged_field_overlay"
     }
   ],
   "agent_may_accept": false,

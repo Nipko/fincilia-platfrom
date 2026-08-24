@@ -23,10 +23,12 @@ class AdrReadinessTest(unittest.TestCase):
         report, findings = validate_repository()
         self.assertEqual([], findings)
         self.assertEqual("not_met", report["gate"])
-        # ADR-024 propone la representacion logica del linaje. Una ADR en
-        # `Proposed` tiene que registrarse `blocked`: el validador lo exige, y
-        # es lo que impide que una propuesta cuente como decision tomada.
-        self.assertEqual(["ADR-002", "ADR-020", "ADR-024"], report["blocked"])
+        # ADR-024 y ADR-026 siguen en `Proposed`. Una ADR propuesta tiene que
+        # registrarse `blocked`: el validador lo exige, y es lo que impide que
+        # una propuesta cuente como decision tomada.
+        self.assertEqual(
+            ["ADR-002", "ADR-020", "ADR-024", "ADR-026"], report["blocked"]
+        )
 
     def test_agent_acceptance_bites(self) -> None:
         model = self.mutate(); model["agent_may_accept"] = True
