@@ -113,7 +113,7 @@ Hasta S1-READY solo se admite scaffolding, automatización, pruebas, documentaci
 | FNC-CLN-001 | Propuestas tipadas de correccion por fila | Review pending | Codex + Integration Steward | overlay tipado, revision SoD, blockers, PostgreSQL y web |
 | FNC-QA-006 | Aceptacion web integral y arranque local coherente | Review pending | Codex + Integration Steward | bootstrap local, contrato ejecutable y E2E de roles/tenancy |
 | FNC-REC-001 | Explorador read-only de candidatos de conciliacion | Review pending | Codex + Integration Steward | motor/endpoint sintetico, estacion web y pruebas |
-| FNC-REC-002 | Propuesta y decision humana de conciliacion sin efecto financiero | In progress | Codex + Integration Steward | ledger append-only, SoD, idempotencia, API/web y pruebas |
+| FNC-REC-002 | Propuesta y decision humana de conciliacion sin efecto financiero | Review pending | Codex + Integration Steward | ledger append-only, SoD, idempotencia, API/web y pruebas; revisiones independientes pendientes |
 
 Solo el Integration Steward modifica esta tabla.
 

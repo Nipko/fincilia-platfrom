@@ -54,20 +54,5 @@
       "agent_may_accept": false
     }
   ],
-  "active_reservations": [
-    {
-      "task": "FNC-REC-002",
-      "holder": "codex-integration-steward",
-      "paths": [
-        "docs/adr/ADR-027-reconciliation-review-ledger.md",
-        "db/migrations/V0017__reconciliation_review_ledger.sql",
-        "db/tests/test_reconciliation_decisions.py",
-        "apps/api/src/fincilia_api/reconciliation.py",
-        "apps/api/src/fincilia_api/routes.py",
-        "apps/api/tests",
-        "apps/web/src",
-        "apps/web/tests"
-      ]
-    }
-  ]
+  "active_reservations": []
 }

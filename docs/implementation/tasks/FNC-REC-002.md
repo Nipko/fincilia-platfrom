@@ -2,7 +2,7 @@
 id: FNC-REC-002
 alias: FNC-P4.7
 title: Propuesta y decision humana de conciliacion sin efecto financiero
-status: in_progress
+status: review_pending
 implementer: Codex principal dev + Integration Steward
 base_sha: 1c9cbf5336b5c04a3672d7eb9e2200f48143c3db
 gate: S1-READY
