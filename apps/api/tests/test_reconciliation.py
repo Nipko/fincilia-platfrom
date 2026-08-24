@@ -10,9 +10,12 @@ from decimal import Decimal
 from fincilia_api.reconciliation import (
     CandidateQuery,
     CandidateQueryError,
+    ReviewCommandError,
     RULES,
     candidate_from_row,
+    decide_review,
     explore_candidates,
+    propose_review,
 )
 
 
@@ -148,6 +151,46 @@ class CandidateQueryTests(unittest.TestCase):
         self.assertEqual(2, len(result["candidates"]))
         self.assertEqual(result["candidates"][0]["left"]["movement_id"],
                          result["candidates"][1]["left"]["movement_id"])
+
+    def test_review_rejects_unsafe_idempotency_key_before_database_work(self) -> None:
+        connection = FakeConnection()
+        with self.assertRaises(ReviewCommandError) as raised:
+            propose_review(
+                connection, company_id=LEFT, actor_id=RIGHT,
+                idempotency_key="short", left_dataset_id=LEFT,
+                right_dataset_id=RIGHT, left_movement_id=LEFT,
+                right_movement_id=RIGHT, max_days=3)
+        self.assertEqual("idempotency-key-invalid", raised.exception.code)
+        self.assertEqual([], connection.calls)
+
+    def test_review_rejects_non_uuid_before_database_work(self) -> None:
+        connection = FakeConnection()
+        with self.assertRaises(ReviewCommandError) as raised:
+            propose_review(
+                connection, company_id=LEFT, actor_id=RIGHT,
+                idempotency_key="rec002-safe-key-0001",
+                left_dataset_id="not-a-uuid", right_dataset_id=RIGHT,
+                left_movement_id=LEFT, right_movement_id=RIGHT, max_days=3)
+        self.assertEqual("review-request-invalid", raised.exception.code)
+        self.assertEqual([], connection.calls)
+
+    def test_decision_reason_vocabulary_is_closed(self) -> None:
+        connection = FakeConnection()
+        cases = (
+            ("confirmed", "different_event"),
+            ("rejected", "documented_transfer"),
+            ("automatic", "reference_supported"),
+        )
+        for decision, reason in cases:
+            with self.subTest(decision=decision, reason=reason):
+                with self.assertRaises(ReviewCommandError) as raised:
+                    decide_review(
+                        connection, company_id=LEFT, actor_id=RIGHT,
+                        idempotency_key="rec002-safe-key-0002",
+                        candidate_id=LEFT, decision=decision,
+                        reason_code=reason)
+                self.assertEqual("review-decision-invalid", raised.exception.code)
+        self.assertEqual([], connection.calls)
 
 
 if __name__ == "__main__":

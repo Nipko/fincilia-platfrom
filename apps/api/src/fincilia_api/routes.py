@@ -73,6 +73,21 @@ class AuditEvent(BaseModel):
     detail: dict
 
 
+class MatchProposalRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    left_dataset_id: str = Field(min_length=36, max_length=36)
+    right_dataset_id: str = Field(min_length=36, max_length=36)
+    left_movement_id: str = Field(min_length=36, max_length=36)
+    right_movement_id: str = Field(min_length=36, max_length=36)
+    max_days: int = Field(default=3, ge=0, le=31)
+
+
+class MatchDecisionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    decision: str
+    reason_code: str = Field(min_length=3, max_length=80)
+
+
 class ArtifactSummary(BaseModel):
     artifact_id: str
     filename: str
@@ -1076,6 +1091,121 @@ def reconciliation_candidates(
                 raise forbidden() from None
             raise ProblemError(problem(
                 error.code, "Candidate request invalid", 422, error.detail)) from None
+
+
+def _synthetic_reconciliation_only(request: Request) -> None:
+    if request.app.state.settings.real_data_enabled:
+        raise ProblemError(problem(
+            "reconciliation-review-disabled", "Reconciliation review unavailable",
+            503, "reconciliation review is enabled only for synthetic data"))
+
+
+def _review_problem(error: Exception) -> ProblemError:
+    code = getattr(error, "code", "review-request-invalid")
+    detail = getattr(error, "detail", "the review command is invalid")
+    if code == "candidate-scope-unavailable":
+        return forbidden()
+    status = 409 if code in {
+        "idempotency-conflict", "candidate-already-decided",
+        "segregation-of-duties",
+    } else 422
+    return ProblemError(problem(code, "Reconciliation review rejected", status, detail))
+
+
+@router.get("/companies/{company_id}/reconciliation/reviews",
+            tags=["reconciliation"])
+def reconciliation_reviews(
+        request: Request, company_id: str, left_dataset_id: str,
+        right_dataset_id: str, limit: int = 200,
+        principal: Principal = Depends(principal_dependency)) -> list[dict]:
+    context = company_context(request, principal, company_id)
+    require(context, "movement.read")
+    _synthetic_reconciliation_only(request)
+    with request.app.state.database.session(
+            company_id=context.company_id,
+            subject_id=principal.subject_id) as connection:
+        try:
+            return reconciliation.list_reviews(
+                connection, left_dataset_id=left_dataset_id,
+                right_dataset_id=right_dataset_id, limit=limit)
+        except reconciliation.ReviewCommandError as error:
+            raise _review_problem(error) from None
+
+
+@router.post("/companies/{company_id}/reconciliation/reviews",
+             tags=["reconciliation"])
+def propose_reconciliation_review(
+        request: Request, company_id: str, body: MatchProposalRequest,
+        principal: Principal = Depends(principal_dependency)) -> dict:
+    context = company_context(request, principal, company_id)
+    require(context, "movement.read")
+    require(context, "match.propose")
+    _synthetic_reconciliation_only(request)
+    key = request.headers.get("idempotency-key", "")
+    refusal: Exception | None = None
+    result: dict | None = None
+    with request.app.state.database.session(
+            company_id=context.company_id,
+            subject_id=principal.subject_id) as connection:
+        try:
+            result = reconciliation.propose_review(
+                connection, company_id=context.company_id,
+                actor_id=principal.subject_id, idempotency_key=key,
+                left_dataset_id=body.left_dataset_id,
+                right_dataset_id=body.right_dataset_id,
+                left_movement_id=body.left_movement_id,
+                right_movement_id=body.right_movement_id,
+                max_days=body.max_days)
+        except (reconciliation.ReviewCommandError,
+                reconciliation.CandidateQueryError) as error:
+            refusal = error
+            repository.record_audit(
+                connection, subject_id=principal.subject_id,
+                company_id=context.company_id, action="match.propose",
+                resource_kind="match_candidate", resource_ref="unmaterialized",
+                outcome="denied", detail={"reason": error.code})
+    if refusal is not None:
+        raise _review_problem(refusal)
+    if result is None:
+        raise RuntimeError("review proposal completed without a result")
+    return result
+
+
+@router.post("/companies/{company_id}/reconciliation/reviews/{candidate_id}/decision",
+             tags=["reconciliation"])
+def decide_reconciliation_review(
+        request: Request, company_id: str, candidate_id: str,
+        body: MatchDecisionRequest,
+        principal: Principal = Depends(principal_dependency)) -> dict:
+    context = company_context(request, principal, company_id)
+    require(context, "movement.read")
+    permission = "match.confirm" if body.decision == "confirmed" else "match.reject"
+    require(context, permission)
+    _synthetic_reconciliation_only(request)
+    key = request.headers.get("idempotency-key", "")
+    refusal: reconciliation.ReviewCommandError | None = None
+    result: dict | None = None
+    with request.app.state.database.session(
+            company_id=context.company_id,
+            subject_id=principal.subject_id) as connection:
+        try:
+            result = reconciliation.decide_review(
+                connection, company_id=context.company_id,
+                actor_id=principal.subject_id, idempotency_key=key,
+                candidate_id=candidate_id, decision=body.decision,
+                reason_code=body.reason_code)
+        except reconciliation.ReviewCommandError as error:
+            refusal = error
+            repository.record_audit(
+                connection, subject_id=principal.subject_id,
+                company_id=context.company_id, action=f"match.{permission.rsplit('.', 1)[-1]}",
+                resource_kind="match_candidate", resource_ref=candidate_id[:80],
+                outcome="denied", detail={"reason": error.code})
+    if refusal is not None:
+        raise _review_problem(refusal)
+    if result is None:
+        raise RuntimeError("review decision completed without a result")
+    return result
 
 
 # --------------------------------------------------------------------------- #
