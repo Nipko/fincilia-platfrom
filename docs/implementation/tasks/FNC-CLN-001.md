@@ -2,7 +2,7 @@
 id: FNC-CLN-001
 alias: FNC-P4.4
 title: Propuestas tipadas de correccion por fila
-status: in_progress
+status: review_pending
 implementer: Codex principal dev + Integration Steward
 base_sha: 595fcad
 gate: S1-READY
@@ -47,6 +47,8 @@ aplicar y la interfaz debe decirlo expresamente.
 - `apps/web/src/app/empresas/**/movimientos/**`
 - `apps/web/src/app/empresas/**/mapeo/**`
 - `apps/web/src/app/empresas/**/__tests__/**`
+- `apps/web/src/app/actions.ts`
+- `apps/web/src/app/__tests__/actions.test.ts`
 - `apps/web/src/lib/api.ts`
 - `apps/web/src/lib/corrections.ts`
 - `apps/web/src/lib/__tests__/corrections.test.ts`
