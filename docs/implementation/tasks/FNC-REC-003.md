@@ -2,7 +2,7 @@
 id: FNC-REC-003
 alias: FNC-P4.8
 title: Bandeja multiempresa de revision de conciliaciones
-status: in_progress
+status: review_pending
 implementer: Codex principal dev + Integration Steward
 base_sha: 49339a04511fd459f1a38566654ca0d32a4453fd
 gate: S1-READY
