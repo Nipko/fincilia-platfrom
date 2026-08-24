@@ -178,6 +178,12 @@ def purge(created: set[str]) -> None:
         "  SELECT mapping_version_id FROM fincilia.column_mapping_version"
         "  WHERE artifact_id IN (SELECT artifact_id FROM fincilia.source_artifact"
         "   WHERE content_sha256 = ANY(%s))))",
+        # La excepcion por fila referencia al dataset, a la fila y al paso del
+        # plan, las tres con `RESTRICT`: se retira antes que ninguna de ellas.
+        "DELETE FROM fincilia.lineage_row_override WHERE dataset_version_id IN ("
+        " SELECT dataset_version_id FROM fincilia.dataset_version"
+        " WHERE artifact_id IN (SELECT artifact_id FROM fincilia.source_artifact"
+        "  WHERE content_sha256 = ANY(%s)))",
         "DELETE FROM fincilia.movement_evidence_link WHERE movement_id IN ("
         " SELECT movement_id FROM fincilia.canonical_movement"
         " WHERE dataset_version_id IN (SELECT dataset_version_id"

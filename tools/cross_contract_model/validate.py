@@ -8,6 +8,8 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
+NEWLINE = chr(10)
+
 REQUIRED_TOP_LEVEL = {
     "schema_version", "task_id", "status", "data_ceiling", "human_acceptance",
     "decision_states", "store_contract", "classification_contract",
@@ -45,6 +47,7 @@ def validate_model(
     canonical: dict[str, Any],
     lineage: dict[str, Any],
     adr_text: str,
+    migrations: str = "",
 ) -> list[CrossContractError]:
     errors: list[CrossContractError] = []
 
@@ -171,6 +174,30 @@ def validate_model(
         if token not in adr_text:
             fail("XCON-ADR-PROFILE", "ADR-023", f"ADR implementation profile misses {token}")
 
+    # -- el contrato y el esquema hablan del mismo sistema -----------------
+    # Cada contrato de linaje nombra sus tablas fisicas. Si el SQL no las crea,
+    # el contrato describe algo que no existe, y eso no lo detecta ninguno de
+    # los dos validadores por separado.
+    declared: dict[str, str] = {}
+    for key in ("transform_plan_contract", "row_override_contract"):
+        section = lineage.get(key) or {}
+        for table in section.get("physical_tables") or []:
+            declared[str(table)] = f"lineage-model.{key}"
+        if section.get("physical_table"):
+            declared[str(section["physical_table"])] = f"lineage-model.{key}"
+    approval = (lineage.get("engine_release_contract") or {}).get("approval_record") or {}
+    if approval.get("physical_table"):
+        declared[str(approval["physical_table"])] = (
+            "lineage-model.engine_release_contract.approval_record")
+    if not declared:
+        fail("XCON-LINEAGE-TABLES", "lineage-model",
+             "the lineage contracts name no physical table, so nothing ties them "
+             "to the schema")
+    for table, where in sorted(declared.items()):
+        if f"CREATE TABLE {table}" not in migrations:
+            fail("XCON-LINEAGE-TABLES", where,
+                 f"{table} is declared but no migration creates it")
+
     if set(model.get("required_tests", [])) != REQUIRED_TESTS:
         fail("XCON-TESTS", "required_tests", "required cross-contract tests must be exact")
     for gate in model.get("gates", []):
@@ -189,7 +216,12 @@ def main() -> int:
     parser.add_argument("--canonical", type=Path, default=Path("docs/domain/canonical-model.json"))
     parser.add_argument("--lineage", type=Path, default=Path("docs/domain/lineage-model.json"))
     parser.add_argument("--adr", type=Path, default=Path("docs/adr/ADR-023-engine-release.md"))
+    parser.add_argument("--migrations", type=Path, default=Path("db/migrations"))
     args = parser.parse_args()
+    # Lo que importa es como acaba el esquema, no en que fichero se dijo: las
+    # migraciones se leen juntas.
+    migrations = NEWLINE.join(item.read_text(encoding="utf-8")
+                              for item in sorted(args.migrations.glob("*.sql")))
     errors = validate_model(
         json.loads(args.model.read_text(encoding="utf-8")),
         json.loads(args.boundaries.read_text(encoding="utf-8")),
@@ -197,6 +229,7 @@ def main() -> int:
         json.loads(args.canonical.read_text(encoding="utf-8")),
         json.loads(args.lineage.read_text(encoding="utf-8")),
         args.adr.read_text(encoding="utf-8"),
+        migrations,
     )
     print(json.dumps({"errors": [error.as_dict() for error in errors], "ok": not errors},
                      ensure_ascii=False, indent=2, sort_keys=True))

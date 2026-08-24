@@ -462,6 +462,24 @@ class RejectionRequest(BaseModel):
     reason: str = Field(min_length=1, max_length=200)
 
 
+class OverrideRequest(BaseModel):
+    """Lo que hace falta para decir que una fila no siguio el plan.
+
+    Las dos huellas son obligatorias: sin la del original no se puede comprobar
+    que el override describe **este** caso, y no otro que se le parece.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    source_record_id: str = Field(min_length=1, max_length=64)
+    field_name: str = Field(min_length=1, max_length=64)
+    override_kind: str = Field(min_length=1, max_length=32)
+    base_step_ordinal: int = Field(ge=1, le=6)
+    original_value_digest: str = Field(pattern=r"^[0-9a-f]{64}$")
+    resulting_value_digest: str = Field(pattern=r"^[0-9a-f]{64}$")
+    reason_code: str = Field(min_length=1, max_length=64)
+
+
 def _artifact_or_forbidden(connection, artifact_id: str):
     """El artefacto, o una denegacion indistinguible de «no existe».
 
@@ -858,6 +876,114 @@ def reject_dataset(request: Request, company_id: str, dataset_version_id: str,
             resource_kind="dataset", resource_ref=dataset_version_id,
             outcome="denied", detail={"reason": body.reason[:120]})
     return rejected
+
+
+@router.get("/companies/{company_id}/datasets/{dataset_version_id}/overrides",
+            tags=["datasets"])
+def list_overrides(request: Request, company_id: str, dataset_version_id: str,
+                   principal: Principal = Depends(principal_dependency)) -> list[dict]:
+    """Los overrides vigentes de un dataset, con quien los escribio y quien no."""
+    context = company_context(request, principal, company_id)
+    require(context, "movement.read")
+    database = request.app.state.database
+    with database.session(company_id=context.company_id,
+                          subject_id=principal.subject_id) as connection:
+        if datasets.load_dataset(connection, dataset_version_id) is None:
+            raise forbidden()
+        return datasets.list_overrides(connection,
+                                       dataset_version_id=dataset_version_id)
+
+
+@router.post("/companies/{company_id}/datasets/{dataset_version_id}/overrides",
+             tags=["datasets"], status_code=201)
+def create_override(request: Request, company_id: str, dataset_version_id: str,
+                    body: OverrideRequest,
+                    principal: Principal = Depends(principal_dependency)) -> dict:
+    """Deja constancia de que una fila no se leyo como dice el plan.
+
+    Exige `dataset.prepare`: escribir el override es parte de preparar el
+    dataset. Aprobarlo no, y por eso es otra ruta y otro permiso.
+    """
+    context = company_context(request, principal, company_id)
+    require(context, "dataset.prepare")
+    database = request.app.state.database
+    with database.session(company_id=context.company_id,
+                          subject_id=principal.subject_id) as connection:
+        try:
+            created = datasets.record_override(
+                connection, company_id=context.company_id,
+                dataset_version_id=dataset_version_id,
+                source_record_id=body.source_record_id,
+                field_name=body.field_name, override_kind=body.override_kind,
+                base_step_ordinal=body.base_step_ordinal,
+                original_value_digest=body.original_value_digest,
+                resulting_value_digest=body.resulting_value_digest,
+                reason_code=body.reason_code, subject_id=principal.subject_id)
+        except datasets.OverrideError as error:
+            if error.code == "override-target-unknown":
+                raise forbidden() from None
+            raise ProblemError(problem(
+                error.code, "The override cannot be recorded",
+                409 if error.code == "dataset-already-published" else 422,
+                error.detail)) from None
+        # Se audita el motivo, nunca el valor: el override existe para explicar
+        # una decision, y registrar el importe aqui devolveria por la puerta de
+        # atras lo que la tabla no guarda.
+        repository.record_audit(
+            connection, subject_id=principal.subject_id,
+            company_id=context.company_id, action="lineage.override",
+            resource_kind="dataset", resource_ref=dataset_version_id,
+            outcome="allowed",
+            detail={"field": body.field_name, "kind": body.override_kind,
+                    "reason_code": body.reason_code,
+                    "needs_approval": created["needs_approval"]})
+    return created
+
+
+@router.post("/companies/{company_id}/overrides/{override_id}/approve",
+             tags=["datasets"])
+def approve_override(request: Request, company_id: str, override_id: str,
+                     principal: Principal = Depends(principal_dependency)) -> dict:
+    """Otro sujeto responde por el override. Exige `dataset.publish`.
+
+    Quien aprueba una excepcion sobre un importe es quien podria publicarla, no
+    quien la escribio.
+    """
+    context = company_context(request, principal, company_id)
+    require(context, "dataset.publish")
+    database = request.app.state.database
+    refusal: datasets.OverrideError | None = None
+    approved: dict | None = None
+    with database.session(company_id=context.company_id,
+                          subject_id=principal.subject_id) as connection:
+        try:
+            approved = datasets.approve_override(
+                connection, override_id=override_id,
+                subject_id=principal.subject_id)
+        except datasets.OverrideError as error:
+            refusal = error
+        if refusal is None and approved is not None:
+            repository.record_audit(
+                connection, subject_id=principal.subject_id,
+                company_id=context.company_id, action="lineage.override.approve",
+                resource_kind="dataset",
+                resource_ref=approved["dataset_version_id"],
+                outcome="allowed", detail={"override_id": override_id,
+                                           "field": approved["field_name"]})
+        elif refusal is not None:
+            repository.record_audit(
+                connection, subject_id=principal.subject_id,
+                company_id=context.company_id, action="lineage.override.approve",
+                resource_kind="dataset", resource_ref=override_id,
+                outcome="denied", detail={"reason": refusal.code})
+    if refusal is not None:
+        if refusal.code == "override-unknown":
+            raise forbidden()
+        raise ProblemError(problem(
+            refusal.code, "The override cannot be approved",
+            409 if refusal.code == "segregation-of-duties" else 422,
+            refusal.detail))
+    return approved
 
 
 @router.get("/companies/{company_id}/datasets/{dataset_version_id}/movements",

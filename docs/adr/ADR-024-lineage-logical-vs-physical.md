@@ -5,7 +5,7 @@
 - Owners: Data + Architecture, UNASSIGNED
 - Approvers: Security + QA, UNASSIGNED
 - Gate: S1-READY
-- Tasks: FNC-P3.5
+- Tasks: FNC-P3.5, FNC-P3.6
 - Plan refs: §18
 
 ## Context and decision drivers
@@ -71,6 +71,58 @@ otro par y otro plan. **El plan anterior no se toca**, así que un dataset
 publicado hace seis meses sigue reconstruyendo sus seis etapas con las reglas de
 entonces, que es justamente lo que `reprocessing_contract` exige.
 
+### La fila que no sigue el plan de su columna
+
+El plan explica la columna, y eso basta para noventa y nueve mil filas de cada
+cien mil. La excepción es real y frecuente en un cierre: alguien corrige un
+importe a mano, alguien resuelve el signo mirando el documento, una fila se
+rechaza, un *overlay* sustituye un dato. Sin un sitio donde decirlo, esa
+corrección o desaparece del camino —y el linaje afirma algo falso— o obliga a
+romper el plan compartido para acomodar una fila, que es la premisa entera de
+este ADR.
+
+`lineage_row_override` (`V0012`) es ese sitio. Es **company-scoped** e
+**inmutable**, y cubre siete casos: `manual_correction`, `overlay_applied`,
+`exceptional_parse`, `sign_resolution`, `substituted_value`, `rejected_value` y
+`row_rule`.
+
+Cada fila lleva: `company_id`, `dataset_version_id`, `source_record_id`,
+`raw_record_id`, `field_name`, `base_plan_step_id`, `override_kind`,
+`original_value_digest`, `resulting_value_digest`, `rule_version`,
+`reason_code`, `override_ordinal`, `created_by`, `approved_by` cuando
+corresponde, `created_at`, `engine_release_id` y `canonical_schema_version`.
+
+Las reglas que la hacen auditable en vez de decorativa:
+
+- **El valor nunca se guarda.** Se guardan las dos huellas: la que el plan
+  habría producido y la que se publicó. Con las dos se comprueba que el override
+  describe *este* caso y no otro que se le parece; con el valor no se ganaría
+  nada que no se pueda ya, y se perdería el poder decir que el grafo no almacena
+  importes.
+- **Autor y aprobador distintos** en los campos de
+  `critical_overlay_fields`. Se comprueba en la API, en un `CHECK` de la tabla y
+  en un disparador. No es desconfianza: la de la API da un mensaje útil, y las
+  otras dos aguantan cuando alguien llega por otro camino.
+- **Un override sin aprobar bloquea la publicación**, y una huella de resultado
+  que no coincide con `field_digests` del movimiento publicado la bloquea
+  también: si no coinciden, el override no explica esta fila.
+- **El drill-down lo intercala en la posición lógica correcta**, detrás de la
+  etapa que altera y no al final del camino. Un override sobre
+  `transformed_value` aparece entre la cuarta y la quinta etapa, porque ahí es
+  donde ocurrió; una anotación al pie dejaría sin contestar la única pregunta
+  que un camino existe para contestar.
+- **Sin override se usa el plan compartido.** La ausencia no es una etapa que
+  falte: las seis salen tal cual.
+- **No se edita.** Cambiar de opinión escribe otro override con el ordinal
+  siguiente; el vigente es el último y el anterior se conserva. El disparador
+  admite un único cambio, el sello de aprobación, y solo de `NULL` a un sujeto
+  distinto del autor. `fincilia_app` no recibe `DELETE`, igual que no lo recibe
+  sobre el plan.
+- **Cambiar el plan no reinterpreta datasets históricos**, e **invalidar un plan
+  invalida publicaciones nuevas, no borra las históricas**: las dos ya eran
+  ciertas por el `UNIQUE` sobre `(mapping_version_id, engine_release_id)`, y el
+  override no las toca porque vive atado a una versión concreta del dataset.
+
 Lo que **no** cambia respecto del contrato vigente:
 
 - cobertura del 100% de campos publicados, sin promedios;
@@ -93,6 +145,17 @@ capacidad de auditoría que la reconstrucción no dé.
 real: colapsar `extracted_field`, `transformed_value` y `source_record_field` en
 una arista hace imposible contestar «¿en qué punto exacto se convirtió este texto
 en un decimal?», que es la pregunta que una discrepancia contable obliga a hacer.
+
+**Tratar la excepción por fila cambiando el plan de la columna.** Es lo que
+haría cualquiera con prisa: si esta fila se lee distinto, cámbiese la regla. Se
+rechaza porque miente sobre las otras noventa y nueve mil novecientas noventa y
+nueve, que sí siguieron la regla anterior, y porque convierte una corrección
+puntual en una reinterpretación retroactiva de todo el extracto.
+
+**Guardar el valor corregido en el override.** Haría el drill-down más cómodo de
+leer. Se rechaza porque devolvería por la puerta de atrás exactamente lo que el
+contrato prohíbe: importes en el grafo de linaje, con su clasificación, su
+retención y su superficie de fuga.
 
 **Grafo materializado en un almacén aparte.** Se rechaza por alcance: mueve el
 problema a un componente que hoy no existe, con su propia consistencia, sus
@@ -118,8 +181,11 @@ reglas con las que se publicó. Es exactamente el `latest` que
 - El drill-down deja de ser un `SELECT` sobre una tabla y pasa a ser una
   reconstrucción con reglas. Si esas reglas tienen un defecto, el defecto afecta
   a todas las respuestas a la vez, no a una fila.
-- Hay dos sitios donde puede faltar una pieza —el plan y la fila— y el bloqueo de
-  publicación tiene que comprobar los dos.
+- Hay tres sitios donde puede faltar una pieza —el plan, la fila y el override— y
+  el bloqueo de publicación tiene que comprobar los tres.
+- Una excepción sobre un campo crítico introduce una espera humana en la
+  publicación. Es deliberado, y tiene coste operativo: un cierre con muchas
+  correcciones manuales no se sella hasta que alguien las mira una a una.
 - Un lector que consulte las tablas directamente ya no ve el camino completo sin
   aplicar la reconstrucción.
 
@@ -150,13 +216,22 @@ arista colapsada decía.
   `reprocessing_contract`.
 - `docs/implementation/handoffs/FNC-P3.md` — la divergencia que este ADR resuelve.
 - `db/migrations/V0009__onboarding_release_gate_and_lineage_plan.sql`.
+- `db/migrations/V0012__lineage_row_override.sql` — la vía de excepción.
+- `docs/domain/lineage-model.json` — `transform_plan_contract` y
+  `row_override_contract`, con sus invariantes y sus validadores.
+- `db/tests/test_row_overrides.py` — las ocho preguntas contestadas contra
+  PostgreSQL real, más lo que la tabla no deja hacer.
 
 ## Review trigger
 
 Se revisa si aparece cualquiera de estas tres cosas: una etapa lógica que no se
 pueda reconstruir de forma determinista; un consumidor que necesite recorrer el
-grafo sin pasar por la reconstrucción; o una regla de transformación que dependa
-de la fila y no de la columna, que rompería la premisa entera de este ADR.
+grafo sin pasar por la reconstrucción; o una proporción de filas con override lo
+bastante alta como para que el plan compartido deje de explicar el caso normal.
+El tercero es el que sustituye al de la versión anterior de este ADR: una regla
+que dependa de la fila ya no rompe la premisa, porque `lineage_row_override` le
+da un sitio donde vivir sin tocar el plan de la columna. Lo que sí la rompería
+es que dejara de ser la excepción.
 
 ## References
 

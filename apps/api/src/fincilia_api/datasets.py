@@ -38,9 +38,14 @@ from fincilia_contracts.mapping import (
     validate_mapping,
 )
 from fincilia_contracts.lineage import (
+    CRITICAL_OVERRIDE_FIELDS,
+    OVERRIDE_KINDS,
+    RULE_VERSION,
     LineageError,
+    RowOverride,
     TransformStep,
     build_plan,
+    override_problems,
     plan_digest,
     reconstruct,
     validate_plan,
@@ -1426,6 +1431,246 @@ def _finalise(database, *, company_id: str, subject_id: str, dataset_id: str,
 
 
 # --------------------------------------------------------------------------- #
+# La via de excepcion por fila
+# --------------------------------------------------------------------------- #
+
+class OverrideError(Exception):
+    """El override no procede, y el motivo es del cliente."""
+
+    def __init__(self, code: str, detail: str) -> None:
+        super().__init__(detail)
+        self.code = code
+        self.detail = detail
+
+
+def _override_target(connection: psycopg.Connection, *, company_id: str,
+                     dataset_version_id: str, source_record_id: str,
+                     field_name: str) -> dict[str, Any]:
+    """Comprueba que la fila, el dataset y el paso del plan existen y encajan.
+
+    Se consulta con `company_id` explicito ademas de la RLS. La politica ya
+    impide ver lo ajeno; esto impide **confundirse** dentro de lo propio, que es
+    un error distinto y mas silencioso.
+    """
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT d.state, d.lineage_plan_id, d.engine_release_id, "
+            "       d.canonical_schema_version, s.raw_record_id "
+            "FROM fincilia.dataset_version d "
+            "JOIN fincilia.source_record s "
+            "       ON s.dataset_version_id = d.dataset_version_id "
+            "WHERE d.dataset_version_id = %s AND d.company_id = %s "
+            "  AND s.source_record_id = %s",
+            (dataset_version_id, company_id, source_record_id))
+        row = cursor.fetchone()
+    if row is None:
+        raise OverrideError("override-target-unknown",
+                            "no such record in this dataset version")
+    state, plan_id, release_id, schema_version, raw_record_id = row
+    if state == "published":
+        raise OverrideError(
+            "dataset-already-published",
+            "a published dataset does not change; prepare another version")
+    if plan_id is None:
+        raise OverrideError(
+            "lineage-plan-missing",
+            "this dataset has no transform plan, so an override has nothing to "
+            "attach to")
+
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT step_id, step_ordinal FROM fincilia.lineage_transform_step "
+            "WHERE plan_id = %s AND canonical_field = %s "
+            "ORDER BY step_ordinal", (plan_id, field_name))
+        steps = cursor.fetchall()
+    if not steps:
+        raise OverrideError(
+            "override-field-unknown",
+            f"the plan does not publish {field_name}, so there is no stage to "
+            "override")
+    return {"steps": steps, "engine_release_id": str(release_id),
+            "canonical_schema_version": str(schema_version),
+            "raw_record_id": str(raw_record_id)}
+
+
+def record_override(connection: psycopg.Connection, *, company_id: str,
+                    dataset_version_id: str, source_record_id: str,
+                    field_name: str, override_kind: str, base_step_ordinal: int,
+                    original_value_digest: str, resulting_value_digest: str,
+                    reason_code: str, subject_id: str) -> dict[str, Any]:
+    """Deja constancia de que una fila no se leyo como dice el plan.
+
+    No aprueba nada: sobre un campo critico hace falta que lo mire otro, y hasta
+    entonces el dataset no se publica. Esa espera es la funcion de esto, no un
+    efecto secundario.
+    """
+    if override_kind not in OVERRIDE_KINDS:
+        raise OverrideError("override-kind-unknown",
+                            f"{override_kind!r} is not an override kind")
+    target = _override_target(
+        connection, company_id=company_id, dataset_version_id=dataset_version_id,
+        source_record_id=source_record_id, field_name=field_name)
+    ordinals = {int(item[1]): str(item[0]) for item in target["steps"]}
+    if base_step_ordinal not in ordinals:
+        raise OverrideError(
+            "override-stage-unknown",
+            f"stage {base_step_ordinal} is not one of the six this field has")
+    if original_value_digest == resulting_value_digest:
+        raise OverrideError(
+            "override-changes-nothing",
+            "the two digests are equal, so the plan already produced this value")
+
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT coalesce(max(override_ordinal), 0) + 1 "
+            "FROM fincilia.lineage_row_override "
+            "WHERE dataset_version_id = %s AND source_record_id = %s "
+            "  AND field_name = %s",
+            (dataset_version_id, source_record_id, field_name))
+        ordinal = int(cursor.fetchone()[0])
+        cursor.execute(
+            "INSERT INTO fincilia.lineage_row_override (company_id, "
+            "dataset_version_id, source_record_id, raw_record_id, field_name, "
+            "base_plan_step_id, override_kind, original_value_digest, "
+            "resulting_value_digest, rule_version, reason_code, "
+            "override_ordinal, created_by, engine_release_id, "
+            "canonical_schema_version) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) "
+            "RETURNING override_id",
+            (company_id, dataset_version_id, source_record_id,
+             target["raw_record_id"], field_name, ordinals[base_step_ordinal],
+             override_kind, original_value_digest, resulting_value_digest,
+             RULE_VERSION, reason_code[:64], ordinal, subject_id,
+             target["engine_release_id"], target["canonical_schema_version"]))
+        override_id = str(cursor.fetchone()[0])
+    return {"override_id": override_id, "field_name": field_name,
+            "override_kind": override_kind, "override_ordinal": ordinal,
+            "needs_approval": field_name in CRITICAL_OVERRIDE_FIELDS,
+            "approved_by": None}
+
+
+def approve_override(connection: psycopg.Connection, *, override_id: str,
+                     subject_id: str) -> dict[str, Any]:
+    """Otro sujeto mira el override y responde por el.
+
+    La segregacion se comprueba aqui, en un `CHECK` y en un disparador. No es
+    desconfianza: la de aqui da un mensaje util, y las otras dos aguantan cuando
+    alguien llega por otro camino.
+    """
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT created_by, approved_by, field_name, dataset_version_id "
+            "FROM fincilia.lineage_row_override WHERE override_id = %s",
+            (override_id,))
+        row = cursor.fetchone()
+    if row is None:
+        raise OverrideError("override-unknown", "no such override")
+    created_by, approved_by, field_name, dataset_version_id = row
+    if approved_by is not None:
+        if str(approved_by) == subject_id:
+            return {"override_id": override_id, "field_name": field_name,
+                    "approved_by": subject_id,
+                    "dataset_version_id": str(dataset_version_id)}
+        raise OverrideError("override-already-approved",
+                            "this override already carries an approval")
+    if str(created_by) == subject_id:
+        raise OverrideError(
+            "segregation-of-duties",
+            "the subject who wrote this override cannot approve it")
+
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "UPDATE fincilia.lineage_row_override "
+            "SET approved_by = %s, approved_at = now() "
+            "WHERE override_id = %s AND approved_by IS NULL",
+            (subject_id, override_id))
+    return {"override_id": override_id, "field_name": field_name,
+            "approved_by": subject_id,
+            "dataset_version_id": str(dataset_version_id)}
+
+
+def load_overrides(connection: psycopg.Connection, *, dataset_version_id: str,
+                   source_record_id: str | None = None) -> tuple[RowOverride, ...]:
+    """Los overrides vigentes: uno por campo y fila, el de ordinal mas alto.
+
+    Los anteriores siguen ahi —nadie los borra— pero no describen lo publicado.
+    """
+    clause = "" if source_record_id is None else " AND o.source_record_id = %s"
+    parameters: tuple[Any, ...] = (
+        (dataset_version_id,) if source_record_id is None
+        else (dataset_version_id, source_record_id))
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT DISTINCT ON (o.source_record_id, o.field_name) "
+            "       o.override_id, o.field_name, o.override_kind, s.step_ordinal, "
+            "       o.original_value_digest, o.resulting_value_digest, "
+            "       o.rule_version, o.reason_code, o.created_by, o.approved_by, "
+            "       o.engine_release_id, o.canonical_schema_version "
+            "FROM fincilia.lineage_row_override o "
+            "JOIN fincilia.lineage_transform_step s ON s.step_id = o.base_plan_step_id "
+            "WHERE o.dataset_version_id = %s" + clause + " "
+            "ORDER BY o.source_record_id, o.field_name, o.override_ordinal DESC",
+            parameters)
+        return tuple(
+            RowOverride(
+                override_id=str(row[0]), canonical_field=row[1],
+                override_kind=row[2], base_step_ordinal=int(row[3]),
+                original_value_digest=str(row[4]).strip(),
+                resulting_value_digest=str(row[5]).strip(),
+                rule_version=row[6], reason_code=row[7],
+                created_by=str(row[8]),
+                approved_by=str(row[9]) if row[9] else None,
+                engine_release_id=str(row[10]),
+                canonical_schema_version=row[11])
+            for row in cursor)
+
+
+def override_digest_problems(connection: psycopg.Connection, *,
+                             dataset_version_id: str) -> list[str]:
+    """El override tiene que describir **este** dato y no otro que se le parece.
+
+    `resulting_value_digest` dice que se publico; `field_digests` del movimiento
+    dice que se publico de verdad. Si no coinciden, el override no explica esta
+    fila: explica una que se le parece, y dejarlo pasar convertiria el camino en
+    una historia plausible.
+    """
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT DISTINCT ON (o.source_record_id, o.field_name) "
+            "       o.override_id, o.field_name, o.resulting_value_digest, "
+            "       m.field_digests "
+            "FROM fincilia.lineage_row_override o "
+            "LEFT JOIN fincilia.canonical_movement m "
+            "       ON m.source_record_id = o.source_record_id "
+            "      AND m.dataset_version_id = o.dataset_version_id "
+            "WHERE o.dataset_version_id = %s "
+            "ORDER BY o.source_record_id, o.field_name, o.override_ordinal DESC",
+            (dataset_version_id,))
+        rows = cursor.fetchall()
+
+    problems: list[str] = []
+    for override_id, field, claimed, digests in rows:
+        published = (digests or {}).get(field)
+        if published is None:
+            problems.append(
+                f"{field}/{override_id}: the movement carries no digest for this "
+                "field, so the override cannot be checked against what was published")
+        elif published != str(claimed).strip():
+            problems.append(
+                f"{field}/{override_id}: the override claims a result the "
+                "published movement does not carry")
+    return problems
+
+
+def list_overrides(connection: psycopg.Connection, *,
+                   dataset_version_id: str) -> list[dict[str, Any]]:
+    """Lo mismo, en la forma que ensena una pantalla."""
+    return [item.as_dict()
+            for item in load_overrides(connection,
+                                       dataset_version_id=dataset_version_id)]
+
+
+# --------------------------------------------------------------------------- #
 # Publicacion
 # --------------------------------------------------------------------------- #
 
@@ -1486,6 +1731,16 @@ def publish_dataset(connection: psycopg.Connection, *, dataset_version_id: str,
             "engine-release-not-approved",
             f"the engine release behind this dataset is now {state}; prepare it "
             "again against an approved release")
+
+    # Un override sobre un importe que nadie ha mirado detiene la publicacion.
+    # Es la misma regla que la segregacion de deberes, aplicada a la fila: lo que
+    # se publica lo ha revisado alguien distinto de quien lo escribio.
+    problems = override_problems(
+        load_overrides(connection, dataset_version_id=dataset_version_id))
+    problems.extend(override_digest_problems(
+        connection, dataset_version_id=dataset_version_id))
+    if problems:
+        raise PublicationError("override-not-approved", "; ".join(problems))
 
     with connection.cursor() as cursor:
         cursor.execute(
@@ -1689,6 +1944,8 @@ def load_movement(connection: psycopg.Connection,
         return payload
 
     steps = load_plan_steps(connection, plan_id)
+    overrides = load_overrides(connection, dataset_version_id=str(row[13]),
+                               source_record_id=str(row[20]))
     fields = sorted({step.canonical_field for step in steps})
     reconstructed: dict[str, list[dict[str, Any]]] = {}
     problems: list[str] = []
@@ -1697,17 +1954,25 @@ def load_movement(connection: psycopg.Connection,
             reconstructed[field] = reconstruct(
                 steps, canonical_field=field, origin_locator=locator,
                 raw_record_id=str(row[21]), source_record_id=str(row[20]),
-                movement_id=movement_id, value_digest=digests.get(field))
+                movement_id=movement_id, value_digest=digests.get(field),
+                overrides=overrides)
         except LineageError as error:
             problems.append(f"{field}: {error}")
+
+    def _stage(stages: list[dict[str, Any]], name: str) -> dict[str, Any]:
+        # Por nombre y no por indice: con un override intercalado el camino tiene
+        # siete entradas, y `stages[3]` dejaria de ser `transformed_value`.
+        return next(item for item in stages if item["stage"] == name)
 
     payload["lineage"] = [
         {"field": field, "stages": stages,
          # Lo que la interfaz ensena de un vistazo: donde estaba y como se leyo.
-         "cell": stages[1]["identity"]["cell"],
-         "transform": stages[3]["transform_ref"],
-         "value_digest": stages[5]["identity"]["value_digest"],
-         "operation": stages[5]["operation"]}
+         "cell": _stage(stages, "raw_locator")["identity"]["cell"],
+         "transform": _stage(stages, "transformed_value")["transform_ref"],
+         "value_digest": _stage(stages, "financial_fact_field")["identity"]["value_digest"],
+         "operation": _stage(stages, "financial_fact_field")["operation"],
+         "overrides": [item["override"] for item in stages
+                       if item["override"] and item["operation"] == "overridden_by"]}
         for field, stages in sorted(reconstructed.items())]
     payload["lineage_complete"] = not problems and bool(reconstructed)
     if problems:

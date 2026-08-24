@@ -58,6 +58,24 @@ FIELD_TYPES: Final[dict[str, str]] = {
 PARSER_VERSION: Final[str] = "csv-extractor-0.1.0"
 RULE_VERSION: Final[str] = "column-mapping-0.1.0"
 
+# Las siete formas en que una fila concreta se aparta del plan de su columna.
+# Cada una existe porque alguien la hace: corregir a mano, aplicar un overlay,
+# leer una fila de otra forma, resolver un signo, sustituir un valor, rechazar
+# un dato, o aplicar una regla que solo vale para esa fila.
+OVERRIDE_KINDS: Final[frozenset[str]] = frozenset({
+    "manual_correction", "overlay_applied", "exceptional_parse",
+    "sign_resolution", "substituted_value", "rejected_value", "row_rule",
+})
+
+# Campos en los que equivocarse cuesta dinero. Un override sobre cualquiera de
+# ellos necesita que lo apruebe alguien distinto de quien lo escribio; la lista
+# es la de `lineage-model.json#critical_overlay_fields`, y esta aqui repetida
+# porque el motor no lee el contrato en tiempo de ejecucion.
+CRITICAL_OVERRIDE_FIELDS: Final[frozenset[str]] = frozenset({
+    "amount", "currency", "direction", "financial_account_identifier",
+    "tax_identity", "accounting_date", "posting_date", "value_date",
+})
+
 
 class LineageError(ValueError):
     """El plan no se puede construir o no reconstruye las seis etapas."""
@@ -93,6 +111,96 @@ class TransformStep:
             "rule_version": self.rule_version,
             "source_column": self.source_column,
         }
+
+
+@dataclass(frozen=True)
+class RowOverride:
+    """Una fila que no se leyo como dice el plan de su columna.
+
+    El plan explica la columna, y eso basta para noventa y nueve mil filas de
+    cada cien mil. Cuando una se aparta —alguien corrigio el importe a mano,
+    alguien resolvio el signo mirando el documento— el camino tiene que decirlo
+    **en el punto exacto en que ocurrio**, y no borrar la regla general para
+    acomodar la excepcion.
+
+    Lleva huellas, nunca valores: `original_value_digest` es lo que el plan
+    habria producido y `resulting_value_digest` lo que se publico. Con las dos
+    se puede comprobar que el override describe este caso y no otro; con el
+    valor no se ganaria nada que no se pueda ya, y se perderia el poder decir
+    que el grafo no guarda importes.
+    """
+
+    override_id: str
+    canonical_field: str
+    override_kind: str
+    base_step_ordinal: int
+    original_value_digest: str
+    resulting_value_digest: str
+    rule_version: str
+    reason_code: str
+    created_by: str
+    approved_by: str | None
+    engine_release_id: str
+    canonical_schema_version: str
+
+    @property
+    def critical(self) -> bool:
+        return self.canonical_field in CRITICAL_OVERRIDE_FIELDS
+
+    @property
+    def approved(self) -> bool:
+        """Aprobado y por alguien distinto de quien lo escribio.
+
+        Las dos condiciones son la misma pregunta: un override que se aprueba a
+        si mismo no ha sido revisado, solo firmado.
+        """
+        return bool(self.approved_by) and self.approved_by != self.created_by
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "override_id": self.override_id,
+            "canonical_field": self.canonical_field,
+            "override_kind": self.override_kind,
+            "base_step_ordinal": self.base_step_ordinal,
+            "original_value_digest": self.original_value_digest,
+            "resulting_value_digest": self.resulting_value_digest,
+            "rule_version": self.rule_version,
+            "reason_code": self.reason_code,
+            "created_by": self.created_by,
+            "approved_by": self.approved_by,
+            "engine_release_id": self.engine_release_id,
+            "canonical_schema_version": self.canonical_schema_version,
+        }
+
+
+def override_problems(overrides: tuple[RowOverride, ...]) -> list[str]:
+    """Motivos por los que estos overrides no dejan publicar.
+
+    Vacio significa que dejan. No hay grados: el contrato dice
+    `on_missing_required_override: block_publication`, y un override sobre un
+    importe que nadie ha mirado es exactamente lo que esa regla existe para
+    detener.
+    """
+    problems: list[str] = []
+    for override in overrides:
+        where = f"{override.canonical_field}/{override.override_id}"
+        if override.override_kind not in OVERRIDE_KINDS:
+            problems.append(f"{where}: {override.override_kind!r} is not an "
+                            "override kind the contract knows")
+        if not 1 <= override.base_step_ordinal <= len(STAGES):
+            problems.append(f"{where}: base step {override.base_step_ordinal} is "
+                            "outside the six stages")
+        if not override.reason_code:
+            problems.append(f"{where}: an override without a reason code says "
+                            "what happened but not why")
+        if override.critical and not override.approved:
+            if override.approved_by == override.created_by:
+                problems.append(f"{where}: the subject who wrote this override "
+                                "cannot be the one who approved it")
+            else:
+                problems.append(f"{where}: a critical field carries an "
+                                "unapproved override")
+    return problems
 
 
 def _transform_of(field: str, mapping: ColumnMapping) -> str:
@@ -214,7 +322,8 @@ def validate_plan(steps: tuple[TransformStep, ...],
 def reconstruct(steps: tuple[TransformStep, ...], *, canonical_field: str,
                 origin_locator: dict[str, Any], raw_record_id: str,
                 source_record_id: str, movement_id: str,
-                value_digest: str | None) -> list[dict[str, Any]]:
+                value_digest: str | None,
+                overrides: tuple[RowOverride, ...] = ()) -> list[dict[str, Any]]:
     """Las seis etapas de un campo concreto, con su identidad de fila.
 
     Es la reconstruccion: el plan pone **como**, la fila pone **cual**, y de la
@@ -254,4 +363,42 @@ def reconstruct(steps: tuple[TransformStep, ...], *, canonical_field: str,
             f"no value digest for {canonical_field}; a published field without one "
             "cannot prove what was published")
 
-    return [{**step.as_dict(), "identity": identity[step.stage]} for step in chain]
+    path = [{**step.as_dict(), "identity": identity[step.stage], "override": None}
+            for step in chain]
+
+    # El override se intercala **detras de la etapa que altera**, no al final: la
+    # pregunta que contesta un camino es en que punto exacto paso algo, y dejarlo
+    # siempre al final la deja sin contestar. Sin override, el camino es el del plan
+    # compartido y las seis etapas salen tal cual: la ausencia no es una etapa
+    # que falte.
+    mine = sorted((item for item in overrides
+                   if item.canonical_field == canonical_field),
+                  key=lambda item: item.base_step_ordinal)
+    for override in reversed(mine):
+        if not 1 <= override.base_step_ordinal <= len(chain):
+            raise LineageError(
+                f"{canonical_field}: the override points at stage "
+                f"{override.base_step_ordinal}, which this plan does not have")
+        base = path[override.base_step_ordinal - 1]
+        base["override"] = override.as_dict()
+        path.insert(override.base_step_ordinal, {
+            "canonical_field": canonical_field,
+            "step_ordinal": override.base_step_ordinal,
+            "stage": f"{base['stage']}:override",
+            "operation": "overridden_by",
+            "input_semantic_type": base["output_semantic_type"],
+            "output_semantic_type": base["output_semantic_type"],
+            "transform_ref": f"{override.override_kind}:{override.reason_code}",
+            "configuration_digest": override.original_value_digest,
+            "parser_version": base["parser_version"],
+            "rule_version": override.rule_version,
+            "source_column": base["source_column"],
+            "identity": {
+                "override_id": override.override_id,
+                "original_value_digest": override.original_value_digest,
+                "resulting_value_digest": override.resulting_value_digest,
+                "approved_by": override.approved_by,
+            },
+            "override": override.as_dict(),
+        })
+    return path

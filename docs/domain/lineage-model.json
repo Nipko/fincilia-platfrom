@@ -189,7 +189,9 @@
           "rule": "Un borrador no prepara ni publica. Publicar afirma reproducibilidad, y nadie ha mirado un borrador."
         }
       ],
+      "migration": "V0009",
       "owner_module": "platform",
+      "physical_table": "fincilia.release_approval",
       "rationale": "Aprobar una version del software es un acto de plataforma y no un dato de una empresa. No cabe en `audit_event`, que tiene politica por empresa: una fila sin empresa no la ve nadie, y un rastro que nadie puede leer no es un rastro.",
       "required_fields": [
         "action",
@@ -1520,8 +1522,15 @@
     }
   },
   "row_override_contract": {
+    "approval_stamp": {
+      "allowed_transition": "approved_by_and_approved_at_from_null_to_set",
+      "by": "a_subject_other_than_the_author",
+      "rationale": "Declarar `immutable: true` y a la vez admitir el sello es el unico punto en que las dos cosas conviven, asi que se dice aqui en vez de dejarlo implicito. Aprobar no reescribe lo que el override afirma: anade quien responde por ello.",
+      "times": 1
+    },
     "company_scoped": true,
     "critical_field_source": "critical_overlay_fields",
+    "delete_control": "no_delete_privilege_for_the_runtime_role",
     "entity": "lineage_row_override",
     "immutable": true,
     "invariants": [
@@ -1558,6 +1567,7 @@
         "rule": "Un override no se edita. Cambiar de opinion es otro override, y el anterior se conserva."
       }
     ],
+    "migration": "V0012",
     "nullable_fields": [
       "approved_by"
     ],
@@ -1572,6 +1582,7 @@
       "row_rule"
     ],
     "owner_module": "clean",
+    "physical_table": "fincilia.lineage_row_override",
     "rationale": "El plan explica la columna. Cuando una fila concreta se aparta de esa regla —una correccion manual, un signo resuelto a mano, un valor rechazado— el camino tiene que decirlo en el punto exacto en que ocurrio, y no borrar la regla general para acomodar una excepcion.",
     "required_fields": [
       "approved_by",
@@ -1591,7 +1602,8 @@
       "resulting_value_digest",
       "rule_version",
       "source_record_id"
-    ]
+    ],
+    "supersede": "a_new_override_with_the_next_ordinal_keeps_both"
   },
   "schema_version": 1,
   "status": "review_pending",
@@ -1639,8 +1651,13 @@
         "rule": "Invalidar un plan bloquea publicaciones nuevas y no reinterpreta ni borra las historicas."
       }
     ],
+    "migration": "V0009",
     "on_incomplete": "block_publication",
     "owner_module": "clean",
+    "physical_tables": [
+      "fincilia.lineage_transform_plan",
+      "fincilia.lineage_transform_step"
+    ],
     "plan_required_fields": [
       "canonical_schema_version",
       "company_id",

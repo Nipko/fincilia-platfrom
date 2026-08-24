@@ -528,7 +528,7 @@
         },
         {
           "path": "docs/domain/lineage-model.json",
-          "sha256": "1cfe34c7301ded1bf0b835984a80dcd4c5acb344602e8872b8c377855a0c5fad"
+          "sha256": "61ad8682dc39eaec2b86bfdde6618a922ebb88410f3ce7ce9152249acc416332"
         },
         {
           "path": "docs/privacy/privacy-map.json",

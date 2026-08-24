@@ -22,6 +22,11 @@ class CrossContractModelTest(unittest.TestCase):
         self.canonical = load("docs/domain/canonical-model.json")
         self.lineage = load("docs/domain/lineage-model.json")
         self.adr = (ROOT / "docs/adr/ADR-023-engine-release.md").read_text(encoding="utf-8")
+        # Las migraciones se leen juntas: lo que importa es como acaba el
+        # esquema, no en que fichero se creo cada tabla.
+        self.migrations = chr(10).join(
+            item.read_text(encoding="utf-8")
+            for item in sorted((ROOT / "db/migrations").glob("*.sql")))
 
     def codes(
         self,
@@ -31,6 +36,7 @@ class CrossContractModelTest(unittest.TestCase):
         canonical: dict | None = None,
         lineage: dict | None = None,
         adr: str | None = None,
+        migrations: str | None = None,
     ) -> set[str]:
         errors = validate_model(
             model or self.model,
@@ -39,6 +45,7 @@ class CrossContractModelTest(unittest.TestCase):
             canonical or self.canonical,
             lineage or self.lineage,
             self.adr if adr is None else adr,
+            self.migrations if migrations is None else migrations,
         )
         return {error.code for error in errors}
 
@@ -50,6 +57,34 @@ class CrossContractModelTest(unittest.TestCase):
 
     def test_repository_model_is_valid(self) -> None:
         self.assertEqual(set(), self.codes())
+
+    def test_a_lineage_contract_without_its_table_bites(self) -> None:
+        """Un contrato que nombra una tabla que no existe describe otro sistema.
+
+        Ni el validador de linaje ni el de migraciones lo ven por separado: uno
+        mira la forma del contrato y el otro mira el SQL. Cruzarlos es el trabajo
+        de este.
+        """
+        self.assertIn("XCON-LINEAGE-TABLES",
+                      self.codes(migrations="-- ninguna tabla"))
+
+    def test_every_declared_lineage_table_is_checked(self) -> None:
+        for table in ("fincilia.lineage_transform_plan",
+                      "fincilia.lineage_transform_step",
+                      "fincilia.lineage_row_override",
+                      "fincilia.release_approval"):
+            with self.subTest(table=table):
+                without = self.migrations.replace(f"CREATE TABLE {table}",
+                                                  "CREATE TABLE fincilia.otra_cosa")
+                self.assertIn("XCON-LINEAGE-TABLES", self.codes(migrations=without))
+
+    def test_a_lineage_contract_that_names_no_table_bites(self) -> None:
+        lineage = copy.deepcopy(self.lineage)
+        for key in ("transform_plan_contract", "row_override_contract"):
+            lineage[key].pop("physical_tables", None)
+            lineage[key].pop("physical_table", None)
+        lineage["engine_release_contract"]["approval_record"].pop("physical_table", None)
+        self.assertIn("XCON-LINEAGE-TABLES", self.codes(lineage=lineage))
 
     def test_TST_XCON_001_all_boundary_stores_are_mapped_once(self) -> None:
         model = copy.deepcopy(self.model)
