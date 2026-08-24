@@ -96,5 +96,7 @@ describe('CompaniesPage portfolio', () => {
     expect(screen.getByText('2 por revisar · 1 parciales')).toBeInTheDocument();
     expect(screen.getByText('3 vencidos · 1 proximos')).toBeInTheDocument();
     expect(screen.getByText(/no saldos/i)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /bandeja de revisiones/i }))
+      .toHaveAttribute('href', '/revisiones');
   });
 });

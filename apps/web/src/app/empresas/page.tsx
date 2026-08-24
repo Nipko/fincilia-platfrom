@@ -145,6 +145,10 @@ export default async function CompaniesPage() {
         expone hoy la API.
       </p>
 
+      <p>
+        <Link href="/revisiones">Abrir bandeja de revisiones multiempresa</Link>
+      </p>
+
       {snapshots.length === 0 ? (
         <p className="card">
           No hay ninguna empresa con acceso vigente para esta cuenta.

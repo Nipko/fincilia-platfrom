@@ -126,6 +126,7 @@ export function MatchReviewPanel({
   if (review.decision) {
     return (
       <section className={`match-review-status match-review-status--${review.status}`}
+        id={`revision-${review.candidate_id}`}
         aria-label="Estado de revision">
         <strong>{review.status === 'confirmed' ? 'Revision confirmada' : 'Candidato rechazado'}</strong>
         <span>{REASON_LABELS[review.decision.reason_code] ?? review.decision.reason_code}</span>
@@ -139,6 +140,7 @@ export function MatchReviewPanel({
 
   return (
     <section className="match-review-status match-review-status--open"
+      id={`revision-${review.candidate_id}`}
       aria-label="Estado de revision">
       <strong>Pendiente de decision humana</strong>
       <span className="meta">

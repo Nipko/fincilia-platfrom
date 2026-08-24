@@ -425,6 +425,8 @@ export type MatchReview = {
   candidate_id: string;
   left_movement_id: string;
   right_movement_id: string;
+  left_dataset_id: string;
+  right_dataset_id: string;
   rule_version: string;
   signals: string[];
   date_window_days: number;
@@ -438,6 +440,18 @@ export type MatchReview = {
   proves_balance_reconciliation: false;
   replayed?: boolean;
   created?: boolean;
+};
+
+export type ReviewQueueStatus = 'open' | 'confirmed' | 'rejected' | 'all';
+
+export type ReviewQueuePage = {
+  status: ReviewQueueStatus;
+  offset: number;
+  limit: number;
+  truncated: boolean;
+  items: MatchReview[];
+  financial_effect: 'none';
+  proves_balance_reconciliation: false;
 };
 
 /** Una etapa logica del camino de un campo publicado. */
@@ -768,6 +782,25 @@ export function fetchReconciliationReviews(
   });
   return request<MatchReview[]>(
     `/api/v1/companies/${company}/reconciliation/reviews?${query.toString()}`,
+    { token },
+  );
+}
+
+export function fetchReviewQueue(
+  token: string,
+  companyId: string,
+  status: ReviewQueueStatus = 'open',
+  offset = 0,
+  limit = 50,
+): Promise<ReviewQueuePage> {
+  const company = encodeURIComponent(companyId);
+  const query = new URLSearchParams({
+    status,
+    offset: String(Math.max(0, offset)),
+    limit: String(Math.max(1, Math.min(100, limit))),
+  });
+  return request<ReviewQueuePage>(
+    `/api/v1/companies/${company}/reconciliation/review-queue?${query.toString()}`,
     { token },
   );
 }
