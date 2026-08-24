@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
 const MAX_UPLOAD_FILE_BYTES = 25 * 1024 * 1024;
+const COMPANY_URL = /\/empresas\/[0-9a-f-]+$/;
 
 async function signIn(page: Page): Promise<void> {
   await page.goto('/entrar');
@@ -8,6 +9,14 @@ async function signIn(page: Page): Promise<void> {
   await page.getByLabel('Contrasena').fill('fincilia-demo-only');
   await page.getByRole('button', { name: 'Entrar' }).click();
   await expect(page).toHaveURL(/\/empresas$/);
+}
+
+async function openSyntheticCompany(page: Page): Promise<void> {
+  await page.getByRole('link', { name: /Panaderia La Espiga SAS/ }).click();
+  // `locator.click()` no espera necesariamente a que termine una navegacion
+  // del App Router. La URL es el limite observable antes de leer IDs o usar
+  // controles pertenecientes a una company.
+  await expect(page).toHaveURL(COMPANY_URL);
 }
 
 function syntheticCsv(byteSize: number): Buffer {
@@ -23,7 +32,7 @@ test('fuente → carga exacta de 25 MiB → perfil conserva contexto', async ({
 }) => {
   test.setTimeout(120_000);
   await signIn(page);
-  await page.getByRole('link', { name: /Panaderia La Espiga SAS/ }).click();
+  await openSyntheticCompany(page);
 
   await page.getByLabel('Fuente del documento').selectOption({ index: 1 });
   await page.getByLabel('Extracto o soporte').setInputFiles({
@@ -47,7 +56,7 @@ test('el navegador rechaza 25 MiB mas un byte sin abandonar la empresa', async (
 }) => {
   test.setTimeout(90_000);
   await signIn(page);
-  await page.getByRole('link', { name: /Panaderia La Espiga SAS/ }).click();
+  await openSyntheticCompany(page);
   await page.getByLabel('Fuente del documento').selectOption({ index: 1 });
   await page.getByLabel('Extracto o soporte').setInputFiles({
     name: 'sobre-limite-sintetico.csv',
@@ -56,8 +65,10 @@ test('el navegador rechaza 25 MiB mas un byte sin abandonar la empresa', async (
   });
   await page.getByRole('button', { name: 'Subir' }).click();
 
-  await expect(page.getByRole('alert')).toContainText('limite de 25 MiB');
-  await expect(page).toHaveURL(/\/empresas\/[0-9a-f-]+$/);
+  await expect(
+    page.getByRole('alert').filter({ hasText: 'limite de 25 MiB' }),
+  ).toContainText('limite de 25 MiB');
+  await expect(page).toHaveURL(COMPANY_URL);
 });
 
 test('el BFF conserva el 413 de la API ante un cliente que omite el precheck', async ({
@@ -65,7 +76,7 @@ test('el BFF conserva el 413 de la API ante un cliente que omite el precheck', a
 }) => {
   test.setTimeout(120_000);
   await signIn(page);
-  await page.getByRole('link', { name: /Panaderia La Espiga SAS/ }).click();
+  await openSyntheticCompany(page);
   const companyId = new URL(page.url()).pathname.split('/').at(-1);
   const source = page.getByLabel('Fuente del documento');
   await source.selectOption({ index: 1 });
