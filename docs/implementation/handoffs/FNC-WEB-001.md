@@ -6,7 +6,7 @@
 | Alias | `FNC-P3.7` |
 | Estado | **`REVIEW_PENDING`** |
 | Rango base | `52ea3a8` |
-| `head_sha` | `1f7b22c` |
+| `head_sha` | `12c6753` |
 | Rama | `claude/principal-dev` |
 | Owner de implementación | `Codex principal dev + Integration Steward` |
 | Revisores requeridos | Product, Accessibility/QA, Security, Privacy |
@@ -136,7 +136,11 @@ Tras los cambios finales de control de streams y límites se revalidó el bloque
 - `npm run lint` ✅
 - `npm run test:unit src/lib/__tests__/upload-policy.test.ts src/app/api/companies/[companyId]/documents/__tests__/route.test.ts src/app/__tests__/actions.test.ts` ✅
 
-`npm run test:a11y`, `npm run test:e2e` y una corrida completa de `npm run build` / `npm run typecheck` quedan pendientes de infraestructura real (Chromium) y toolchain de navegador.
+`npm run build` y `npm run typecheck` ya pasan.
+
+`npm run test:e2e` y `npm run test:a11y` quedaron ejecutados con servidor local:
+- `test:a11y`: 2/2 ✅
+- `test:e2e`: 3/6 ✅ / ❌, bloqueado por el login local no autenticable sin API (`/entrar` al reenviar credenciales sintéticas).
 
 ### Cadena de verificación recomendada para el siguiente bloque
 
@@ -166,10 +170,7 @@ python3 -B -m tools.quality_gate.cli
 1. La acción de crear mapeo valida fuente inmediatamente con `fetchSource` para
    evitar race evidente, pero persiste TOCTOU entre esa validación y el guardado.
    Esto requiere una tarea backend (fuera de alcance) para cierre atómico.
-2. `npm run build` y `npm run typecheck` siguen fallando por TS preexistente en
-   `src/app/api/companies/[companyId]/documents/__tests__/route.test.ts`
-   (`Property 'aborted' does not exist on type 'never'`), sin tocar este comportamiento en
-   esta tarea.
+2. No hay bloqueos funcionales nuevos en `build`/`typecheck`; ambos pasan.
 3. Se detecta el patrón de WSL/Docker con caducidad del subsistema en algunos
    entornos; no se alteró CI por esto.
 

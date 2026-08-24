@@ -241,6 +241,7 @@ describe('POST upload BFF', () => {
       cancel: sourceCancelled,
     });
     let forwardedSignal: AbortSignal | null = null;
+    let signalAborted = false;
     vi.stubGlobal(
       'fetch',
       vi.fn(async (_url: unknown, init?: RequestInit) => {
@@ -249,6 +250,7 @@ describe('POST upload BFF', () => {
         forwardedSignal?.addEventListener(
           'abort',
           () => {
+            signalAborted = true;
             void forwardedBody.cancel();
           },
           { once: true },
@@ -270,7 +272,8 @@ describe('POST upload BFF', () => {
     const response = await POST(streamingRequest, context());
 
     expect(response.status).toBe(401);
-    expect(forwardedSignal?.aborted).toBe(true);
+    expect(forwardedSignal).not.toBeNull();
+    expect(signalAborted).toBe(true);
     await vi.waitFor(() => expect(sourceCancelled).toHaveBeenCalledOnce());
   });
 });
