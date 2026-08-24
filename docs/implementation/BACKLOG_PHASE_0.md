@@ -121,6 +121,7 @@ dependencias de `FNC-GAT-002` ni afirmar que Sprint 1 está habilitado.
 | FNC-QA-006 | A6 | PLT-008, WEB-001, WEB-003, CLN-001 | Review pending | Arranque local coherente y aceptación web automatizada de roles y frontera multiempresa |
 | FNC-REC-001 | A5/A6 | DOM-003, DOM-004, WEB-003, QA-006 | Review pending | Exploración sintética read-only de candidatos explicados; sin decisión, auto-match ni cierre |
 | FNC-REC-002 | A5/A6 | REC-001, DOM-004, SEC-001 | Review pending | Propuesta y decisión humana append-only, con SoD e idempotencia; sin efecto financiero ni cierre |
+| FNC-REC-003 | A5/A6 | REC-002, WEB-003 | In progress | Bandeja multiempresa company-by-company para priorizar revisiones sin agregar importes ni decidir fuera del expediente |
 
 ## No codificar todavía
 
