@@ -156,7 +156,7 @@
       ],
       "state": "active",
       "target": "docs/domain/canonical-model.json",
-      "target_sha256": "6df752d46d513575dd1d825f80e4d5a2af657abe8ed1ae409e0e620174d65523",
+      "target_sha256": "103ee7e66fa01e609c9d7b3804187092990514cb06875b6672215a9143fcd953",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -209,7 +209,7 @@
       ],
       "state": "active",
       "target": "docs/domain/canonical-model.json",
-      "target_sha256": "6df752d46d513575dd1d825f80e4d5a2af657abe8ed1ae409e0e620174d65523",
+      "target_sha256": "103ee7e66fa01e609c9d7b3804187092990514cb06875b6672215a9143fcd953",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -263,7 +263,7 @@
       ],
       "state": "active",
       "target": "docs/domain/canonical-model.json",
-      "target_sha256": "6df752d46d513575dd1d825f80e4d5a2af657abe8ed1ae409e0e620174d65523",
+      "target_sha256": "103ee7e66fa01e609c9d7b3804187092990514cb06875b6672215a9143fcd953",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -316,7 +316,7 @@
       ],
       "state": "active",
       "target": "docs/domain/canonical-model.json",
-      "target_sha256": "6df752d46d513575dd1d825f80e4d5a2af657abe8ed1ae409e0e620174d65523",
+      "target_sha256": "103ee7e66fa01e609c9d7b3804187092990514cb06875b6672215a9143fcd953",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -368,7 +368,7 @@
       ],
       "state": "active",
       "target": "docs/domain/canonical-model.json",
-      "target_sha256": "6df752d46d513575dd1d825f80e4d5a2af657abe8ed1ae409e0e620174d65523",
+      "target_sha256": "103ee7e66fa01e609c9d7b3804187092990514cb06875b6672215a9143fcd953",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -418,7 +418,7 @@
       ],
       "state": "active",
       "target": "docs/domain/canonical-model.json",
-      "target_sha256": "6df752d46d513575dd1d825f80e4d5a2af657abe8ed1ae409e0e620174d65523",
+      "target_sha256": "103ee7e66fa01e609c9d7b3804187092990514cb06875b6672215a9143fcd953",
       "test_refs": [
         "TST-META-001"
       ],
@@ -1161,7 +1161,7 @@
       ],
       "state": "active",
       "target": "docs/architecture/events-retries.json",
-      "target_sha256": "85b6798618ba228ba605b2ff85a4d892bf828cd91fe1f8453d5ac788ee749124",
+      "target_sha256": "ab19517d1c50330b287bb11a95c398288fccfa0137c432e96726f458b5ad9fa3",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -1214,7 +1214,7 @@
       ],
       "state": "active",
       "target": "docs/architecture/events-retries.json",
-      "target_sha256": "85b6798618ba228ba605b2ff85a4d892bf828cd91fe1f8453d5ac788ee749124",
+      "target_sha256": "ab19517d1c50330b287bb11a95c398288fccfa0137c432e96726f458b5ad9fa3",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -1267,7 +1267,7 @@
       ],
       "state": "active",
       "target": "docs/architecture/events-retries.json",
-      "target_sha256": "85b6798618ba228ba605b2ff85a4d892bf828cd91fe1f8453d5ac788ee749124",
+      "target_sha256": "ab19517d1c50330b287bb11a95c398288fccfa0137c432e96726f458b5ad9fa3",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -1320,7 +1320,7 @@
       ],
       "state": "active",
       "target": "docs/architecture/events-retries.json",
-      "target_sha256": "85b6798618ba228ba605b2ff85a4d892bf828cd91fe1f8453d5ac788ee749124",
+      "target_sha256": "ab19517d1c50330b287bb11a95c398288fccfa0137c432e96726f458b5ad9fa3",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -1373,7 +1373,7 @@
       ],
       "state": "active",
       "target": "docs/architecture/events-retries.json",
-      "target_sha256": "85b6798618ba228ba605b2ff85a4d892bf828cd91fe1f8453d5ac788ee749124",
+      "target_sha256": "ab19517d1c50330b287bb11a95c398288fccfa0137c432e96726f458b5ad9fa3",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -1427,7 +1427,7 @@
       ],
       "state": "active",
       "target": "docs/architecture/events-retries.json",
-      "target_sha256": "85b6798618ba228ba605b2ff85a4d892bf828cd91fe1f8453d5ac788ee749124",
+      "target_sha256": "ab19517d1c50330b287bb11a95c398288fccfa0137c432e96726f458b5ad9fa3",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -1477,13 +1477,120 @@
       ],
       "state": "active",
       "target": "docs/architecture/events-retries.json",
-      "target_sha256": "85b6798618ba228ba605b2ff85a4d892bf828cd91fe1f8453d5ac788ee749124",
+      "target_sha256": "ab19517d1c50330b287bb11a95c398288fccfa0137c432e96726f458b5ad9fa3",
       "test_refs": [
         "TST-META-001"
       ],
       "timeout_seconds": 120,
       "title": "control metamorfico: reordenar clases de trabajo no cambia nada",
       "validator": "event_model"
+    },
+    {
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-MUTATION",
+      "gate": "S1-READY",
+      "independence": {
+        "mode": "independent",
+        "rationale": "regla distinta con codigo de hallazgo propio"
+      },
+      "max_output_bytes": 262144,
+      "owner_role": "QA",
+      "precondition": {
+        "baseline_must_be_clean": true,
+        "single_change": true,
+        "target_digest_must_match": true
+      },
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "Architecture",
+        "Security"
+      ],
+      "state": "active",
+      "test_refs": [
+        "TST-MUT-001"
+      ],
+      "timeout_seconds": 120,
+      "mutation_id": "MUT-EVT-008",
+      "title": "Valkey pasa a ser autoridad del punto de control",
+      "target": "docs/architecture/events-retries.json",
+      "validator": "event_model",
+      "operator": "flip_boolean",
+      "operator_params": {
+        "pointer": "/checkpoint_contract/valkey_is_checkpoint_authority",
+        "expected_current": false
+      },
+      "control_refs": [
+        "CHK-VALKEY-NEVER-AUTHORITY"
+      ],
+      "expectation": {
+        "exit_code": 1,
+        "kind": "expect_findings",
+        "finding_codes": [
+          "EVT-CHECKPOINT-VALKEY"
+        ]
+      },
+      "risk_refs": [
+        "TM-009"
+      ],
+      "target_sha256": "ab19517d1c50330b287bb11a95c398288fccfa0137c432e96726f458b5ad9fa3"
+    },
+    {
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-MUTATION",
+      "gate": "S1-READY",
+      "independence": {
+        "mode": "independent",
+        "rationale": "regla distinta con codigo de hallazgo propio"
+      },
+      "max_output_bytes": 262144,
+      "owner_role": "QA",
+      "precondition": {
+        "baseline_must_be_clean": true,
+        "single_change": true,
+        "target_digest_must_match": true
+      },
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "Architecture",
+        "Security"
+      ],
+      "state": "active",
+      "test_refs": [
+        "TST-MUT-001"
+      ],
+      "timeout_seconds": 120,
+      "mutation_id": "MUT-EVT-009",
+      "title": "el recibo del tramo se escribe aparte de su efecto",
+      "target": "docs/architecture/events-retries.json",
+      "validator": "event_model",
+      "operator": "replace_scalar",
+      "operator_params": {
+        "pointer": "/checkpoint_contract/checkpoint_and_effect_transaction",
+        "expected_current": "same_transaction",
+        "new_value": "separate_transaction"
+      },
+      "control_refs": [
+        "CHK-SAME-TRANSACTION"
+      ],
+      "expectation": {
+        "exit_code": 1,
+        "kind": "expect_findings",
+        "finding_codes": [
+          "EVT-CHECKPOINT-ATOMIC"
+        ]
+      },
+      "risk_refs": [
+        "TM-009"
+      ],
+      "target_sha256": "ab19517d1c50330b287bb11a95c398288fccfa0137c432e96726f458b5ad9fa3"
     },
     {
       "control_refs": [
@@ -1507,7 +1614,7 @@
       "mutation_id": "MUT-GHR-001",
       "operator": "replace_scalar",
       "operator_params": {
-        "expected_current": "133dd7788f136415684dd802248d660bf0bedf062553b13b61143368645cfa93",
+        "expected_current": "3e6d96cd5e1b58099f8b4240dede8a6ab9f16a3f80a6dd76bbf70a966989a062",
         "new_value": "0000000000000000000000000000000000000000000000000000000000000000",
         "pointer": "/cases/0/inputs/0/sha256"
       },
@@ -1531,7 +1638,7 @@
       ],
       "state": "active",
       "target": "docs/testing/golden-harness.json",
-      "target_sha256": "bd3ec09e01c24304c14b77042eeece6853a7712416a8816ef75a9415635418a9",
+      "target_sha256": "84b0b2e33edb7ea0e9caeccd25994db76ac899425072d31a016bb49b08b7a9ca",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -1584,7 +1691,7 @@
       ],
       "state": "active",
       "target": "docs/testing/golden-harness.json",
-      "target_sha256": "bd3ec09e01c24304c14b77042eeece6853a7712416a8816ef75a9415635418a9",
+      "target_sha256": "84b0b2e33edb7ea0e9caeccd25994db76ac899425072d31a016bb49b08b7a9ca",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -1637,7 +1744,7 @@
       ],
       "state": "active",
       "target": "docs/testing/golden-harness.json",
-      "target_sha256": "bd3ec09e01c24304c14b77042eeece6853a7712416a8816ef75a9415635418a9",
+      "target_sha256": "84b0b2e33edb7ea0e9caeccd25994db76ac899425072d31a016bb49b08b7a9ca",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -1690,7 +1797,7 @@
       ],
       "state": "active",
       "target": "docs/testing/golden-harness.json",
-      "target_sha256": "bd3ec09e01c24304c14b77042eeece6853a7712416a8816ef75a9415635418a9",
+      "target_sha256": "84b0b2e33edb7ea0e9caeccd25994db76ac899425072d31a016bb49b08b7a9ca",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -1744,7 +1851,7 @@
       ],
       "state": "active",
       "target": "docs/testing/golden-harness.json",
-      "target_sha256": "bd3ec09e01c24304c14b77042eeece6853a7712416a8816ef75a9415635418a9",
+      "target_sha256": "84b0b2e33edb7ea0e9caeccd25994db76ac899425072d31a016bb49b08b7a9ca",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -1797,7 +1904,7 @@
       ],
       "state": "active",
       "target": "docs/testing/golden-harness.json",
-      "target_sha256": "bd3ec09e01c24304c14b77042eeece6853a7712416a8816ef75a9415635418a9",
+      "target_sha256": "84b0b2e33edb7ea0e9caeccd25994db76ac899425072d31a016bb49b08b7a9ca",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -1847,7 +1954,7 @@
       ],
       "state": "active",
       "target": "docs/testing/golden-harness.json",
-      "target_sha256": "bd3ec09e01c24304c14b77042eeece6853a7712416a8816ef75a9415635418a9",
+      "target_sha256": "84b0b2e33edb7ea0e9caeccd25994db76ac899425072d31a016bb49b08b7a9ca",
       "test_refs": [
         "TST-META-001"
       ],
@@ -2269,7 +2376,7 @@
       ],
       "state": "active",
       "target": "docs/domain/lineage-model.json",
-      "target_sha256": "9f15239a13d4cb112f7624409e62a5646bfd15376d11d9c35d3fca6a3438204c",
+      "target_sha256": "61ad8682dc39eaec2b86bfdde6618a922ebb88410f3ce7ce9152249acc416332",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -2321,7 +2428,7 @@
       ],
       "state": "active",
       "target": "docs/domain/lineage-model.json",
-      "target_sha256": "9f15239a13d4cb112f7624409e62a5646bfd15376d11d9c35d3fca6a3438204c",
+      "target_sha256": "61ad8682dc39eaec2b86bfdde6618a922ebb88410f3ce7ce9152249acc416332",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -2374,7 +2481,7 @@
       ],
       "state": "active",
       "target": "docs/domain/lineage-model.json",
-      "target_sha256": "9f15239a13d4cb112f7624409e62a5646bfd15376d11d9c35d3fca6a3438204c",
+      "target_sha256": "61ad8682dc39eaec2b86bfdde6618a922ebb88410f3ce7ce9152249acc416332",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -2427,7 +2534,7 @@
       ],
       "state": "active",
       "target": "docs/domain/lineage-model.json",
-      "target_sha256": "9f15239a13d4cb112f7624409e62a5646bfd15376d11d9c35d3fca6a3438204c",
+      "target_sha256": "61ad8682dc39eaec2b86bfdde6618a922ebb88410f3ce7ce9152249acc416332",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -2481,7 +2588,7 @@
       ],
       "state": "active",
       "target": "docs/domain/lineage-model.json",
-      "target_sha256": "9f15239a13d4cb112f7624409e62a5646bfd15376d11d9c35d3fca6a3438204c",
+      "target_sha256": "61ad8682dc39eaec2b86bfdde6618a922ebb88410f3ce7ce9152249acc416332",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -2534,7 +2641,7 @@
       ],
       "state": "active",
       "target": "docs/domain/lineage-model.json",
-      "target_sha256": "9f15239a13d4cb112f7624409e62a5646bfd15376d11d9c35d3fca6a3438204c",
+      "target_sha256": "61ad8682dc39eaec2b86bfdde6618a922ebb88410f3ce7ce9152249acc416332",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -2588,7 +2695,7 @@
       ],
       "state": "active",
       "target": "docs/domain/lineage-model.json",
-      "target_sha256": "9f15239a13d4cb112f7624409e62a5646bfd15376d11d9c35d3fca6a3438204c",
+      "target_sha256": "61ad8682dc39eaec2b86bfdde6618a922ebb88410f3ce7ce9152249acc416332",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -2642,7 +2749,7 @@
       ],
       "state": "active",
       "target": "docs/domain/lineage-model.json",
-      "target_sha256": "9f15239a13d4cb112f7624409e62a5646bfd15376d11d9c35d3fca6a3438204c",
+      "target_sha256": "61ad8682dc39eaec2b86bfdde6618a922ebb88410f3ce7ce9152249acc416332",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -2692,13 +2799,173 @@
       ],
       "state": "active",
       "target": "docs/domain/lineage-model.json",
-      "target_sha256": "9f15239a13d4cb112f7624409e62a5646bfd15376d11d9c35d3fca6a3438204c",
+      "target_sha256": "61ad8682dc39eaec2b86bfdde6618a922ebb88410f3ce7ce9152249acc416332",
       "test_refs": [
         "TST-META-001"
       ],
       "timeout_seconds": 120,
       "title": "control metamorfico: reordenar campos criticos no cambia nada",
       "validator": "lineage_model"
+    },
+    {
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-MUTATION",
+      "gate": "S1-READY",
+      "independence": {
+        "mode": "independent",
+        "rationale": "regla distinta con codigo de hallazgo propio"
+      },
+      "max_output_bytes": 262144,
+      "owner_role": "QA",
+      "precondition": {
+        "baseline_must_be_clean": true,
+        "single_change": true,
+        "target_digest_must_match": true
+      },
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "Architecture",
+        "Security"
+      ],
+      "state": "active",
+      "test_refs": [
+        "TST-MUT-001"
+      ],
+      "timeout_seconds": 120,
+      "mutation_id": "MUT-LIN-010",
+      "title": "un override por fila se puede editar despues",
+      "target": "docs/domain/lineage-model.json",
+      "validator": "lineage_model",
+      "operator": "flip_boolean",
+      "operator_params": {
+        "pointer": "/row_override_contract/immutable",
+        "expected_current": true
+      },
+      "control_refs": [
+        "OVR-IMMUTABLE"
+      ],
+      "expectation": {
+        "exit_code": 1,
+        "kind": "expect_findings",
+        "finding_codes": [
+          "LIN-OVERRIDE-MUTABLE"
+        ]
+      },
+      "risk_refs": [
+        "TM-015"
+      ],
+      "target_sha256": "61ad8682dc39eaec2b86bfdde6618a922ebb88410f3ce7ce9152249acc416332"
+    },
+    {
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-MUTATION",
+      "gate": "S1-READY",
+      "independence": {
+        "mode": "independent",
+        "rationale": "regla distinta con codigo de hallazgo propio"
+      },
+      "max_output_bytes": 262144,
+      "owner_role": "QA",
+      "precondition": {
+        "baseline_must_be_clean": true,
+        "single_change": true,
+        "target_digest_must_match": true
+      },
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "Architecture",
+        "Security"
+      ],
+      "state": "active",
+      "test_refs": [
+        "TST-MUT-001"
+      ],
+      "timeout_seconds": 120,
+      "mutation_id": "MUT-LIN-011",
+      "title": "un override sin aprobar deja de bloquear la publicacion",
+      "target": "docs/domain/lineage-model.json",
+      "validator": "lineage_model",
+      "operator": "replace_scalar",
+      "operator_params": {
+        "pointer": "/row_override_contract/on_missing_required_override",
+        "expected_current": "block_publication",
+        "new_value": "warn"
+      },
+      "control_refs": [
+        "OVR-UNAPPROVED-BLOCKS"
+      ],
+      "expectation": {
+        "exit_code": 1,
+        "kind": "expect_findings",
+        "finding_codes": [
+          "LIN-OVERRIDE-INCOMPLETE"
+        ]
+      },
+      "risk_refs": [
+        "TM-015"
+      ],
+      "target_sha256": "61ad8682dc39eaec2b86bfdde6618a922ebb88410f3ce7ce9152249acc416332"
+    },
+    {
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-MUTATION",
+      "gate": "S1-READY",
+      "independence": {
+        "mode": "independent",
+        "rationale": "regla distinta con codigo de hallazgo propio"
+      },
+      "max_output_bytes": 262144,
+      "owner_role": "QA",
+      "precondition": {
+        "baseline_must_be_clean": true,
+        "single_change": true,
+        "target_digest_must_match": true
+      },
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "Architecture",
+        "Security"
+      ],
+      "state": "active",
+      "test_refs": [
+        "TST-MUT-001"
+      ],
+      "timeout_seconds": 120,
+      "mutation_id": "MUT-LIN-012",
+      "title": "el plan de transformacion admite cobertura media",
+      "target": "docs/domain/lineage-model.json",
+      "validator": "lineage_model",
+      "operator": "flip_boolean",
+      "operator_params": {
+        "pointer": "/transform_plan_contract/average_coverage_allowed",
+        "expected_current": false
+      },
+      "control_refs": [
+        "PLAN-STAGE-COVERAGE"
+      ],
+      "expectation": {
+        "exit_code": 1,
+        "kind": "expect_findings",
+        "finding_codes": [
+          "LIN-PLAN-COVERAGE"
+        ]
+      },
+      "risk_refs": [
+        "TM-015"
+      ],
+      "target_sha256": "61ad8682dc39eaec2b86bfdde6618a922ebb88410f3ce7ce9152249acc416332"
     },
     {
       "control_refs": [

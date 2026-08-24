@@ -1,0 +1,66 @@
+{
+  "note": "Statement sintetico que cuadra exacto. Los importes son de laboratorio.",
+  "statement": {
+    "statement_id": "statement-synthetic-1",
+    "company_id": "company-alpha-synthetic",
+    "financial_account_id": "account-checking-synthetic",
+    "currency_code": "COP",
+    "period_start": "2026-01-01",
+    "period_end": "2026-01-31",
+    "bank_closing_balance": "1250000.000000000000",
+    "books_closing_balance": "1180000.000000000000"
+  },
+  "items": [
+    {
+      "item_id": "item-synthetic-1",
+      "statement_id": "statement-synthetic-1",
+      "company_id": "company-alpha-synthetic",
+      "currency_code": "COP",
+      "adjustment_side": "deduct_from_bank",
+      "amount": "90000.000000000000",
+      "reason_code": "cheque_girado_no_cobrado",
+      "state": "confirmed",
+      "prepared_by": "subject-preparer-synthetic",
+      "approved_by": "subject-approver-synthetic",
+      "approved_at": "2026-02-03",
+      "sod_check": "prepared_by_differs_from_approved_by",
+      "evidence_refs": ["evidence-synthetic-1"],
+      "decision_version": "1"
+    },
+    {
+      "item_id": "item-synthetic-2",
+      "statement_id": "statement-synthetic-1",
+      "company_id": "company-alpha-synthetic",
+      "currency_code": "COP",
+      "adjustment_side": "add_to_bank",
+      "amount": "20000.000000000000",
+      "reason_code": "deposito_en_transito",
+      "state": "confirmed",
+      "prepared_by": "subject-preparer-synthetic",
+      "approved_by": "subject-approver-synthetic",
+      "approved_at": "2026-02-03",
+      "sod_check": "prepared_by_differs_from_approved_by",
+      "evidence_refs": ["evidence-synthetic-2"],
+      "decision_version": "1"
+    },
+    {
+      "item_id": "item-synthetic-3",
+      "statement_id": "statement-synthetic-1",
+      "company_id": "company-alpha-synthetic",
+      "currency_code": "COP",
+      "adjustment_side": "add_to_bank",
+      "amount": "500000.000000000000",
+      "reason_code": "partida_propuesta_sin_aprobar",
+      "state": "proposed",
+      "prepared_by": "subject-preparer-synthetic",
+      "decision_version": "1"
+    }
+  ],
+  "expected": {
+    "state": "balanced",
+    "adjusted_bank_balance": "1180000.000000000000",
+    "unexplained_difference": "0.000000000000",
+    "counted_item_ids": ["item-synthetic-1", "item-synthetic-2"],
+    "ignored_item_ids": ["item-synthetic-3"]
+  }
+}

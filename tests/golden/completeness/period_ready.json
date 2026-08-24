@@ -1,0 +1,44 @@
+{
+  "note": "Periodo sintetico coherente que SI supera la compuerta de cierre. Ninguna cifra, compania ni cuenta corresponde a nada real.",
+  "company_id": "company-alpha-synthetic",
+  "period_start": "2026-01-01",
+  "period_end": "2026-01-31",
+  "as_of": "2026-02-05",
+  "expected_source_ids": ["source-bank-synthetic", "source-books-synthetic"],
+  "assessments": [
+    {"data_source_id": "source-bank-synthetic", "state": "verified"},
+    {"data_source_id": "source-books-synthetic", "state": "verified"}
+  ],
+  "required_accounts": [
+    {"financial_account_id": "account-checking-synthetic", "currency_code": "COP"}
+  ],
+  "statements": [
+    {
+      "statement_id": "statement-synthetic-1",
+      "company_id": "company-alpha-synthetic",
+      "financial_account_id": "account-checking-synthetic",
+      "currency_code": "COP",
+      "state": "balanced",
+      "unexplained_difference": "0.000000000000"
+    }
+  ],
+  "confirmed_items": [
+    {
+      "item_id": "item-synthetic-1",
+      "evidence_refs": ["evidence-synthetic-1"],
+      "sod_check": "prepared_by_differs_from_approved_by"
+    }
+  ],
+  "published_fields": [
+    {"field": "adjusted_bank_balance", "lineage_ref": "lineage-synthetic-1"},
+    {"field": "unexplained_difference", "lineage_ref": "lineage-synthetic-2"}
+  ],
+  "fixed_versions": {
+    "engine_release_id": "engine-release-synthetic-0.1.0",
+    "canonical_schema_version": "0.1.0",
+    "rule_version": "rules-synthetic-0.1.0"
+  },
+  "authorization_revalidated_before_snapshot": true,
+  "accepted_exceptions": [],
+  "matching_coverage_offered_as_completeness": false
+}

@@ -33,6 +33,7 @@ owners nominales, revisión independiente ni el gate S1-READY.
 | [023](ADR-023-engine-release.md) | Engine release y reproducibilidad | Accepted |
 | 024 | Broker móvil sin side effects | Planned |
 | 025 | Propiedad/portabilidad de recetas | Planned |
+| [026](ADR-026-staged-field-overlay.md) | Overlay tipado por etapas | Proposed; revisión Accounting/Security/Database pendiente |
 
 ## Estados
 

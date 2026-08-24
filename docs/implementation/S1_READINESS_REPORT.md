@@ -89,6 +89,29 @@ datos reales posteriores y por eso no alteran el veredicto de S1 sintético.
 
 ---
 
+## 4bis. Triaje de contradicciones (FNC-GAT-004)
+
+La relevancia se **declara** en `contradiction_relevance`; no se deduce de qué requisitos
+existan. Deducirla la volvía invisible: bastaba retirar un requisito de tipo `gate` para
+que una contradicción dejara de bloquear sin que nadie lo hubiera decidido.
+
+Una contradicción cae en exactamente una de tres cajas:
+
+| Caja | Significa | Efecto |
+|---|---|---|
+| `blocking` | recae sobre el gate objetivo, un owner slot exigido, un ADR requerido o una decisión que declara bloquear S1 | bloquea S1-READY |
+| `acknowledged` | enrutada con `owner_role`, `gate`, `reason` y `blocks_gate: true` | no bloquea S1-READY; **sigue bloqueando su propio gate** |
+| `unrouted` | nadie la enrutó | **bloquea S1-READY** — el silencio no es una resolución |
+
+Enrutar no resuelve: el validador rechaza `blocks_gate: false` y rechaza que una ruta
+apunte al propio gate objetivo.
+
+Estado actual: `blocking 0 · acknowledged 2 · unrouted 0`. Las dos contradicciones de
+`DRG-00` y `DRG-01` están enrutadas a **Integration Steward**, con revisores Legal y
+Security, y siguen bloqueando sus gates.
+
+---
+
 ## 5. Estado observado
 
 ```

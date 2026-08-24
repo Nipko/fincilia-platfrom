@@ -1,21 +1,246 @@
 {
-  "schema_version":"1.0.0","task":"FNC-DB-001","status":"review_pending","data_ceiling":"synthetic_only","adr_002_state":"proposed","selected_tool":null,"preferred_for_spike":"flyway","human_acceptance":"pending","product_migrations_allowed":false,
-  "criteria":["plain_sql","versioned_order","content_checksum","transaction_by_default","concurrency_lock","strict_out_of_order","dry_run_or_plan","separate_migrator_role","postgresql_17","blank_replay_upgrade_tests","immutable_applied_migrations","forward_only_production","expand_contract"],
-  "candidates":[
-    {"id":"flyway","fit":"preferred_for_spike","strengths":["versioned_SQL","checksum_validation","schema_history","transaction_by_default","PostgreSQL_support"],"gaps":["license_and_distribution_review","pinned_runtime_and_image_digest","operational_complexity","nontransactional_statement_policy"],"sources":["https://github.com/flyway/flywaydb.org/blob/gh-pages/documentation/concepts/migrations.md","https://github.com/flyway/flyway/blob/main/documentation/Reference/Database%20Driver%20Reference/PostgreSQL%20Database.md"]},
-    {"id":"dbmate","fit":"alternate_lightweight","strengths":["plain_SQL","single_binary","transaction_by_default","strict_order_option","schema_dump"],"gaps":["applied_table_records_version_not_content_checksum","external_checksum_manifest_needed","distribution_digest_review","rollback_sections_conflict_with_forward_only_policy"],"sources":["https://github.com/amacneil/dbmate"]},
-    {"id":"node_pg_migrate","fit":"alternate_node_native","strengths":["PostgreSQL_native","transaction_by_default","advisory_lock","dry_run","TypeScript_ecosystem"],"gaps":["SQL_first_mode_and_checksum_contract_to_prove","runtime_dependency_in_migrator","generated_API_can_hide_SQL_review","version_and_lockfile_review"],"sources":["https://salsita.github.io/node-pg-migrate/migrations/","https://salsita.github.io/node-pg-migrate/faq/troubleshooting"]}
+  "schema_version": "1.0.0",
+  "task": "FNC-DB-001",
+  "status": "review_pending",
+  "data_ceiling": "synthetic_only",
+  "adr_002_state": "proposed",
+  "selected_tool": null,
+  "preferred_for_spike": "flyway",
+  "human_acceptance": "pending",
+  "product_migrations_allowed": false,
+  "criteria": [
+    "plain_sql",
+    "versioned_order",
+    "content_checksum",
+    "transaction_by_default",
+    "concurrency_lock",
+    "strict_out_of_order",
+    "dry_run_or_plan",
+    "separate_migrator_role",
+    "postgresql_17",
+    "blank_replay_upgrade_tests",
+    "immutable_applied_migrations",
+    "forward_only_production",
+    "expand_contract"
   ],
-  "spike_matrix":[
-    {"id":"DBS-01","state":"not_run","test":"blank_database_to_head"},
-    {"id":"DBS-02","state":"not_run","test":"replay_head_is_noop"},
-    {"id":"DBS-03","state":"not_run","test":"upgrade_previous_release_to_head"},
-    {"id":"DBS-04","state":"not_run","test":"modified_applied_file_fails_checksum"},
-    {"id":"DBS-05","state":"not_run","test":"two_migrators_do_not_race"},
-    {"id":"DBS-06","state":"not_run","test":"runtime_role_cannot_migrate_or_bypass_rls"},
-    {"id":"DBS-07","state":"not_run","test":"failed_transaction_leaves_no_partial_schema"},
-    {"id":"DBS-08","state":"not_run","test":"expand_contract_requires_two_releases"}
+  "candidates": [
+    {
+      "id": "flyway",
+      "fit": "preferred_for_spike",
+      "strengths": [
+        "versioned_SQL",
+        "checksum_validation",
+        "schema_history",
+        "transaction_by_default",
+        "PostgreSQL_support"
+      ],
+      "gaps": [
+        "license_and_distribution_review",
+        "pinned_runtime_and_image_digest",
+        "operational_complexity",
+        "nontransactional_statement_policy"
+      ],
+      "sources": [
+        "https://github.com/flyway/flywaydb.org/blob/gh-pages/documentation/concepts/migrations.md",
+        "https://github.com/flyway/flyway/blob/main/documentation/Reference/Database%20Driver%20Reference/PostgreSQL%20Database.md"
+      ]
+    },
+    {
+      "id": "dbmate",
+      "fit": "alternate_lightweight",
+      "strengths": [
+        "plain_SQL",
+        "single_binary",
+        "transaction_by_default",
+        "strict_order_option",
+        "schema_dump"
+      ],
+      "gaps": [
+        "applied_table_records_version_not_content_checksum",
+        "external_checksum_manifest_needed",
+        "distribution_digest_review",
+        "rollback_sections_conflict_with_forward_only_policy"
+      ],
+      "sources": [
+        "https://github.com/amacneil/dbmate"
+      ]
+    },
+    {
+      "id": "node_pg_migrate",
+      "fit": "alternate_node_native",
+      "strengths": [
+        "PostgreSQL_native",
+        "transaction_by_default",
+        "advisory_lock",
+        "dry_run",
+        "TypeScript_ecosystem"
+      ],
+      "gaps": [
+        "SQL_first_mode_and_checksum_contract_to_prove",
+        "runtime_dependency_in_migrator",
+        "generated_API_can_hide_SQL_review",
+        "version_and_lockfile_review"
+      ],
+      "sources": [
+        "https://salsita.github.io/node-pg-migrate/migrations/",
+        "https://salsita.github.io/node-pg-migrate/faq/troubleshooting"
+      ]
+    }
   ],
-  "production_policy":{"down_migrations":"forbidden_as_normal_rollback","rollback":"forward_fix_or_application_rollback_with_compatible_schema","applied_file_edit":"forbidden","migration_actor":"dedicated_non_runtime_role","startup_auto_migrate":false,"security_definer":"forbidden_without_review"},
-  "gates":[{"id":"DB-G01","state":"not_met","rule":"license_and_supply_chain_review"},{"id":"DB-G02","state":"not_met","rule":"eight_spike_tests_pass"},{"id":"DB-G03","state":"not_met","rule":"architecture_platform_security_accept_ADR002"},{"id":"DB-G04","state":"not_met","rule":"pinned_tool_and_reproducible_install"}]
+  "spike_matrix": [
+    {
+      "id": "DBS-01",
+      "state": "not_run",
+      "test": "blank_database_to_head"
+    },
+    {
+      "id": "DBS-02",
+      "state": "not_run",
+      "test": "replay_head_is_noop"
+    },
+    {
+      "id": "DBS-03",
+      "state": "not_run",
+      "test": "upgrade_previous_release_to_head"
+    },
+    {
+      "id": "DBS-04",
+      "state": "not_run",
+      "test": "modified_applied_file_fails_checksum"
+    },
+    {
+      "id": "DBS-05",
+      "state": "not_run",
+      "test": "two_migrators_do_not_race"
+    },
+    {
+      "id": "DBS-06",
+      "state": "not_run",
+      "test": "runtime_role_cannot_migrate_or_bypass_rls"
+    },
+    {
+      "id": "DBS-07",
+      "state": "not_run",
+      "test": "failed_transaction_leaves_no_partial_schema"
+    },
+    {
+      "id": "DBS-08",
+      "state": "not_run",
+      "test": "expand_contract_requires_two_releases"
+    }
+  ],
+  "production_policy": {
+    "down_migrations": "forbidden_as_normal_rollback",
+    "rollback": "forward_fix_or_application_rollback_with_compatible_schema",
+    "applied_file_edit": "forbidden",
+    "migration_actor": "dedicated_non_runtime_role",
+    "startup_auto_migrate": false,
+    "security_definer": "forbidden_without_review"
+  },
+  "gates": [
+    {
+      "id": "DB-G01",
+      "state": "not_met",
+      "rule": "license_and_supply_chain_review"
+    },
+    {
+      "id": "DB-G02",
+      "state": "not_met",
+      "rule": "eight_spike_tests_pass"
+    },
+    {
+      "id": "DB-G03",
+      "state": "not_met",
+      "rule": "architecture_platform_security_accept_ADR002"
+    },
+    {
+      "id": "DB-G04",
+      "state": "not_met",
+      "rule": "pinned_tool_and_reproducible_install"
+    }
+  ],
+  "local_build": {
+    "local_product_build_allowed": true,
+    "scope": "local_only_synthetic",
+    "compose_project": "fincilia-local",
+    "migrator": "db/migrate/apply.py",
+    "reserved_band": "V0001-V0999",
+    "does_not_imply": [
+      "adr_002_accepted",
+      "tool_selected",
+      "s1_approved",
+      "product_migrations_allowed",
+      "deployment_to_shared_environment"
+    ]
+  },
+  "rls_exemptions": [
+    {
+      "table": "fincilia.dispatch_pointer",
+      "reason": "un planificador entre empresas necesita saber que empresa tiene trabajo pendiente antes de poder fijar su contexto de RLS",
+      "carries": "identifiers_and_timestamps_only",
+      "columns_allowed": [
+        "available_at",
+        "claimed_at",
+        "claimed_by",
+        "company_id",
+        "kind",
+        "queued_at",
+        "run_id"
+      ],
+      "owner_role": "Security",
+      "gate": "DRG-01"
+    }
+  ],
+  "security_definer_functions": [
+    {
+      "function": "fincilia.enqueue_processing_run",
+      "owner_role": "fincilia_dispatch",
+      "granted_to": [
+        "fincilia_app",
+        "fincilia_worker",
+        "fincilia_migrator"
+      ],
+      "reason": "encolar sin dar a la API ningun privilegio sobre la tabla global de despacho; los parametros se validan contra el contexto autorizado",
+      "gate": "DB-G03",
+      "human_review_state": "pending"
+    },
+    {
+      "function": "fincilia.claim_next_run",
+      "owner_role": "fincilia_dispatch",
+      "granted_to": [
+        "fincilia_worker"
+      ],
+      "reason": "reclamar trabajo sin dar al worker UPDATE sobre la cola; fija y restaura el contexto de empresa porque SECURITY DEFINER no levanta FORCE ROW LEVEL SECURITY",
+      "gate": "DB-G03",
+      "human_review_state": "pending"
+    },
+    {
+      "function": "fincilia.finish_run",
+      "owner_role": "fincilia_dispatch",
+      "granted_to": [
+        "fincilia_worker"
+      ],
+      "reason": "cerrar un trabajo solo con el testigo de arriendo vigente, en una sola transaccion con el borrado del puntero",
+      "gate": "DB-G03",
+      "human_review_state": "pending"
+    },
+    {
+      "function": "fincilia.send_to_dead_letter",
+      "owner_role": "fincilia_dispatch",
+      "granted_to": [],
+      "reason": "registrar carta muerta; no se concede EXECUTE a nadie, solo la llaman las otras funciones del mismo dueno",
+      "gate": "DB-G03",
+      "human_review_state": "pending"
+    },
+    {
+      "function": "fincilia.hold_processing_lease",
+      "owner_role": "fincilia_dispatch",
+      "granted_to": [
+        "fincilia_worker"
+      ],
+      "reason": "vallar cada lote de extraccion con el token vigente sin conceder UPDATE directo al worker; el bloqueo vive hasta el commit de la tanda",
+      "gate": "DB-G03",
+      "human_review_state": "pending"
+    }
+  ]
 }

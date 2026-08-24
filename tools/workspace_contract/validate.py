@@ -8,10 +8,25 @@ ROOT=Path(__file__).resolve().parents[2];MODEL=Path("docs/platform/workspace-sca
 class Finding:
  code:str;subject:str;detail:str
  def as_dict(self):return self.__dict__
+LOCAL_KEYS={"local_product_build_allowed","scope","compose_project","does_not_imply","built_components"}
+NEVER_IMPLIED={"s1_ready","product_code_allowed","framework_install_allowed","deployment_to_shared_environment","real_data"}
+def validate_local_build(b:Any,components:list[dict[str,Any]]):
+ f=[]
+ if not isinstance(b,dict) or set(b)!=LOCAL_KEYS:return [Finding("WSP-LOCAL-SCHEMA","local_build","unexpected keys")]
+ if b["scope"]!="local_only_synthetic":f.append(Finding("WSP-LOCAL-SCOPE","local_build",str(b["scope"])))
+ if not isinstance(b["local_product_build_allowed"],bool):f.append(Finding("WSP-LOCAL-FLAG","local_build","the flag must be a boolean, not a truthy value"))
+ # Un permiso sin sus limites acaba citado como si los incluyera: habilitar la
+ # construccion local exige enumerar lo que sigue sin estar decidido.
+ if b["local_product_build_allowed"] is True and not NEVER_IMPLIED.issubset(set(b["does_not_imply"])):f.append(Finding("WSP-LOCAL-IMPLIES","local_build","enabling the local build must spell out what it still does not authorise"))
+ known={x.get("id") for x in components}
+ unknown=sorted(set(b["built_components"])-known)
+ if unknown:f.append(Finding("WSP-LOCAL-COMPONENT","built_components",str(unknown)))
+ return f
 def validate_model(m:dict[str,Any],root:Path=ROOT):
- f=[]; keys={"schema_version","task","status","data_ceiling","product_code_allowed","framework_install_allowed","s1_ready","components","invariants","activation_gates"}
+ f=[]; keys={"schema_version","task","status","data_ceiling","product_code_allowed","framework_install_allowed","s1_ready","components","invariants","activation_gates","local_build"}
  if set(m)!=keys:return [Finding("WSP-SCHEMA","model","unexpected keys")]
  if m["data_ceiling"]!="synthetic_only" or m["product_code_allowed"] is not False or m["framework_install_allowed"] is not False or m["s1_ready"]!="not_met":f.append(Finding("WSP-GATE","model","pre-S1 boundary weakened"))
+ f.extend(validate_local_build(m["local_build"],m["components"]))
  ids=[x.get("id") for x in m["components"]]; expected=["web","api","mobile","document_worker","contracts","config","database"]
  if ids!=expected:f.append(Finding("WSP-COMPONENTS","components",str(ids)))
  for c in m["components"]:

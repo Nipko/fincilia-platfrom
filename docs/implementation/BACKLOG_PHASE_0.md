@@ -80,6 +80,9 @@ FNC-GAT-001 es la única tarea que puede autorizar el primer artefacto real de i
 | FNC-DOM-003 | A2 | DOM-002 | Balances, statements y completitud |
 | FNC-DOM-004 | A2 | DOM-002 | Evidencia/movimiento/dedupe e idempotencia segura |
 | FNC-DOM-005 | A2/A5 | DOM-002 | Linaje, overlays y engine release |
+| FNC-DOM-006 | A2/A5 | DOM-003 | Especificación ejecutable de completitud y saldos |
+| FNC-DOM-007 | A2/A5 | DOM-004 | Especificación ejecutable de identidad, idempotencia y dedupe |
+| FNC-DB-004 | A2/A4 | DOM-007, DB-002 | Spike PostgreSQL de reclamo concurrente, outbox y lease |
 | FNC-ARC-004 | A2 | ARC-001, DOM-002 | Eventos, outbox, retries, DLQ e idempotencia |
 | FNC-ARC-005 | A2 | ARC-004 | Contrato de conector con archivos como fallback |
 | FNC-ARC-006 | A2 | DOM-001..005, ARC-001..005 | ADR bloqueantes aceptados |
@@ -94,12 +97,27 @@ FNC-GAT-001 es la única tarea que puede autorizar el primer artefacto real de i
 | FNC-SUP-001 | A3/A5 | PLT-003, QA-005 | Baseline ejecutable de cadena de suministro y gaps TM-005 |
 | FNC-DB-002 | A2/A4 | DB-001, PLT-002 | Spike PostgreSQL de invariantes de migración SQL-first |
 | FNC-PLT-007 | A4/A5 | PLT-002/003, QA-004/005 | CLI segura de desarrollo y diagnóstico local |
+| FNC-PLT-008 | A4 | PLT-002, CFG-001 | Stack local de producto ejecutable con API, worker y almacenamiento |
 | FNC-GAT-003 | A0/A5 | ARC-006, QA-004/005, SUP-001, DB-002 | Agregador ejecutable fail-closed de readiness S1 |
+| FNC-GAT-004 | A0/A5 | GAT-003 | Relevancia explícita de contradicciones y enrutado con owner |
 | FNC-UX-002 | A6 | UX-001, RES-002 | Pruebas con contadores y PYMEs |
 | FNC-BRD-001 | A7 | — | Clearance jurídico de Fincilia |
 | FNC-INT-001 | A7 | PRD-001 | Tres cotizaciones comparables de agregadores |
 | FNC-FIN-001 | A7/Founder | INT-001, PLT-005 | Presupuesto F0–F2 +30% |
 | FNC-GAT-002 | A0 + humanos | Todo F0 | Gate Fase 0 y backlog Fase 1 |
+
+## Rebanadas locales sintéticas fuera de gate
+
+Estas tareas endurecen prototipos locales sin ampliar el conjunto dinámico de
+dependencias de `FNC-GAT-002` ni afirmar que Sprint 1 está habilitado.
+
+| ID | Carril | Dependencias | Estado inicial | Resultado verificable |
+|---|---|---|---|---|
+| FNC-WEB-001 | A6 | PLT-008, UX-001 | Review pending | Recorrido web P3 verificable: ciclos conservados, fuente explícita, carga BFF de 25 MiB, estados accesibles y pruebas web |
+| FNC-API-001 | A5 | P3.6, WEB-001 | Review pending | Creacion de plantilla y primera version de mapeo atomica, con conflictos estables y aislamiento cross-tenant |
+| FNC-WEB-002 | A5/A6 | WEB-001, API-001, P3.6 | Review pending | Readiness server-side, cola de overrides, aprobacion SoD y rechazo motivado en web |
+| FNC-WEB-003 | A6 | WEB-002, API-001, PLT-008 | Review pending | Portafolio multiempresa, vencimientos y navegacion historica sin agregar importes |
+| FNC-CLN-001 | A5/A6 | DOM-005, WEB-002, P3.6 | Review pending | Propuesta tipada y revisión SoD de correcciones por fila, sin mutar el dataset base |
 
 ## No codificar todavía
 

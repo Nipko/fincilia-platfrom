@@ -17,6 +17,71 @@ BEGIN
 END
 $bootstrap$;
 
+DO $bootstrap_migrator$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'fincilia_migrator') THEN
+    CREATE ROLE fincilia_migrator
+      LOGIN
+      PASSWORD 'fincilia_local_migrator_only'
+      NOSUPERUSER
+      NOCREATEDB
+      NOCREATEROLE
+      NOINHERIT
+      NOBYPASSRLS;
+  END IF;
+END
+$bootstrap_migrator$;
+
+DO $bootstrap_worker$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'fincilia_worker') THEN
+    CREATE ROLE fincilia_worker
+      LOGIN
+      PASSWORD 'fincilia_local_worker_only'
+      NOSUPERUSER
+      NOCREATEDB
+      NOCREATEROLE
+      NOINHERIT
+      NOBYPASSRLS;
+  END IF;
+END
+$bootstrap_worker$;
+
+-- Dueno de las funciones de cola. No inicia sesion y no hace DDL: existe solo
+-- para ser el propietario de cuatro funciones `SECURITY DEFINER`, de modo que
+-- ejecutarlas conceda su efecto y nada mas. Si fueran del migrador, cada EXECUTE
+-- seria una escalada hasta el rol que puede cambiar el esquema.
+DO $bootstrap_dispatch$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'fincilia_dispatch') THEN
+    CREATE ROLE fincilia_dispatch
+      NOLOGIN
+      NOSUPERUSER
+      NOCREATEDB
+      NOCREATEROLE
+      NOINHERIT
+      NOBYPASSRLS;
+  END IF;
+END
+$bootstrap_dispatch$;
+
+-- Para poder ceder la propiedad de una funcion hay que ser miembro del rol que
+-- la recibe. El migrador lo es, y por NOINHERIT no adquiere sus privilegios sin
+-- pedirlo explicitamente.
+GRANT fincilia_dispatch TO fincilia_migrator;
+
+-- El migrator es el unico que puede crear objetos en el esquema de producto. El
+-- runtime nunca es propietario: si lo fuera, un fallo de la aplicacion podria
+-- convertirse en un cambio de esquema.
+DO $grant_create$
+BEGIN
+  -- `current_database()` en vez de una variable de psql: el entrypoint no define
+  -- :POSTGRES_DB como variable, y un GRANT que no se aplica solo se descubre
+  -- cuando la primera migracion falla.
+  EXECUTE format('GRANT CREATE ON DATABASE %I TO fincilia_migrator', current_database());
+END
+$grant_create$;
+
 CREATE SCHEMA IF NOT EXISTS app AUTHORIZATION fincilia_app;
 CREATE SCHEMA IF NOT EXISTS platform AUTHORIZATION CURRENT_USER;
 

@@ -83,6 +83,9 @@
 | TST-DLQ-001 | Trabajo agotado llega a dead letter minimizada y visible | FNC-ARC-004 |
 | TST-DLQ-002 | Replay reautoriza y conserva clave de idempotencia | FNC-ARC-004 |
 | TST-DLQ-003 | Descartar exige actor, motivo y auditoría | FNC-ARC-004 |
+| TST-CHK-001 | Punto de control y movimientos del tramo se confirman o se deshacen juntos | FNC-ARC-004 |
+| TST-CHK-002 | Reanudar tras fallar entre dos tramos no escribe duplicados | FNC-ARC-004 |
+| TST-CHK-003 | Perder la cache de progreso no cambia ni el recuento ni el digest | FNC-ARC-004 |
 | TST-EXE-001 | Pérdida de Valkey no pierde estado de dominio o reintento | FNC-ARC-004 |
 | TST-EXE-002 | Historial de workflow nunca es autoridad financiera | FNC-ARC-004 |
 | TST-EXT-001 | Resultado externo desconocido no se reintenta a ciegas | FNC-ARC-004 |

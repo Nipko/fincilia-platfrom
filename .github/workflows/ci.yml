@@ -9,7 +9,9 @@ permissions:
   contents: read
 
 concurrency:
-  group: fincilia-ci-${{ github.workflow }}-${{ github.ref }}
+  # Un despacho manual mide rendimiento y un push valida integracion. Son dos
+  # trabajos distintos: compartir grupo hacia que uno cancelara al otro.
+  group: fincilia-ci-${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
   cancel-in-progress: true
 
 jobs:
@@ -35,6 +37,8 @@ jobs:
           tools.budget_model.test_validate
           tools.canonical_model.test_validate
           tools.completeness_model.test_validate
+          tools.completeness_engine.test_engine
+          tools.dedupe_engine.test_engine
           tools.connector_model.test_validate
           tools.cross_contract_model.test_validate
           tools.dfd_model.test_validate
@@ -60,6 +64,10 @@ jobs:
           tools.dev_cli.test_cli
           tools.quality_gate.test_repo_policy
           tools.synthetic_corpus.test_corpus -v
+      - name: Shared product contracts
+        run: >-
+          python -m unittest discover
+          -s packages/contracts/python -t packages/contracts/python
       - name: Validate executable architecture model
         run: python -m tools.architecture_model.validate
       - name: Validate ADR readiness packet
@@ -188,13 +196,29 @@ jobs:
   local-platform:
     name: Local platform lifecycle
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 25
     defaults:
       run:
         working-directory: infra/local
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up the exact web runtime
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22.20.0"
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+          package-manager-cache: false
+      - name: Install and verify the locked web test toolchain
+        working-directory: apps/web
+        run: |
+          npm ci --ignore-scripts
+          npm audit --audit-level=high
+          npm run lint
+          npm run typecheck
+          npm run test:unit
+          npx --no-install playwright install --with-deps chromium
       - name: Validate Compose
         run: docker compose config --quiet
       - name: Start from an empty named volume
@@ -214,7 +238,147 @@ jobs:
           docker compose start postgres
           docker compose up -d --wait postgres
           FINCILIA_LOCAL_LIFECYCLE_MODE=persisted docker compose --profile test run --rm lifecycle-test
+      - name: Build product images
+        run: docker compose --profile migrate build api worker web migrate
+
+      # Las suites que corren antes de `up.sh` necesitan mas que PostgreSQL: las
+      # pruebas documentales hablan con el almacen de objetos y la API con la
+      # cache. Arrancarlas aqui es lo que impide que una suite falle por una
+      # dependencia ausente en vez de por el codigo.
+      - name: Start every dependency the suites need
+        run: docker compose up -d --wait postgres valkey objectstore
+
+      - name: Apply migrations
+        run: >-
+          docker compose --profile migrate run --rm migrate
+          | tee /dev/stderr | grep -q '"mutated": true'
+
+      - name: Applying twice changes nothing
+        run: >-
+          docker compose --profile migrate run --rm migrate
+          | tee /dev/stderr | grep -q '"mutated": false'
+
+      - name: Seed the synthetic demo
+        run: >-
+          docker compose --profile migrate run --rm migrate python -m db.seed.local
+          | tee /dev/stderr | grep -q '"mutated": true'
+
+      - name: Seeding twice changes nothing
+        run: >-
+          docker compose --profile migrate run --rm migrate python -m db.seed.local
+          | tee /dev/stderr | grep -q '"mutated": false'
+
+      - name: Schema tests against real PostgreSQL
+        run: >-
+          docker compose --profile migrate run --rm migrate
+          python -m unittest discover -s /app/db/tests -t /app -v
+
+      # El camino documentado, tal cual lo ejecuta quien clona el repositorio. Es
+      # idempotente: migrar y sembrar otra vez no cambian nada.
+      - name: Start the full local stack with the documented command
+        run: sh up.sh
+
+      - name: API contract tests inside the image
+        run: >-
+          docker compose run --rm --no-deps api
+          python -m unittest discover -s /app/tests -t /app/tests
+
+      - name: Worker job tests against real PostgreSQL and object storage
+        run: >-
+          docker compose run --rm --no-deps worker
+          python -m unittest discover -s /app/tests -t /app/tests -v
+
+      # `build web` ya ejecuta `typecheck` y `build` dentro de la imagen: si el
+      # tipo no cuadra, la imagen no existe. Falta el lint, que no bloquea el
+      # arranque y por eso se pide aparte.
+      - name: Web lint
+        run: |
+          docker build --target build -f ../../apps/web/Dockerfile -t fincilia-web-check ../..
+          docker run --rm fincilia-web-check npm run lint
+
+      - name: Health endpoints answer from the host
+        run: |
+          curl -fsS http://127.0.0.1:58080/health/live > /dev/null
+          curl -fsS http://127.0.0.1:58080/health/ready | tee /dev/stderr | grep -q '"status":"ready"'
+          curl -fsS http://127.0.0.1:58080/health/config | grep -q '"data_ceiling":"synthetic_only"'
+          curl -fsS http://127.0.0.1:58080/health/ready | grep -q '"name":"schema","status":"up"'
+
+      - name: The demo user signs in and sees one firm and two companies
+        run: |
+          TOKEN=$(curl -fsS -X POST http://127.0.0.1:58080/api/v1/auth/session             -H 'content-type: application/json'             -d '{"username":"ana@demo.local","secret":"fincilia-demo-only"}'             | python3 -c 'import json,sys; print(json.load(sys.stdin)["token"])')
+          curl -fsS http://127.0.0.1:58080/api/v1/me -H "Authorization: Bearer $TOKEN"             | tee /dev/stderr | python3 -c 'import json,sys; d=json.load(sys.stdin); assert len(d["companies"])==2, d'
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:58080/api/v1/me)" = 401
+
+      - name: The web serves the sign-in page and guards the rest
+        run: |
+          sign_in_body="${RUNNER_TEMP}/fincilia-sign-in.html"
+          sign_in_headers="${RUNNER_TEMP}/fincilia-sign-in.headers"
+          guard_body="${RUNNER_TEMP}/fincilia-guard.html"
+          guard_headers="${RUNNER_TEMP}/fincilia-guard.headers"
+
+          curl -fsS -D "$sign_in_headers" -o "$sign_in_body" http://127.0.0.1:53000/entrar
+          grep -q 'Fincilia' "$sign_in_body"
+          grep -qi 'content-security-policy' "$sign_in_headers"
+
+          guard_status="$(curl -sS -D "$guard_headers" -o "$guard_body" -w '%{http_code}' http://127.0.0.1:53000/empresas)"
+          if [ "$guard_status" = 307 ]; then
+            grep -Eqi '^location: /entrar\r?$' "$guard_headers"
+          elif [ "$guard_status" = 200 ]; then
+            # A root loading boundary can flush the shell before a server
+            # component redirects. Next then carries the 307 in the streamed
+            # response instead of changing an already-sent HTTP status.
+            grep -q 'NEXT_REDIRECT;replace;/entrar;307;' "$guard_body"
+            ! grep -q '<h1>Empresas</h1>' "$guard_body"
+          else
+            printf 'Unexpected unauthenticated /empresas status: %s\n' "$guard_status" >&2
+            exit 1
+          fi
+
+      - name: Web browser journey
+        working-directory: apps/web
+        env:
+          FINCILIA_E2E_BASE_URL: http://127.0.0.1:53000
+        run: npm run test:e2e
+
+      - name: Web WCAG 2.2 AA automated scan
+        working-directory: apps/web
+        env:
+          FINCILIA_E2E_BASE_URL: http://127.0.0.1:53000
+        run: npm run test:a11y
+
       - name: Cleanup exact local project
+        if: always()
+        run: docker compose --profile test down --volumes --remove-orphans
+
+  performance-lane:
+    name: Performance lane (productive ceiling, on demand)
+    # No corre en cada commit a proposito: el limite productivo completo no
+    # caben en el presupuesto de tiempo de una corrida por empuje, y el coste no
+    # lo paga quien escribe la prueba sino cada persona que empuja un cambio.
+    # Se lanza a mano desde la pestana de acciones.
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: infra/local
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Start the dependencies the lane needs
+        run: docker compose up -d --wait postgres valkey objectstore
+      - name: Apply migrations
+        run: docker compose --profile migrate run --rm migrate
+      - name: Seed the synthetic demo
+        run: >-
+          docker compose --profile migrate run --rm migrate
+          python -m db.seed.local
+      - name: The productive row ceiling, measured
+        run: >-
+          docker compose --profile migrate run --rm
+          -e FINCILIA_PERF_LANE=true migrate
+          python -m unittest db.tests.test_perf_lane -v
+      - name: Cleanup
         if: always()
         run: docker compose --profile test down --volumes --remove-orphans
 

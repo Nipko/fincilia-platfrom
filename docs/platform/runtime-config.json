@@ -1,20 +1,297 @@
 {
-  "schema_version":"1.0.0","task":"FNC-CFG-001","status":"review_pending","active_environment":"local","production_enabled":false,"external_ai_enabled":false,"real_data_enabled":false,
-  "environments":[
-    {"id":"local","data_ceiling":"synthetic_only","network":"loopback_and_internal_compose","secret_provider":"local_untracked_env","enabled":true},
-    {"id":"ci","data_ceiling":"synthetic_only","network":"job_scoped","secret_provider":"ephemeral_ci_only","enabled":true},
-    {"id":"staging","data_ceiling":"none_until_A02_L01","network":"deny_by_default","secret_provider":"pending_cloud_decision","enabled":false},
-    {"id":"production","data_ceiling":"none_until_DRG01","network":"deny_by_default","secret_provider":"pending_cloud_decision","enabled":false}
+  "active_environment": "local",
+  "environments": [
+    {
+      "data_ceiling": "synthetic_only",
+      "enabled": true,
+      "id": "local",
+      "network": "loopback_and_internal_compose",
+      "secret_provider": "local_untracked_env"
+    },
+    {
+      "data_ceiling": "synthetic_only",
+      "enabled": true,
+      "id": "ci",
+      "network": "job_scoped",
+      "secret_provider": "ephemeral_ci_only"
+    },
+    {
+      "data_ceiling": "none_until_A02_L01",
+      "enabled": false,
+      "id": "staging",
+      "network": "deny_by_default",
+      "secret_provider": "pending_cloud_decision"
+    },
+    {
+      "data_ceiling": "none_until_DRG01",
+      "enabled": false,
+      "id": "production",
+      "network": "deny_by_default",
+      "secret_provider": "pending_cloud_decision"
+    }
   ],
-  "variables":[
-    {"name":"FINCILIA_ENV","class":"public_config","required":["local","ci"],"safe_example":"local","owner":"Platform"},
-    {"name":"FINCILIA_DATABASE_URL","class":"secret_reference","required":["local","ci"],"safe_example":"set_in_untracked_local_env","owner":"Platform"},
-    {"name":"FINCILIA_LOG_LEVEL","class":"public_config","required":["local","ci"],"safe_example":"info","owner":"Platform"},
-    {"name":"FINCILIA_OTEL_ENDPOINT","class":"optional_endpoint","required":[],"safe_example":"disabled","owner":"Platform"},
-    {"name":"FINCILIA_OBJECT_STORE_ENDPOINT","class":"optional_endpoint","required":[],"safe_example":"disabled","owner":"Platform"},
-    {"name":"FINCILIA_AI_GATEWAY_ENABLED","class":"feature_gate","required":["local","ci"],"safe_example":"false","owner":"Security"}
+  "external_ai_enabled": false,
+  "forbidden_in_config": [
+    "bank_username",
+    "bank_password",
+    "otp",
+    "dian_password",
+    "dian_certificate",
+    "pan",
+    "cvv",
+    "customer_document",
+    "raw_financial_payload",
+    "cloud_access_key"
   ],
-  "forbidden_in_config":["bank_username","bank_password","otp","dian_password","dian_certificate","pan","cvv","customer_document","raw_financial_payload","cloud_access_key"],
-  "load_order":["compiled_safe_defaults","environment_file_untracked_local_only","secret_provider_reference","runtime_policy_validation"],
-  "gates":[{"id":"CFG-G01","state":"not_met","rule":"cloud_secret_provider_selected_after_A02"},{"id":"CFG-G02","state":"not_met","rule":"production_config_reviewed_by_security"},{"id":"CFG-G03","state":"not_met","rule":"rotation_and_break_glass_tested"}]
+  "gates": [
+    {
+      "id": "CFG-G01",
+      "rule": "cloud_secret_provider_selected_after_A02",
+      "state": "not_met"
+    },
+    {
+      "id": "CFG-G02",
+      "rule": "production_config_reviewed_by_security",
+      "state": "not_met"
+    },
+    {
+      "id": "CFG-G03",
+      "rule": "rotation_and_break_glass_tested",
+      "state": "not_met"
+    }
+  ],
+  "load_order": [
+    "compiled_safe_defaults",
+    "environment_file_untracked_local_only",
+    "secret_provider_reference",
+    "runtime_policy_validation"
+  ],
+  "production_enabled": false,
+  "real_data_enabled": false,
+  "schema_version": "1.0.0",
+  "status": "review_pending",
+  "task": "FNC-CFG-001",
+  "variables": [
+    {
+      "class": "feature_gate",
+      "name": "FINCILIA_AI_GATEWAY_ENABLED",
+      "owner": "Security",
+      "required": [
+        "local",
+        "ci"
+      ],
+      "safe_example": "false"
+    },
+    {
+      "class": "plain",
+      "name": "FINCILIA_API_BASE_URL",
+      "owner": "Platform",
+      "required": [
+        "local",
+        "ci"
+      ],
+      "safe_example": "http://api:8000"
+    },
+    {
+      "class": "plain",
+      "name": "FINCILIA_AUTH_AUDIENCE",
+      "owner": "Security",
+      "required": false,
+      "safe_example": "fincilia-api"
+    },
+    {
+      "class": "plain",
+      "name": "FINCILIA_AUTH_ISSUER",
+      "owner": "Security",
+      "required": false,
+      "safe_example": "fincilia-local"
+    },
+    {
+      "class": "secret_reference",
+      "name": "FINCILIA_AUTH_SIGNING_KEY",
+      "owner": "Security",
+      "required": true,
+      "safe_example": "set_in_untracked_local_env"
+    },
+    {
+      "class": "plain",
+      "name": "FINCILIA_AUTH_TOKEN_TTL_SECONDS",
+      "owner": "Security",
+      "required": false,
+      "safe_example": "900"
+    },
+    {
+      "class": "plain",
+      "name": "FINCILIA_CACHE_URL",
+      "owner": "Platform",
+      "required": true,
+      "safe_example": "redis://valkey:6379/0"
+    },
+    {
+      "class": "plain",
+      "name": "FINCILIA_DATABASE_POOL_MAX",
+      "owner": "Platform",
+      "required": false,
+      "safe_example": "8"
+    },
+    {
+      "class": "plain",
+      "name": "FINCILIA_DATABASE_POOL_MIN",
+      "owner": "Platform",
+      "required": false,
+      "safe_example": "1"
+    },
+    {
+      "class": "plain",
+      "name": "FINCILIA_DATABASE_STATEMENT_TIMEOUT_MS",
+      "owner": "Platform",
+      "required": false,
+      "safe_example": "15000"
+    },
+    {
+      "class": "secret_reference",
+      "name": "FINCILIA_DATABASE_URL",
+      "owner": "Platform",
+      "required": [
+        "local",
+        "ci"
+      ],
+      "safe_example": "set_in_untracked_local_env"
+    },
+    {
+      "class": "plain",
+      "name": "FINCILIA_ENGINE_RELEASE_KEY",
+      "owner": "Platform",
+      "required": false,
+      "safe_example": "fnc-p3-mapping-0.1.0"
+    },
+    {
+      "class": "public_config",
+      "name": "FINCILIA_ENV",
+      "owner": "Platform",
+      "required": [
+        "local",
+        "ci"
+      ],
+      "safe_example": "local"
+    },
+    {
+      "class": "plain",
+      "name": "FINCILIA_IDENTIFIER_KEY_VERSION",
+      "owner": "Security",
+      "required": false,
+      "safe_example": "1"
+    },
+    {
+      "class": "secret_reference",
+      "name": "FINCILIA_IDENTIFIER_TOKENIZATION_KEY",
+      "owner": "Security",
+      "required": [
+        "local",
+        "ci"
+      ],
+      "safe_example": "set_in_untracked_local_env"
+    },
+    {
+      "class": "public_config",
+      "name": "FINCILIA_LOG_LEVEL",
+      "owner": "Platform",
+      "required": [
+        "local",
+        "ci"
+      ],
+      "safe_example": "info"
+    },
+    {
+      "class": "secret_reference",
+      "name": "FINCILIA_OBJECT_ACCESS_KEY",
+      "owner": "Security",
+      "required": true,
+      "safe_example": "set_in_untracked_local_env"
+    },
+    {
+      "class": "plain",
+      "name": "FINCILIA_OBJECT_BUCKET_DERIVED",
+      "owner": "Platform",
+      "required": false,
+      "safe_example": "fincilia-derived"
+    },
+    {
+      "class": "plain",
+      "name": "FINCILIA_OBJECT_BUCKET_EXPORTS",
+      "owner": "Platform",
+      "required": false,
+      "safe_example": "fincilia-exports"
+    },
+    {
+      "class": "plain",
+      "name": "FINCILIA_OBJECT_BUCKET_QUARANTINE",
+      "owner": "Platform",
+      "required": false,
+      "safe_example": "fincilia-quarantine"
+    },
+    {
+      "class": "plain",
+      "name": "FINCILIA_OBJECT_BUCKET_RAW",
+      "owner": "Platform",
+      "required": false,
+      "safe_example": "fincilia-raw"
+    },
+    {
+      "class": "plain",
+      "name": "FINCILIA_OBJECT_REGION",
+      "owner": "Platform",
+      "required": false,
+      "safe_example": "us-east-1"
+    },
+    {
+      "class": "secret_reference",
+      "name": "FINCILIA_OBJECT_SECRET_KEY",
+      "owner": "Security",
+      "required": true,
+      "safe_example": "set_in_untracked_local_env"
+    },
+    {
+      "class": "optional_endpoint",
+      "name": "FINCILIA_OBJECT_STORE_ENDPOINT",
+      "owner": "Platform",
+      "required": [],
+      "safe_example": "disabled"
+    },
+    {
+      "class": "optional_endpoint",
+      "name": "FINCILIA_OTEL_ENDPOINT",
+      "owner": "Platform",
+      "required": [],
+      "safe_example": "disabled"
+    },
+    {
+      "class": "plain",
+      "name": "FINCILIA_PAYMENTS_ENABLED",
+      "owner": "Product",
+      "required": false,
+      "safe_example": "false"
+    },
+    {
+      "class": "plain",
+      "name": "FINCILIA_REAL_DATA_ENABLED",
+      "owner": "Legal",
+      "required": false,
+      "safe_example": "false"
+    },
+    {
+      "class": "plain",
+      "name": "FINCILIA_SERVICE_NAME",
+      "owner": "Platform",
+      "required": false,
+      "safe_example": "fincilia-api"
+    },
+    {
+      "class": "plain",
+      "name": "FINCILIA_WEB_SECURE_COOKIES",
+      "owner": "Platform",
+      "required": false,
+      "safe_example": "false"
+    }
+  ]
 }

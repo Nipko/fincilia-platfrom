@@ -284,5 +284,78 @@ class EventModelTest(unittest.TestCase):
         self.assertIn("EVT-TEST-COVERAGE", self._codes(model=mutated))
 
 
+    def test_the_checkpoint_contract_bites_when_weakened(self) -> None:
+        # Cada una de estas mutaciones es una forma real de perder un tramo o de
+        # publicarlo dos veces; ninguna se ve mal en una revision por encima.
+        for label, mutate, expected in (
+            ("la cache decide que ya se hizo",
+             lambda m: m["checkpoint_contract"].__setitem__("valkey_is_checkpoint_authority", True),
+             "EVT-CHECKPOINT-VALKEY"),
+            ("perder la cache repite un tramo",
+             lambda m: m["checkpoint_contract"].__setitem__("valkey_loss_effect", "chunks_are_replayed"),
+             "EVT-CHECKPOINT-VALKEY"),
+            ("el punto de control vive fuera de PostgreSQL",
+             lambda m: m["checkpoint_contract"].__setitem__("checkpoint_authority", "valkey"),
+             "EVT-CHECKPOINT-AUTHORITY"),
+            ("el recibo se escribe aparte del efecto",
+             lambda m: m["checkpoint_contract"].__setitem__("checkpoint_and_effect_transaction", "separate_transaction"),
+             "EVT-CHECKPOINT-ATOMIC"),
+            ("el recibo se toma despues de escribir el lote",
+             lambda m: m["checkpoint_contract"].__setitem__("checkpoint_reserved_before_effect", False),
+             "EVT-CHECKPOINT-ATOMIC"),
+            ("medio tramo es un estado",
+             lambda m: m["checkpoint_contract"].__setitem__("partial_chunk", "keep_what_was_written"),
+             "EVT-CHECKPOINT-ATOMIC"),
+            ("la reentrega del broker tambien reintenta",
+             lambda m: m["checkpoint_contract"].__setitem__("broker_redelivery_is_not_extra_owner", False),
+             "EVT-CHECKPOINT-OWNER"),
+            ("reanudar vuelve a empezar",
+             lambda m: m["checkpoint_contract"].__setitem__("resume_semantics", "restart_from_zero"),
+             "EVT-CHECKPOINT-RESUME"),
+            ("agotar intentos se marca completo",
+             lambda m: m["checkpoint_contract"].__setitem__("dead_letter_on_exhaustion", False),
+             "EVT-CHECKPOINT-DLQ"),
+            ("el tramo pasa a ser autoridad financiera",
+             lambda m: m["checkpoint_contract"].__setitem__("financial_state_authority", True),
+             "EVT-CHECKPOINT-SCOPE"),
+            ("el tramo pasa a ser autoridad de linaje",
+             lambda m: m["checkpoint_contract"].__setitem__("lineage_authority", True),
+             "EVT-CHECKPOINT-SCOPE"),
+        ):
+            with self.subTest(mutation=label):
+                mutated = copy.deepcopy(self.model)
+                mutate(mutated)
+                self.assertIn(expected, self._codes(model=mutated))
+
+    def test_every_declared_checkpoint_invariant_is_required(self) -> None:
+        for invariant in [item["id"] for item in self.model["checkpoint_contract"]["invariants"]]:
+            with self.subTest(invariant=invariant):
+                mutated = copy.deepcopy(self.model)
+                mutated["checkpoint_contract"]["invariants"] = [
+                    item for item in mutated["checkpoint_contract"]["invariants"]
+                    if item["id"] != invariant]
+                self.assertIn("EVT-CHECKPOINT-INVARIANT", self._codes(model=mutated))
+
+    def test_a_checkpoint_without_its_window_cannot_resume(self) -> None:
+        for field in ("chunk_ordinal", "first_record", "last_record", "dataset_version_id"):
+            with self.subTest(field=field):
+                mutated = copy.deepcopy(self.model)
+                mutated["checkpoint_contract"]["required_fields"] = [
+                    item for item in mutated["checkpoint_contract"]["required_fields"]
+                    if item != field]
+                self.assertIn("EVT-CHECKPOINT-FIELD", self._codes(model=mutated))
+
+    def test_the_checkpoint_contract_cannot_simply_disappear(self) -> None:
+        mutated = copy.deepcopy(self.model)
+        del mutated["checkpoint_contract"]
+        self.assertIn("EVT-CHECKPOINT", self._codes(model=mutated))
+
+    def test_required_checkpoint_test_cannot_be_removed(self) -> None:
+        mutated = copy.deepcopy(self.model)
+        mutated["required_tests"] = [item for item in mutated["required_tests"]
+                                     if item["id"] != "TST-CHK-002"]
+        self.assertIn("EVT-TEST-COVERAGE", self._codes(model=mutated))
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -605,11 +605,113 @@ class NegativeInvariantTests(unittest.TestCase):
             primary["gates"].append({"id": "DRG-01", "status": "not_met",
                                      "owner_role": "Legal"})
             write(primary_path, json.dumps(primary, indent=2))
-            report = aggregate(contract, root)
+            # Sin enrutar, una contradiccion de un gate posterior SI bloquea: el
+            # silencio no resuelve nada (FNC-GAT-004).
+            unrouted = aggregate(contract, root)
             self.assertTrue(any(item["subject_id"] == "DRG-01"
-                                for item in report["contradictions"]))
-            categories = {row["id"]: row["category"] for row in report["requirements"]}
+                                for item in unrouted["contradictions"]))
+            categories = {row["id"]: row["category"] for row in unrouted["requirements"]}
+            self.assertEqual(categories["REQ-NO-CONTRA"], "contradiction")
+            self.assertEqual(len(unrouted["contradiction_triage"]["unrouted"]), 1)
+
+            # Enrutada a un owner y a su propio gate, deja de bloquear S1-READY
+            # pero sigue bloqueando DRG-01 y conserva a quien debe adjudicarla.
+            contract["acknowledged_contradictions"] = [{
+                "subject_kind": "gate", "subject_id": "DRG-01", "field": "owner_role",
+                "reason": "divergencia sintetica de owner entre dos fuentes",
+                "owner_role": "Integration Steward", "gate": "DRG-01",
+                "blocks_gate": True,
+            }]
+            routed = aggregate(contract, root)
+            categories = {row["id"]: row["category"] for row in routed["requirements"]}
             self.assertEqual(categories["REQ-NO-CONTRA"], "machine_pass")
+            acknowledged = routed["contradiction_triage"]["acknowledged"]
+            self.assertEqual(len(acknowledged), 1)
+            self.assertEqual(acknowledged[0]["routed_to_owner"], "Integration Steward")
+            self.assertEqual(acknowledged[0]["blocks_gate"], "DRG-01")
+            self.assertTrue(any(item["subject_id"] == "DRG-01"
+                                for item in routed["contradictions"]))
+
+    # FNC-GAT-004: la relevancia se declara, no se deduce.
+    def test_gat004_01_missing_relevance_declaration_is_refused(self) -> None:
+        contract = load_contract()
+        del contract["contradiction_relevance"]
+        self.assertIn("S1R-CONTRADICTION-RELEVANCE",
+                      {item.code for item in validate_contract(contract, ROOT)})
+
+    def test_gat004_02_an_empty_relevance_set_is_refused(self) -> None:
+        contract = load_contract()
+        contract["contradiction_relevance"]["gates"] = []
+        self.assertIn("S1R-CONTRADICTION-RELEVANCE",
+                      {item.code for item in validate_contract(contract, ROOT)})
+
+    def test_gat004_03_the_target_gate_must_be_relevant_to_itself(self) -> None:
+        contract = load_contract()
+        contract["contradiction_relevance"]["gates"] = ["DRG-00"]
+        self.assertIn("S1R-CONTRADICTION-RELEVANCE",
+                      {item.code for item in validate_contract(contract, ROOT)})
+
+    def test_gat004_04_relevance_without_a_rationale_is_refused(self) -> None:
+        contract = load_contract()
+        contract["contradiction_relevance"]["rationale"] = ""
+        self.assertIn("S1R-CONTRADICTION-RELEVANCE",
+                      {item.code for item in validate_contract(contract, ROOT)})
+
+    def test_gat004_05_a_route_without_owner_gate_or_reason_is_refused(self) -> None:
+        for missing in ("reason", "owner_role", "gate", "subject_id", "field"):
+            with self.subTest(missing=missing):
+                contract = load_contract()
+                entry = dict(contract["acknowledged_contradictions"][0])
+                del entry[missing]
+                contract["acknowledged_contradictions"] = [entry]
+                self.assertIn("S1R-CONTRADICTION-ROUTE",
+                              {item.code for item in validate_contract(contract, ROOT)})
+
+    def test_gat004_06_routing_never_stops_blocking_its_own_gate(self) -> None:
+        contract = load_contract()
+        contract["acknowledged_contradictions"][0]["blocks_gate"] = False
+        self.assertIn("S1R-CONTRADICTION-ROUTE",
+                      {item.code for item in validate_contract(contract, ROOT)})
+
+    def test_gat004_07_a_route_cannot_point_at_the_target_gate(self) -> None:
+        contract = load_contract()
+        contract["acknowledged_contradictions"][0]["gate"] = "S1-READY"
+        self.assertIn("S1R-CONTRADICTION-ROUTE",
+                      {item.code for item in validate_contract(contract, ROOT)})
+
+    def test_gat004_08_every_real_route_names_owner_reviewers_gate_and_reason(self) -> None:
+        contract = load_contract()
+        routed = contract["acknowledged_contradictions"]
+        self.assertTrue(routed)
+        for entry in routed:
+            self.assertTrue(entry["owner_role"])
+            self.assertTrue(entry["reviewer_roles"])
+            self.assertTrue(entry["gate"])
+            self.assertGreater(len(entry["reason"]), 40)
+            self.assertTrue(entry["blocks_gate"])
+            self.assertNotEqual(entry["gate"], "S1-READY")
+
+    def test_gat004_09_relevance_does_not_depend_on_which_requirements_exist(self) -> None:
+        # Retirar un requisito no puede cambiar que una contradiccion bloquee.
+        with tempfile.TemporaryDirectory() as directory:
+            root, contract = synthetic_root(Path(directory), second_gate_owner="Security")
+            contract["contradiction_relevance"] = {
+                "gates": ["S1-READY", "SYN-GATE"], "rationale": "sintetico"}
+            with_owner = aggregate(contract, root)
+            trimmed = copy.deepcopy(contract)
+            trimmed["requirements"] = [item for item in trimmed["requirements"]
+                                       if item["kind"] != "nominal_owner"]
+            without_owner = aggregate(trimmed, root)
+            self.assertEqual(len(with_owner["contradiction_triage"]["blocking"]),
+                             len(without_owner["contradiction_triage"]["blocking"]))
+            self.assertEqual(len(with_owner["contradiction_triage"]["blocking"]), 1)
+
+    def test_gat004_10_the_real_report_routes_every_observed_contradiction(self) -> None:
+        _, payload = run_cli(["evaluate"])
+        triage = payload["contradiction_triage"]
+        self.assertEqual(triage["unrouted"], [])
+        self.assertEqual(len(triage["blocking"]) + len(triage["acknowledged"])
+                         + len(triage["unrouted"]), len(payload["contradictions"]))
 
     def test_machine_check_evidence_renders_the_actual_python_argv_once(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

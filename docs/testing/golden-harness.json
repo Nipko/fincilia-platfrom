@@ -28,7 +28,7 @@
       "inputs": [
         {
           "path": "docs/architecture/module-boundaries.json",
-          "sha256": "133dd7788f136415684dd802248d660bf0bedf062553b13b61143368645cfa93"
+          "sha256": "3e6d96cd5e1b58099f8b4240dede8a6ab9f16a3f80a6dd76bbf70a966989a062"
         }
       ],
       "max_output_bytes": 262144,
@@ -81,11 +81,11 @@
       "inputs": [
         {
           "path": "docs/architecture/module-boundaries.json",
-          "sha256": "133dd7788f136415684dd802248d660bf0bedf062553b13b61143368645cfa93"
+          "sha256": "3e6d96cd5e1b58099f8b4240dede8a6ab9f16a3f80a6dd76bbf70a966989a062"
         },
         {
           "path": "docs/domain/canonical-model.json",
-          "sha256": "6df752d46d513575dd1d825f80e4d5a2af657abe8ed1ae409e0e620174d65523"
+          "sha256": "103ee7e66fa01e609c9d7b3804187092990514cb06875b6672215a9143fcd953"
         }
       ],
       "max_output_bytes": 262144,
@@ -138,11 +138,11 @@
       "inputs": [
         {
           "path": "docs/architecture/module-boundaries.json",
-          "sha256": "133dd7788f136415684dd802248d660bf0bedf062553b13b61143368645cfa93"
+          "sha256": "3e6d96cd5e1b58099f8b4240dede8a6ab9f16a3f80a6dd76bbf70a966989a062"
         },
         {
           "path": "docs/domain/canonical-model.json",
-          "sha256": "6df752d46d513575dd1d825f80e4d5a2af657abe8ed1ae409e0e620174d65523"
+          "sha256": "103ee7e66fa01e609c9d7b3804187092990514cb06875b6672215a9143fcd953"
         },
         {
           "path": "docs/domain/completeness-balances.json",
@@ -271,11 +271,11 @@
         },
         {
           "path": "docs/architecture/module-boundaries.json",
-          "sha256": "133dd7788f136415684dd802248d660bf0bedf062553b13b61143368645cfa93"
+          "sha256": "3e6d96cd5e1b58099f8b4240dede8a6ab9f16a3f80a6dd76bbf70a966989a062"
         },
         {
           "path": "docs/domain/canonical-model.json",
-          "sha256": "6df752d46d513575dd1d825f80e4d5a2af657abe8ed1ae409e0e620174d65523"
+          "sha256": "103ee7e66fa01e609c9d7b3804187092990514cb06875b6672215a9143fcd953"
         }
       ],
       "max_output_bytes": 262144,
@@ -385,11 +385,11 @@
         },
         {
           "path": "docs/architecture/events-retries.json",
-          "sha256": "85b6798618ba228ba605b2ff85a4d892bf828cd91fe1f8453d5ac788ee749124"
+          "sha256": "ab19517d1c50330b287bb11a95c398288fccfa0137c432e96726f458b5ad9fa3"
         },
         {
           "path": "docs/architecture/module-boundaries.json",
-          "sha256": "133dd7788f136415684dd802248d660bf0bedf062553b13b61143368645cfa93"
+          "sha256": "3e6d96cd5e1b58099f8b4240dede8a6ab9f16a3f80a6dd76bbf70a966989a062"
         },
         {
           "path": "docs/domain/idempotency-dedupe.json",
@@ -450,11 +450,11 @@
         },
         {
           "path": "docs/architecture/module-boundaries.json",
-          "sha256": "133dd7788f136415684dd802248d660bf0bedf062553b13b61143368645cfa93"
+          "sha256": "3e6d96cd5e1b58099f8b4240dede8a6ab9f16a3f80a6dd76bbf70a966989a062"
         },
         {
           "path": "docs/domain/canonical-model.json",
-          "sha256": "6df752d46d513575dd1d825f80e4d5a2af657abe8ed1ae409e0e620174d65523"
+          "sha256": "103ee7e66fa01e609c9d7b3804187092990514cb06875b6672215a9143fcd953"
         },
         {
           "path": "docs/domain/idempotency-dedupe.json",
@@ -516,11 +516,11 @@
         },
         {
           "path": "docs/architecture/module-boundaries.json",
-          "sha256": "133dd7788f136415684dd802248d660bf0bedf062553b13b61143368645cfa93"
+          "sha256": "3e6d96cd5e1b58099f8b4240dede8a6ab9f16a3f80a6dd76bbf70a966989a062"
         },
         {
           "path": "docs/domain/canonical-model.json",
-          "sha256": "6df752d46d513575dd1d825f80e4d5a2af657abe8ed1ae409e0e620174d65523"
+          "sha256": "103ee7e66fa01e609c9d7b3804187092990514cb06875b6672215a9143fcd953"
         },
         {
           "path": "docs/domain/idempotency-dedupe.json",
@@ -528,7 +528,7 @@
         },
         {
           "path": "docs/domain/lineage-model.json",
-          "sha256": "9f15239a13d4cb112f7624409e62a5646bfd15376d11d9c35d3fca6a3438204c"
+          "sha256": "61ad8682dc39eaec2b86bfdde6618a922ebb88410f3ce7ce9152249acc416332"
         },
         {
           "path": "docs/privacy/privacy-map.json",
@@ -709,7 +709,7 @@
       "inputs": [
         {
           "path": "docs/architecture/module-boundaries.json",
-          "sha256": "133dd7788f136415684dd802248d660bf0bedf062553b13b61143368645cfa93"
+          "sha256": "3e6d96cd5e1b58099f8b4240dede8a6ab9f16a3f80a6dd76bbf70a966989a062"
         },
         {
           "path": "docs/security/threat-model.json",
@@ -717,7 +717,7 @@
         },
         {
           "path": "docs/testing/TEST_CATALOG.md",
-          "sha256": "fa16a273d5382fe251200aab6a68cda1cb201cd06e711b22b7895e0133f9d808"
+          "sha256": "3f11a5cfb70e40ace234edde798e2d98f968b8d821da785c417f3ecb8f4fba63"
         },
         {
           "path": "docs/testing/test-strategy.json",

@@ -356,11 +356,14 @@ def check_manifests_and_lockfiles(model: dict[str, Any],
         scope = Path(manifest["path"]).parent.as_posix()
         location = manifest["path"]
         siblings = lock_by_scope.get(scope, [])
-        if not siblings:
+        declared = int(manifest["attributes"].get("declared_dependencies", "0") or 0)
+        # Un paquete interno sin dependencias no tiene arbol que fijar. Exigirle un
+        # lockfile vacio seria ruido, y el ruido acaba silenciando la regla entera.
+        if not siblings and declared > 0:
             findings.append(Finding(
                 "SUP-MANIFEST-NO-LOCKFILE", location,
-                f"{manifest['reference']} declares dependencies without a lockfile in its own "
-                "directory; the resolved tree is not reproducible",
+                f"{manifest['reference']} declares {declared} dependencies without a "
+                "lockfile in its own directory; the resolved tree is not reproducible",
                 "critical", owner, gate, risks, "defect"))
         if manifest["attributes"].get("parse") == "failed":
             findings.append(Finding(
@@ -382,6 +385,13 @@ def check_manifests_and_lockfiles(model: dict[str, Any],
                 "lockfile without a manifest in its own directory; its scope is undefined",
                 "high", lock_owner, lock_gate, lock_risks, "defect"))
         for lockfile in siblings:
+            if lockfile["attributes"].get("ecosystem") == "python"                     and lockfile["attributes"].get("hashes") != "yes":
+                findings.append(Finding(
+                    "SUP-LOCKFILE-NO-HASHES", lockfile["path"],
+                    "a pinned Python lockfile without --hash entries fixes the version "
+                    "but not the bytes: a compromised mirror could serve a different "
+                    "wheel under the same version",
+                    "high", lock_owner, lock_gate, lock_risks, "defect"))
             if lockfile["detail"] == "unparseable":
                 findings.append(Finding(
                     "SUP-LOCKFILE-ORPHAN", lockfile["path"],
@@ -429,14 +439,27 @@ def check_update_monitoring(model: dict[str, Any], inventory: dict[str, Any]) ->
     if not monitors:
         return findings
 
-    npm_scopes = sorted({Path(manifest["path"]).parent.as_posix()
-                         for manifest in component_dicts(inventory, "package_manifest")})
-    for scope in npm_scopes:
-        if scope not in monitored.get("npm", set()):
+    # El ecosistema del manifest y el del monitor no se llaman igual: Dependabot
+    # dice `pip` donde el manifest dice `python`. Compararlos sin traducir haria
+    # que un alcance vigilado pareciera desatendido.
+    monitor_ecosystem = {"npm": "npm", "python": "pip"}
+    scopes: dict[tuple[str, str], None] = {}
+    for manifest in component_dicts(inventory, "package_manifest"):
+        ecosystem = str(manifest["attributes"].get("ecosystem", "unknown"))
+        scopes[(ecosystem, Path(manifest["path"]).parent.as_posix())] = None
+    for ecosystem, scope in sorted(scopes):
+        expected = monitor_ecosystem.get(ecosystem)
+        if expected is None:
             findings.append(Finding(
                 "SUP-UPDATES-UNMONITORED", scope,
-                f"npm scope {scope!r} has no update monitor entry; its dependencies age "
-                "without anyone being told",
+                f"ecosystem {ecosystem!r} has no known update monitor mapping",
+                "medium", owner, gate, risks, "coverage_gap"))
+            continue
+        if scope not in monitored.get(expected, set()):
+            findings.append(Finding(
+                "SUP-UPDATES-UNMONITORED", scope,
+                f"{expected} scope {scope!r} has no update monitor entry; its "
+                "dependencies age without anyone being told",
                 "medium", owner, gate, risks, "coverage_gap"))
     # Un hallazgo por alcance, no por linea: repetir el mismo hueco una vez por
     # imagen inflaria el conteo y sugeriria mas trabajo del que hay.
