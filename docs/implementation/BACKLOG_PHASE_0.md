@@ -106,6 +106,15 @@ FNC-GAT-001 es la única tarea que puede autorizar el primer artefacto real de i
 | FNC-FIN-001 | A7/Founder | INT-001, PLT-005 | Presupuesto F0–F2 +30% |
 | FNC-GAT-002 | A0 + humanos | Todo F0 | Gate Fase 0 y backlog Fase 1 |
 
+## Rebanadas locales sintéticas fuera de gate
+
+Estas tareas endurecen prototipos locales sin ampliar el conjunto dinámico de
+dependencias de `FNC-GAT-002` ni afirmar que Sprint 1 está habilitado.
+
+| ID | Carril | Dependencias | Estado inicial | Resultado verificable |
+|---|---|---|---|---|
+| FNC-WEB-001 | A6 | PLT-008, UX-001 | In progress | Recorrido web P3 verificable: ciclos conservados, fuente explícita, carga BFF de 25 MiB, estados accesibles y pruebas web |
+
 ## No codificar todavía
 
 - Ingesta de documentos reales o conectores reales.

@@ -106,6 +106,7 @@ Hasta S1-READY solo se admite scaffolding, automatización, pruebas, documentaci
 | FNC-DB-002 | Spike PostgreSQL de migraciones SQL-first | Review pending | Claude + Integration Steward | docs/database/MIGRATION_SPIKE.md, migration-spike.json, spikes/FNC-DB-002, tools/migration_spike, handoff |
 | FNC-PLT-007 | CLI segura de desarrollo local | Review pending | Claude + Integration Steward | docs/platform/DEVELOPER_CLI.md, developer-cli.json, tools/dev_cli, handoff |
 | FNC-GAT-003 | Agregador ejecutable de readiness S1 | Review pending | Claude + Integration Steward | docs/implementation/S1_READINESS_REPORT.md, s1-readiness.json, tools/s1_readiness, handoff |
+| FNC-WEB-001 | Endurecimiento verificable del recorrido web P3 | In progress | Codex + Integration Steward | apps/web, pruebas web, CI, ficha y handoff |
 
 Solo el Integration Steward modifica esta tabla.
 

@@ -74,8 +74,8 @@ del contrato y el de migraciones mira el SQL. Ahora `cross-contract` los cruza.
 
 ## 4. La siguiente rebanada, exacta: plataforma web
 
-El siguiente bloque se registra como **FNC-P3.7 — endurecimiento verificable del
-recorrido web P3**. La app móvil no participa en esta ruta crítica y se retoma
+El siguiente bloque se registra como **FNC-WEB-001 — endurecimiento verificable
+del recorrido web P3 (alias P3.7)**. La app móvil no participa en esta ruta crítica y se retoma
 después de que la plataforma web complete conciliación, revisión e informes.
 
 Orden de implementación:

@@ -54,5 +54,16 @@
       "agent_may_accept": false
     }
   ],
-  "active_reservations": []
+  "active_reservations": [
+    {
+      "task": "FNC-WEB-001",
+      "holder": "Codex principal dev",
+      "paths": [
+        "apps/web",
+        ".github/workflows/ci.yml",
+        "docs/implementation/tasks/FNC-WEB-001.md",
+        "docs/implementation/handoffs/FNC-WEB-001.md"
+      ]
+    }
+  ]
 }

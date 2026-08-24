@@ -21,7 +21,7 @@ Una celda de implementación vacía significa no implementado. No se rellena con
 | REQ-FNC-054-QUALITY | §54 | QA-002..005 | `test-strategy.json`, `golden-harness.json`, `test-catalog-model.json`, `mutation-harness.json` | TST-MUT-001, GH-REG-*, GH-RUN-*, GH-ORACLE-*, MUT-* | S1-READY | Review pending |
 | REQ-FNC-055-GOVERNANCE | §51–§52 | GOV-003 | `work-graph.json`, reservas y política de gates | TST-META-001 | S1-READY | Review |
 | REQ-FNC-056-LOCAL | §20, §52 | PLT-002 | `infra/local/compose.yaml`, bootstrap y lifecycle | TST-LOCAL-001 | S1-READY | Review |
-| REQ-FNC-057-UX | §5–§13, §54.5 | UX-001 | IA y prototipo web/móvil sintético | TST-A11Y-001 | S1-READY | Review |
+| REQ-FNC-057-UX | §5–§13, §54.5 | UX-001, FNC-WEB-001 | IA, ADR-010 y recorrido web local P3.7 | TST-A11Y-001, suites de `apps/web` | S1-READY | Review; implementación local sintética no mueve el gate |
 | REQ-FNC-058-REGION | §20, §29, §31 | ARC-003 | ADR-020 y `region-transmission-decision.json` | TST-A02-001 | A-02 | Review; human decision pending |
 | REQ-FNC-059-ADR-READINESS | §51–§52 | ARC-006 | `adr-readiness.json`, inventario ADR y blockers | `tools.adr_readiness.test_validate` | S1-READY | Review; gate not met |
 | REQ-FNC-060-CONNECTIVITY-VENDOR | §25, §44 | INT-001 | `provider-evaluation.json`, due diligence y RFQ | `tools.provider_evaluation.test_validate` | INT-G02..G07 | Review; quotes pending |
