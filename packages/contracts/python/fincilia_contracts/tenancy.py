@@ -32,6 +32,7 @@ PERMISSIONS: Final[tuple[str, ...]] = (
     "document.read",
     "dataset.map",
     "dataset.publish",
+    "dataset.export",
     "financial_account.manage",
     "data_source.manage",
     "movement.read",
@@ -55,14 +56,17 @@ ROLE_PERMISSIONS: Final[dict[str, frozenset[str]]] = {
     }),
     "preparer": frozenset({
         "company.read", "document.upload", "document.read", "dataset.map",
-        "movement.read", "match.propose", "match.reject", "close.prepare",
+        "dataset.export", "movement.read", "match.propose", "match.reject",
+        "close.prepare",
     }),
     "reviewer": frozenset({
-        "company.read", "document.read", "dataset.publish", "movement.read",
-        "match.confirm", "match.reject", "close.approve", "audit.read",
+        "company.read", "document.read", "dataset.publish", "dataset.export",
+        "movement.read", "match.confirm", "match.reject", "close.approve",
+        "audit.read",
     }),
     "auditor": frozenset({
-        "company.read", "document.read", "movement.read", "audit.read",
+        "company.read", "document.read", "dataset.export", "movement.read",
+        "audit.read",
     }),
     "read_only": frozenset({"company.read", "document.read", "movement.read"}),
 }

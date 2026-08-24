@@ -187,6 +187,22 @@ class TenancyTests(unittest.TestCase):
         self.assertIn("dataset.map", ROLE_PERMISSIONS["preparer"])
         self.assertNotIn("dataset.map", ROLE_PERMISSIONS["reviewer"])
 
+    def test_operational_export_is_explicit_and_not_plain_read_access(self) -> None:
+        self.assertIn("dataset.export", PERMISSIONS)
+        for role in ("owner", "preparer", "reviewer", "auditor"):
+            with self.subTest(role=role):
+                self.assertIn("dataset.export", ROLE_PERMISSIONS[role])
+                self.assertIn("movement.read", ROLE_PERMISSIONS[role])
+        for role in ("firm_admin", "read_only"):
+            with self.subTest(role=role):
+                self.assertNotIn("dataset.export", ROLE_PERMISSIONS[role])
+
+    def test_export_does_not_grant_publish_or_portability(self) -> None:
+        preparer = context(roles=("preparer",))
+        self.assertTrue(preparer.has("dataset.export"))
+        self.assertFalse(preparer.has("dataset.publish"))
+        self.assertNotIn("portability.export", PERMISSIONS)
+
     def test_mapping_and_publishing_are_segregated_in_both_directions(self) -> None:
         self.assertEqual(violates_segregation("dataset.publish", {"dataset.map"}),
                          "dataset.map")
