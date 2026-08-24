@@ -12,9 +12,13 @@ const mocks = vi.hoisted(() => {
   return {
     ApiError,
     approveOverride: vi.fn(),
+    fetchCorrectionTargets: vi.fn(),
+    fetchCorrections: vi.fn(),
     fetchDataset: vi.fn(),
     fetchMapping: vi.fn(),
     fetchOverrides: vi.fn(),
+    proposeCorrection: vi.fn(),
+    reviewCorrection: vi.fn(),
     createMapping: vi.fn(),
     fetchSource: vi.fn(),
     rejectDataset: vi.fn(),
@@ -36,6 +40,8 @@ vi.mock('@/lib/session', () => ({
 vi.mock('@/lib/api', () => ({
   ApiError: mocks.ApiError,
   approveOverride: mocks.approveOverride,
+  fetchCorrectionTargets: mocks.fetchCorrectionTargets,
+  fetchCorrections: mocks.fetchCorrections,
   fetchDataset: mocks.fetchDataset,
   continueDataset: vi.fn(),
   createAccount: vi.fn(),
@@ -49,7 +55,9 @@ vi.mock('@/lib/api', () => ({
   linkAccount: vi.fn(),
   prepareDataset: vi.fn(),
   publishDataset: vi.fn(),
+  proposeCorrection: mocks.proposeCorrection,
   rejectDataset: mocks.rejectDataset,
+  reviewCorrection: mocks.reviewCorrection,
   setCycle: vi.fn(),
   signIn: vi.fn(),
   updateAccount: vi.fn(),
@@ -61,6 +69,8 @@ import {
   createMappingAction,
   prepareDatasetAction,
   publishDatasetAction,
+  proposeCorrectionAction,
+  reviewCorrectionAction,
   continueDatasetAction,
   rejectDatasetAction,
 } from '../actions';
@@ -101,6 +111,25 @@ function overrideForm(): FormData {
 function rejectionForm(reason = 'La evidencia sintetica no soporta este resultado.'): FormData {
   const form = datasetForm();
   form.set('reason', reason);
+  return form;
+}
+
+function correctionForm(): FormData {
+  const form = datasetForm();
+  form.set('movementId', 'cf0f7b18-0a7a-5c8e-9d2c-6a1f2b3c4d83');
+  form.set('field', 'amount');
+  form.set('expectedBaseDigest', 'a'.repeat(64));
+  form.set('newValue', '1200.50');
+  form.set('reasonCode', 'source_correction');
+  form.set('reasonComment', 'Valor contrastado con evidencia sintetica.');
+  return form;
+}
+
+function correctionReviewForm(): FormData {
+  const form = datasetForm();
+  form.set('overlayId', 'df0f7b18-0a7a-5c8e-9d2c-6a1f2b3c4d84');
+  form.set('decision', 'approved');
+  form.set('rationale', 'Revision independiente sintetica.');
   return form;
 }
 
@@ -299,6 +328,74 @@ describe('approveOverrideAction', () => {
     expect(mocks.revalidatePath).toHaveBeenCalledWith(
       '/empresas/5f0f7b18-0a7a-5c8e-9d2c-6a1f2b3c4d5e/documentos/6f0f7b18-0a7a-5c8e-9d2c-6a1f2b3c4d5f/mapeo',
     );
+  });
+});
+
+describe('typed correction actions', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.readSession.mockResolvedValue({ token: 'token-sintetico', displayName: 'Ada' });
+    mocks.fetchDataset.mockResolvedValue(matchingDataset());
+    mocks.fetchCorrectionTargets.mockResolvedValue([
+      {
+        field: 'amount', value_type: 'money_decimal',
+        current_value: '1000.000000000000', expected_base_digest: 'a'.repeat(64),
+      },
+    ]);
+  });
+
+  it('no confia en el digest oculto si la lectura autorizada ya cambio', async () => {
+    const form = correctionForm();
+    form.set('expectedBaseDigest', 'b'.repeat(64));
+
+    const result = await proposeCorrectionAction(
+      { error: null, done: null }, form,
+    );
+
+    expect(result.error).toContain('cambio');
+    expect(mocks.proposeCorrection).not.toHaveBeenCalled();
+  });
+
+  it('propone sin afirmar que el movimiento quedo modificado', async () => {
+    mocks.proposeCorrection.mockResolvedValue({ overlay_id: 'overlay-sintetico' });
+
+    const result = await proposeCorrectionAction(
+      { error: null, done: null }, correctionForm(),
+    );
+
+    expect(result.done).toContain('no cambia el movimiento');
+    expect(mocks.proposeCorrection).toHaveBeenCalledOnce();
+    expect(mocks.revalidatePath).toHaveBeenCalledTimes(2);
+  });
+
+  it('no revisa un overlay oculto que no esta en el dataset visible', async () => {
+    mocks.fetchCorrections.mockResolvedValue([
+      { overlay_id: 'otra-propuesta', status: 'pending_review' },
+    ]);
+
+    const result = await reviewCorrectionAction(
+      { error: null, done: null }, correctionReviewForm(),
+    );
+
+    expect(result.error).toContain('ya no esta pendiente');
+    expect(mocks.reviewCorrection).not.toHaveBeenCalled();
+  });
+
+  it('explica que aprobar deja pendiente la aplicacion en otra version', async () => {
+    mocks.fetchCorrections.mockResolvedValue([
+      {
+        overlay_id: 'df0f7b18-0a7a-5c8e-9d2c-6a1f2b3c4d84',
+        status: 'pending_review',
+      },
+    ]);
+    mocks.reviewCorrection.mockResolvedValue({ decision: 'approved', applied: false });
+
+    const result = await reviewCorrectionAction(
+      { error: null, done: null }, correctionReviewForm(),
+    );
+
+    expect(result.done).toContain('pendiente de aplicar');
+    expect(mocks.reviewCorrection).toHaveBeenCalledOnce();
   });
 });
 

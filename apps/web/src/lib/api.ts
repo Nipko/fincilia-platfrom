@@ -662,6 +662,106 @@ export function fetchMovement(
   );
 }
 
+export type CorrectionTarget = {
+  field: string;
+  value_type: string;
+  current_value: string | null;
+  expected_base_digest: string;
+};
+
+export type CorrectionProposal = {
+  overlay_id: string;
+  dataset_version_id: string;
+  movement_id: string;
+  field: string;
+  value_type: string;
+  proposed_value: string;
+  reason_code: string;
+  reason_comment: string;
+  sequence: number;
+  created_by: string;
+  author_name: string;
+  created_at: string;
+  status: 'pending_review' | 'approved' | 'rejected';
+  applied: false;
+  reviewer_id: string | null;
+  reviewer_name: string | null;
+  review_rationale: string | null;
+  reviewed_at: string | null;
+};
+
+export function fetchCorrectionTargets(
+  token: string,
+  companyId: string,
+  datasetVersionId: string,
+  movementId: string,
+): Promise<CorrectionTarget[]> {
+  const company = encodeURIComponent(companyId);
+  const dataset = encodeURIComponent(datasetVersionId);
+  const movement = encodeURIComponent(movementId);
+  return request<CorrectionTarget[]>(
+    `/api/v1/companies/${company}/datasets/${dataset}/movements/${movement}` +
+      '/correction-targets',
+    { token },
+  );
+}
+
+export function fetchCorrections(
+  token: string,
+  companyId: string,
+  datasetVersionId: string,
+): Promise<CorrectionProposal[]> {
+  const company = encodeURIComponent(companyId);
+  const dataset = encodeURIComponent(datasetVersionId);
+  return request<CorrectionProposal[]>(
+    `/api/v1/companies/${company}/datasets/${dataset}/corrections`,
+    { token },
+  );
+}
+
+export function proposeCorrection(
+  token: string,
+  companyId: string,
+  datasetVersionId: string,
+  body: {
+    movement_id: string;
+    field: string;
+    expected_base_digest: string;
+    new_value: string;
+    reason_code: string;
+    reason_comment: string;
+  },
+): Promise<CorrectionProposal> {
+  const company = encodeURIComponent(companyId);
+  const dataset = encodeURIComponent(datasetVersionId);
+  return request<CorrectionProposal>(
+    `/api/v1/companies/${company}/datasets/${dataset}/corrections`,
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+      token,
+    },
+  );
+}
+
+export function reviewCorrection(
+  token: string,
+  companyId: string,
+  overlayId: string,
+  decision: 'approved' | 'rejected',
+  rationale: string,
+): Promise<{ decision: string; applied: false }> {
+  const company = encodeURIComponent(companyId);
+  const overlay = encodeURIComponent(overlayId);
+  return request(`/api/v1/companies/${company}/corrections/${overlay}/review`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ decision, rationale }),
+    token,
+  });
+}
+
 
 
 

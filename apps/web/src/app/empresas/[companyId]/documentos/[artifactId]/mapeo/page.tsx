@@ -5,6 +5,7 @@ import {
   ApiError,
   fetchAccountsFull,
   fetchCompany,
+  fetchCorrections,
   fetchDataset,
   fetchDatasets,
   fetchDocument,
@@ -16,6 +17,7 @@ import {
   fetchSourcesFull,
   type Blocker,
   type DatasetDetail,
+  type CorrectionProposal,
   type MappingDetail,
   type MappingSummary,
   type Movement,
@@ -23,6 +25,10 @@ import {
   type RowOverrideSummary,
   type Source,
 } from '@/lib/api';
+import {
+  CORRECTION_FIELD_LABELS,
+  CORRECTION_STATUS_LABELS,
+} from '@/lib/corrections';
 import {
   pageFromQuery,
   selectDatasetVersion,
@@ -34,6 +40,7 @@ import { readSession } from '@/lib/session';
 
 import {
   ContinueForm,
+  CorrectionReviewForm,
   DecisionForm,
   MappingForm,
   OverrideApprovalForm,
@@ -83,6 +90,10 @@ const PUBLISH_BLOCKER_LABELS: Record<string, string> = {
     'La version del motor ya no esta aprobada; hay que preparar de nuevo.',
   'override-not-approved':
     'Hay una excepcion critica pendiente o que no coincide con lo publicado.',
+  'correction-pending-review':
+    'Hay una correccion tipada que necesita revision independiente.',
+  'correction-not-applied':
+    'Hay una correccion aprobada que todavia debe aplicarse en una version nueva.',
 };
 
 const FIELD_LABELS: Record<string, string> = {
@@ -272,6 +283,7 @@ export default async function MappingPage({
   let dataset: DatasetDetail | null = null;
   let movements: Movement[] = [];
   let overrides: RowOverrideSummary[] = [];
+  let corrections: CorrectionProposal[] = [];
   if (selectedDatasetSummary) {
     const loadedDataset = await loadAuthorized(
       fetchDataset(
@@ -308,6 +320,17 @@ export default async function MappingPage({
       return <AccessDenied companyId={companyId} />;
     }
     overrides = loadedOverrides.value;
+    const loadedCorrections = await loadAuthorized(
+      fetchCorrections(
+        session.token,
+        companyId,
+        selectedDatasetSummary.dataset_version_id,
+      ),
+    );
+    if (!loadedCorrections.allowed) {
+      return <AccessDenied companyId={companyId} />;
+    }
+    corrections = loadedCorrections.value;
   }
 
   // Los maestros salen de la API, no de una constante: una cuenta escrita a
@@ -793,6 +816,67 @@ export default async function MappingPage({
                       ))}
                     </tbody>
                   </table>
+                </div>
+              )}
+            </section>
+
+            <section aria-labelledby="revision-correcciones">
+              <h3 id="revision-correcciones">Correcciones propuestas</h3>
+              {corrections.length === 0 ? (
+                <p className="meta">
+                  Esta version no tiene correcciones tipadas propuestas.
+                </p>
+              ) : (
+                <div className="correction-review-list">
+                  {corrections.map((item) => (
+                    <article className="notice" key={item.overlay_id}>
+                      <div>
+                        <strong>
+                          {CORRECTION_FIELD_LABELS[item.field] ?? item.field}:{' '}
+                          propuesta <code>{item.proposed_value}</code>
+                        </strong>
+                        <span className="outcome">
+                          {CORRECTION_STATUS_LABELS[item.status] ?? item.status}
+                        </span>
+                      </div>
+                      <p>
+                        {item.reason_comment}{' '}
+                        <Link
+                          href={withFlowContext(
+                            `/empresas/${companyId}/movimientos/${item.movement_id}`,
+                            flowContext,
+                          )}
+                        >
+                          Comparar con el valor actual
+                        </Link>
+                      </p>
+                      <p className="meta">
+                        Autor: {item.author_name} · secuencia {item.sequence} ·{' '}
+                        motivo <code>{item.reason_code}</code>
+                      </p>
+                      {item.status === 'pending_review' ? (
+                        canPublish && dataset.state === 'validated' ? (
+                          <CorrectionReviewForm
+                            companyId={companyId}
+                            artifactId={artifactId}
+                            datasetVersionId={dataset.dataset_version_id}
+                            overlayId={item.overlay_id}
+                          />
+                        ) : (
+                          <p className="notice">Pendiente de un revisor autorizado.</p>
+                        )
+                      ) : item.status === 'approved' ? (
+                        <p className="notice warning">
+                          La aprobacion no altero el dataset base. Falta aplicar en
+                          una version nueva antes de publicar.
+                        </p>
+                      ) : (
+                        <p className="meta">
+                          Rechazada por {item.reviewer_name}: {item.review_rationale}
+                        </p>
+                      )}
+                    </article>
+                  ))}
                 </div>
               )}
             </section>

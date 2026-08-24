@@ -3,15 +3,24 @@ import { notFound, redirect } from 'next/navigation';
 
 import {
   ApiError,
+  fetchCompany,
+  fetchCorrections,
+  fetchCorrectionTargets,
   fetchDataset,
   fetchMapping,
   fetchMovement,
 } from '@/lib/api';
 import {
+  CORRECTION_FIELD_LABELS,
+  CORRECTION_STATUS_LABELS,
+} from '@/lib/corrections';
+import {
   pageFromQuery,
   withFlowContext,
 } from '@/lib/navigation';
 import { readSession } from '@/lib/session';
+
+import { CorrectionProposalForm } from './correction-form';
 
 export const dynamic = 'force-dynamic';
 
@@ -83,11 +92,17 @@ export default async function MovementPage({
   }
   const [{ companyId, movementId }, query] = await Promise.all([params, searchParams]);
 
+  let company;
   let movement;
   let dataset;
   let mapping;
+  let targets;
+  let corrections;
   try {
-    movement = await fetchMovement(session.token, companyId, movementId);
+    [company, movement] = await Promise.all([
+      fetchCompany(session.token, companyId),
+      fetchMovement(session.token, companyId, movementId),
+    ]);
     // El contexto de regreso se deriva de la cadena autorizada, no de UUID que
     // envie el navegador: movimiento -> dataset -> mapping -> fuente/artefacto.
     dataset = await fetchDataset(
@@ -100,6 +115,12 @@ export default async function MovementPage({
       companyId,
       dataset.mapping_version_id,
     );
+    [targets, corrections] = await Promise.all([
+      fetchCorrectionTargets(
+        session.token, companyId, movement.dataset_version_id, movementId,
+      ),
+      fetchCorrections(session.token, companyId, movement.dataset_version_id),
+    ]);
   } catch (error) {
     if (error instanceof ApiError && error.status === 401) {
       redirect('/entrar');
@@ -136,6 +157,9 @@ export default async function MovementPage({
 
   const cellOf = (field: string) =>
     movement.lineage.find((step) => step.field === field)?.cell ?? null;
+  const movementCorrections = corrections.filter(
+    (item) => item.movement_id === movement.movement_id,
+  );
 
   return (
     <main>
@@ -185,6 +209,64 @@ export default async function MovementPage({
           Cuando ocurrio, cuando se asento y a que periodo pertenece son tres
           fechas distintas. Confundirlas cambia de mes un asiento.
         </p>
+      </section>
+
+      <h2 id="correcciones">Correcciones controladas</h2>
+      <section className="card" aria-labelledby="correcciones">
+        <p className="meta">
+          Una correccion es una propuesta append-only. No cambia el original ni
+          este movimiento; si se aprueba, se aplicara al crear otra version del
+          conjunto con linaje nuevo.
+        </p>
+        {movementCorrections.length > 0 ? (
+          <div className="correction-list">
+            {movementCorrections.map((item) => {
+              const target = targets.find((candidate) => candidate.field === item.field);
+              return (
+                <article className="notice" key={item.overlay_id}>
+                  <strong>
+                    {CORRECTION_FIELD_LABELS[item.field] ?? item.field}:{' '}
+                    {target?.current_value ?? 'sin valor'} → {item.proposed_value}
+                  </strong>
+                  <div className="meta">
+                    {CORRECTION_STATUS_LABELS[item.status] ?? item.status} · propuesta
+                    por {item.author_name} · motivo {item.reason_code}
+                  </div>
+                  <p>{item.reason_comment}</p>
+                  {item.review_rationale ? (
+                    <p className="meta">
+                      Revision de {item.reviewer_name}: {item.review_rationale}
+                    </p>
+                  ) : null}
+                  {item.status === 'approved' ? (
+                    <p className="notice warning">
+                      Aprobada no significa aplicada. Este movimiento conserva{' '}
+                      <strong>{target?.current_value ?? 'su valor actual'}</strong>.
+                    </p>
+                  ) : null}
+                </article>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="notice">No hay correcciones propuestas para esta fila.</p>
+        )}
+
+        {dataset.state === 'validated' && company.permissions.includes('dataset.map') ? (
+          <CorrectionProposalForm
+            companyId={companyId}
+            artifactId={mapping.artifact_id}
+            datasetVersionId={dataset.dataset_version_id}
+            movementId={movement.movement_id}
+            targets={targets}
+          />
+        ) : (
+          <p className="notice">
+            {dataset.state !== 'validated'
+              ? 'Esta version es historica o no esta validada; no admite propuestas.'
+              : 'Tu rol puede revisar el movimiento, pero no proponer correcciones.'}
+          </p>
+        )}
       </section>
 
       <h2 id="origen">De donde sale</h2>

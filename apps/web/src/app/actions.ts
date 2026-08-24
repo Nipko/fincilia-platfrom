@@ -13,6 +13,8 @@ import {
   approveOverride,
   type Blocker,
   continueDataset,
+  fetchCorrectionTargets,
+  fetchCorrections,
   createAccount,
   createMapping,
   createSource,
@@ -27,7 +29,9 @@ import {
   decideAmbiguity,
   prepareDataset,
   publishDataset,
+  proposeCorrection,
   rejectDataset,
+  reviewCorrection,
   signIn,
   validateMapping,
 } from '@/lib/api';
@@ -510,6 +514,152 @@ export async function approveOverrideAction(
 
   revalidatePath(`/empresas/${companyId}/documentos/${artifactId}/mapeo`);
   return { error: null, done: 'Excepcion aprobada por una persona distinta.' };
+}
+
+export type CorrectionState = { error: string | null; done: string | null };
+
+/** Propone; vuelve a ligar todos los IDs y el digest a la lectura autorizada. */
+export async function proposeCorrectionAction(
+  _previous: CorrectionState,
+  formData: FormData,
+): Promise<CorrectionState> {
+  const session = await readSession();
+  if (!session) {
+    redirect('/entrar');
+  }
+  const companyId = String(formData.get('companyId') ?? '');
+  const artifactId = String(formData.get('artifactId') ?? '');
+  const datasetVersionId = String(formData.get('datasetVersionId') ?? '');
+  const movementId = String(formData.get('movementId') ?? '');
+  const field = String(formData.get('field') ?? '');
+  const expectedBaseDigest = String(formData.get('expectedBaseDigest') ?? '');
+  const newValue = String(formData.get('newValue') ?? '').trim();
+  const reasonCode = String(formData.get('reasonCode') ?? '');
+  const reasonComment = String(formData.get('reasonComment') ?? '').trim();
+  if (!datasetVersionId || !movementId || !field || !newValue || !reasonComment) {
+    return { error: 'Completa campo, valor y motivo de la correccion.', done: null };
+  }
+  if (reasonComment.length > 500) {
+    return { error: 'El motivo no puede superar 500 caracteres.', done: null };
+  }
+
+  try {
+    const [dataset, targets] = await Promise.all([
+      fetchDataset(session.token, companyId, datasetVersionId),
+      fetchCorrectionTargets(session.token, companyId, datasetVersionId, movementId),
+    ]);
+    if (dataset.artifact_id !== artifactId || dataset.state !== 'validated') {
+      return {
+        error: 'El conjunto ya no es la version validada que estabas corrigiendo.',
+        done: null,
+      };
+    }
+    const target = targets.find((item) => item.field === field);
+    if (!target || target.expected_base_digest !== expectedBaseDigest) {
+      return {
+        error: 'El campo cambio desde que abriste la pantalla; vuelve a cargar.',
+        done: null,
+      };
+    }
+    await proposeCorrection(session.token, companyId, datasetVersionId, {
+      movement_id: movementId,
+      field,
+      expected_base_digest: expectedBaseDigest,
+      new_value: newValue,
+      reason_code: reasonCode,
+      reason_comment: reasonComment,
+    });
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) {
+      redirect('/entrar');
+    }
+    if (error instanceof ApiError && error.status === 403) {
+      return { error: 'Este rol no puede proponer correcciones.', done: null };
+    }
+    if (error instanceof ApiError && error.status === 409) {
+      return {
+        error: 'La base cambio o ya existe una correccion activa para ese campo.',
+        done: null,
+      };
+    }
+    return {
+      error: error instanceof ApiError ? error.message : 'No se pudo proponer la correccion.',
+      done: null,
+    };
+  }
+
+  revalidatePath(`/empresas/${companyId}/movimientos/${movementId}`);
+  revalidatePath(`/empresas/${companyId}/documentos/${artifactId}/mapeo`);
+  return {
+    error: null,
+    done: 'Correccion propuesta. Todavia no cambia el movimiento: requiere revision.',
+  };
+}
+
+/** Revisa; aprobar autoriza el siguiente reproceso, pero no aplica el valor. */
+export async function reviewCorrectionAction(
+  _previous: CorrectionState,
+  formData: FormData,
+): Promise<CorrectionState> {
+  const session = await readSession();
+  if (!session) {
+    redirect('/entrar');
+  }
+  const companyId = String(formData.get('companyId') ?? '');
+  const artifactId = String(formData.get('artifactId') ?? '');
+  const datasetVersionId = String(formData.get('datasetVersionId') ?? '');
+  const overlayId = String(formData.get('overlayId') ?? '');
+  const decision = String(formData.get('decision') ?? '');
+  const rationale = String(formData.get('rationale') ?? '').trim();
+  if (!overlayId || !rationale || !['approved', 'rejected'].includes(decision)) {
+    return { error: 'Elige una decision y explica el motivo.', done: null };
+  }
+  if (rationale.length > 500) {
+    return { error: 'La justificacion no puede superar 500 caracteres.', done: null };
+  }
+
+  try {
+    const [dataset, corrections] = await Promise.all([
+      fetchDataset(session.token, companyId, datasetVersionId),
+      fetchCorrections(session.token, companyId, datasetVersionId),
+    ]);
+    if (dataset.artifact_id !== artifactId) {
+      return { error: 'El conjunto ya no pertenece al documento visible.', done: null };
+    }
+    const correction = corrections.find((item) => item.overlay_id === overlayId);
+    if (!correction || correction.status !== 'pending_review') {
+      return { error: 'La correccion ya no esta pendiente en este conjunto.', done: null };
+    }
+    await reviewCorrection(
+      session.token, companyId, overlayId,
+      decision as 'approved' | 'rejected', rationale,
+    );
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) {
+      redirect('/entrar');
+    }
+    if (error instanceof ApiError && error.status === 403) {
+      return { error: 'Este rol no puede revisar correcciones.', done: null };
+    }
+    if (error instanceof ApiError && error.status === 409) {
+      return {
+        error: 'No puedes revisar tu propia correccion o ya fue revisada.',
+        done: null,
+      };
+    }
+    return {
+      error: error instanceof ApiError ? error.message : 'No se pudo revisar la correccion.',
+      done: null,
+    };
+  }
+
+  revalidatePath(`/empresas/${companyId}/documentos/${artifactId}/mapeo`);
+  return {
+    error: null,
+    done: decision === 'approved'
+      ? 'Correccion aprobada. Sigue pendiente de aplicar en una version nueva.'
+      : 'Correccion rechazada; el dataset base no fue modificado.',
+  };
 }
 
 /** Rechazar conserva el motivo; nunca transforma el dataset ni borra evidencia. */

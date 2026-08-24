@@ -12,6 +12,7 @@ import {
   decideAmbiguityAction,
   prepareDatasetAction,
   publishDatasetAction,
+  reviewCorrectionAction,
   rejectDatasetAction,
   type DecisionState,
   type MappingState,
@@ -502,6 +503,60 @@ export function OverrideApprovalForm({
       <button type="submit" disabled={pending}>
         {pending ? 'Aprobando...' : 'Aprobar excepcion'}
       </button>
+      {state.error ? <p className="notice error" role="alert">{state.error}</p> : null}
+      {state.done ? <p className="notice ok" role="status">{state.done}</p> : null}
+    </form>
+  );
+}
+
+export function CorrectionReviewForm({
+  companyId,
+  artifactId,
+  datasetVersionId,
+  overlayId,
+}: {
+  companyId: string;
+  artifactId: string;
+  datasetVersionId: string;
+  overlayId: string;
+}) {
+  const [state, action, pending] = useActionState(
+    reviewCorrectionAction,
+    REVIEW_INITIAL,
+  );
+  const hint = `correction-review-hint-${overlayId}`;
+  return (
+    <form className="upload" action={action}>
+      <input type="hidden" name="companyId" value={companyId} />
+      <input type="hidden" name="artifactId" value={artifactId} />
+      <input type="hidden" name="datasetVersionId" value={datasetVersionId} />
+      <input type="hidden" name="overlayId" value={overlayId} />
+      <label htmlFor={`correction-rationale-${overlayId}`}>Justificacion</label>
+      <textarea
+        id={`correction-rationale-${overlayId}`}
+        name="rationale"
+        required
+        maxLength={500}
+        aria-describedby={hint}
+      />
+      <p id={hint} className="meta">
+        Aprobar no aplica el valor: autoriza crear una version nueva. El autor no
+        puede revisar su propia propuesta.
+      </p>
+      <div className="actions">
+        <button name="decision" value="approved" type="submit" disabled={pending}>
+          {pending ? 'Guardando...' : 'Aprobar para reproceso'}
+        </button>
+        <button
+          name="decision"
+          value="rejected"
+          type="submit"
+          className="secondary"
+          disabled={pending}
+        >
+          Rechazar propuesta
+        </button>
+      </div>
       {state.error ? <p className="notice error" role="alert">{state.error}</p> : null}
       {state.done ? <p className="notice ok" role="status">{state.done}</p> : null}
     </form>

@@ -381,6 +381,27 @@ code.digest {
   margin: 0.25rem 0 0.5rem;
 }
 
+.correction-list,
+.correction-review-list {
+  display: grid;
+  gap: 0.85rem;
+  margin-block: 1rem;
+}
+
+.correction-review-list article > div:first-child {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  justify-content: space-between;
+}
+
+.correction-form {
+  border-top: 1px solid var(--line);
+  margin-top: 1rem;
+  padding-top: 1rem;
+}
+
 ul {
   margin: 0.25rem 0;
   padding-left: 1.2rem;
