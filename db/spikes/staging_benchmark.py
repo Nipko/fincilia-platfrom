@@ -194,11 +194,12 @@ def security_checks(app_dsn: str, migrator_dsn: str, *, company_id: str,
                            "ON COMMIT DROP")
             cursor.execute("INSERT INTO staging_probe VALUES (1)")
         with second.cursor() as other:
-            other.execute(
-                "SELECT count(*) FROM pg_class c "
-                "JOIN pg_namespace n ON n.oid = c.relnamespace "
-                "WHERE c.relname = 'staging_probe' AND n.nspname LIKE 'pg_temp%'")
-            findings["invisible_to_another_session"] = other.fetchone()[0] == 0
+            # Se pregunta por la **resolucion del nombre**, no por el catalogo:
+            # `pg_class` es global y otra sesion puede ver la fila una vez
+            # confirmada. Lo que no puede es alcanzar la tabla, porque
+            # `pg_temp` se resuelve al esquema temporal de cada sesion.
+            other.execute("SELECT to_regclass('staging_probe') IS NULL")
+            findings["invisible_to_another_session"] = bool(other.fetchone()[0])
         first.commit()
         with first.cursor() as cursor:
             cursor.execute("SELECT to_regclass('staging_probe') IS NULL")
