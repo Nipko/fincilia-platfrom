@@ -49,6 +49,17 @@ test('TST-A11Y-001: portafolio autenticado de preparador', async ({ page }) => {
   await expectNoSeriousOrCriticalViolations(page);
 });
 
+test('TST-A11Y-001: estacion de conciliacion sintetica', async ({ page }) => {
+  await signIn(page, 'ana@demo.local');
+  await page.getByRole('link', { name: 'Abrir Panaderia La Espiga SAS' }).click();
+  await page.getByRole('link', { name: 'Conciliacion' }).click();
+  await expect(
+    page.getByRole('heading', { level: 1, name: 'Conciliacion visual' }),
+  ).toBeVisible();
+
+  await expectNoSeriousOrCriticalViolations(page);
+});
+
 test('TST-A11Y-001: denegacion cross-company de revisor', async ({ page }) => {
   await signIn(page, 'beto@demo.local');
   await page.goto('/empresas/ba382f36-c2b3-55c8-9d85-4bdc74979d19');

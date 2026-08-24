@@ -49,9 +49,10 @@ test('Beto ve una empresa, capacidades de revision y ninguna carga', async ({
   await expect(page.getByText('Transportes Andinos SAS', { exact: true })).toHaveCount(0);
 
   await page.getByRole('link', { name: 'Abrir Panaderia La Espiga SAS' }).click();
+  const grants = page.locator('section.card').first();
   await expect(page.getByText('reviewer', { exact: true })).toBeVisible();
-  await expect(page.getByText('dataset.publish', { exact: true })).toBeVisible();
-  await expect(page.getByText('dataset.map', { exact: true })).toHaveCount(0);
+  await expect(grants.getByText('dataset.publish', { exact: true })).toBeVisible();
+  await expect(grants.getByText('dataset.map', { exact: true })).toHaveCount(0);
   await expect(page.getByLabel('Extracto o soporte')).toHaveCount(0);
 });
 
