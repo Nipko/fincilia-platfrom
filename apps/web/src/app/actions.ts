@@ -29,8 +29,10 @@ import {
   decideAmbiguity,
   prepareDataset,
   publishDataset,
+  proposeReconciliationReview,
   proposeCorrection,
   rejectDataset,
+  decideReconciliationReview,
   reviewCorrection,
   signIn,
   validateMapping,
@@ -71,6 +73,129 @@ export async function signInAction(
 export async function signOutAction(): Promise<void> {
   await clearSession();
   redirect('/entrar');
+}
+
+// --------------------------------------------------------------------------- //
+// Revision humana de candidatos de conciliacion (FNC-REC-002)
+// --------------------------------------------------------------------------- //
+
+export type MatchReviewState = { error: string | null; done: string | null };
+
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const IDEMPOTENCY_PATTERN = /^[A-Za-z0-9._:-]{16,128}$/;
+
+function reviewError(error: unknown): MatchReviewState {
+  if (error instanceof ApiError && error.status === 403) {
+    return { error: 'El candidato o el permiso ya no estan disponibles.', done: null };
+  }
+  if (error instanceof ApiError && error.status === 409) {
+    return {
+      error: 'El comando entra en conflicto con una decision, una clave previa o la segregacion de funciones.',
+      done: null,
+    };
+  }
+  if (error instanceof ApiError && error.status === 422) {
+    return { error: 'La propuesta ya no cumple el contrato de revision.', done: null };
+  }
+  if (error instanceof ApiError && error.status === 503) {
+    return { error: 'La revision no esta habilitada en este entorno.', done: null };
+  }
+  return {
+    error: error instanceof ApiError ? error.message : 'No se pudo registrar la revision.',
+    done: null,
+  };
+}
+
+export async function proposeMatchAction(
+  _previous: MatchReviewState,
+  formData: FormData,
+): Promise<MatchReviewState> {
+  const session = await readSession();
+  if (!session) redirect('/entrar');
+  const companyId = String(formData.get('companyId') ?? '');
+  const leftDatasetId = String(formData.get('leftDatasetId') ?? '');
+  const rightDatasetId = String(formData.get('rightDatasetId') ?? '');
+  const leftMovementId = String(formData.get('leftMovementId') ?? '');
+  const rightMovementId = String(formData.get('rightMovementId') ?? '');
+  const idempotencyKey = String(formData.get('idempotencyKey') ?? '');
+  const maxDays = Number.parseInt(String(formData.get('maxDays') ?? ''), 10);
+  if (
+    ![companyId, leftDatasetId, rightDatasetId, leftMovementId, rightMovementId]
+      .every((value) => UUID_PATTERN.test(value)) ||
+    !IDEMPOTENCY_PATTERN.test(idempotencyKey) ||
+    !Number.isInteger(maxDays) || maxDays < 0 || maxDays > 31
+  ) {
+    return { error: 'El candidato visible ya no tiene un contexto valido.', done: null };
+  }
+  try {
+    const result = await proposeReconciliationReview(
+      session.token,
+      companyId,
+      idempotencyKey,
+      {
+        left_dataset_id: leftDatasetId,
+        right_dataset_id: rightDatasetId,
+        left_movement_id: leftMovementId,
+        right_movement_id: rightMovementId,
+        max_days: maxDays,
+      },
+    );
+    revalidatePath(`/empresas/${companyId}/conciliacion`);
+    return {
+      error: null,
+      done: result.replayed
+        ? 'La misma propuesta ya estaba registrada.'
+        : result.created
+          ? 'Propuesta registrada. No cambia movimientos ni saldos.'
+          : 'El par ya estaba propuesto; se vinculó el comando sin duplicarlo.',
+    };
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) redirect('/entrar');
+    return reviewError(error);
+  }
+}
+
+export async function decideMatchAction(
+  _previous: MatchReviewState,
+  formData: FormData,
+): Promise<MatchReviewState> {
+  const session = await readSession();
+  if (!session) redirect('/entrar');
+  const companyId = String(formData.get('companyId') ?? '');
+  const candidateId = String(formData.get('candidateId') ?? '');
+  const idempotencyKey = String(formData.get('idempotencyKey') ?? '');
+  const decision = String(formData.get('decision') ?? '');
+  const reasonCode = String(formData.get('reasonCode') ?? '');
+  if (
+    !UUID_PATTERN.test(companyId) || !UUID_PATTERN.test(candidateId) ||
+    !IDEMPOTENCY_PATTERN.test(idempotencyKey) ||
+    !['confirmed', 'rejected'].includes(decision) || !reasonCode
+  ) {
+    return { error: 'La decision visible ya no tiene un contexto valido.', done: null };
+  }
+  try {
+    const result = await decideReconciliationReview(
+      session.token,
+      companyId,
+      candidateId,
+      idempotencyKey,
+      decision as 'confirmed' | 'rejected',
+      reasonCode,
+    );
+    revalidatePath(`/empresas/${companyId}/conciliacion`);
+    return {
+      error: null,
+      done: result.replayed
+        ? 'La misma decision ya estaba registrada.'
+        : decision === 'confirmed'
+          ? 'Revision confirmada. Sigue sin efecto sobre movimientos o saldos.'
+          : 'Candidato rechazado; la evidencia y el movimiento base se conservan.',
+    };
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) redirect('/entrar');
+    return reviewError(error);
+  }
 }
 
 // --------------------------------------------------------------------------- //

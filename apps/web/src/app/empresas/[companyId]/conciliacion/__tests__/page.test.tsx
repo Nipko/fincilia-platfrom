@@ -5,12 +5,17 @@ const mocks = vi.hoisted(() => ({
   fetchCompany: vi.fn(),
   fetchDatasets: vi.fn(),
   fetchCandidates: vi.fn(),
+  fetchReviews: vi.fn(),
   readSession: vi.fn(),
   redirect: vi.fn(),
 }));
 
 vi.mock('next/navigation', () => ({ redirect: mocks.redirect }));
 vi.mock('@/lib/session', () => ({ readSession: mocks.readSession }));
+vi.mock('@/app/actions', () => ({
+  proposeMatchAction: vi.fn(),
+  decideMatchAction: vi.fn(),
+}));
 vi.mock('@/lib/api', () => ({
   ApiError: class ApiError extends Error {
     status: number;
@@ -22,6 +27,7 @@ vi.mock('@/lib/api', () => ({
   fetchCompany: mocks.fetchCompany,
   fetchDatasets: mocks.fetchDatasets,
   fetchReconciliationCandidates: mocks.fetchCandidates,
+  fetchReconciliationReviews: mocks.fetchReviews,
 }));
 
 import ReconciliationPage from '../page';
@@ -29,6 +35,8 @@ import ReconciliationPage from '../page';
 const COMPANY = '161b0037-c445-50aa-b400-72632d3f53f0';
 const LEFT = '11111111-1111-4111-8111-111111111111';
 const RIGHT = '22222222-2222-4222-8222-222222222222';
+const LEFT_MOVEMENT = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+const RIGHT_MOVEMENT = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 
 function dataset(id: string) {
   return {
@@ -51,6 +59,7 @@ describe('ReconciliationPage', () => {
       permissions: ['movement.read'],
     });
     mocks.fetchDatasets.mockResolvedValue([dataset(LEFT), dataset(RIGHT)]);
+    mocks.fetchReviews.mockResolvedValue([]);
   });
 
   it('presenta pares explicados sin controles de decision financiera', async () => {
@@ -117,6 +126,92 @@ describe('ReconciliationPage', () => {
     expect(screen.getByText('No hay candidatos con estas reglas')).toBeInTheDocument();
     expect(screen.getByText(/Esto no demuestra que falten movimientos/))
       .toBeInTheDocument();
+  });
+
+  it('ofrece proponer solo cuando la API concedio match.propose', async () => {
+    mocks.fetchCompany.mockResolvedValue({
+      legal_name: 'Servicios Espiga SAS',
+      permissions: ['movement.read', 'match.propose', 'match.reject'],
+    });
+    mocks.fetchCandidates.mockResolvedValue({
+      candidates: [{
+        left: {
+          movement_id: LEFT_MOVEMENT, amount: '10.000000000000', currency: 'COP',
+          direction: 'outflow', description: 'Pago', reference: null,
+          occurred_on: '2026-02-13', state: 'proposed', record_ordinal: 2,
+        },
+        right: {
+          movement_id: RIGHT_MOVEMENT, amount: '10.000000000000', currency: 'COP',
+          direction: 'inflow', description: 'Abono', reference: null,
+          occurred_on: '2026-02-14', state: 'proposed', record_ordinal: 2,
+        },
+        date_distance_days: 1,
+        signals: ['exact_amount'],
+      }],
+      truncated: false,
+      mode: 'candidate_only',
+      proves_balance_reconciliation: false,
+    });
+
+    render(await ReconciliationPage({
+      params: Promise.resolve({ companyId: COMPANY }),
+      searchParams: Promise.resolve({ izquierda: LEFT, derecha: RIGHT }),
+    }));
+
+    expect(screen.getByRole('button', { name: 'Enviar a revision humana' }))
+      .toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Confirmar revision' }))
+      .not.toBeInTheDocument();
+  });
+
+  it('muestra decision pendiente y controles concedidos sin decidir SoD en web', async () => {
+    mocks.fetchCompany.mockResolvedValue({
+      legal_name: 'Servicios Espiga SAS',
+      permissions: ['movement.read', 'match.confirm', 'match.reject'],
+    });
+    mocks.fetchCandidates.mockResolvedValue({
+      candidates: [{
+        left: {
+          movement_id: LEFT_MOVEMENT, amount: '10.000000000000', currency: 'COP',
+          direction: 'outflow', description: 'Pago', reference: null,
+          occurred_on: '2026-02-13', state: 'proposed', record_ordinal: 2,
+        },
+        right: {
+          movement_id: RIGHT_MOVEMENT, amount: '10.000000000000', currency: 'COP',
+          direction: 'inflow', description: 'Abono', reference: null,
+          occurred_on: '2026-02-14', state: 'proposed', record_ordinal: 2,
+        },
+        date_distance_days: 1,
+        signals: ['exact_amount'],
+      }],
+      truncated: false,
+      mode: 'candidate_only',
+      proves_balance_reconciliation: false,
+    });
+    mocks.fetchReviews.mockResolvedValue([{
+      candidate_id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+      left_movement_id: LEFT_MOVEMENT,
+      right_movement_id: RIGHT_MOVEMENT,
+      proposed_by_name: 'Ana Preparadora',
+      proposed_at: '2026-08-24T12:00:00+00:00',
+      status: 'open',
+      decision: null,
+      financial_effect: 'none',
+      proves_balance_reconciliation: false,
+    }]);
+
+    render(await ReconciliationPage({
+      params: Promise.resolve({ companyId: COMPANY }),
+      searchParams: Promise.resolve({ izquierda: LEFT, derecha: RIGHT }),
+    }));
+
+    expect(screen.getByText('Pendiente de decision humana')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Confirmar revision' }))
+      .toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Rechazar candidato' }))
+      .toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Enviar a revision humana' }))
+      .not.toBeInTheDocument();
   });
 
   it('prioriza una URL invalida aunque aun no existan dos datasets aptos', async () => {

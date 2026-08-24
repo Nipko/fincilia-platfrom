@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
@@ -6,8 +8,10 @@ import {
   fetchCompany,
   fetchDatasets,
   fetchReconciliationCandidates,
+  fetchReconciliationReviews,
   type CandidatePage,
   type DatasetSummary,
+  type MatchReview,
 } from '@/lib/api';
 import {
   CANDIDATE_PAGE_SIZE,
@@ -17,6 +21,7 @@ import {
 } from '@/lib/reconciliation';
 import { readSession } from '@/lib/session';
 import { PageState } from '@/components/page-state';
+import { MatchReviewPanel, ProposeMatchForm } from './review-controls';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,6 +36,10 @@ const SIGNAL_LABELS: Record<string, string> = {
 
 function datasetLabel(dataset: DatasetSummary): string {
   return `${dataset.prepared_at.slice(0, 10)} · ${dataset.movement_count} movimientos · ${dataset.state}`;
+}
+
+function pairKey(left: string, right: string): string {
+  return [left, right].sort().join(':');
 }
 
 export default async function ReconciliationPage({
@@ -77,7 +86,9 @@ export default async function ReconciliationPage({
     selectable.map((dataset) => dataset.dataset_version_id),
   );
   let result: CandidatePage | null = null;
+  let reviews: MatchReview[] = [];
   let failure: 'scope' | 'invalid' | 'degraded' | null = null;
+  let reviewFailure = false;
   if (selection.valid) {
     try {
       result = await fetchReconciliationCandidates(
@@ -96,7 +107,34 @@ export default async function ReconciliationPage({
       else if (error instanceof ApiError && error.status === 503) failure = 'degraded';
       else throw error;
     }
+    if (result) {
+      try {
+        reviews = await fetchReconciliationReviews(
+          session.token,
+          companyId,
+          selection.leftDatasetId,
+          selection.rightDatasetId,
+        );
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 401) redirect('/entrar');
+        if (error instanceof ApiError && [403, 422, 503].includes(error.status)) {
+          reviewFailure = true;
+        } else {
+          throw error;
+        }
+      }
+    }
   }
+
+  const reviewsByPair = new Map(
+    reviews.map((review) => [
+      pairKey(review.left_movement_id, review.right_movement_id),
+      review,
+    ]),
+  );
+  const canPropose = company.permissions.includes('match.propose');
+  const canConfirm = company.permissions.includes('match.confirm');
+  const canReject = company.permissions.includes('match.reject');
 
   const previous = selection.page > 0
     ? reconciliationUrl(companyId, { ...selection, page: selection.page - 1 })
@@ -121,7 +159,8 @@ export default async function ReconciliationPage({
       <section className="notice reconciliation-warning" role="note">
         <strong>Solo candidatos.</strong> Esta pantalla no confirma empates, no
         modifica movimientos y no demuestra que los saldos esten conciliados.
-        Cada par debe revisarse desde su evidencia.
+        Puede conservar una propuesta y una decision humana, siempre sin efecto
+        financiero. Cada par debe revisarse desde su evidencia.
       </section>
 
       <form className="card reconciliation-filter" method="get">
@@ -217,7 +256,18 @@ export default async function ReconciliationPage({
           />
         ) : (
           <div className="candidate-list" aria-label="Candidatos encontrados">
-            {result?.candidates.map((candidate) => (
+            {reviewFailure ? (
+              <div className="notice reconciliation-warning" role="alert">
+                Los candidatos siguen visibles, pero su historial de revision no
+                esta disponible. No se ofrecen acciones hasta recuperar el ledger.
+              </div>
+            ) : null}
+            {result?.candidates.map((candidate) => {
+              const review = reviewsByPair.get(pairKey(
+                candidate.left.movement_id,
+                candidate.right.movement_id,
+              ));
+              return (
               <article
                 className="candidate-pair card"
                 key={`${candidate.left.movement_id}:${candidate.right.movement_id}`}
@@ -250,8 +300,32 @@ export default async function ReconciliationPage({
                     Ver evidencia derecha
                   </Link>
                 </div>
+                {!reviewFailure && review ? (
+                  <MatchReviewPanel
+                    companyId={companyId}
+                    review={review}
+                    canConfirm={canConfirm}
+                    canReject={canReject}
+                    confirmCommandKey={`rec002-confirm-${randomUUID()}`}
+                    rejectCommandKey={`rec002-reject-${randomUUID()}`}
+                  />
+                ) : !reviewFailure && canPropose ? (
+                  <ProposeMatchForm
+                    companyId={companyId}
+                    leftDatasetId={selection.leftDatasetId}
+                    rightDatasetId={selection.rightDatasetId}
+                    maxDays={selection.maxDays}
+                    candidate={candidate}
+                    commandKey={`rec002-propose-${randomUUID()}`}
+                  />
+                ) : !reviewFailure ? (
+                  <p className="match-review-status meta">
+                    Sin propuesta. Tu rol puede explorar, pero no proponer este par.
+                  </p>
+                ) : null}
               </article>
-            ))}
+              );
+            })}
           </div>
         )}
       </section>

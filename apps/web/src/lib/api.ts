@@ -412,6 +412,34 @@ export type CandidatePage = {
   candidates: ReconciliationCandidate[];
 };
 
+export type MatchDecision = {
+  decision_id: string;
+  decision: 'confirmed' | 'rejected';
+  reason_code: string;
+  decided_by: string;
+  decided_by_name: string;
+  decided_at: string;
+};
+
+export type MatchReview = {
+  candidate_id: string;
+  left_movement_id: string;
+  right_movement_id: string;
+  rule_version: string;
+  signals: string[];
+  date_window_days: number;
+  date_distance_days: number;
+  proposed_by: string;
+  proposed_by_name: string;
+  proposed_at: string;
+  status: 'open' | 'confirmed' | 'rejected';
+  decision: MatchDecision | null;
+  financial_effect: 'none';
+  proves_balance_reconciliation: false;
+  replayed?: boolean;
+  created?: boolean;
+};
+
 /** Una etapa logica del camino de un campo publicado. */
 export type LineageStage = {
   canonical_field: string;
@@ -724,6 +752,74 @@ export function fetchReconciliationCandidates(
   return request<CandidatePage>(
     `/api/v1/companies/${company}/reconciliation/candidates?${query.toString()}`,
     { token },
+  );
+}
+
+export function fetchReconciliationReviews(
+  token: string,
+  companyId: string,
+  leftDatasetId: string,
+  rightDatasetId: string,
+): Promise<MatchReview[]> {
+  const company = encodeURIComponent(companyId);
+  const query = new URLSearchParams({
+    left_dataset_id: leftDatasetId,
+    right_dataset_id: rightDatasetId,
+  });
+  return request<MatchReview[]>(
+    `/api/v1/companies/${company}/reconciliation/reviews?${query.toString()}`,
+    { token },
+  );
+}
+
+export function proposeReconciliationReview(
+  token: string,
+  companyId: string,
+  idempotencyKey: string,
+  body: {
+    left_dataset_id: string;
+    right_dataset_id: string;
+    left_movement_id: string;
+    right_movement_id: string;
+    max_days: number;
+  },
+): Promise<MatchReview> {
+  const company = encodeURIComponent(companyId);
+  return request<MatchReview>(
+    `/api/v1/companies/${company}/reconciliation/reviews`,
+    {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'idempotency-key': idempotencyKey,
+      },
+      body: JSON.stringify(body),
+      token,
+    },
+  );
+}
+
+export function decideReconciliationReview(
+  token: string,
+  companyId: string,
+  candidateId: string,
+  idempotencyKey: string,
+  decision: 'confirmed' | 'rejected',
+  reasonCode: string,
+): Promise<MatchReview> {
+  const company = encodeURIComponent(companyId);
+  const candidate = encodeURIComponent(candidateId);
+  return request<MatchReview>(
+    `/api/v1/companies/${company}/reconciliation/reviews/${candidate}/decision`,
+    {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'idempotency-key': idempotencyKey,
+      },
+      body: JSON.stringify({ decision, reason_code: reasonCode }),
+      token,
+    },
   );
 }
 

@@ -18,6 +18,8 @@ const mocks = vi.hoisted(() => {
     fetchMapping: vi.fn(),
     fetchOverrides: vi.fn(),
     proposeCorrection: vi.fn(),
+    proposeReconciliationReview: vi.fn(),
+    decideReconciliationReview: vi.fn(),
     reviewCorrection: vi.fn(),
     createMapping: vi.fn(),
     fetchSource: vi.fn(),
@@ -56,6 +58,8 @@ vi.mock('@/lib/api', () => ({
   prepareDataset: vi.fn(),
   publishDataset: vi.fn(),
   proposeCorrection: mocks.proposeCorrection,
+  proposeReconciliationReview: mocks.proposeReconciliationReview,
+  decideReconciliationReview: mocks.decideReconciliationReview,
   rejectDataset: mocks.rejectDataset,
   reviewCorrection: mocks.reviewCorrection,
   setCycle: vi.fn(),
@@ -73,6 +77,8 @@ import {
   reviewCorrectionAction,
   continueDatasetAction,
   rejectDatasetAction,
+  proposeMatchAction,
+  decideMatchAction,
 } from '../actions';
 
 function mappingForm(): FormData {
@@ -122,6 +128,28 @@ function correctionForm(): FormData {
   form.set('newValue', '1200.50');
   form.set('reasonCode', 'source_correction');
   form.set('reasonComment', 'Valor contrastado con evidencia sintetica.');
+  return form;
+}
+
+function matchProposalForm(): FormData {
+  const form = new FormData();
+  form.set('companyId', '5f0f7b18-0a7a-5c8e-9d2c-6a1f2b3c4d5e');
+  form.set('leftDatasetId', '6f0f7b18-0a7a-5c8e-9d2c-6a1f2b3c4d5f');
+  form.set('rightDatasetId', '7f0f7b18-0a7a-5c8e-9d2c-6a1f2b3c4d60');
+  form.set('leftMovementId', '8f0f7b18-0a7a-5c8e-9d2c-6a1f2b3c4d70');
+  form.set('rightMovementId', '9f0f7b18-0a7a-5c8e-9d2c-6a1f2b3c4d80');
+  form.set('maxDays', '3');
+  form.set('idempotencyKey', 'rec002-propose-test-0001');
+  return form;
+}
+
+function matchDecisionForm(): FormData {
+  const form = new FormData();
+  form.set('companyId', '5f0f7b18-0a7a-5c8e-9d2c-6a1f2b3c4d5e');
+  form.set('candidateId', 'af0f7b18-0a7a-5c8e-9d2c-6a1f2b3c4d71');
+  form.set('decision', 'confirmed');
+  form.set('reasonCode', 'documented_counterpart');
+  form.set('idempotencyKey', 'rec002-confirm-test-0001');
   return form;
 }
 
@@ -396,6 +424,65 @@ describe('typed correction actions', () => {
 
     expect(result.done).toContain('pendiente de aplicar');
     expect(mocks.reviewCorrection).toHaveBeenCalledOnce();
+  });
+});
+
+describe('reconciliation review actions', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.readSession.mockResolvedValue({ token: 'token-sintetico', displayName: 'Ada' });
+  });
+
+  it('rechaza contexto manipulado antes de llamar a la API', async () => {
+    const form = matchProposalForm();
+    form.set('leftMovementId', 'movimiento-ajeno');
+
+    const result = await proposeMatchAction({ error: null, done: null }, form);
+
+    expect(result.error).toContain('contexto valido');
+    expect(mocks.proposeReconciliationReview).not.toHaveBeenCalled();
+  });
+
+  it('explica que proponer no cambia movimientos ni saldos', async () => {
+    mocks.proposeReconciliationReview.mockResolvedValue({
+      created: true, replayed: false, financial_effect: 'none',
+    });
+
+    const result = await proposeMatchAction(
+      { error: null, done: null }, matchProposalForm(),
+    );
+
+    expect(result.done).toContain('No cambia movimientos ni saldos');
+    expect(mocks.proposeReconciliationReview).toHaveBeenCalledOnce();
+    expect(mocks.revalidatePath).toHaveBeenCalledWith(
+      '/empresas/5f0f7b18-0a7a-5c8e-9d2c-6a1f2b3c4d5e/conciliacion',
+    );
+  });
+
+  it('no convierte un conflicto SoD en exito', async () => {
+    mocks.decideReconciliationReview.mockRejectedValue(
+      new mocks.ApiError(409, 'the proposer cannot confirm this candidate'),
+    );
+
+    const result = await decideMatchAction(
+      { error: null, done: null }, matchDecisionForm(),
+    );
+
+    expect(result.error).toContain('segregacion de funciones');
+    expect(result.done).toBeNull();
+  });
+
+  it('confirma solo como registro humano sin efecto financiero', async () => {
+    mocks.decideReconciliationReview.mockResolvedValue({
+      replayed: false, status: 'confirmed', financial_effect: 'none',
+    });
+
+    const result = await decideMatchAction(
+      { error: null, done: null }, matchDecisionForm(),
+    );
+
+    expect(result.done).toContain('sin efecto sobre movimientos o saldos');
+    expect(mocks.decideReconciliationReview).toHaveBeenCalledOnce();
   });
 });
 
