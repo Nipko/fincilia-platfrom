@@ -206,6 +206,7 @@ describe('ReconciliationPage', () => {
     }));
 
     expect(screen.getByText('Pendiente de decision humana')).toBeInTheDocument();
+    expect(screen.getByText(/2026-08-24 12:00 UTC/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Confirmar revision' }))
       .toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Rechazar candidato' }))

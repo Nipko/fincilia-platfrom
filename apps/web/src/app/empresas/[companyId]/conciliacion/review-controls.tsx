@@ -21,6 +21,12 @@ const REASON_LABELS: Record<string, string> = {
   insufficient_evidence: 'Evidencia insuficiente',
 };
 
+function formatTimestamp(value: string): string {
+  // Igual en SSR y navegador: la zona local del contenedor no puede cambiar el
+  // texto durante hidratacion. El sufijo hace explicito que no es hora local.
+  return `${new Date(value).toISOString().slice(0, 16).replace('T', ' ')} UTC`;
+}
+
 function Feedback({ state }: { state: MatchReviewState }) {
   if (state.error) return <p className="notice error" role="alert">{state.error}</p>;
   if (state.done) return <p className="notice ok" role="status">{state.done}</p>;
@@ -124,7 +130,7 @@ export function MatchReviewPanel({
         <strong>{review.status === 'confirmed' ? 'Revision confirmada' : 'Candidato rechazado'}</strong>
         <span>{REASON_LABELS[review.decision.reason_code] ?? review.decision.reason_code}</span>
         <span className="meta">
-          {review.decision.decided_by_name} · {new Date(review.decision.decided_at).toLocaleString('es-CO')}
+          {review.decision.decided_by_name} · {formatTimestamp(review.decision.decided_at)}
         </span>
         <span className="meta">Registro humano sin efecto financiero.</span>
       </section>
@@ -136,7 +142,7 @@ export function MatchReviewPanel({
       aria-label="Estado de revision">
       <strong>Pendiente de decision humana</strong>
       <span className="meta">
-        Propuesto por {review.proposed_by_name} · {new Date(review.proposed_at).toLocaleString('es-CO')}
+        Propuesto por {review.proposed_by_name} · {formatTimestamp(review.proposed_at)}
       </span>
       {(canConfirm || canReject) ? (
         <div className="match-review-actions">

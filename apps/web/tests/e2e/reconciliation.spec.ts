@@ -1,5 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
+import { findReviewPair, reviewUrl, signInReviewer } from './reconciliation-helpers';
+
 async function openReconciliation(page: Page): Promise<void> {
   await page.goto('/entrar');
   await page.getByLabel('Usuario').fill('ana@demo.local');
@@ -56,4 +58,25 @@ test('FNC-REC-001 conserva un estado invalido en vez de caer en latest', async (
 
   await expect(page.getByText('La comparacion solicitada no es valida')).toBeVisible();
   await expect(page.getByText('Solo candidatos.')).toBeVisible();
+});
+
+test('FNC-REC-002 un revisor confirma sin alterar ni certificar saldos', async ({
+  page,
+  request,
+}) => {
+  const pair = await findReviewPair(request, 'open');
+  await signInReviewer(page);
+  await page.goto(reviewUrl(pair));
+
+  const open = page.getByLabel('Estado de revision').filter({
+    hasText: 'Pendiente de decision humana',
+  }).first();
+  await expect(open).toBeVisible();
+  await open.getByRole('button', { name: 'Confirmar revision' }).click();
+
+  await expect(page.getByText('Revision confirmada').first()).toBeVisible();
+  await expect(page.getByText('Registro humano sin efecto financiero.').first())
+    .toBeVisible();
+  await expect(page.getByText(/demuestra que los saldos esten conciliados/))
+    .toBeVisible();
 });
