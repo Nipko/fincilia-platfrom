@@ -311,9 +311,28 @@ jobs:
 
       - name: The web serves the sign-in page and guards the rest
         run: |
-          curl -fsS http://127.0.0.1:53000/entrar | grep -q 'Fincilia'
-          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:53000/empresas)" = 307
-          curl -fsS -D - -o /dev/null http://127.0.0.1:53000/entrar | grep -qi 'content-security-policy'
+          sign_in_body="${RUNNER_TEMP}/fincilia-sign-in.html"
+          sign_in_headers="${RUNNER_TEMP}/fincilia-sign-in.headers"
+          guard_body="${RUNNER_TEMP}/fincilia-guard.html"
+          guard_headers="${RUNNER_TEMP}/fincilia-guard.headers"
+
+          curl -fsS -D "$sign_in_headers" -o "$sign_in_body" http://127.0.0.1:53000/entrar
+          grep -q 'Fincilia' "$sign_in_body"
+          grep -qi 'content-security-policy' "$sign_in_headers"
+
+          guard_status="$(curl -sS -D "$guard_headers" -o "$guard_body" -w '%{http_code}' http://127.0.0.1:53000/empresas)"
+          if [ "$guard_status" = 307 ]; then
+            grep -Eqi '^location: /entrar\r?$' "$guard_headers"
+          elif [ "$guard_status" = 200 ]; then
+            # A root loading boundary can flush the shell before a server
+            # component redirects. Next then carries the 307 in the streamed
+            # response instead of changing an already-sent HTTP status.
+            grep -q 'NEXT_REDIRECT;replace;/entrar;307;' "$guard_body"
+            ! grep -q '<h1>Empresas</h1>' "$guard_body"
+          else
+            printf 'Unexpected unauthenticated /empresas status: %s\n' "$guard_status" >&2
+            exit 1
+          fi
 
       - name: Web browser journey
         working-directory: apps/web
