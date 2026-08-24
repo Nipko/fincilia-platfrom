@@ -403,7 +403,7 @@ La corrida bloqueante de 100.000 filas produjo 100.001 registros crudos contando
 la cabecera, con 100.000 movimientos: 7,0 s de extracción, 35,4 s de preparación
 y 42,5 s totales.
 
-El carril manual del límite productivo terminó verde:
+El carril manual local del límite productivo terminó verde:
 
 | Medida | Resultado |
 |---|---:|
@@ -439,6 +439,29 @@ ni datos del repositorio.
 
 ### 11.5 Estado de integración
 
-La evidencia local está verde. La URL y el resultado del workflow remoto se
-añaden después del push; el job manual queda separado del push por
-`github.event_name` en el grupo de concurrencia, para que ninguno cancele al otro.
+R2 quedó integrado y empujado en
+`b4814119681bb9eccaba30e56f28a88646973858`. La corrida por `push` terminó
+completamente verde:
+
+- workflow: https://github.com/Nipko/fincilia-platfrom/actions/runs/32695531220
+- repositorio y política sintética: verde;
+- migraciones PostgreSQL 17: verde;
+- RLS, worker y parser: verde;
+- lifecycle local con migraciones, API, worker y web: verde.
+
+El carril `workflow_dispatch`, separado del push mediante `github.event_name` en
+el grupo de concurrencia, también terminó verde:
+
+- workflow: https://github.com/Nipko/fincilia-platfrom/actions/runs/32695925730
+- job de rendimiento: `97337854715`;
+- 3 pruebas en 307,976 s, OK;
+- 200.000 movimientos, 0 rechazados, 100 tramos;
+- extracción: 28,4 s; recorrido total: 136,6 s;
+- pico RSS: 231,0 MiB; crecimiento: 4,3 MiB;
+- 200.001 filas de datos: 200.000 emitidas y `truncated / row_limit`;
+- staging: 5.023 filas/s con INSERT, 7.932 con COPY/500 y 8.898 con
+  COPY/5.000; las comprobaciones de seguridad quedaron verdaderas.
+
+La diferencia frente a la medida local es esperable porque GitHub usa un runner
+compartido. Ambas corridas permanecen dentro de los presupuestos declarados. La
+revisión humana de DB-G03 y del privilegio `TEMPORARY` continúa pendiente.

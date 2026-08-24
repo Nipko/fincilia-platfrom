@@ -3,12 +3,17 @@
 | Campo | Valor |
 |---|---|
 | Rama | `claude/principal-dev` |
-| Base de R2 | `eb33133` |
+| Cierre técnico P3.6-R2 | `b481411` — push y carril manual verdes |
 | Migraciones añadidas | `V0012`–`V0015` — `V0001`–`V0011` con su checksum intacto |
 | Rutas nuevas | overrides de linaje (listar, crear, aprobar) y miembros asignables |
 | ADR propuesta | ADR-024 — actualizada, **sigue `Proposed`** |
 | Gate S1-READY | sigue `not_met`, y nada de esto lo mueve |
 | Prioridad de producto | plataforma web primero; móvil queda al final |
+
+Evidencia remota de cierre:
+
+- push: https://github.com/Nipko/fincilia-platfrom/actions/runs/32695531220
+- rendimiento al techo productivo: https://github.com/Nipko/fincilia-platfrom/actions/runs/32695925730
 
 ---
 
