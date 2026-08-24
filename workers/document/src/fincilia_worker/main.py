@@ -351,17 +351,45 @@ def _store_stream(database: Database, claim: "jobs.Claim", artifact: dict,
     return written
 
 
+# Las columnas que escribe la extraccion, en el orden en que las arma
+# `_store_stream`. `raw_record_id` y `created_at` los pone la base.
+STAGED_COLUMNS = ("company_id", "artifact_id", "processing_run_id",
+                  "record_ordinal", "origin_locator", "raw_values",
+                  "values_digest")
+
+
 def _flush(database: Database, claim: "jobs.Claim", batch: list[tuple]) -> int:
-    """Una tanda, una transaccion. Reintentar no duplica: lo impide la unicidad."""
+    """Una tanda, una transaccion. Reintentar no duplica: lo impide la unicidad.
+
+    La tanda entra por `COPY` a una tabla `TEMPORARY ... ON COMMIT DROP` y de ahi
+    a `raw_record` con un `INSERT ... SELECT`. `COPY` directo sobre la tabla con
+    RLS no es una opcion —PostgreSQL lo rechaza— y el rodeo por la temporal no
+    debilita nada: la politica sigue activa y forzada sobre el destino, que es
+    donde tiene que estar la frontera. La temporal no lleva politica porque no la
+    necesita: es de esta sesion y desaparece al confirmar.
+
+    `db/spikes/staging_benchmark.py` es lo que autoriza esta ruta: comprueba las
+    diez propiedades contra PostgreSQL real y mide. En la corrida que la adopto
+    salio en 1,9x sobre el `INSERT` multifila con tandas de quinientas.
+    """
     with database.session(company_id=claim.company_id) as connection:
         with connection.cursor() as cursor:
-            cursor.executemany(
+            cursor.execute(
+                "CREATE TEMPORARY TABLE staging_raw_record ("
+                "  company_id uuid, artifact_id uuid, processing_run_id uuid,"
+                "  record_ordinal integer, origin_locator jsonb, raw_values jsonb,"
+                "  values_digest char(64)) ON COMMIT DROP")
+            with cursor.copy("COPY staging_raw_record (" +
+                             ", ".join(STAGED_COLUMNS) + ") FROM STDIN") as copy:
+                for row in batch:
+                    copy.write_row(row)
+            cursor.execute(
                 "INSERT INTO fincilia.raw_record (raw_record_id, company_id, "
                 "artifact_id, processing_run_id, record_ordinal, origin_locator, "
-                "raw_values, values_digest) VALUES (gen_random_uuid(), %s, %s, %s, "
-                "%s, %s::jsonb, %s::jsonb, %s) "
-                "ON CONFLICT (processing_run_id, record_ordinal) DO NOTHING",
-                batch)
+                "raw_values, values_digest) "
+                "SELECT gen_random_uuid(), " + ", ".join(STAGED_COLUMNS) + " "
+                "FROM staging_raw_record "
+                "ON CONFLICT (processing_run_id, record_ordinal) DO NOTHING")
     return len(batch)
 
 

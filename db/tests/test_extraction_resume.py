@@ -270,6 +270,46 @@ class ExtractionResumeTests(unittest.TestCase):
                                "Apertura"):
                     self.assertNotIn(quoted, rendered)
 
+    def test_a_value_with_tabs_and_backslashes_survives_the_copy_TST_P36_043(self) -> None:
+        """La tanda entra por `COPY`, y `COPY` tiene formato de texto propio.
+
+        Una tabulacion, una barra invertida o un salto de linea dentro de un
+        campo entrecomillado son exactamente lo que ese formato escapa, y una
+        diferencia de escapado corromperia la evidencia sin que nada lo dijera:
+        el digest se calcula antes de escribir, asi que no delataria el cambio.
+        """
+        awkward = "con\ttabulador y \\barra"
+        multiline = "primera linea\nsegunda linea"
+        payload = (
+            "fecha;descripcion;referencia;valor\r\n"
+            f'13/02/2026;"{awkward}";REF-000001;1.000,00\r\n'
+            f'14/03/2026;"{multiline}";REF-000002;-2.000,00\r\n'
+        ).encode("utf-8")
+        type(self).created.add(sha256_bytes(payload))
+
+        upload = self.client.post(
+            f"/api/v1/companies/{ESPIGA}/documents", headers=self.auth(PREPARER),
+            files={"file": (f"raro-{RUN}.csv", io.BytesIO(payload), "text/csv")})
+        self.assertEqual(200, upload.status_code, upload.text)
+        self.drain()
+
+        settled = self.extraction_of(upload.json()["artifact_id"])
+        self.assertEqual("succeeded", settled["status"], settled)
+        with psycopg.connect(MIGRATOR_DSN, autocommit=True) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT set_config('fincilia.company_id', %s, false)", (ESPIGA,))
+                cursor.execute(
+                    "SELECT record_ordinal, raw_values FROM fincilia.raw_record "
+                    "WHERE processing_run_id = %s ORDER BY record_ordinal",
+                    (settled["run_id"],))
+                stored = {row[0]: row[1] for row in cursor}
+
+        # Los bytes que se leyeron son los que quedaron guardados, tabulador,
+        # barra y salto de linea incluidos.
+        self.assertEqual(awkward, stored[2][1])
+        self.assertEqual(multiline, stored[3][1])
+
 
 if __name__ == "__main__":
     unittest.main()
