@@ -11,7 +11,7 @@ annotated-types==0.8.0 \
 boto3==1.35.99 \
     --hash=sha256:83e560faaec38a956dfb3d62e05e1703ee50432b45b788c09e25107c5058bd71 \
     --hash=sha256:e0abd794a7a591d90558e92e29a9f8837d25ece8e3c120e530526fe27eba5fca
-    # via -r workers/document/requirements.in
+    # via -r requirements.in
 botocore==1.35.99 \
     --hash=sha256:1eab44e969c39c5f3d9a3104a0836c24715579a455f12b3979a31d7cde51b3c3 \
     --hash=sha256:b22d27b6b617fc2d7342090d6129000af2efd20174215948c0d7ae2da0fab445
@@ -27,7 +27,7 @@ jmespath==1.1.0 \
 psycopg[binary,pool]==3.2.3 \
     --hash=sha256:644d3973fe26908c73d4be746074f6e5224b03c1101d302d9a53bf565ad64907 \
     --hash=sha256:a5764f67c27bec8bfac85764d23c534af2c27b893550377e37ce59c12aac47a2
-    # via -r workers/document/requirements.in
+    # via -r requirements.in
 psycopg-binary==3.2.3 \
     --hash=sha256:0463a11b1cace5a6aeffaf167920707b912b8986a9c7920341c75e3686277920 \
     --hash=sha256:05a1bdce30356e70a05428928717765f4a9229999421013f41338d9680d03a63 \
@@ -102,7 +102,7 @@ pydantic==2.10.4 \
     --hash=sha256:597e135ea68be3a37552fb524bc7d0d66dcf93d395acd93a00682f1efcb8ee3d \
     --hash=sha256:82f12e9723da6de4fe2ba888b5971157b3be7ad914267dea8f05f82b28254f06
     # via
-    #   -r workers/document/requirements.in
+    #   -r requirements.in
     #   pydantic-settings
 pydantic-core==2.27.2 \
     --hash=sha256:00bad2484fa6bda1e216e7345a798bd37c68fb2d97558edd584942aa41b7d278 \
@@ -209,7 +209,7 @@ pydantic-core==2.27.2 \
 pydantic-settings==2.7.0 \
     --hash=sha256:ac4bfd4a36831a48dbf8b2d9325425b549a0a6f18cea118436d728eb4f1c4d66 \
     --hash=sha256:e00c05d5fa6cbbb227c84bd7487c5c1065084119b750df7c8c1a554aed236eb5
-    # via -r workers/document/requirements.in
+    # via -r requirements.in
 python-dateutil==2.9.0.post0 \
     --hash=sha256:37dd54208da7e1cd875388217d5e00ebd4179249f90fb72437e91a35459a0ad3 \
     --hash=sha256:a8b2bc7bffae282281c8140a97d3aa9c14da0b136dfe83f850eea9a5f7470427
@@ -238,7 +238,7 @@ urllib3==2.7.0 \
     --hash=sha256:231e0ec3b63ceb14667c67be60f2f2c40a518cb38b03af60abc813da26505f4c \
     --hash=sha256:9fb4c81ebbb1ce9531cce37674bbc6f1360472bc18ca9a553ede278ef7276897
     # via botocore
-valkey==6.0.2 \
-    --hash=sha256:dbbdd65439ee0dc5689502c54f1899504cc7268e85cb7fe8935f062178ff5805 \
-    --hash=sha256:dc2e91512b82d1da0b91ab0cdbd8c97c0c0250281728cb32f9398760df9caeae
-    # via -r workers/document/requirements.in
+valkey==6.1.1 \
+    --hash=sha256:5880792990c6c2b5eb604a5ed5f98f300880b6dd92d123819b66ed54bb259731 \
+    --hash=sha256:e2691541c6e1503b53c714ad9a35551ac9b7c0bbac93865f063dbc859a46de92
+    # via -r requirements.in
