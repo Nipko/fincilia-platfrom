@@ -2,7 +2,7 @@
 id: FNC-REC-001
 alias: FNC-P4.6
 title: Explorador read-only de candidatos de conciliación
-status: in_progress
+status: review_pending
 implementer: Codex principal dev + Integration Steward
 base_sha: 03c1524ed0f18765b687767fec4ca8059cba081e
 gate: S1-READY
@@ -117,4 +117,3 @@ y los gates de implementación de FNC-DOM-004.
 - Commits incrementales separan reserva, backend, web/pruebas y handoff.
 - No se modifica persistencia, permisos, móvil, worker ni gates.
 - Estado final `review_pending`; el implementador no se autoaprueba.
-
