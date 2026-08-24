@@ -120,11 +120,18 @@ class ExtractionResumeTests(unittest.TestCase):
                                "SET available_at = now() WHERE available_at > now()")
 
     def reference(self, payload: bytes) -> tuple[int, str]:
-        """Lo que una lectura entera y sin sobresaltos produce."""
+        """Lo que una lectura entera y sin sobresaltos produce.
+
+        La huella que se compara es la **de registros**, no la del objeto: lo que
+        esta prueba afirma es que reanudar ve lo mismo que leer de un tiron, y
+        eso lo contesta el resumen de lo entendido. Que los bytes sean los
+        mismos lo contesta `object_digest`, y lo comprueba el worker contra
+        `source_artifact.content_sha256`.
+        """
         outcome = StreamOutcome()
         preamble, reader = sniff(io.BytesIO(payload))
         rows = sum(1 for _ in stream_records(reader, preamble, outcome=outcome))
-        return rows, outcome.content_digest
+        return rows, outcome.record_digest
 
     def extraction_of(self, artifact_id: str) -> dict:
         with psycopg.connect(MIGRATOR_DSN, autocommit=True) as connection:
@@ -208,7 +215,12 @@ class ExtractionResumeTests(unittest.TestCase):
 
         # Recuento y digest, identicos a los de una lectura entera.
         self.assertEqual(expected_rows, settled["result"].get("record_count"))
-        self.assertEqual(expected_digest, settled["result"].get("content_digest"))
+        self.assertEqual(expected_digest, settled["result"].get("record_digest"))
+        # Y la del objeto es la del fichero que se subio, no la de los registros.
+        self.assertEqual(sha256_bytes(payload),
+                         settled["result"].get("object_digest"))
+        self.assertNotEqual(settled["result"].get("object_digest"),
+                            settled["result"].get("record_digest"))
         self.assertEqual("complete", settled["result"].get("state"))
         self.assertFalse(settled["result"].get("truncated"))
 
@@ -262,9 +274,12 @@ class ExtractionResumeTests(unittest.TestCase):
         for detail in rows:
             with self.subTest(detail=sorted(detail)):
                 # Las claves son exactamente estas: nada de valores, columnas ni
-                # nombres de fichero.
+                # nombres de fichero. `stored` y las dos huellas se anadieron en
+                # R1, y la lista sigue siendo cerrada a proposito: es lo que
+                # impide que un dia entre aqui un valor del extracto.
                 self.assertLessEqual(
-                    set(detail), {"records", "state", "reason", "digest", "run"})
+                    set(detail), {"records", "stored", "state", "reason",
+                                  "object_digest", "record_digest", "run"})
                 rendered = json.dumps(detail, ensure_ascii=False)
                 for quoted in ("Movimiento sintetico", "1.000.000,00", "REF-",
                                "Apertura"):

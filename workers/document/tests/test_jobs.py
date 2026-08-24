@@ -173,16 +173,31 @@ class FailureClassificationOfExtractionTests(unittest.TestCase):
                 self.assertRegex(code, REASON_CODE)
 
     def test_an_unreadable_stream_is_classified_as_unextractable(self) -> None:
-        # El camino real: leer basura levanta `ExtractionError` y el worker la
-        # clasifica. Se comprueba junto para que las dos mitades no se separen.
+        """El camino real: leer basura levanta y el worker lo clasifica.
+
+        La version anterior envolvia esto en un `try/except` sin `else` y sin
+        `self.fail`, asi que el dia que `stream()` dejara de levantar la prueba
+        habria seguido pasando en verde sin comprobar nada. Ahora la ausencia de
+        excepcion es un fallo, que es lo que tenia que haber sido.
+        """
         for payload in (b"", BINARY, b"solo cabecera"):
             with self.subTest(payload=payload[:8]):
-                try:
+                with self.assertRaises(ExtractionError) as caught:
                     stream(payload)
-                except ExtractionError as error:
-                    code, failure = jobs.classify_extraction(error)
-                    self.assertEqual("unextractable", code)
-                    self.assertEqual(jobs.FATAL, failure)
+                code, failure = jobs.classify_extraction(caught.exception)
+                self.assertEqual("unextractable", code)
+                self.assertEqual(jobs.FATAL, failure)
+
+    def test_a_divergent_conflict_is_fatal_and_not_retried(self) -> None:
+        """Dos lecturas del mismo tramo que no coinciden no se reintentan.
+
+        Reintentar leeria lo mismo y volveria a chocar. Lo que hace falta es que
+        alguien mire por que no coinciden, y por eso es `fatal` y no reintentable.
+        """
+        code, failure = jobs.classify_extraction(
+            jobs.RawRecordConflict("records 3, 4 already exist with other content"))
+        self.assertEqual("raw_record_conflict", code)
+        self.assertEqual(jobs.FATAL, failure)
 
 
 if __name__ == "__main__":
