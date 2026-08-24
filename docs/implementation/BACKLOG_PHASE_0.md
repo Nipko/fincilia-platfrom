@@ -115,7 +115,7 @@ dependencias de `FNC-GAT-002` ni afirmar que Sprint 1 está habilitado.
 |---|---|---|---|---|
 | FNC-WEB-001 | A6 | PLT-008, UX-001 | Review pending | Recorrido web P3 verificable: ciclos conservados, fuente explícita, carga BFF de 25 MiB, estados accesibles y pruebas web |
 | FNC-API-001 | A5 | P3.6, WEB-001 | Review pending | Creacion de plantilla y primera version de mapeo atomica, con conflictos estables y aislamiento cross-tenant |
-| FNC-WEB-002 | A5/A6 | WEB-001, API-001, P3.6 | In progress | Readiness server-side, cola de overrides, aprobacion SoD y rechazo motivado en web |
+| FNC-WEB-002 | A5/A6 | WEB-001, API-001, P3.6 | Review pending | Readiness server-side, cola de overrides, aprobacion SoD y rechazo motivado en web |
 
 ## No codificar todavía
 

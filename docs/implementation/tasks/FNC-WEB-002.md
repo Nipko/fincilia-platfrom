@@ -2,7 +2,7 @@
 id: FNC-WEB-002
 alias: FNC-P4.2
 title: Puesto web de revision y excepciones de dataset
-status: in_progress
+status: review_pending
 implementer: Codex principal dev + Integration Steward
 base_sha: bf0c023
 gate: S1-READY
