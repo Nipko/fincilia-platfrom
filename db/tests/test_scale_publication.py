@@ -59,7 +59,18 @@ TARGET_ROWS = 100_000
 # Se mide con `getrusage` y **no** con `tracemalloc`: trazar cada reserva
 # multiplica el tiempo por varias veces, y entonces el numero de tiempo diria mas
 # del medidor que del codigo.
-MAX_PEAK_MIB = 900
+#
+# La corrida verde de P3.5 —fichero entero en memoria— dio 229,1 MiB de pico. La
+# primera corrida verde con extraccion en corriente dio 193,7 de pico y 52,0 de
+# crecimiento sobre la linea base del proceso. Los techos se ponen con holgura
+# sobre esos numeros y no sobre el deseo: un techo que no se puede rozar no mide
+# nada, y uno que se roza en cada corrida convierte una regresion real en ruido.
+MAX_PEAK_MIB = 400
+MAX_GROWTH_MIB = 150
+
+# La meta del mandato: la importacion entera por debajo de tres minutos. La
+# corrida verde de referencia tardo 110,9 s.
+MAX_TOTAL_SECONDS = 180
 
 
 def synthetic_statement(rows: int) -> bytes:
@@ -257,6 +268,14 @@ class ScalePublicationTests(unittest.TestCase):
         # Memoria del proceso que importa. Es el numero que reventaba antes.
         self.assertLess(self.measurements["process_peak_rss_mib"], MAX_PEAK_MIB,
                         f"peak RSS {self.measurements['process_peak_rss_mib']} MiB")
+        # Y el crecimiento, que es lo que de verdad dice si el fichero se
+        # sostiene en memoria: un pico alto puede venir del interprete, un
+        # crecimiento alto solo puede venir de lo que se acumula.
+        self.assertLess(self.measurements["rss_growth_mib"], MAX_GROWTH_MIB,
+                        f"RSS grew {self.measurements['rss_growth_mib']} MiB")
+        self.assertLess(self.measurements["total_seconds"], MAX_TOTAL_SECONDS,
+                        f"the whole import took "
+                        f"{self.measurements['total_seconds']} s")
 
         with psycopg.connect(MIGRATOR_DSN, autocommit=True) as connection:
             with connection.cursor() as cursor:
