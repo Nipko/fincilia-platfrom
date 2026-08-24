@@ -6,7 +6,7 @@
 | Alias | `FNC-P3.7` |
 | Estado | **`REVIEW_PENDING`** |
 | Rango base | `52ea3a8` |
-| `head_sha` | `12c6753` |
+| `head_sha` | `d3af18a` |
 | Rama | `claude/principal-dev` |
 | Owner de implementación | `Codex principal dev + Integration Steward` |
 | Revisores requeridos | Product, Accessibility/QA, Security, Privacy |
