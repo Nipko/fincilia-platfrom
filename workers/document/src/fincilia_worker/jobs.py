@@ -30,8 +30,9 @@ from dataclasses import dataclass
 
 import psycopg
 
-from fincilia_contracts.extraction import ExtractionError, extract
+from fincilia_contracts.extraction import ExtractionError
 from fincilia_contracts.ingestion import RejectedUpload, decide_promotion
+from fincilia_platform.objects import ObjectStoreError
 from fincilia_contracts.profiling import UnprofilableFile, profile
 
 logger = logging.getLogger("fincilia.worker.jobs")
@@ -123,22 +124,30 @@ def run_profile(payload: bytes) -> tuple[dict | None, str | None, str | None]:
     return table.as_dict(), None, None
 
 
-def run_extract(payload: bytes):
-    """Lee un fichero entero. Devuelve `(extraccion, codigo, clase_de_fallo)`.
+def classify_extraction(error: Exception) -> tuple[str, str]:
+    """Que hacer con un fallo al extraer: `(codigo, clase_de_fallo)`.
 
-    A diferencia del perfilado, esto **si** devuelve valores, y por eso lo que
-    sale no va al resultado de la ejecucion: va a `raw_record`, que exige
-    contexto de empresa. El resultado solo lleva la forma.
+    Es lo unico de la extraccion que sigue siendo una decision y no una lectura,
+    y por eso vive aqui separado: de esta clasificacion depende si un trabajo se
+    reintenta, muere, o acaba delante de una persona.
+
+    **No lee el fichero.** La lectura es una corriente que el worker consume por
+    tandas; sostenerla entera para poder clasificar un fallo seria volver a
+    tener el fichero en memoria por si acaso.
     """
-    try:
-        return extract(payload), None, None
-    except ExtractionError as error:
+    if isinstance(error, ExtractionError):
         # El fichero es el que es: releerlo dara lo mismo.
         logger.warning("unextractable artifact: %s", error)
-        return None, "unextractable", FATAL
-    except Exception:  # noqa: BLE001 - un fallo raro no tumba el worker
-        logger.exception("unexpected extraction failure")
-        return None, "extraction_error", UNKNOWN
+        return "unextractable", FATAL
+    if isinstance(error, ObjectStoreError):
+        # La fila dice que el objeto esta y el objeto no esta. Puede ser el
+        # almacen, no la evidencia.
+        logger.error("evidence unreadable: %s", error)
+        return "evidence_unreadable", RETRYABLE
+    # `unknown_failure_action: fail_closed_requires_triage`. Lo que no se supo
+    # clasificar no se reintenta a ciegas.
+    logger.exception("unexpected extraction failure", exc_info=error)
+    return "extraction_error", UNKNOWN
 
 
 def run_scan(payload: bytes, filename: str) -> tuple[dict | None, str | None, str | None]:

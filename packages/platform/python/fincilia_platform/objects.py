@@ -66,6 +66,8 @@ class ObjectStore(Protocol):
 
     def get(self, zone: str, key: str) -> bytes: ...
 
+    def open(self, zone: str, key: str): ...
+
     def exists(self, zone: str, key: str) -> bool: ...
 
     def list_keys(self, zone: str, prefix: str = "") -> list[str]: ...
@@ -120,6 +122,20 @@ class S3ObjectStore:
         except (BotoCoreError, ClientError) as error:
             raise ObjectStoreError(type(error).__name__) from error
 
+    def open(self, zone: str, key: str):
+        """El objeto como corriente, sin traerlo entero a memoria.
+
+        `get` devuelve bytes y esta bien para un fichero pequeno; para uno de
+        cien mil filas es una copia completa antes de leer la primera. Quien
+        consume esto **tiene que cerrarlo**: la corriente sostiene una conexion
+        del pool de HTTP hasta que se cierra.
+        """
+        try:
+            response = self._client.get_object(Bucket=self.bucket(zone), Key=key)
+            return response["Body"]
+        except (BotoCoreError, ClientError) as error:
+            raise ObjectStoreError(type(error).__name__) from error
+
     def list_keys(self, zone: str, prefix: str = "") -> list[str]:
         """Claves de una zona. Solo lo usa la reconciliacion, nunca el producto.
 
@@ -169,6 +185,11 @@ class InMemoryObjectStore:
             return self.objects[(zone, key)]
         except KeyError:
             raise ObjectStoreError("no such object") from None
+
+    def open(self, zone: str, key: str):
+        """Los mismos bytes, envueltos para que quien lea no note la diferencia."""
+        import io
+        return io.BytesIO(self.get(zone, key))
 
     def list_keys(self, zone: str, prefix: str = "") -> list[str]:
         return sorted(key for (stored_zone, key) in self.objects

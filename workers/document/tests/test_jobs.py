@@ -12,12 +12,21 @@ del motor y de los privilegios, no del codigo que las invoca.
 
 from __future__ import annotations
 
+import io
 import re
 import sys
 import unittest
 
 sys.path.insert(0, "/app/src")
 
+from fincilia_contracts.extraction import (  # noqa: E402
+    ExtractionError,
+    StreamOutcome,
+    extraction_summary,
+    sniff,
+    stream_records,
+)
+from fincilia_platform.objects import ObjectStoreError  # noqa: E402
 from fincilia_worker import jobs  # noqa: E402
 
 CLEAN_CSV = (
@@ -85,28 +94,39 @@ class FailureClassificationTests(unittest.TestCase):
             self.assertFalse(hasattr(jobs, gone),
                              f"{gone} writes the queue without checking the lease")
 
+def stream(payload: bytes, **options):
+    """Lee unos bytes en corriente, como lo hace el worker."""
+    preamble, reader = sniff(io.BytesIO(payload), **options)
+    outcome = StreamOutcome()
+    rows = list(stream_records(reader, preamble, outcome=outcome))
+    return preamble, rows, outcome
+
+
 class ExtractionTests(unittest.TestCase):
     """Extraer transcribe; perfilar no. La diferencia es la que decide donde va
     cada cosa: la forma al resultado de la ejecucion, los valores a `raw_record`.
+
+    El worker **no** materializa el fichero: consume un generador por tandas.
+    Estas pruebas usan la misma via, no una comoda que ya no existe en produccion.
     """
 
-    def test_a_readable_file_is_extracted_without_failure(self) -> None:
-        extraction, error, failure = jobs.run_extract(CLEAN_CSV)
-        self.assertIsNone(error)
-        self.assertIsNone(failure)
-        self.assertEqual(";", extraction.delimiter)
-        self.assertEqual(2, len(extraction.data_rows()))
+    def test_a_readable_file_is_read_without_failure(self) -> None:
+        preamble, rows, outcome = stream(CLEAN_CSV)
+        self.assertEqual(";", preamble.delimiter)
+        self.assertEqual(2, outcome.data_rows)
+        self.assertEqual(3, len(rows))
+        self.assertEqual("complete", outcome.state)
 
     def test_the_extraction_summary_carries_no_value_from_the_file(self) -> None:
         # El resultado de la ejecucion lo lee cualquiera que vea el documento.
-        extraction, _, _ = jobs.run_extract(CLEAN_CSV)
-        rendered = str(extraction.as_dict())
+        preamble, _, outcome = stream(CLEAN_CSV)
+        rendered = str(extraction_summary(preamble, outcome))
         for value in ("Transferencia", "Consignacion", "1.250.000", "3.400.000"):
             self.assertNotIn(value, rendered)
 
     def test_every_extracted_record_carries_its_coordinate(self) -> None:
-        extraction, _, _ = jobs.run_extract(CLEAN_CSV)
-        for row in extraction.rows:
+        _, rows, _ = stream(CLEAN_CSV)
+        for row in rows:
             with self.subTest(record=row.record_ordinal):
                 locator = row.locator("a" * 64)
                 self.assertEqual(locator["locator_kind"], "tabular_delimited")
@@ -115,23 +135,54 @@ class ExtractionTests(unittest.TestCase):
                 self.assertEqual(recovered.splitlines()[0].split(";"),
                                  list(row.values))
 
+    def test_reading_is_a_generator_and_not_a_list(self) -> None:
+        # Es la propiedad entera del rediseno: si esto devolviera una lista,
+        # cien mil filas volverian a vivir en memoria a la vez.
+        preamble, reader = sniff(io.BytesIO(CLEAN_CSV))
+        produced = stream_records(reader, preamble)
+        self.assertTrue(hasattr(produced, "__next__"))
+        produced.close()
+
+
+class FailureClassificationOfExtractionTests(unittest.TestCase):
+    """De esta clasificacion depende si un trabajo se reintenta, muere o espera."""
+
     def test_an_unreadable_file_is_fatal_not_retryable(self) -> None:
-        extraction, error, failure = jobs.run_extract(BINARY)
-        self.assertIsNone(extraction)
+        # El fichero es el que es. Reintentarlo tres veces daria lo mismo tres
+        # veces y solo retrasaria el unico desenlace posible.
+        error, failure = jobs.classify_extraction(ExtractionError("no se puede leer"))
         self.assertEqual("unextractable", error)
         self.assertEqual(jobs.FATAL, failure)
 
-    def test_an_empty_file_is_fatal(self) -> None:
-        _, error, failure = jobs.run_extract(b"")
-        self.assertEqual("unextractable", error)
-        self.assertEqual(jobs.FATAL, failure)
+    def test_an_unreachable_object_is_retryable(self) -> None:
+        # Puede ser el almacen y no la evidencia.
+        error, failure = jobs.classify_extraction(ObjectStoreError("EndpointError"))
+        self.assertEqual("evidence_unreadable", error)
+        self.assertEqual(jobs.RETRYABLE, failure)
 
-    def test_the_extraction_reason_code_fits_the_bounded_vocabulary(self) -> None:
+    def test_anything_else_waits_for_a_person(self) -> None:
+        error, failure = jobs.classify_extraction(ValueError("algo raro"))
+        self.assertEqual("extraction_error", error)
+        self.assertEqual(jobs.UNKNOWN, failure)
+
+    def test_every_reason_code_fits_the_bounded_vocabulary(self) -> None:
+        # La base rechaza cualquier codigo que no encaje.
+        for error in (ExtractionError("x"), ObjectStoreError("y"), ValueError("z")):
+            with self.subTest(error=type(error).__name__):
+                code, _ = jobs.classify_extraction(error)
+                self.assertRegex(code, REASON_CODE)
+
+    def test_an_unreadable_stream_is_classified_as_unextractable(self) -> None:
+        # El camino real: leer basura levanta `ExtractionError` y el worker la
+        # clasifica. Se comprueba junto para que las dos mitades no se separen.
         for payload in (b"", BINARY, b"solo cabecera"):
             with self.subTest(payload=payload[:8]):
-                _, error, _ = jobs.run_extract(payload)
-                if error is not None:
-                    self.assertRegex(error, REASON_CODE)
+                try:
+                    stream(payload)
+                except ExtractionError as error:
+                    code, failure = jobs.classify_extraction(error)
+                    self.assertEqual("unextractable", code)
+                    self.assertEqual(jobs.FATAL, failure)
 
 
 if __name__ == "__main__":

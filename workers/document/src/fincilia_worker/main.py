@@ -130,6 +130,14 @@ def process_one(database: Database, store, identity: str) -> bool:
     # previa no serviria de nada, y la vista previa mostraria valores de un
     # fichero que nadie ha mirado.
     zone = "quarantine" if claim.kind == "scan" else "raw"
+
+    # Extraer **no** descarga el fichero: lo lee en corriente y lo escribe por
+    # tandas. Cien mil filas costaban doscientos megabytes de bytes mas la lista
+    # entera de registros al lado, y ninguna de las dos cosas hace falta para
+    # escribir la fila que se acaba de leer.
+    if claim.kind == "extract":
+        return _extract_streaming(database, store, claim)
+
     try:
         artifact = _artifact_row(database, claim)
         payload = store.get(zone, artifact["object_key"])
@@ -152,19 +160,6 @@ def process_one(database: Database, store, identity: str) -> bool:
                     logger.exception("could not record the promotion decision")
                     result, error_code, failure_class = None, "decision_unstorable", \
                         jobs.RETRYABLE
-        elif claim.kind == "extract":
-            extraction, error_code, failure_class = jobs.run_extract(payload)
-            if extraction is not None:
-                try:
-                    _store_records(database, claim, artifact, extraction)
-                except Exception:  # noqa: BLE001
-                    logger.exception("could not store the extracted records")
-                    error_code, failure_class = "records_unstorable", jobs.RETRYABLE
-                else:
-                    # El resultado de la ejecucion lo lee cualquiera que vea el
-                    # documento: lleva la forma, y los valores se quedan en
-                    # `raw_record`, que exige contexto de empresa.
-                    result = extraction.as_dict()
         else:
             result, error_code, failure_class = jobs.run_profile(payload)
 
@@ -260,61 +255,136 @@ def _record_decision(database: Database, store, claim: "jobs.Claim", artifact: d
                              "scanner": jobs.SCANNER_RELEASE})))
 
 
-# Filas por sentencia al guardar lo extraido. Igual que en la publicacion: lo
-# bastante grande para amortizar el viaje, lo bastante pequeno para no sostener
-# una copia entera del fichero en memoria.
+# Filas por sentencia al guardar lo extraido. Lo bastante grande para amortizar
+# el viaje, lo bastante pequeno para que la tanda en curso sea lo unico vivo.
 STORE_BATCH = 1_000
 
 
-def _batched(items, size: int):
-    """Recorre en tandas sin copiar la secuencia entera."""
-    for start in range(0, len(items), size):
-        yield items[start:start + size]
+def _extract_streaming(database: Database, store, claim: "jobs.Claim") -> bool:
+    """Lee el fichero en corriente y escribe cada tanda segun llega.
+
+    Tres transacciones cortas por tanda y ninguna larga: mantener abierta una
+    mientras se descarga dejaria una fila bloqueada durante toda la lectura, y
+    sostener el fichero para poder reintentar es exactamente lo que hacia que
+    cien mil filas costaran doscientos megabytes.
+
+    La reanudacion es idempotente por construccion: `uq_raw_record_ordinal` sobre
+    `(processing_run_id, record_ordinal)` con `ON CONFLICT DO NOTHING` hace que
+    volver a escribir una tanda no duplique nada, y un reintento conserva el
+    mismo `run_id`.
+    """
+    from fincilia_contracts.extraction import (
+        StreamOutcome, extraction_summary, sniff, stream_records)
+
+    error_code: str | None = None
+    failure_class: str | None = None
+    result: dict | None = None
+
+    try:
+        artifact = _artifact_row(database, claim)
+    except ObjectStoreError as error:
+        logger.error("evidence unreadable for run %s: %s", claim.run_id, error)
+        error_code, failure_class = "evidence_unreadable", jobs.RETRYABLE
+    else:
+        outcome = StreamOutcome()
+        stream = None
+        try:
+            stream = store.open("raw", artifact["object_key"])
+            preamble, reader = sniff(stream)
+            written = _store_stream(
+                database, claim, artifact,
+                stream_records(reader, preamble, outcome=outcome))
+        except Exception as error:  # noqa: BLE001 - un fallo raro no tumba el worker
+            # La clasificacion vive en `jobs` porque de ella depende si el
+            # trabajo se reintenta, muere o acaba delante de una persona, y eso
+            # se prueba sin base de datos.
+            error_code, failure_class = jobs.classify_extraction(error)
+        else:
+            result = extraction_summary(preamble, outcome)
+            result["stored_records"] = written
+            _audit_extraction(database, claim, result)
+        finally:
+            # Cerrar pase lo que pase: una corriente abierta retiene una conexion
+            # del pool de HTTP del almacen hasta que alguien la suelta.
+            closer = getattr(stream, "close", None)
+            if closer is not None:
+                try:
+                    closer()
+                except Exception:  # noqa: BLE001 - cerrar no puede tumbar nada
+                    logger.debug("the evidence stream was already closed")
+
+    try:
+        with database.session(company_id=claim.company_id) as connection:
+            settled = jobs.finish(connection, claim, result=result,
+                                  error_code=error_code, failure_class=failure_class)
+    except Exception:  # noqa: BLE001
+        logger.exception("could not close run %s; leaving it to the lease",
+                         claim.run_id)
+        return True
+    if settled == "stale_lease":
+        logger.warning("run %s was recovered by another worker; dropping it",
+                       claim.run_id)
+    else:
+        logger.info("run %s finished: %s", claim.run_id, settled)
+    return True
 
 
-def _store_records(database: Database, claim: "jobs.Claim", artifact: dict,
-                   extraction) -> None:
-    """Guarda cada registro leido con su coordenada exacta.
+def _store_stream(database: Database, claim: "jobs.Claim", artifact: dict,
+                  records) -> int:
+    """Escribe los registros por tandas. Nunca sostiene mas de una.
 
-    `ON CONFLICT DO NOTHING` sobre `(processing_run_id, record_ordinal)` hace
-    inocuo el reintento: un arriendo vencido y recuperado vuelve a ejecutar esta
-    misma extraccion, y la segunda vez no duplica nada.
-
-    Se escriben **todos** los registros, membrete y cabecera incluidos. Decidir
-    cuales son datos es del mapeo; guardar solo los que hoy parecen datos
-    obligaria a releer la evidencia en cuanto alguien moviera la cabecera.
+    El generador se consume aqui y no se materializa: lo unico que vive a la vez
+    es la tanda en curso, y `STORE_BATCH` la acota.
     """
     sha256 = artifact["content_sha256"]
-    total = 0
+    written = 0
+    batch: list[tuple] = []
+    for row in records:
+        batch.append((claim.company_id, claim.artifact_id, claim.run_id,
+                      row.record_ordinal, jobs.dumps(row.locator(sha256)),
+                      jobs.dumps(list(row.values)), digest_of(list(row.values))))
+        if len(batch) >= STORE_BATCH:
+            written += _flush(database, claim, batch)
+            batch = []
+    if batch:
+        written += _flush(database, claim, batch)
+    return written
+
+
+def _flush(database: Database, claim: "jobs.Claim", batch: list[tuple]) -> int:
+    """Una tanda, una transaccion. Reintentar no duplica: lo impide la unicidad."""
     with database.session(company_id=claim.company_id) as connection:
         with connection.cursor() as cursor:
-            # Por tandas y sin construir la lista entera: serializar cien mil
-            # filas de golpe deja en memoria una segunda copia completa del
-            # fichero, al lado de la que ya tiene la extraccion.
-            for batch in _batched(extraction.rows, STORE_BATCH):
-                cursor.executemany(
-                    "INSERT INTO fincilia.raw_record (raw_record_id, company_id, "
-                    "artifact_id, processing_run_id, record_ordinal, origin_locator, "
-                    "raw_values, values_digest) VALUES (gen_random_uuid(), %s, %s, %s, "
-                    "%s, %s::jsonb, %s::jsonb, %s) "
-                    "ON CONFLICT (processing_run_id, record_ordinal) DO NOTHING",
-                    [(claim.company_id, claim.artifact_id, claim.run_id,
-                      row.record_ordinal, jobs.dumps(row.locator(sha256)),
-                      jobs.dumps(list(row.values)), digest_of(list(row.values)))
-                     for row in batch])
-                total += len(batch)
-            # La auditoria dice cuantos registros se leyeron y de donde. **Ni un
-            # valor**: el evento lo lee quien tiene `audit.read`, que no es
-            # necesariamente quien puede ver el contenido del documento.
+            cursor.executemany(
+                "INSERT INTO fincilia.raw_record (raw_record_id, company_id, "
+                "artifact_id, processing_run_id, record_ordinal, origin_locator, "
+                "raw_values, values_digest) VALUES (gen_random_uuid(), %s, %s, %s, "
+                "%s, %s::jsonb, %s::jsonb, %s) "
+                "ON CONFLICT (processing_run_id, record_ordinal) DO NOTHING",
+                batch)
+    return len(batch)
+
+
+def _audit_extraction(database: Database, claim: "jobs.Claim",
+                      summary: dict) -> None:
+    """Cuantos registros se leyeron y como acabo. **Ni un valor**.
+
+    El evento lo lee quien tiene `audit.read`, que no es necesariamente quien
+    puede ver el contenido del documento.
+    """
+    with database.session(company_id=claim.company_id) as connection:
+        with connection.cursor() as cursor:
             cursor.execute(
                 "INSERT INTO fincilia.audit_event (audit_event_id, company_id, "
                 "subject_id, action, resource_kind, resource_ref, outcome, detail) "
                 "VALUES (gen_random_uuid(), %s, NULL, 'document.extraction', "
-                "'document', %s, 'allowed', %s::jsonb)",
+                "'document', %s, %s, %s::jsonb)",
                 (claim.company_id, claim.artifact_id,
-                 jobs.dumps({"records": total,
-                             "truncated": extraction.truncated,
-                             "truncation_reason": extraction.truncation_reason,
+                 "allowed" if summary.get("state") == "complete" else "denied",
+                 jobs.dumps({"records": summary.get("record_count"),
+                             "state": summary.get("state"),
+                             "reason": summary.get("truncation_reason"),
+                             "digest": summary.get("content_digest"),
                              "run": claim.run_id})))
 
 
