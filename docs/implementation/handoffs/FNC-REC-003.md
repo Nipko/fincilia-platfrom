@@ -3,7 +3,7 @@ task_id: FNC-REC-003
 status: REVIEW_PENDING
 base_sha: 49339a04511fd459f1a38566654ca0d32a4453fd
 reservation_sha: 4f78b58
-tested_head_sha: 8bad642
+tested_head_sha: 751bec2
 data_ceiling: synthetic_only
 gate_effect: none
 reviewers_pending: [Product/Accounting, Security, Backend/Architecture, Accessibility/QA]
@@ -98,6 +98,8 @@ volumenes sintéticos. La pestaña integrada queda en
 2. `c06bbe0` — proyeccion API, filtros y PostgreSQL.
 3. `cb1f2b1` — agregacion web, ruta, estados y unitarias.
 4. `8bad642` — recorridos E2E y Axe.
+5. `51e5d1a` — handoff y liberacion de rutas.
+6. `751bec2` — semantica simetrica del par ejercida contra PostgreSQL real.
 
 Revertir 4 retira aceptacion automatizada; 3 retira la bandeja; 2 retira la
 proyeccion. No hay migracion ni datos nuevos que purgar y el ledger FNC-REC-002
