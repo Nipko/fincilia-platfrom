@@ -83,6 +83,45 @@ REQUIRED_TEST_IDS = {
 }
 REQUIRED_DFD_LINEAGE_FLOWS = {"F05", "F06"}
 REQUIRED_LINEAGE_RISKS = {"TM-007", "TM-008", "TM-015"}
+REQUIRED_PLAN_INVARIANTS = {
+    "PLAN-STAGE-COVERAGE", "PLAN-TYPE-CHAIN", "PLAN-TRANSFORM-NAMED",
+    "PLAN-NO-VALUES", "PLAN-VERSIONED", "PLAN-APPEND-ONLY",
+    "PLAN-HISTORY-PRESERVED",
+}
+REQUIRED_PLAN_STEP_FIELDS = {
+    "canonical_field", "company_id", "configuration_digest",
+    "input_semantic_type", "operation", "output_semantic_type",
+    "parser_version", "plan_id", "rule_version", "stage", "step_id",
+    "step_ordinal",
+}
+REQUIRED_OVERRIDE_INVARIANTS = {
+    "OVR-NO-VALUES", "OVR-SEGREGATION", "OVR-UNAPPROVED-BLOCKS",
+    "OVR-NO-CROSS-COMPANY", "OVR-DIGEST-CHAIN", "OVR-POSITIONED",
+    "OVR-OPTIONAL", "OVR-IMMUTABLE",
+}
+REQUIRED_OVERRIDE_FIELDS = {
+    "approved_by", "base_plan_step_id", "canonical_schema_version",
+    "company_id", "created_at", "created_by", "dataset_version_id",
+    "engine_release_id", "field_name", "original_value_digest",
+    "override_id", "override_kind", "raw_record_id", "reason_code",
+    "resulting_value_digest", "rule_version", "source_record_id",
+}
+REQUIRED_APPROVAL_INVARIANTS = {
+    "REL-ONE-SIGNATURE", "REL-SIGNED-DIGEST", "REL-RUNTIME-CANNOT-SIGN",
+    "REL-SUPERSEDED-KEEPS-SIGNATURE", "REL-DRAFT-CANNOT-PUBLISH",
+}
+REQUIRED_APPROVAL_FIELDS = {
+    "action", "actor_identity", "approval_ref", "approval_id",
+    "components_digest", "occurred_at", "rationale", "release_id",
+}
+# Lo que **no** puede llevar un override ni un paso del plan. El grafo guarda
+# huellas; una clave con esta pinta seria el valor entrando por la puerta de
+# atras.
+VALUE_BEARING_FIELDS = {
+    "value", "typed_value", "original_value", "resulting_value", "new_value",
+    "raw_value", "amount", "cell_text",
+}
+
 FLOATING_TOKENS = {"latest", "main", "head", "stable", "current"}
 ACCEPTED_TOKENS = {"accepted", "approved", "met", "final", "signed", "done", "closed"}
 DURATION_PATTERN = re.compile(
@@ -720,6 +759,104 @@ def validate_model(
         if decision.get("state") != "pending_human":
             fail("LIN-DECISION-STATE", f"unresolved_decisions[{decision.get('id')}]",
                  "unresolved decisions stay pending_human")
+
+    # -- plan de transformacion ------------------------------------------
+    # Las seis etapas viven en un plan por columna, y el contrato tiene que
+    # decirlo de forma comprobable: sin esto, la representacion hibrida seria
+    # una decision de implementacion que nadie puede auditar.
+    plan = model.get("transform_plan_contract")
+    if not isinstance(plan, dict):
+        fail("LIN-PLAN-CONTRACT", "transform_plan_contract",
+             "the transform plan needs a declared contract")
+    else:
+        if plan.get("on_incomplete") != "block_publication":
+            fail("LIN-PLAN-INCOMPLETE", "transform_plan_contract.on_incomplete",
+                 "a field without its stages blocks publication")
+        if plan.get("average_coverage_allowed") is not False:
+            fail("LIN-PLAN-COVERAGE", "transform_plan_contract",
+                 "coverage is per field, never an average")
+        binding = plan.get("binding") or {}
+        if sorted(binding.get("keys") or []) != ["engine_release_id",
+                                                 "mapping_version_id"]:
+            fail("LIN-PLAN-BINDING", "transform_plan_contract.binding",
+                 "a plan is bound to one mapping version and one engine release")
+        if binding.get("unique") is not True:
+            fail("LIN-PLAN-BINDING", "transform_plan_contract.binding",
+                 "the binding must be unique or two plans could explain one dataset")
+        declared = {item.get("id") for item in plan.get("invariants", [])
+                    if isinstance(item, dict)}
+        for missing in sorted(REQUIRED_PLAN_INVARIANTS - declared):
+            fail("LIN-PLAN-INVARIANT", f"transform_plan_contract.{missing}",
+                 "required plan invariant is missing")
+        step_fields = set(plan.get("step_required_fields") or [])
+        for missing in sorted(REQUIRED_PLAN_STEP_FIELDS - step_fields):
+            fail("LIN-PLAN-STEP-FIELD", f"transform_plan_contract.{missing}",
+                 "a step without this field cannot be reproduced")
+        leaking = sorted(step_fields & VALUE_BEARING_FIELDS)
+        if leaking:
+            fail("LIN-PLAN-VALUE", "transform_plan_contract.step_required_fields",
+                 f"a plan step must not carry values: {leaking}")
+
+    # -- excepcion por fila ----------------------------------------------
+    override = model.get("row_override_contract")
+    if not isinstance(override, dict):
+        fail("LIN-OVERRIDE-CONTRACT", "row_override_contract",
+             "the per-row exception path needs a declared contract")
+    else:
+        if override.get("immutable") is not True:
+            fail("LIN-OVERRIDE-MUTABLE", "row_override_contract",
+                 "an override is not edited; changing your mind is another override")
+        if override.get("company_scoped") is not True:
+            fail("LIN-OVERRIDE-SCOPE", "row_override_contract",
+                 "an override belongs to one company")
+        if override.get("on_missing_required_override") != "block_publication":
+            fail("LIN-OVERRIDE-INCOMPLETE",
+                 "row_override_contract.on_missing_required_override",
+                 "a required override that is absent blocks publication")
+        declared = {item.get("id") for item in override.get("invariants", [])
+                    if isinstance(item, dict)}
+        for missing in sorted(REQUIRED_OVERRIDE_INVARIANTS - declared):
+            fail("LIN-OVERRIDE-INVARIANT", f"row_override_contract.{missing}",
+                 "required override invariant is missing")
+        fields = set(override.get("required_fields") or [])
+        for missing in sorted(REQUIRED_OVERRIDE_FIELDS - fields):
+            fail("LIN-OVERRIDE-FIELD", f"row_override_contract.{missing}",
+                 "an override without this field cannot be audited")
+        leaking = sorted(fields & VALUE_BEARING_FIELDS)
+        if leaking:
+            fail("LIN-OVERRIDE-VALUE", "row_override_contract.required_fields",
+                 f"an override stores digests, never values: {leaking}")
+        if override.get("critical_field_source") != "critical_overlay_fields":
+            fail("LIN-OVERRIDE-CRITICAL", "row_override_contract",
+                 "which fields need an independent approver comes from "
+                 "critical_overlay_fields, not from a second list")
+
+    # -- firma de una version del motor ----------------------------------
+    approval = (model.get("engine_release_contract") or {}).get("approval_record")
+    if not isinstance(approval, dict):
+        fail("LIN-APPROVAL-RECORD", "engine_release_contract.approval_record",
+             "the release signature needs a declared record")
+    else:
+        if approval.get("company_scoped") is not False:
+            fail("LIN-APPROVAL-SCOPE", "engine_release_contract.approval_record",
+                 "approving a build is a platform act, not company data")
+        if approval.get("agent_can_self_approve") is not False:
+            fail("LIN-APPROVAL-SELF", "engine_release_contract.approval_record",
+                 "an agent cannot approve its own release")
+        if approval.get("separation_from_build") is not True:
+            fail("LIN-APPROVAL-BUILD", "engine_release_contract.approval_record",
+                 "approval is separate from build")
+        declared = {item.get("id") for item in approval.get("invariants", [])
+                    if isinstance(item, dict)}
+        for missing in sorted(REQUIRED_APPROVAL_INVARIANTS - declared):
+            fail("LIN-APPROVAL-INVARIANT",
+                 f"engine_release_contract.approval_record.{missing}",
+                 "required approval invariant is missing")
+        fields = set(approval.get("required_fields") or [])
+        for missing in sorted(REQUIRED_APPROVAL_FIELDS - fields):
+            fail("LIN-APPROVAL-FIELD",
+                 f"engine_release_contract.approval_record.{missing}",
+                 "a signature without this field does not answer for anything")
 
     return sorted(set(errors))
 

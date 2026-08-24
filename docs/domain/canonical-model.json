@@ -25,6 +25,9 @@
   "enums": {
     "source_family": ["bank_account", "payment_gateway", "merchant_acquirer", "marketplace", "digital_wallet", "billing_erp", "accounting_ledger", "tax_documents_received", "supporting_evidence", "reference_data"],
     "lifecycle_state": ["active", "suspended", "revoked", "closed"],
+    "source_account_role": ["primary", "settlement", "ledger", "supporting"],
+    "source_periodicity": ["monthly", "fortnightly", "weekly", "custom"],
+    "expectation_state": ["pending", "satisfied", "late", "waived"],
     "ingestion_channel": ["web_upload", "mobile_upload", "email", "sftp", "api", "webhook", "connector"],
     "artifact_state": ["received", "quarantined", "accepted", "rejected", "purged"],
     "technical_format": ["csv", "xlsx", "ofx", "mt940", "xml", "pdf_native", "pdf_scanned", "image", "json", "unknown"],
@@ -71,15 +74,20 @@
       "relationships": [], "unique_constraints": [{"id": "uq_data_source_identity", "fields": ["company_id", "id"], "kind": "entity_identity"}]
     },
     {
-      "id": "source_expectation", "owner_module": "sources", "plane": "control", "company_scoped": true, "authoritative_financial_state": false, "classification": "confidential", "mutation_policy": "mutable_master_versioned", "lineage_required": false,
+      "id": "source_expectation", "owner_module": "sources", "plane": "control", "company_scoped": true, "authoritative_financial_state": false, "classification": "confidential", "mutation_policy": "controlled_state_machine", "lineage_required": false,
       "fields": [
         {"name": "id", "type": "uuid_v7", "nullable": false, "immutable": true}, {"name": "company_id", "type": "uuid", "nullable": false, "immutable": true},
         {"name": "data_source_id", "type": "uuid", "nullable": false, "immutable": true}, {"name": "financial_account_id", "type": "uuid", "nullable": true, "immutable": false},
         {"name": "period_start", "type": "local_date", "nullable": false, "immutable": false}, {"name": "period_end", "type": "local_date", "nullable": false, "immutable": false},
         {"name": "expected_controls", "type": "json_document", "nullable": false, "immutable": false, "schema_ref": "fnc://source-expectation-controls/v1", "max_bytes": 16384},
+        {"name": "cycle_id", "type": "uuid", "nullable": true, "immutable": true},
+        {"name": "due_on", "type": "local_date", "nullable": false, "immutable": true}, {"name": "late_after", "type": "local_date", "nullable": false, "immutable": true},
+        {"name": "state", "type": "enum", "nullable": false, "immutable": false, "enum_ref": "expectation_state"},
+        {"name": "satisfied_by", "type": "uuid", "nullable": true, "immutable": false}, {"name": "satisfied_at", "type": "instant", "nullable": true, "immutable": false},
+        {"name": "waived_reason", "type": "text", "nullable": true, "immutable": false, "max_bytes": 200},
         {"name": "created_at", "type": "instant", "nullable": false, "immutable": true}
       ],
-      "relationships": [{"field": "data_source_id", "target": "data_source", "company_scoped_fk": true, "on_delete": "restrict"}, {"field": "financial_account_id", "target": "financial_account", "company_scoped_fk": true, "on_delete": "restrict"}],
+      "relationships": [{"field": "data_source_id", "target": "data_source", "company_scoped_fk": true, "on_delete": "restrict"}, {"field": "financial_account_id", "target": "financial_account", "company_scoped_fk": true, "on_delete": "restrict"}, {"field": "cycle_id", "target": "source_cycle", "company_scoped_fk": true, "on_delete": "restrict"}, {"field": "satisfied_by", "target": "source_artifact", "company_scoped_fk": true, "on_delete": "restrict"}],
       "unique_constraints": [{"id": "uq_source_expectation_identity", "fields": ["company_id", "id"], "kind": "entity_identity"}]
     },
     {
@@ -307,6 +315,37 @@
         {"name": "created_at", "type": "instant", "nullable": false, "immutable": true}
       ],
       "relationships": [], "unique_constraints": [{"id": "uq_external_reference_identity", "fields": ["company_id", "id"], "kind": "entity_identity"}]
+    },
+    {
+      "id": "data_source_account", "owner_module": "sources", "plane": "control", "company_scoped": true, "authoritative_financial_state": false, "classification": "confidential", "mutation_policy": "mutable_master_versioned", "lineage_required": false,
+      "fields": [
+        {"name": "id", "type": "uuid_v7", "nullable": false, "immutable": true}, {"name": "company_id", "type": "uuid", "nullable": false, "immutable": true},
+        {"name": "data_source_id", "type": "uuid", "nullable": false, "immutable": true}, {"name": "financial_account_id", "type": "uuid", "nullable": false, "immutable": true},
+        {"name": "relation_role", "type": "enum", "nullable": false, "immutable": true, "enum_ref": "source_account_role"},
+        {"name": "valid_from", "type": "local_date", "nullable": false, "immutable": true}, {"name": "valid_to", "type": "local_date", "nullable": true, "immutable": false},
+        {"name": "status", "type": "enum", "nullable": false, "immutable": false, "enum_ref": "lifecycle_state"},
+        {"name": "created_by", "type": "uuid", "nullable": false, "immutable": true}, {"name": "created_at", "type": "instant", "nullable": false, "immutable": true}
+      ],
+      "relationships": [{"field": "data_source_id", "target": "data_source", "company_scoped_fk": true, "on_delete": "restrict"}, {"field": "financial_account_id", "target": "financial_account", "company_scoped_fk": true, "on_delete": "restrict"}],
+      "unique_constraints": [{"id": "uq_source_account_identity", "fields": ["company_id", "id"], "kind": "entity_identity"}]
+    },
+    {
+      "id": "source_cycle", "owner_module": "sources", "plane": "control", "company_scoped": true, "authoritative_financial_state": false, "classification": "confidential", "mutation_policy": "mutable_master_versioned", "lineage_required": false,
+      "fields": [
+        {"name": "id", "type": "uuid_v7", "nullable": false, "immutable": true}, {"name": "company_id", "type": "uuid", "nullable": false, "immutable": true},
+        {"name": "data_source_id", "type": "uuid", "nullable": false, "immutable": true},
+        {"name": "periodicity", "type": "enum", "nullable": false, "immutable": false, "enum_ref": "source_periodicity"},
+        {"name": "custom_days", "type": "integer", "nullable": true, "immutable": false},
+        {"name": "due_day_offset", "type": "integer", "nullable": false, "immutable": false}, {"name": "grace_days", "type": "integer", "nullable": false, "immutable": false},
+        {"name": "responsible_subject_id", "type": "uuid", "nullable": false, "immutable": false},
+        {"name": "timezone", "type": "text", "nullable": false, "immutable": false, "max_bytes": 64},
+        {"name": "anchor_date", "type": "local_date", "nullable": false, "immutable": true},
+        {"name": "status", "type": "enum", "nullable": false, "immutable": false, "enum_ref": "lifecycle_state"},
+        {"name": "created_by", "type": "uuid", "nullable": false, "immutable": true},
+        {"name": "created_at", "type": "instant", "nullable": false, "immutable": true}, {"name": "updated_at", "type": "instant", "nullable": false, "immutable": false}
+      ],
+      "relationships": [{"field": "data_source_id", "target": "data_source", "company_scoped_fk": true, "on_delete": "restrict"}],
+      "unique_constraints": [{"id": "uq_source_cycle_identity", "fields": ["company_id", "id"], "kind": "entity_identity"}]
     }
   ]
 }

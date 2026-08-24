@@ -30,6 +30,66 @@ class CanonicalModelTest(unittest.TestCase):
     def test_repository_model_is_valid(self) -> None:
         self.assertEqual([], validate_model(self.model, self.architecture))
 
+    def test_a_lineage_table_cannot_be_smuggled_into_the_financial_model(self) -> None:
+        # Es el camino corto: cuando una tabla nueva no encaja en ningun sitio,
+        # anadirla aqui la hace pasar todos los validadores. El plan de linaje
+        # tiene su contrato y no es un hecho economico; confundirlos convertiria
+        # el modelo financiero en un cajon.
+        for smuggled in ("lineage_transform_plan", "lineage_transform_step",
+                         "lineage_row_override"):
+            with self.subTest(entity=smuggled):
+                mutated = copy.deepcopy(self.model)
+                entity = copy.deepcopy(self._entity(mutated, "source_cycle"))
+                entity["id"] = smuggled
+                mutated["entities"].append(entity)
+                self.assertIn("DOM-FOREIGN-AUTHORITY", self._codes(mutated))
+
+    def test_a_workflow_checkpoint_cannot_be_smuggled_in_either(self) -> None:
+        mutated = copy.deepcopy(self.model)
+        entity = copy.deepcopy(self._entity(mutated, "source_cycle"))
+        entity["id"] = "dataset_chunk"
+        mutated["entities"].append(entity)
+        self.assertIn("DOM-FOREIGN-AUTHORITY", self._codes(mutated))
+
+    def test_a_release_signature_cannot_be_smuggled_in_either(self) -> None:
+        mutated = copy.deepcopy(self.model)
+        entity = copy.deepcopy(self._entity(mutated, "source_cycle"))
+        entity["id"] = "release_approval"
+        mutated["entities"].append(entity)
+        self.assertIn("DOM-FOREIGN-AUTHORITY", self._codes(mutated))
+
+    def test_the_two_new_control_entities_are_owned_by_sources(self) -> None:
+        # Y **no** por `finance`: si lo fueran, `DOM-FINANCE-LINEAGE` exigiria
+        # linaje a un vinculo entre una fuente y una cuenta, que no es un hecho
+        # economico y no tiene nada que rastrear.
+        for entity_id in ("data_source_account", "source_cycle"):
+            with self.subTest(entity=entity_id):
+                entity = self._entity(self.model, entity_id)
+                self.assertEqual(entity["owner_module"], "sources")
+                self.assertEqual(entity["plane"], "control")
+                self.assertFalse(entity["authoritative_financial_state"])
+                self.assertFalse(entity["lineage_required"])
+
+    def test_the_expectation_declares_its_operational_columns(self) -> None:
+        # La divergencia que P3.5 dejo declarada: la tabla tenia columnas que el
+        # modelo no nombraba, y una columna sin contrato es una columna que nadie
+        # revisa.
+        entity = self._entity(self.model, "source_expectation")
+        names = {field["name"] for field in entity["fields"]}
+        self.assertLessEqual(
+            {"cycle_id", "due_on", "late_after", "state", "satisfied_by",
+             "waived_reason"}, names)
+        self.assertEqual(entity["mutation_policy"], "controlled_state_machine")
+
+    def test_the_dates_that_decide_lateness_are_immutable(self) -> None:
+        # Recalcularlas mas tarde con otro ciclo cambiaria si algo llego tarde, y
+        # eso ya ocurrio.
+        for name in ("due_on", "late_after"):
+            with self.subTest(field=name):
+                field = self._field(self.model, "source_expectation", name)
+                self.assertTrue(field["immutable"])
+                self.assertFalse(field["nullable"])
+
     def test_float_money_storage_is_rejected(self) -> None:
         mutated = copy.deepcopy(self.model)
         money = next(item for item in mutated["logical_types"] if item["id"] == "money_decimal")

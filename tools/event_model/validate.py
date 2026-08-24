@@ -22,6 +22,7 @@ REQUIRED_TESTS = {
     "TST-RET-001", "TST-RET-002", "TST-RET-003", "TST-RET-004", "TST-RET-005",
     "TST-DLQ-001", "TST-DLQ-002", "TST-DLQ-003", "TST-ORD-001", "TST-SCH-001",
     "TST-EXT-001", "TST-EXE-001", "TST-EXE-002", "TST-AUTH-001", "TST-TEN-002",
+    "TST-CHK-001", "TST-CHK-002", "TST-CHK-003",
 }
 REQUIRED_EVENT_FIELDS = {
     "event_id", "event_name", "schema_id", "schema_version", "producer_module",
@@ -44,6 +45,15 @@ REQUIRED_DLQ_FIELDS = {
     "payload_digest_or_reference", "failure_class", "reason_code", "attempt_count",
     "first_failed_at", "last_failed_at", "retry_policy_version", "owner",
     "resolution_state", "audit_event_id",
+}
+REQUIRED_CHECKPOINT_INVARIANTS = {
+    "CHK-SAME-TRANSACTION", "CHK-RESERVED-BEFORE-EFFECT", "CHK-POSTGRESQL-AUTHORITY",
+    "CHK-VALKEY-NEVER-AUTHORITY", "CHK-ONE-RETRY-OWNER", "CHK-IDEMPOTENT-RESUME",
+    "CHK-NOT-FINANCIAL", "CHK-EXHAUSTION-VISIBLE",
+}
+REQUIRED_CHECKPOINT_FIELDS = {
+    "chunk_id", "chunk_ordinal", "company_id", "completed_at", "dataset_version_id",
+    "first_record", "last_record", "movement_count", "rejected_count",
 }
 REQUIRED_REPLAY = {
     "current_authorization_revalidated", "original_schema_available_or_explicit_migration",
@@ -268,6 +278,39 @@ def validate_model(
         fail("EVT-IDEMPOTENCY-ALIGNMENT", "idempotency.concurrency_contract", "DOM-004 atomicity alignment failed")
     if idem_concurrency.get("worker_delivery") != "at_least_once":
         fail("EVT-DELIVERY-ALIGNMENT", "idempotency.concurrency_contract.worker_delivery", "at-least-once alignment failed")
+
+    # -- punto de control de un lote --------------------------------------
+    # Un tramo publicado es un recibo, y su contrato es de reintentos, no de
+    # finanzas: por eso vive aqui y no en el modelo canonico.
+    checkpoint = model.get("checkpoint_contract")
+    if not isinstance(checkpoint, dict):
+        fail("EVT-CHECKPOINT", "checkpoint_contract", "chunked work needs a declared checkpoint contract")
+    else:
+        if checkpoint.get("checkpoint_authority") != "postgresql":
+            fail("EVT-CHECKPOINT-AUTHORITY", "checkpoint_contract.checkpoint_authority", "the checkpoint lives in PostgreSQL")
+        if checkpoint.get("valkey_is_checkpoint_authority") is not False:
+            fail("EVT-CHECKPOINT-VALKEY", "checkpoint_contract.valkey_is_checkpoint_authority", "Valkey is never the checkpoint authority")
+        if checkpoint.get("valkey_loss_effect") != "progress_bar_resets_no_chunk_is_repeated_or_lost":
+            fail("EVT-CHECKPOINT-VALKEY", "checkpoint_contract.valkey_loss_effect", "losing the cache cannot repeat or lose a chunk")
+        if checkpoint.get("checkpoint_and_effect_transaction") != "same_transaction":
+            fail("EVT-CHECKPOINT-ATOMIC", "checkpoint_contract.checkpoint_and_effect_transaction", "receipt and effect commit together")
+        if checkpoint.get("checkpoint_reserved_before_effect") is not True:
+            fail("EVT-CHECKPOINT-ATOMIC", "checkpoint_contract.checkpoint_reserved_before_effect", "the chunk row is claimed before the batch is written")
+        if checkpoint.get("partial_chunk") != "rolled_back_whole_never_half_written":
+            fail("EVT-CHECKPOINT-ATOMIC", "checkpoint_contract.partial_chunk", "half a chunk is not a state")
+        if checkpoint.get("retry_owner") != "worker_job_runner" or checkpoint.get("broker_redelivery_is_not_extra_owner") is not True:
+            fail("EVT-CHECKPOINT-OWNER", "checkpoint_contract.retry_owner", "exactly one retry owner, and redelivery is not a second one")
+        if checkpoint.get("resume_semantics") != "skip_recorded_ordinals_and_continue":
+            fail("EVT-CHECKPOINT-RESUME", "checkpoint_contract.resume_semantics", "resuming skips what is already recorded")
+        if checkpoint.get("dead_letter_on_exhaustion") is not True:
+            fail("EVT-CHECKPOINT-DLQ", "checkpoint_contract.dead_letter_on_exhaustion", "an exhausted publication is visible, not silently complete")
+        if checkpoint.get("financial_state_authority") is not False or checkpoint.get("lineage_authority") is not False:
+            fail("EVT-CHECKPOINT-SCOPE", "checkpoint_contract", "a chunk counts how much was published, never what")
+        declared = {item.get("id") for item in checkpoint.get("invariants", []) if isinstance(item, dict)}
+        for missing in sorted(REQUIRED_CHECKPOINT_INVARIANTS - declared):
+            fail("EVT-CHECKPOINT-INVARIANT", f"checkpoint_contract.{missing}", "required checkpoint invariant is missing")
+        for missing in sorted(REQUIRED_CHECKPOINT_FIELDS - set(checkpoint.get("required_fields") or [])):
+            fail("EVT-CHECKPOINT-FIELD", f"checkpoint_contract.{missing}", "a checkpoint without this field cannot be resumed")
 
     dfd_threats = set(_ids(dfd.get("threat_catalog")))
     dfd_controls = set(_ids(dfd.get("control_catalog")))

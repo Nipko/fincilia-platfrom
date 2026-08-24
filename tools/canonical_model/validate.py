@@ -6,13 +6,29 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
+# La lista es exacta a proposito: anadir una entidad al modelo financiero tiene
+# que costar editar esto, y editarlo tiene que costar justificarlo. Lo que
+# **no** entra aqui son las tablas cuya autoridad es otro contrato —el plan de
+# linaje, la firma de una release, el punto de control de un lote—, por comodo
+# que resulte tenerlas todas en el mismo sitio.
 REQUIRED_ENTITIES = {
-    "data_source", "source_expectation", "reference_dataset_version",
+    "data_source", "data_source_account", "source_cycle", "source_expectation",
+    "reference_dataset_version",
     "source_artifact", "artifact_version", "document", "processing_run",
     "raw_record", "dataset_version", "source_record",
     "counterparty", "financial_account", "obligation", "money_movement",
     "movement_evidence_link", "settlement", "ledger_entry", "ledger_line",
     "account_balance", "external_reference",
+}
+
+# Y lo que tiene prohibido entrar, con el contrato al que pertenece cada una.
+# Sin esto, «anadirla al modelo canonico» seria siempre el camino corto.
+FOREIGN_AUTHORITY = {
+    "lineage_transform_plan": "lineage-model.json#transform_plan_contract",
+    "lineage_transform_step": "lineage-model.json#transform_plan_contract",
+    "lineage_row_override": "lineage-model.json#row_override_contract",
+    "release_approval": "lineage-model.json#engine_release_contract",
+    "dataset_chunk": "events-retries.json#checkpoint_contract",
 }
 REQUIRED_TYPES = {
     "uuid", "uuid_v7", "text", "boolean", "integer", "money_decimal",
@@ -124,6 +140,12 @@ def validate_model(model: dict[str, Any], architecture: dict[str, Any]) -> list[
     if not isinstance(entities, list):
         return sorted(set(errors + [CanonicalModelError("DOM-ENTITIES", "entities", "entities must be a list")]))
     entity_ids = _ids(entities)
+    smuggled = sorted(set(entity_ids) & set(FOREIGN_AUTHORITY))
+    for identifier in smuggled:
+        errors.append(CanonicalModelError(
+            "DOM-FOREIGN-AUTHORITY", f"entities.{identifier}",
+            f"this belongs to {FOREIGN_AUTHORITY[identifier]}, not to the "
+            "canonical financial model"))
     if set(entity_ids) != REQUIRED_ENTITIES or len(entity_ids) != len(REQUIRED_ENTITIES):
         errors.append(CanonicalModelError("DOM-ENTITY-SET", "entities", "required entities must be declared exactly once"))
     for duplicate in _duplicates(entity_ids):

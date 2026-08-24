@@ -110,6 +110,121 @@ class LineageModelTest(unittest.TestCase):
             self.model, self.canonical, self.architecture, self.idempotency, self.privacy,
             self.dfd, self.threats))
 
+    # -- contratos que P3.6 trae al modelo -------------------------------
+
+    def test_the_transform_plan_contract_bites_when_weakened(self) -> None:
+        # Sin estas reglas, la representacion hibrida seria una decision de
+        # implementacion que nadie puede auditar: el contrato diria seis etapas
+        # y el codigo haria lo que quisiera.
+        for label, mutate, expected in (
+            ("cobertura media",
+             lambda m: m["transform_plan_contract"].__setitem__(
+                 "average_coverage_allowed", True),
+             "LIN-PLAN-COVERAGE"),
+            ("etapa incompleta que no bloquea",
+             lambda m: m["transform_plan_contract"].__setitem__(
+                 "on_incomplete", "warn"),
+             "LIN-PLAN-INCOMPLETE"),
+            ("plan sin atar a una version del motor",
+             lambda m: m["transform_plan_contract"]["binding"].__setitem__(
+                 "keys", ["mapping_version_id"]),
+             "LIN-PLAN-BINDING"),
+            ("un paso que lleva el valor",
+             lambda m: m["transform_plan_contract"]["step_required_fields"].append(
+                 "cell_text"),
+             "LIN-PLAN-VALUE"),
+        ):
+            with self.subTest(mutation=label):
+                mutated = copy.deepcopy(self.model)
+                mutate(mutated)
+                self.assertIn(expected, self._codes(mutated))
+
+    def test_every_declared_plan_invariant_is_required(self) -> None:
+        for invariant in [item["id"] for item in
+                          self.model["transform_plan_contract"]["invariants"]]:
+            with self.subTest(invariant=invariant):
+                mutated = copy.deepcopy(self.model)
+                mutated["transform_plan_contract"]["invariants"] = [
+                    item for item in mutated["transform_plan_contract"]["invariants"]
+                    if item["id"] != invariant]
+                self.assertIn("LIN-PLAN-INVARIANT", self._codes(mutated))
+
+    def test_the_row_override_contract_bites_when_weakened(self) -> None:
+        for label, mutate, expected in (
+            ("un override editable",
+             lambda m: m["row_override_contract"].__setitem__("immutable", False),
+             "LIN-OVERRIDE-MUTABLE"),
+            ("un override que guarda el valor",
+             lambda m: m["row_override_contract"]["required_fields"].append(
+                 "typed_value"),
+             "LIN-OVERRIDE-VALUE"),
+            ("un override sin empresa",
+             lambda m: m["row_override_contract"].__setitem__(
+                 "company_scoped", False),
+             "LIN-OVERRIDE-SCOPE"),
+            ("una segunda lista de campos criticos",
+             lambda m: m["row_override_contract"].__setitem__(
+                 "critical_field_source", "otra_lista"),
+             "LIN-OVERRIDE-CRITICAL"),
+            ("un override que falta y no bloquea",
+             lambda m: m["row_override_contract"].__setitem__(
+                 "on_missing_required_override", "warn"),
+             "LIN-OVERRIDE-INCOMPLETE"),
+        ):
+            with self.subTest(mutation=label):
+                mutated = copy.deepcopy(self.model)
+                mutate(mutated)
+                self.assertIn(expected, self._codes(mutated))
+
+    def test_every_declared_override_invariant_is_required(self) -> None:
+        for invariant in [item["id"] for item in
+                          self.model["row_override_contract"]["invariants"]]:
+            with self.subTest(invariant=invariant):
+                mutated = copy.deepcopy(self.model)
+                mutated["row_override_contract"]["invariants"] = [
+                    item for item in mutated["row_override_contract"]["invariants"]
+                    if item["id"] != invariant]
+                self.assertIn("LIN-OVERRIDE-INVARIANT", self._codes(mutated))
+
+    def test_a_missing_override_field_bites(self) -> None:
+        for field in sorted(self.model["row_override_contract"]["required_fields"]):
+            with self.subTest(field=field):
+                mutated = copy.deepcopy(self.model)
+                mutated["row_override_contract"]["required_fields"] = [
+                    item for item in
+                    mutated["row_override_contract"]["required_fields"]
+                    if item != field]
+                self.assertIn("LIN-OVERRIDE-FIELD", self._codes(mutated))
+
+    def test_the_release_signature_contract_bites_when_weakened(self) -> None:
+        for label, mutate, expected in (
+            ("un agente que se autoaprueba",
+             lambda m: m["engine_release_contract"]["approval_record"].__setitem__(
+                 "agent_can_self_approve", True),
+             "LIN-APPROVAL-SELF"),
+            ("una firma que es dato de una empresa",
+             lambda m: m["engine_release_contract"]["approval_record"].__setitem__(
+                 "company_scoped", True),
+             "LIN-APPROVAL-SCOPE"),
+            ("aprobar dentro del build",
+             lambda m: m["engine_release_contract"]["approval_record"].__setitem__(
+                 "separation_from_build", False),
+             "LIN-APPROVAL-BUILD"),
+        ):
+            with self.subTest(mutation=label):
+                mutated = copy.deepcopy(self.model)
+                mutate(mutated)
+                self.assertIn(expected, self._codes(mutated))
+
+    def test_the_override_kinds_cover_what_a_person_actually_does(self) -> None:
+        kinds = set(self.model["row_override_contract"]["override_kinds"])
+        # Cada uno existe porque alguien lo hace: corregir a mano, aplicar un
+        # overlay, leer una fila de otra forma, resolver un signo, sustituir un
+        # valor, rechazar una fila.
+        self.assertLessEqual(
+            {"manual_correction", "overlay_applied", "exceptional_parse",
+             "sign_resolution", "substituted_value", "rejected_value"}, kinds)
+
     def test_lineage_required_entities_are_derived_dynamically(self) -> None:
         expected = {e["id"] for e in self.canonical["entities"] if e.get("lineage_required")}
         declared = set(self.model["canonical_binding"]["entities_requiring_lineage"])

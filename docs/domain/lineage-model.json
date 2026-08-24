@@ -158,6 +158,51 @@
       "authority": "human_platform_owner",
       "separate_from_build": true
     },
+    "approval_record": {
+      "actions": [
+        "approved",
+        "superseded",
+        "rejected"
+      ],
+      "agent_can_self_approve": false,
+      "company_scoped": false,
+      "entity": "release_approval",
+      "invariants": [
+        {
+          "id": "REL-ONE-SIGNATURE",
+          "rule": "Una firma por accion y version. Cambiar de opinion es otra version, no otra firma sobre la misma."
+        },
+        {
+          "id": "REL-SIGNED-DIGEST",
+          "rule": "La firma cubre un digest de componentes concreto; si cambian despues, la firma cubria otra cosa y la publicacion se detiene."
+        },
+        {
+          "id": "REL-RUNTIME-CANNOT-SIGN",
+          "rule": "Ningun rol del runtime escribe la release ni su firma. Es un privilegio del motor, no una promesa del codigo."
+        },
+        {
+          "id": "REL-SUPERSEDED-KEEPS-SIGNATURE",
+          "rule": "Una version sustituida conserva su referencia de aprobacion: retirarla no borra que alguien la aprobo."
+        },
+        {
+          "id": "REL-DRAFT-CANNOT-PUBLISH",
+          "rule": "Un borrador no prepara ni publica. Publicar afirma reproducibilidad, y nadie ha mirado un borrador."
+        }
+      ],
+      "owner_module": "platform",
+      "rationale": "Aprobar una version del software es un acto de plataforma y no un dato de una empresa. No cabe en `audit_event`, que tiene politica por empresa: una fila sin empresa no la ve nadie, y un rastro que nadie puede leer no es un rastro.",
+      "required_fields": [
+        "action",
+        "actor_identity",
+        "approval_ref",
+        "approval_id",
+        "components_digest",
+        "occurred_at",
+        "rationale",
+        "release_id"
+      ],
+      "separation_from_build": true
+    },
     "classification_rules": {
       "affects_results_requires": [
         "adjudicated_corpus_manifest",
@@ -1474,9 +1519,170 @@
       "retained_reference_form": "minimized_segregated_reference_and_digest"
     }
   },
+  "row_override_contract": {
+    "company_scoped": true,
+    "critical_field_source": "critical_overlay_fields",
+    "entity": "lineage_row_override",
+    "immutable": true,
+    "invariants": [
+      {
+        "id": "OVR-NO-VALUES",
+        "rule": "El valor nunca se guarda en el override: solo la huella del original y la del resultado."
+      },
+      {
+        "id": "OVR-SEGREGATION",
+        "rule": "En un campo critico, quien crea el override no puede aprobarlo."
+      },
+      {
+        "id": "OVR-UNAPPROVED-BLOCKS",
+        "rule": "Un override sin aprobar sobre un campo critico bloquea la publicacion del dataset."
+      },
+      {
+        "id": "OVR-NO-CROSS-COMPANY",
+        "rule": "Un override referencia registros de su propia empresa; la clave ajena es compuesta."
+      },
+      {
+        "id": "OVR-DIGEST-CHAIN",
+        "rule": "`original_value_digest` tiene que coincidir con lo que el plan produce sin override; si no, el override describe otra cosa."
+      },
+      {
+        "id": "OVR-POSITIONED",
+        "rule": "El override se intercala en la etapa logica que corresponde a su `base_plan_step_id`, no al final del camino."
+      },
+      {
+        "id": "OVR-OPTIONAL",
+        "rule": "Sin override, el camino es el del plan compartido. La ausencia no es una etapa que falte."
+      },
+      {
+        "id": "OVR-IMMUTABLE",
+        "rule": "Un override no se edita. Cambiar de opinion es otro override, y el anterior se conserva."
+      }
+    ],
+    "nullable_fields": [
+      "approved_by"
+    ],
+    "on_missing_required_override": "block_publication",
+    "override_kinds": [
+      "manual_correction",
+      "overlay_applied",
+      "exceptional_parse",
+      "sign_resolution",
+      "substituted_value",
+      "rejected_value",
+      "row_rule"
+    ],
+    "owner_module": "clean",
+    "rationale": "El plan explica la columna. Cuando una fila concreta se aparta de esa regla —una correccion manual, un signo resuelto a mano, un valor rechazado— el camino tiene que decirlo en el punto exacto en que ocurrio, y no borrar la regla general para acomodar una excepcion.",
+    "required_fields": [
+      "approved_by",
+      "base_plan_step_id",
+      "canonical_schema_version",
+      "company_id",
+      "created_at",
+      "created_by",
+      "dataset_version_id",
+      "engine_release_id",
+      "field_name",
+      "original_value_digest",
+      "override_id",
+      "override_kind",
+      "raw_record_id",
+      "reason_code",
+      "resulting_value_digest",
+      "rule_version",
+      "source_record_id"
+    ]
+  },
   "schema_version": 1,
   "status": "review_pending",
   "task_id": "FNC-DOM-005",
+  "transform_plan_contract": {
+    "average_coverage_allowed": false,
+    "binding": {
+      "immutable_after_first_publication": true,
+      "keys": [
+        "mapping_version_id",
+        "engine_release_id"
+      ],
+      "rationale": "Cambiar la transformacion cambia el digest del mapeo o la version del motor, luego es otro par y otro plan. El anterior se conserva para reconstruir lo que ya produjo.",
+      "unique": true
+    },
+    "company_scoped": true,
+    "entity": "lineage_transform_plan",
+    "invariants": [
+      {
+        "id": "PLAN-STAGE-COVERAGE",
+        "rule": "Cada campo publicado declara las seis etapas de PATH-FINANCIAL-FACT, en orden."
+      },
+      {
+        "id": "PLAN-TYPE-CHAIN",
+        "rule": "El tipo de salida de una etapa es el de entrada de la siguiente; una cadena rota no explica nada aunque tenga seis filas."
+      },
+      {
+        "id": "PLAN-TRANSFORM-NAMED",
+        "rule": "Una etapa `derived_from` o `redacted_from` nombra su transformacion."
+      },
+      {
+        "id": "PLAN-NO-VALUES",
+        "rule": "El plan describe como se leyo, nunca que se leyo: tipos semanticos, versiones y digests de configuracion."
+      },
+      {
+        "id": "PLAN-VERSIONED",
+        "rule": "Cada etapa declara parser_version y rule_version; sin ellas la reconstruccion no es reproducible."
+      },
+      {
+        "id": "PLAN-APPEND-ONLY",
+        "rule": "Un plan no se reescribe. Corregir una regla crea otro plan atado a otro par."
+      },
+      {
+        "id": "PLAN-HISTORY-PRESERVED",
+        "rule": "Invalidar un plan bloquea publicaciones nuevas y no reinterpreta ni borra las historicas."
+      }
+    ],
+    "on_incomplete": "block_publication",
+    "owner_module": "clean",
+    "plan_required_fields": [
+      "canonical_schema_version",
+      "company_id",
+      "engine_release_id",
+      "field_count",
+      "mapping_version_id",
+      "plan_digest",
+      "plan_id"
+    ],
+    "rationale": "Las seis etapas de PATH-FINANCIAL-FACT son propiedades de la columna y no de la fila: leer la columna 3 como decimal con coma es la misma decision en la fila 7 que en la 90.000. Materializarlas por fila repetiria cien mil veces la misma informacion.",
+    "reconstruction": {
+      "combines": [
+        "lineage_transform_plan",
+        "lineage_transform_step",
+        "raw_record.origin_locator",
+        "source_record.raw_record_id",
+        "canonical_movement.field_digests",
+        "lineage_row_override"
+      ],
+      "on_missing_stage": "block_publication",
+      "returns": "the six logical stages of PATH-FINANCIAL-FACT, in order"
+    },
+    "step_entity": "lineage_transform_step",
+    "step_nullable_fields": [
+      "source_column",
+      "transform_ref"
+    ],
+    "step_required_fields": [
+      "canonical_field",
+      "company_id",
+      "configuration_digest",
+      "input_semantic_type",
+      "operation",
+      "output_semantic_type",
+      "parser_version",
+      "plan_id",
+      "rule_version",
+      "stage",
+      "step_id",
+      "step_ordinal"
+    ]
+  },
   "unresolved_decisions": [
     {
       "blocks": [

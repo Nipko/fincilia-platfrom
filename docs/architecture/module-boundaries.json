@@ -44,7 +44,7 @@
       "allowed_dependencies": ["access", "tenancy"],
       "authoritative_financial_state": false,
       "id": "sources",
-      "owns": ["data_source", "connection", "source_expectation", "reference_dataset_version", "connector_registration"],
+      "owns": ["data_source", "connection", "source_expectation", "reference_dataset_version", "connector_registration", "data_source_account", "source_cycle"],
       "plane": "control"
     },
     {
