@@ -301,9 +301,9 @@ services:
 
 volumes:
   fincilia_local_pgdata:
-    name: fincilia_local_pgdata
+    name: ${FINCILIA_LOCAL_PGDATA_VOLUME:-fincilia_local_pgdata}
   fincilia_local_objectdata:
-    name: fincilia_local_objectdata
+    name: ${FINCILIA_LOCAL_OBJECTDATA_VOLUME:-fincilia_local_objectdata}
 
 networks:
   fincilia_local_private:

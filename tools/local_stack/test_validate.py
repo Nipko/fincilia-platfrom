@@ -170,7 +170,49 @@ class LocalStackContractTests(unittest.TestCase):
 
     def test_a_bootstrap_script_that_only_starts_containers_bites(self) -> None:
         codes_found = codes(validate_bootstrap_script("docker compose up -d --wait"))
-        self.assertIn("LOCAL-BOOTSTRAP-SCRIPT", codes_found)
+        self.assertIn("LOCAL-BOOTSTRAP-BUILD", codes_found)
+        self.assertIn("LOCAL-BOOTSTRAP-MIGRATE", codes_found)
+        self.assertIn("LOCAL-BOOTSTRAP-SEED", codes_found)
+        self.assertIn("LOCAL-BOOTSTRAP-START", codes_found)
+        self.assertIn("LOCAL-BOOTSTRAP-READINESS", codes_found)
+
+    def test_every_bootstrap_phase_bites_independently(self) -> None:
+        script = (ROOT / "infra/local/up.sh").read_text(encoding="utf-8")
+        mutations = (
+            ("--profile migrate build api worker web migrate",
+             "--profile migrate build api worker web", "LOCAL-BOOTSTRAP-BUILD"),
+            ("--profile migrate run --rm migrate",
+             "--profile migrate run --rm noop", "LOCAL-BOOTSTRAP-MIGRATE"),
+            ("db.seed.local", "db.seed.noop", "LOCAL-BOOTSTRAP-SEED"),
+            ("up -d --wait --force-recreate api worker web",
+             "up -d --wait api worker web", "LOCAL-BOOTSTRAP-START"),
+            ("/health/ready", "/health/live", "LOCAL-BOOTSTRAP-READINESS"),
+        )
+        for original, replacement, expected in mutations:
+            with self.subTest(expected=expected):
+                self.assertIn(original, script)
+                mutated = script.replace(original, replacement, 1)
+                self.assertIn(expected, codes(validate_bootstrap_script(mutated)))
+
+    def test_readiness_must_check_product_and_schema_state(self) -> None:
+        script = (ROOT / "infra/local/up.sh").read_text(encoding="utf-8")
+        for original in ('payload.get("status") != "ready"',
+                         'item.get("name") == "schema"',
+                         'schema[0].get("status") != "up"'):
+            with self.subTest(original=original):
+                mutated = script.replace(original, "removed_readiness_assertion", 1)
+                self.assertIn("LOCAL-BOOTSTRAP-READINESS",
+                              codes(validate_bootstrap_script(mutated)))
+
+    def test_bootstrap_order_bites(self) -> None:
+        script = (ROOT / "infra/local/up.sh").read_text(encoding="utf-8")
+        build = "compose --profile migrate build api worker web migrate"
+        migrate = "compose --profile migrate run --rm migrate"
+        mutated = script.replace(build, "ORDER_PLACEHOLDER", 1)
+        mutated = mutated.replace(migrate, build, 1)
+        mutated = mutated.replace("ORDER_PLACEHOLDER", migrate, 1)
+        self.assertIn("LOCAL-BOOTSTRAP-ORDER",
+                      codes(validate_bootstrap_script(mutated)))
 
     def test_a_bootstrap_script_that_destroys_volumes_bites(self) -> None:
         script = (ROOT / "infra/local/up.sh").read_text(encoding="utf-8")
@@ -215,6 +257,19 @@ class LocalStackContractTests(unittest.TestCase):
     def test_the_stack_declares_the_five_expected_services(self) -> None:
         for service in ("postgres", "valkey", "objectstore", "api", "worker"):
             self.assertIn(f"\n  {service}:\n", COMPOSE, service)
+
+    def test_acceptance_volume_overrides_keep_safe_defaults(self) -> None:
+        mutations = (
+            ("${FINCILIA_LOCAL_PGDATA_VOLUME:-fincilia_local_pgdata}",
+             "fincilia_qa_only_pgdata"),
+            ("${FINCILIA_LOCAL_OBJECTDATA_VOLUME:-fincilia_local_objectdata}",
+             "fincilia_qa_only_objectdata"),
+        )
+        for original, replacement in mutations:
+            with self.subTest(original=original):
+                self.assertIn(original, COMPOSE)
+                mutated = COMPOSE.replace(original, replacement, 1)
+                self.assertIn("LOCAL-NAMED-VOLUME", codes(validate_compose(mutated)))
 
 
 if __name__ == "__main__":

@@ -30,6 +30,8 @@ en la plataforma web. La tarea no acepta decisiones humanas ni amplía el produc
 # Rutas permitidas
 
 - `infra/local/up.sh`
+- `infra/local/compose.yaml` — únicamente para nombres de volúmenes de prueba
+  parametrizables, conservando los nombres por defecto.
 - `tools/local_stack/**`
 - `apps/web/tests/e2e/**`
 - `apps/web/playwright.config.ts` sólo si la estabilidad E2E lo exige.
@@ -57,6 +59,8 @@ en la plataforma web. La tarea no acepta decisiones humanas ni amplía el produc
 7. Reejecutar carga sintética, recorrido web, accesibilidad y validadores globales.
 8. Registrar evidencia manual de la estación de revisión sin ejecutar aprobar ni
    rechazar y declarar lo que aún requiera fixture formal.
+9. Permitir una corrida limpia aislada con volúmenes sintéticos nombrados, sin
+   borrar, renombrar ni reutilizar el volumen local preexistente.
 
 # Criterios de aceptación
 
@@ -81,6 +85,8 @@ en la plataforma web. La tarea no acepta decisiones humanas ni amplía el produc
   cualquier gap de supply chain o gate humano se reporta sin rebajarlo.
 - **AC-13.** El handoff contiene base/head, matriz de evidencia, comandos, riesgos,
   rollback y el estado real de S1-READY.
+- **AC-14.** Los nombres de volúmenes conservan sus defaults y admiten overrides
+  explícitos para aceptación aislada; una corrida no toca el volumen habitual.
 
 # Plan de pruebas
 

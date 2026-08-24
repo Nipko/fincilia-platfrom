@@ -22,6 +22,15 @@ compose() {
   docker compose -f "$COMPOSE_FILE" -p "$PROJECT" "$@"
 }
 
+echo "==> imagenes de esta revision"
+compose --profile migrate build api worker web migrate
+
+# Si ya habia una revision local ejecutandose, no debe observar el esquema nuevo
+# mientras migra ni sobrevivir con una imagen anterior. `stop` conserva datos,
+# volumenes y contenedores; el `up --force-recreate` posterior los reemplaza.
+echo "==> detener aplicaciones anteriores"
+compose stop api worker web
+
 echo "==> infraestructura"
 compose up -d --wait postgres valkey objectstore
 
@@ -32,7 +41,22 @@ echo "==> datos sinteticos de demo"
 compose --profile migrate run --rm migrate python -m db.seed.local
 
 echo "==> aplicaciones"
-compose up -d --wait
+compose up -d --wait --force-recreate api worker web
+
+echo "==> readiness de producto y esquema"
+compose exec -T api python -c '
+import json
+import urllib.request
+
+with urllib.request.urlopen("http://127.0.0.1:8000/health/ready", timeout=10) as response:
+    payload = json.load(response)
+
+if payload.get("status") != "ready":
+    raise SystemExit("API not ready")
+schema = [item for item in payload.get("dependencies", []) if item.get("name") == "schema"]
+if len(schema) != 1 or schema[0].get("status") != "up":
+    raise SystemExit("schema not ready")
+'
 
 WEB_PORT=${FINCILIA_LOCAL_WEB_PORT:-53000}
 API_PORT=${FINCILIA_LOCAL_API_PORT:-58080}

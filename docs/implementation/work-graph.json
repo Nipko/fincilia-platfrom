@@ -60,6 +60,7 @@
       "holder": "codex-integration-steward",
       "paths": [
         "infra/local/up.sh",
+        "infra/local/compose.yaml",
         "tools/local_stack",
         "apps/web/tests/e2e"
       ]

@@ -150,9 +150,15 @@ def validate_compose(text: str) -> list[Finding]:
             "the worker processes untrusted files and must stay off any routable "
             "network"))
     if "fincilia_local_pgdata:/var/lib/postgresql/data" not in text \
-            or "name: fincilia_local_pgdata" not in text:
+            or "name: ${FINCILIA_LOCAL_PGDATA_VOLUME:-fincilia_local_pgdata}" not in text:
         findings.append(Finding("LOCAL-NAMED-VOLUME",
-                                "explicit named persistence volume is required"))
+                                "the PostgreSQL volume needs an explicit safe default "
+                                "and an override for isolated synthetic acceptance"))
+    if "fincilia_local_objectdata:/data" not in text \
+            or "name: ${FINCILIA_LOCAL_OBJECTDATA_VOLUME:-fincilia_local_objectdata}" not in text:
+        findings.append(Finding("LOCAL-NAMED-VOLUME",
+                                "the object volume needs an explicit safe default and "
+                                "an override for isolated synthetic acceptance"))
     if "./db/init:/docker-entrypoint-initdb.d:ro" not in text \
             or "./scripts:/checks:ro" not in text:
         findings.append(Finding("LOCAL-READONLY-MOUNTS",
@@ -200,13 +206,43 @@ def validate_bootstrap_script(text: str | None) -> list[Finding]:
     # es un comando, y confundirlos haria que documentar bien penalizara.
     text = NEWLINE.join(line for line in text.splitlines()
                         if not line.lstrip().startswith("#"))
-    for required in ("--profile migrate run --rm migrate", "db.seed.local",
-                     "up -d --wait"):
+    required_steps = (
+        ("LOCAL-BOOTSTRAP-BUILD",
+         "compose --profile migrate build api worker web migrate", True),
+        ("LOCAL-BOOTSTRAP-MIGRATE",
+         "compose --profile migrate run --rm migrate", True),
+        ("LOCAL-BOOTSTRAP-SEED",
+         "compose --profile migrate run --rm migrate python -m db.seed.local", True),
+        ("LOCAL-BOOTSTRAP-START",
+         "compose up -d --wait --force-recreate api worker web", True),
+        ("LOCAL-BOOTSTRAP-READINESS", "/health/ready", False),
+    )
+    positions: list[int] = []
+    executable_lines = text.splitlines()
+    for code, required, exact_line in required_steps:
+        position = next((index for index, line in enumerate(executable_lines)
+                         if (line.strip() == required if exact_line
+                             else required in line)), -1)
+        if position < 0:
+            findings.append(Finding(
+                code,
+                f"the bootstrap script never runs {required!r}; bringing containers "
+                "up is not the same as leaving the current product revision usable"))
+        else:
+            positions.append(position)
+    if len(positions) == len(required_steps) and positions != sorted(positions):
+        findings.append(Finding(
+            "LOCAL-BOOTSTRAP-ORDER",
+            "build, migration, seed, application start and readiness must run in "
+            "that order; otherwise old code can observe a new schema"))
+    for required in ('payload.get("status") != "ready"',
+                     'item.get("name") == "schema"',
+                     'schema[0].get("status") != "up"'):
         if required not in text:
             findings.append(Finding(
-                "LOCAL-BOOTSTRAP-SCRIPT",
-                f"the bootstrap script never runs {required!r}; bringing containers "
-                "up is not the same as leaving the product usable"))
+                "LOCAL-BOOTSTRAP-READINESS",
+                f"the readiness check is missing {required!r}; HTTP 200 alone does "
+                "not prove that the expected schema is applied"))
     for destructive in ("--volumes", "-v ", "down --rmi", "prune"):
         if destructive in text:
             findings.append(Finding(
