@@ -2,6 +2,6 @@
 # pequena que la de la API es deliberado.
 pydantic==2.10.4
 pydantic-settings==2.7.0
-psycopg[binary,pool]==3.2.3
+psycopg[binary,pool]==3.3.4
 valkey==6.0.2
 boto3==1.35.99
