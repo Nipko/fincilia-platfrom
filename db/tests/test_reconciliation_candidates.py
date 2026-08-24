@@ -55,14 +55,14 @@ class ReconciliationCandidateTests(VerticalHarness):
                             "WHERE account_id = ANY(%s::uuid[])",
                             (list(cls.accounts),))
 
-    def second_channel(self) -> tuple[str, str]:
+    def second_channel(self, *, currency: str = "COP") -> tuple[str, str]:
         marker = uuid.uuid4().hex[:10]
         account_response = self.client.post(
             f"/api/v1/companies/{ESPIGA}/accounts", headers=self.auth(OWNER),
             json={"account_family": "bank_account",
                   "display_name": f"Cuenta contraparte {marker}",
                   "identifier": f"SYN-{marker}-9876",
-                  "currency_code": "COP", "timezone": "America/Bogota"})
+                  "currency_code": currency, "timezone": "America/Bogota"})
         self.assertEqual(201, account_response.status_code, account_response.text)
         account = account_response.json()["account_id"]
         type(self).accounts.add(account)
@@ -84,10 +84,11 @@ class ReconciliationCandidateTests(VerticalHarness):
         return source, account
 
     def dataset(self, rows: list[tuple[str, str, str, str]], *, marker: str,
-                source: str, account: str) -> str:
+                source: str, account: str, currency: str = "COP") -> str:
         artifact = self.promoted(csv(rows), f"{marker}.csv")
         mapping = self.create_mapping(
-            artifact, definition=MAPPING, data_source_id=source,
+            artifact, definition={**MAPPING, "currency": currency},
+            data_source_id=source,
             display_name=f"mapeo {marker} {uuid.uuid4().hex[:6]}")
         self.assertEqual(201, mapping.status_code, mapping.text)
         mapping_id = mapping.json()["mapping_version_id"]
@@ -172,6 +173,29 @@ class ReconciliationCandidateTests(VerticalHarness):
             params={"left_dataset_id": left, "right_dataset_id": right,
                     "max_days": 32})
         self.assertEqual(422, invalid_window.status_code, invalid_window.text)
+
+        usd_source, usd_account = self.second_channel(currency="USD")
+        usd = self.dataset([
+            ("14/02/2026", "Abono en otra moneda", "REF-EXACTA", "1.234,56"),
+        ], marker="rec-usd", source=usd_source, account=usd_account,
+            currency="USD")
+        currency_mismatch = self.client.get(
+            endpoint, headers=self.auth(PREPARER),
+            params={"left_dataset_id": left, "right_dataset_id": usd,
+                    "max_days": 3})
+        self.assertEqual(200, currency_mismatch.status_code,
+                         currency_mismatch.text)
+        self.assertEqual([], currency_mismatch.json()["candidates"])
+
+        incomplete = self.dataset([
+            ("14/02/2026", "Abono valido", "REF-EXACTA", "1.234,56"),
+            ("fecha-invalida", "Fila rechazada", "REF-BAD", "10,00"),
+        ], marker="rec-incomplete", source=source, account=account)
+        ineligible = self.client.get(
+            endpoint, headers=self.auth(PREPARER),
+            params={"left_dataset_id": left,
+                    "right_dataset_id": incomplete, "max_days": 3})
+        self.assertEqual(403, ineligible.status_code, ineligible.text)
 
         # Sofia tiene acceso a ambas empresas, asi que esta negativa prueba el
         # dataset company-scoped y no solamente la falta de engagement.
