@@ -11,6 +11,7 @@ import {
   fetchMapping,
   fetchMappings,
   fetchMovements,
+  fetchOverrides,
   fetchPreview,
   fetchSourcesFull,
   type Blocker,
@@ -19,6 +20,7 @@ import {
   type MappingSummary,
   type Movement,
   type PreviewPage,
+  type RowOverrideSummary,
   type Source,
 } from '@/lib/api';
 import {
@@ -33,8 +35,10 @@ import {
   ContinueForm,
   DecisionForm,
   MappingForm,
+  OverrideApprovalForm,
   PrepareForm,
   PublishForm,
+  RejectDatasetForm,
 } from './mapping-form';
 
 export const dynamic = 'force-dynamic';
@@ -67,6 +71,26 @@ const TRUNCATION_LABELS: Record<string, string> = {
   row_limit: 'se alcanzo el limite de filas',
   byte_limit: 'se alcanzo el limite de bytes',
   time_limit: 'se alcanzo el limite de tiempo',
+};
+
+const PUBLISH_BLOCKER_LABELS: Record<string, string> = {
+  'permission-denied': 'Este rol no puede publicar conjuntos canonicos.',
+  'dataset-not-validated': 'La version no esta validada y no se puede publicar.',
+  'segregation-of-duties':
+    'Quien preparo esta version no puede ser quien la publique.',
+  'engine-release-not-approved':
+    'La version del motor ya no esta aprobada; hay que preparar de nuevo.',
+  'override-not-approved':
+    'Hay una excepcion critica pendiente o que no coincide con lo publicado.',
+};
+
+const FIELD_LABELS: Record<string, string> = {
+  amount: 'Importe',
+  currency: 'Moneda',
+  direction: 'Direccion',
+  accounting_date: 'Periodo contable',
+  posting_date: 'Fecha de asiento',
+  value_date: 'Fecha valor',
 };
 
 function money(amount: string, currency: string): string {
@@ -235,6 +259,7 @@ export default async function MappingPage({
   const latest = datasets[0] ?? null;
   let dataset: DatasetDetail | null = null;
   let movements: Movement[] = [];
+  let overrides: RowOverrideSummary[] = [];
   if (latest) {
     const loadedDataset = await loadAuthorized(
       fetchDataset(session.token, companyId, latest.dataset_version_id),
@@ -256,6 +281,13 @@ export default async function MappingPage({
       return <AccessDenied companyId={companyId} />;
     }
     movements = loadedMovements.value;
+    const loadedOverrides = await loadAuthorized(
+      fetchOverrides(session.token, companyId, latest.dataset_version_id),
+    );
+    if (!loadedOverrides.allowed) {
+      return <AccessDenied companyId={companyId} />;
+    }
+    overrides = loadedOverrides.value;
   }
 
   // Los maestros salen de la API, no de una constante: una cuenta escrita a
@@ -639,6 +671,89 @@ export default async function MappingPage({
                 {dataset.manifest.locale} · {dataset.manifest.timezone}
               </p>
             ) : null}
+
+            {dataset.publish_blockers.length > 0 && dataset.state === 'validated' ? (
+              <div className="notice" role="status">
+                <strong>Antes de publicar:</strong>
+                <ul>
+                  {dataset.publish_blockers.map((blocker) => (
+                    <li key={blocker.code}>
+                      {PUBLISH_BLOCKER_LABELS[blocker.code] ?? blocker.detail}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+
+            <section aria-labelledby="revision-excepciones">
+              <h3 id="revision-excepciones">Revision y excepciones</h3>
+              {overrides.length === 0 ? (
+                <p className="meta">
+                  Esta version no tiene excepciones por fila registradas.
+                </p>
+              ) : (
+                <div className="scroll">
+                  <table>
+                    <caption className="meta">
+                      Solo metadatos de la decision. Los valores y sus huellas no
+                      viajan en estos formularios.
+                    </caption>
+                    <thead>
+                      <tr>
+                        <th scope="col">Campo</th>
+                        <th scope="col">Tipo</th>
+                        <th scope="col">Motivo</th>
+                        <th scope="col">Autor</th>
+                        <th scope="col">Revision</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {overrides.map((item) => (
+                        <tr key={item.override_id}>
+                          <th scope="row">
+                            {FIELD_LABELS[item.canonical_field] ?? item.canonical_field}
+                          </th>
+                          <td>{item.override_kind}</td>
+                          <td><code>{item.reason_code}</code></td>
+                          <td className="when">
+                            <code>{item.created_by.slice(0, 8)}</code>
+                          </td>
+                          <td>
+                            {item.approved ? (
+                              <span className="outcome">aprobada</span>
+                            ) : item.needs_approval ? (
+                              canPublish ? (
+                                <OverrideApprovalForm
+                                  companyId={companyId}
+                                  artifactId={artifactId}
+                                  datasetVersionId={dataset.dataset_version_id}
+                                  overrideId={item.override_id}
+                                />
+                              ) : (
+                                <span className="notice">pendiente de otro revisor</span>
+                              )
+                            ) : (
+                              <span className="meta">no requiere aprobacion</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+
+            {canPublish && dataset.state === 'validated' ? (
+              <details>
+                <summary>Rechazar esta version</summary>
+                <RejectDatasetForm
+                  companyId={companyId}
+                  artifactId={artifactId}
+                  datasetVersionId={dataset.dataset_version_id}
+                />
+              </details>
+            ) : null}
             {dataset.state === 'staging' ? (
               <>
                 <p className="notice" role="status">
@@ -665,11 +780,13 @@ export default async function MappingPage({
                 datasetVersionId={dataset.dataset_version_id}
                 canPublish={dataset.can_publish}
                 reason={
-                  !canPublish
-                    ? 'Publicar pide dataset.publish, que no esta en este rol.'
-                    : dataset.state !== 'validated'
-                      ? `Un conjunto en ${STATE_LABELS[dataset.state] ?? dataset.state} no se publica.`
-                      : 'Quien preparo esta version no puede publicarla. Tiene que revisarla otra persona.'
+                  dataset.publish_blockers.length > 0
+                    ? PUBLISH_BLOCKER_LABELS[
+                        dataset.publish_blockers[0]?.code ?? ''
+                      ] ??
+                      dataset.publish_blockers[0]?.detail ??
+                      'Esta version tiene una restriccion pendiente.'
+                    : `Un conjunto en ${STATE_LABELS[dataset.state] ?? dataset.state} no se publica.`
                 }
               />
             )}

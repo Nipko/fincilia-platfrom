@@ -10,6 +10,7 @@ import { redirect } from 'next/navigation';
 
 import {
   ApiError,
+  approveOverride,
   type Blocker,
   continueDataset,
   createAccount,
@@ -17,6 +18,7 @@ import {
   createSource,
   fetchDataset,
   fetchMapping,
+  fetchOverrides,
   fetchSource,
   generateExpectations,
   linkAccount,
@@ -25,6 +27,7 @@ import {
   decideAmbiguity,
   prepareDataset,
   publishDataset,
+  rejectDataset,
   signIn,
   validateMapping,
 } from '@/lib/api';
@@ -436,6 +439,130 @@ export async function publishDatasetAction(
       `${published.engine_release}. Reprocesar creara otra version y esta se ` +
       'conserva.',
   };
+}
+
+export type ReviewState = { error: string | null; done: string | null };
+
+/** Aprueba una excepcion solo despues de volver a ligarla al dataset visible. */
+export async function approveOverrideAction(
+  _previous: ReviewState,
+  formData: FormData,
+): Promise<ReviewState> {
+  const session = await readSession();
+  if (!session) {
+    redirect('/entrar');
+  }
+  const companyId = String(formData.get('companyId') ?? '');
+  const artifactId = String(formData.get('artifactId') ?? '');
+  const datasetVersionId = String(formData.get('datasetVersionId') ?? '');
+  const overrideId = String(formData.get('overrideId') ?? '');
+  if (!datasetVersionId || !overrideId) {
+    return { error: 'Falta identificar la excepcion a revisar.', done: null };
+  }
+
+  try {
+    const dataset = await fetchDataset(session.token, companyId, datasetVersionId);
+    if (dataset.artifact_id !== artifactId) {
+      return {
+        error: 'El conjunto ya no pertenece al documento que estas revisando.',
+        done: null,
+      };
+    }
+    const overrides = await fetchOverrides(
+      session.token,
+      companyId,
+      datasetVersionId,
+    );
+    if (!overrides.some((item) => item.override_id === overrideId)) {
+      return {
+        error: 'La excepcion ya no pertenece a este conjunto o fue sustituida.',
+        done: null,
+      };
+    }
+    await approveOverride(session.token, companyId, overrideId);
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) {
+      redirect('/entrar');
+    }
+    if (error instanceof ApiError && error.status === 403) {
+      return { error: 'Este rol no puede aprobar excepciones.', done: null };
+    }
+    if (error instanceof ApiError && error.status === 409) {
+      return {
+        error: 'Quien registro la excepcion no puede aprobarla.',
+        done: null,
+      };
+    }
+    if (error instanceof ApiError && error.status === 422) {
+      return {
+        error: 'La excepcion ya no es aprobable en el estado actual.',
+        done: null,
+      };
+    }
+    return {
+      error:
+        error instanceof ApiError
+          ? error.message
+          : 'No se pudo aprobar la excepcion.',
+      done: null,
+    };
+  }
+
+  revalidatePath(`/empresas/${companyId}/documentos/${artifactId}/mapeo`);
+  return { error: null, done: 'Excepcion aprobada por una persona distinta.' };
+}
+
+/** Rechazar conserva el motivo; nunca transforma el dataset ni borra evidencia. */
+export async function rejectDatasetAction(
+  _previous: ReviewState,
+  formData: FormData,
+): Promise<ReviewState> {
+  const session = await readSession();
+  if (!session) {
+    redirect('/entrar');
+  }
+  const companyId = String(formData.get('companyId') ?? '');
+  const artifactId = String(formData.get('artifactId') ?? '');
+  const datasetVersionId = String(formData.get('datasetVersionId') ?? '');
+  const reason = String(formData.get('reason') ?? '').trim();
+  if (!reason) {
+    return { error: 'Explica por que se rechaza el conjunto.', done: null };
+  }
+  if (reason.length > 200) {
+    return { error: 'El motivo no puede superar 200 caracteres.', done: null };
+  }
+
+  try {
+    const dataset = await fetchDataset(session.token, companyId, datasetVersionId);
+    if (dataset.artifact_id !== artifactId) {
+      return {
+        error: 'El conjunto ya no pertenece al documento que estas revisando.',
+        done: null,
+      };
+    }
+    await rejectDataset(session.token, companyId, datasetVersionId, reason);
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) {
+      redirect('/entrar');
+    }
+    if (error instanceof ApiError && error.status === 403) {
+      return { error: 'Este rol no puede rechazar conjuntos.', done: null };
+    }
+    if (error instanceof ApiError && error.status === 422) {
+      return {
+        error: 'Esta version ya no puede rechazarse en su estado actual.',
+        done: null,
+      };
+    }
+    return {
+      error:
+        error instanceof ApiError ? error.message : 'No se pudo rechazar el conjunto.',
+      done: null,
+    };
+  }
+
+  revalidatePath(`/empresas/${companyId}/documentos/${artifactId}/mapeo`);
+  return { error: null, done: 'Conjunto rechazado; el motivo quedo auditado.' };
 }
 
 

@@ -11,10 +11,13 @@ const mocks = vi.hoisted(() => {
   }
   return {
     ApiError,
+    approveOverride: vi.fn(),
     fetchDataset: vi.fn(),
     fetchMapping: vi.fn(),
+    fetchOverrides: vi.fn(),
     createMapping: vi.fn(),
     fetchSource: vi.fn(),
+    rejectDataset: vi.fn(),
     readSession: vi.fn(),
     redirect: vi.fn((): never => {
       throw new Error('NEXT_REDIRECT');
@@ -32,11 +35,13 @@ vi.mock('@/lib/session', () => ({
 }));
 vi.mock('@/lib/api', () => ({
   ApiError: mocks.ApiError,
+  approveOverride: mocks.approveOverride,
   fetchDataset: mocks.fetchDataset,
   continueDataset: vi.fn(),
   createAccount: vi.fn(),
   createMapping: mocks.createMapping,
   fetchMapping: mocks.fetchMapping,
+  fetchOverrides: mocks.fetchOverrides,
   createSource: vi.fn(),
   decideAmbiguity: vi.fn(),
   fetchSource: mocks.fetchSource,
@@ -44,6 +49,7 @@ vi.mock('@/lib/api', () => ({
   linkAccount: vi.fn(),
   prepareDataset: vi.fn(),
   publishDataset: vi.fn(),
+  rejectDataset: mocks.rejectDataset,
   setCycle: vi.fn(),
   signIn: vi.fn(),
   updateAccount: vi.fn(),
@@ -51,10 +57,12 @@ vi.mock('@/lib/api', () => ({
 }));
 
 import {
+  approveOverrideAction,
   createMappingAction,
   prepareDatasetAction,
   publishDatasetAction,
   continueDatasetAction,
+  rejectDatasetAction,
 } from '../actions';
 
 function mappingForm(): FormData {
@@ -82,6 +90,28 @@ function datasetForm(): FormData {
   form.set('artifactId', '6f0f7b18-0a7a-5c8e-9d2c-6a1f2b3c4d5f');
   form.set('datasetVersionId', '9f0f7b18-0a7a-5c8e-9d2c-6a1f2b3c4d80');
   return form;
+}
+
+function overrideForm(): FormData {
+  const form = datasetForm();
+  form.set('overrideId', 'bf0f7b18-0a7a-5c8e-9d2c-6a1f2b3c4d82');
+  return form;
+}
+
+function rejectionForm(reason = 'La evidencia sintetica no soporta este resultado.'): FormData {
+  const form = datasetForm();
+  form.set('reason', reason);
+  return form;
+}
+
+function matchingDataset() {
+  return {
+    dataset_version_id: '9f0f7b18-0a7a-5c8e-9d2c-6a1f2b3c4d80',
+    artifact_id: '6f0f7b18-0a7a-5c8e-9d2c-6a1f2b3c4d5f',
+    can_publish: true,
+    publish_blockers: [],
+    state: 'validated',
+  };
 }
 
 describe('createMappingAction', () => {
@@ -172,6 +202,7 @@ describe('publishDatasetAction', () => {
       rejected_reason: null,
       canonical_schema_version: 'v0',
       engine_release: 'v-test',
+      publish_blockers: [],
       manifest: null,
     });
 
@@ -182,6 +213,164 @@ describe('publishDatasetAction', () => {
 
     expect(result.error).toContain('ya no pertenece');
     expect(mocks.fetchDataset).toHaveBeenCalledOnce();
+  });
+});
+
+describe('approveOverrideAction', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.readSession.mockResolvedValue({ token: 'token-sintetico', displayName: 'Ada' });
+  });
+
+  it('no aprueba si el dataset ya no pertenece al documento visible', async () => {
+    mocks.fetchDataset.mockResolvedValue({ ...matchingDataset(), artifact_id: 'otro-documento' });
+
+    const result = await approveOverrideAction(
+      { error: null, done: null },
+      overrideForm(),
+    );
+
+    expect(result.error).toContain('ya no pertenece');
+    expect(mocks.fetchOverrides).not.toHaveBeenCalled();
+    expect(mocks.approveOverride).not.toHaveBeenCalled();
+  });
+
+  it('no confia en un overrideId oculto que no pertenece al dataset visible', async () => {
+    mocks.fetchDataset.mockResolvedValue(matchingDataset());
+    mocks.fetchOverrides.mockResolvedValue([
+      { override_id: 'otra-excepcion', needs_approval: true, approved: false },
+    ]);
+
+    const result = await approveOverrideAction(
+      { error: null, done: null },
+      overrideForm(),
+    );
+
+    expect(result.error).toContain('ya no pertenece');
+    expect(mocks.approveOverride).not.toHaveBeenCalled();
+  });
+
+  it('explica la segregacion de funciones cuando el autor intenta aprobar', async () => {
+    mocks.fetchDataset.mockResolvedValue(matchingDataset());
+    mocks.fetchOverrides.mockResolvedValue([
+      { override_id: 'bf0f7b18-0a7a-5c8e-9d2c-6a1f2b3c4d82' },
+    ]);
+    mocks.approveOverride.mockRejectedValue(new mocks.ApiError(409, 'conflict'));
+
+    const result = await approveOverrideAction(
+      { error: null, done: null },
+      overrideForm(),
+    );
+
+    expect(result.error).toContain('no puede aprobarla');
+    expect(mocks.revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it('distingue una excepcion que ya no es aprobable', async () => {
+    mocks.fetchDataset.mockResolvedValue(matchingDataset());
+    mocks.fetchOverrides.mockResolvedValue([
+      { override_id: 'bf0f7b18-0a7a-5c8e-9d2c-6a1f2b3c4d82' },
+    ]);
+    mocks.approveOverride.mockRejectedValue(new mocks.ApiError(422, 'invalid'));
+
+    const result = await approveOverrideAction(
+      { error: null, done: null },
+      overrideForm(),
+    );
+
+    expect(result.error).toContain('estado actual');
+    expect(mocks.revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it('aprueba y revalida el puesto del documento', async () => {
+    mocks.fetchDataset.mockResolvedValue(matchingDataset());
+    mocks.fetchOverrides.mockResolvedValue([
+      { override_id: 'bf0f7b18-0a7a-5c8e-9d2c-6a1f2b3c4d82' },
+    ]);
+    mocks.approveOverride.mockResolvedValue({ approved_by: 'revisor' });
+
+    const result = await approveOverrideAction(
+      { error: null, done: null },
+      overrideForm(),
+    );
+
+    expect(result.done).toContain('aprobada');
+    expect(mocks.approveOverride).toHaveBeenCalledOnce();
+    expect(mocks.revalidatePath).toHaveBeenCalledWith(
+      '/empresas/5f0f7b18-0a7a-5c8e-9d2c-6a1f2b3c4d5e/documentos/6f0f7b18-0a7a-5c8e-9d2c-6a1f2b3c4d5f/mapeo',
+    );
+  });
+});
+
+describe('rejectDatasetAction', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.readSession.mockResolvedValue({ token: 'token-sintetico', displayName: 'Ada' });
+  });
+
+  it('exige un motivo acotado antes de llamar a la API', async () => {
+    const empty = await rejectDatasetAction(
+      { error: null, done: null },
+      rejectionForm('   '),
+    );
+    const tooLong = await rejectDatasetAction(
+      { error: null, done: null },
+      rejectionForm('x'.repeat(201)),
+    );
+
+    expect(empty.error).toContain('Explica');
+    expect(tooLong.error).toContain('200');
+    expect(mocks.rejectDataset).not.toHaveBeenCalled();
+  });
+
+  it('no rechaza un dataset de otro documento', async () => {
+    mocks.fetchDataset.mockResolvedValue({ ...matchingDataset(), artifact_id: 'otro-documento' });
+
+    const result = await rejectDatasetAction(
+      { error: null, done: null },
+      rejectionForm(),
+    );
+
+    expect(result.error).toContain('ya no pertenece');
+    expect(mocks.rejectDataset).not.toHaveBeenCalled();
+  });
+
+  it('distingue permiso insuficiente de un estado que ya no admite rechazo', async () => {
+    mocks.fetchDataset.mockResolvedValue(matchingDataset());
+    mocks.rejectDataset.mockRejectedValueOnce(new mocks.ApiError(403, 'forbidden'));
+
+    const forbidden = await rejectDatasetAction(
+      { error: null, done: null },
+      rejectionForm(),
+    );
+    mocks.rejectDataset.mockRejectedValueOnce(new mocks.ApiError(422, 'invalid'));
+    const invalid = await rejectDatasetAction(
+      { error: null, done: null },
+      rejectionForm(),
+    );
+
+    expect(forbidden.error).toContain('rol');
+    expect(invalid.error).toContain('estado actual');
+    expect(mocks.revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it('rechaza con el motivo y revalida el puesto del documento', async () => {
+    mocks.fetchDataset.mockResolvedValue(matchingDataset());
+    mocks.rejectDataset.mockResolvedValue({ state: 'rejected' });
+
+    const result = await rejectDatasetAction(
+      { error: null, done: null },
+      rejectionForm('Periodo sintetico incompleto.'),
+    );
+
+    expect(result.done).toContain('auditado');
+    expect(mocks.rejectDataset).toHaveBeenCalledWith(
+      'token-sintetico',
+      '5f0f7b18-0a7a-5c8e-9d2c-6a1f2b3c4d5e',
+      '9f0f7b18-0a7a-5c8e-9d2c-6a1f2b3c4d80',
+      'Periodo sintetico incompleto.',
+    );
+    expect(mocks.revalidatePath).toHaveBeenCalledOnce();
   });
 });
 

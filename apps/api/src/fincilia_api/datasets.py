@@ -1692,9 +1692,17 @@ def override_digest_problems(connection: psycopg.Connection, *,
 def list_overrides(connection: psycopg.Connection, *,
                    dataset_version_id: str) -> list[dict[str, Any]]:
     """Lo mismo, en la forma que ensena una pantalla."""
-    return [item.as_dict()
-            for item in load_overrides(connection,
-                                       dataset_version_id=dataset_version_id)]
+    result: list[dict[str, Any]] = []
+    for item in load_overrides(connection,
+                               dataset_version_id=dataset_version_id):
+        rendered = item.as_dict()
+        # La web no repite la lista de campos criticos ni reconstruye SoD. Son
+        # propiedades del contrato de dominio, calculadas donde ese contrato
+        # ya vive.
+        rendered["needs_approval"] = item.critical
+        rendered["approved"] = item.approved
+        result.append(rendered)
+    return result
 
 
 # --------------------------------------------------------------------------- #

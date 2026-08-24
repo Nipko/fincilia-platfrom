@@ -344,6 +344,7 @@ export type DatasetDetail = DatasetSummary & {
   canonical_schema_version: string;
   engine_release: string;
   can_publish: boolean;
+  publish_blockers: { code: string; detail: string }[];
   manifest: {
     reproduction_key: string;
     reproducible: boolean;
@@ -567,6 +568,66 @@ export function publishDataset(
   return request<DatasetDetail>(
     `/api/v1/companies/${company}/datasets/${dataset}/publish`,
     { method: 'POST', token },
+  );
+}
+
+export type RowOverrideSummary = {
+  override_id: string;
+  canonical_field: string;
+  override_kind: string;
+  base_step_ordinal: number;
+  rule_version: string;
+  reason_code: string;
+  created_by: string;
+  approved_by: string | null;
+  engine_release_id: string;
+  canonical_schema_version: string;
+  needs_approval: boolean;
+  approved: boolean;
+};
+
+export function fetchOverrides(
+  token: string,
+  companyId: string,
+  datasetVersionId: string,
+): Promise<RowOverrideSummary[]> {
+  const company = encodeURIComponent(companyId);
+  const dataset = encodeURIComponent(datasetVersionId);
+  return request<RowOverrideSummary[]>(
+    `/api/v1/companies/${company}/datasets/${dataset}/overrides`,
+    { token },
+  );
+}
+
+export function approveOverride(
+  token: string,
+  companyId: string,
+  overrideId: string,
+): Promise<{ override_id: string; dataset_version_id: string; approved_by: string }> {
+  const company = encodeURIComponent(companyId);
+  const override = encodeURIComponent(overrideId);
+  return request(
+    `/api/v1/companies/${company}/overrides/${override}/approve`,
+    { method: 'POST', token },
+  );
+}
+
+export function rejectDataset(
+  token: string,
+  companyId: string,
+  datasetVersionId: string,
+  reason: string,
+): Promise<DatasetDetail> {
+  const company = encodeURIComponent(companyId);
+  const dataset = encodeURIComponent(datasetVersionId);
+  return request<DatasetDetail>(
+    `/api/v1/companies/${company}/datasets/${dataset}/reject`,
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ reason }),
+      token,
+    },
   );
 }
 

@@ -6,15 +6,18 @@ import { useActionState, useState } from 'react';
 import type { Blocker, ColumnProfile, PreviewPage } from '@/lib/api';
 import { withFlowContext } from '@/lib/navigation';
 import {
+  approveOverrideAction,
   continueDatasetAction,
   createMappingAction,
   decideAmbiguityAction,
   prepareDatasetAction,
   publishDatasetAction,
+  rejectDatasetAction,
   type DecisionState,
   type MappingState,
   type PrepareState,
   type PublishState,
+  type ReviewState,
 } from '../../../../../actions';
 
 /** Los campos canonicos, con el nombre que una persona reconoce. */
@@ -58,6 +61,7 @@ const PREPARE_INITIAL: PrepareState = {
   rejections: [],
 };
 const PUBLISH_INITIAL: PublishState = { error: null, published: null };
+const REVIEW_INITIAL: ReviewState = { error: null, done: null };
 
 /**
  * Selector visual de columnas.
@@ -469,6 +473,77 @@ export function PublishForm({
           {state.published}
         </p>
       ) : null}
+    </form>
+  );
+}
+
+/** El identificador basta: ni las huellas ni los valores viajan en el formulario. */
+export function OverrideApprovalForm({
+  companyId,
+  artifactId,
+  datasetVersionId,
+  overrideId,
+}: {
+  companyId: string;
+  artifactId: string;
+  datasetVersionId: string;
+  overrideId: string;
+}) {
+  const [state, action, pending] = useActionState(
+    approveOverrideAction,
+    REVIEW_INITIAL,
+  );
+  return (
+    <form className="upload" action={action}>
+      <input type="hidden" name="companyId" value={companyId} />
+      <input type="hidden" name="artifactId" value={artifactId} />
+      <input type="hidden" name="datasetVersionId" value={datasetVersionId} />
+      <input type="hidden" name="overrideId" value={overrideId} />
+      <button type="submit" disabled={pending}>
+        {pending ? 'Aprobando...' : 'Aprobar excepcion'}
+      </button>
+      {state.error ? <p className="notice error" role="alert">{state.error}</p> : null}
+      {state.done ? <p className="notice ok" role="status">{state.done}</p> : null}
+    </form>
+  );
+}
+
+/** Rechazar conserva evidencia y bloquea publicar esta version. */
+export function RejectDatasetForm({
+  companyId,
+  artifactId,
+  datasetVersionId,
+}: {
+  companyId: string;
+  artifactId: string;
+  datasetVersionId: string;
+}) {
+  const [state, action, pending] = useActionState(
+    rejectDatasetAction,
+    REVIEW_INITIAL,
+  );
+  const hintId = `reject-hint-${datasetVersionId}`;
+  return (
+    <form className="upload" action={action}>
+      <input type="hidden" name="companyId" value={companyId} />
+      <input type="hidden" name="artifactId" value={artifactId} />
+      <input type="hidden" name="datasetVersionId" value={datasetVersionId} />
+      <label htmlFor={`reject-reason-${datasetVersionId}`}>Motivo del rechazo</label>
+      <textarea
+        id={`reject-reason-${datasetVersionId}`}
+        name="reason"
+        required
+        maxLength={200}
+        aria-describedby={hintId}
+      />
+      <p id={hintId} className="meta">
+        Hasta 200 caracteres. El motivo se audita; no copies valores del extracto.
+      </p>
+      <button type="submit" className="secondary" disabled={pending}>
+        {pending ? 'Rechazando...' : 'Rechazar esta version'}
+      </button>
+      {state.error ? <p className="notice error" role="alert">{state.error}</p> : null}
+      {state.done ? <p className="notice ok" role="status">{state.done}</p> : null}
     </form>
   );
 }

@@ -422,6 +422,8 @@ class OverrideStorageTests(OverrideHarness):
             headers=self.auth(REVIEWER)).json()
         self.assertEqual([item["override_id"] for item in current],
                          [second.json()["override_id"]])
+        self.assertIs(True, current[0]["needs_approval"])
+        self.assertIs(False, current[0]["approved"])
 
         with as_migrator() as cursor:
             cursor.execute("SELECT count(*) FROM fincilia.lineage_row_override "
