@@ -15,6 +15,8 @@ import {
   createAccount,
   createMapping,
   createSource,
+  fetchDataset,
+  fetchMapping,
   fetchSource,
   generateExpectations,
   linkAccount,
@@ -274,6 +276,33 @@ export async function prepareDatasetAction(
   }
 
   try {
+    const mapping = await fetchMapping(session.token, companyId, mappingVersionId);
+    if (mapping.artifact_id !== artifactId) {
+      return {
+        error:
+          'El mapeo indicado ya no pertenece a este documento. Abre una version ' +
+          'actual o crea el mapeo de nuevo.',
+        datasetVersionId: null,
+        summary: null,
+        rejections: [],
+      };
+    }
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) {
+      redirect('/entrar');
+    }
+    return {
+      error:
+        error instanceof ApiError
+          ? error.message
+          : 'No se pudo validar el mapeo antes de preparar.',
+      datasetVersionId: null,
+      summary: null,
+      rejections: [],
+    };
+  }
+
+  try {
     await validateMapping(session.token, companyId, mappingVersionId);
   } catch (error) {
     if (error instanceof ApiError && error.status === 401) {
@@ -338,6 +367,38 @@ export async function publishDatasetAction(
   const companyId = String(formData.get('companyId') ?? '');
   const artifactId = String(formData.get('artifactId') ?? '');
   const datasetVersionId = String(formData.get('datasetVersionId') ?? '');
+  if (!datasetVersionId) {
+    return { error: 'Falta el conjunto a publicar.', published: null };
+  }
+
+  try {
+    const dataset = await fetchDataset(session.token, companyId, datasetVersionId);
+    if (dataset.artifact_id !== artifactId) {
+      return {
+        error:
+          'El conjunto indicado ya no pertenece a este documento. Elige la ' +
+          'version mas reciente para publicar.',
+        published: null,
+      };
+    }
+    if (!dataset.can_publish) {
+      return {
+        error:
+          'Ese conjunto no puede publicarse ahora; valida estado y permisos ' +
+          'antes de intentar.',
+        published: null,
+      };
+    }
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) {
+      redirect('/entrar');
+    }
+    return {
+      error:
+        error instanceof ApiError ? error.message : 'No se pudo validar el conjunto antes de publicar.',
+      published: null,
+    };
+  }
 
   let published;
   try {
@@ -607,6 +668,26 @@ export async function continueDatasetAction(
   const companyId = String(formData.get('companyId') ?? '');
   const artifactId = String(formData.get('artifactId') ?? '');
   const datasetId = String(formData.get('datasetVersionId') ?? '');
+  if (!datasetId) {
+    return { error: 'Falta el conjunto a continuar.', progress: null };
+  }
+  try {
+    const dataset = await fetchDataset(session.token, companyId, datasetId);
+    if (dataset.artifact_id !== artifactId) {
+      return {
+        error:
+          'La version a continuar ya no pertenece a este documento. ' +
+          'Abre la version actual de este documento.',
+        progress: null,
+      };
+    }
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) {
+      redirect('/entrar');
+    }
+    return { error: error instanceof ApiError ? error.message : 'No se pudo validar el conjunto antes de continuar.', progress: null };
+  }
+
   try {
     const report = await continueDataset(session.token, companyId, datasetId);
     revalidatePath(`/empresas/${companyId}/documentos/${artifactId}/mapeo`);

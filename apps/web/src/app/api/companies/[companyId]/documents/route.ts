@@ -141,6 +141,11 @@ export async function POST(
     if (!upstreamController.signal.aborted) {
       upstreamController.abort(reason);
     }
+    try {
+      void counted.stream.cancel(reason);
+    } catch {
+      /* cancel del body es best-effort */
+    }
     clearTimeout(deadline);
     request.signal.removeEventListener('abort', clientAborted);
   };

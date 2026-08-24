@@ -111,21 +111,76 @@ export function limitStream(
 ): CountedStream {
   let bytes = 0;
   let overLimit = false;
-  const transformer = new TransformStream<Uint8Array, Uint8Array>({
-    transform(chunk, controller) {
-      bytes += chunk.byteLength;
-      if (bytes > maximumBytes) {
-        overLimit = true;
-        onExceeded();
-        controller.error(new UploadLimitError());
+  let abortReason: unknown = null;
+  const sourceReader = source.getReader();
+  let closeRequested = false;
+
+  const stream = new ReadableStream<Uint8Array>(
+    {
+      async pull(controller) {
+        if (signal?.aborted) {
+          closeRequested = true;
+          abortReason = signal.reason;
+          await sourceReader.cancel(signal.reason);
+          controller.error(signal.reason as Error);
+          return;
+        }
+      if (abortReason !== null) {
+        controller.error(abortReason as Error);
         return;
       }
-      controller.enqueue(chunk);
+      if (closeRequested) {
+        controller.close();
+        return;
+      }
+      try {
+        const { done, value } = await sourceReader.read();
+        if (done) {
+          closeRequested = true;
+          controller.close();
+          return;
+        }
+        bytes += value.byteLength;
+        if (bytes > maximumBytes) {
+          overLimit = true;
+          onExceeded();
+          closeRequested = true;
+          await sourceReader.cancel(new UploadLimitError());
+          controller.error(new UploadLimitError());
+          return;
+        }
+        controller.enqueue(value);
+      } catch (error) {
+        closeRequested = true;
+        controller.error(error as Error);
+      }
     },
-  });
-  const stream = signal
-    ? source.pipeThrough(transformer, { signal })
-    : source.pipeThrough(transformer);
+      async cancel(reason) {
+        closeRequested = true;
+        abortReason = reason;
+        await sourceReader.cancel(reason);
+      },
+    },
+    { highWaterMark: 0 },
+  );
+
+  if (signal) {
+    if (signal.aborted) {
+      void sourceReader.cancel(signal.reason);
+      closeRequested = true;
+    } else {
+      signal.addEventListener(
+        'abort',
+        () => {
+          closeRequested = true;
+          abortReason = signal.reason;
+          void sourceReader.cancel(signal.reason);
+        },
+        { once: true },
+      );
+    }
+  }
+
   return {
     stream,
     bytesRead: () => bytes,

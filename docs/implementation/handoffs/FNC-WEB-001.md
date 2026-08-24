@@ -112,8 +112,9 @@ No se tocaron contratos, API, DB, workers, `packages/contracts`,
 - **AC-16** Navegación visual de preview/movimientos con límites de vista comunicados.
 - **AC-17** Monto presentado como string decimal; sin cast a Number en render.
 - **AC-18** Pruebas unitarias + E2E + a11y cubren recorridos positivos y negativos principales.
-- **AC-19** Pendiente de revalidación integral post-lastre cambio de stream/cancel.
-- **AC-20** Alcance web-only mantenido: no cambios en API/DB/mobile/contratos/gates.
+- **AC-19** Reforzada la consistencia de contexto entre UI y servidor en acciones críticas; se valida que un `mapping_version_id` y `dataset_version_id` no puedan saltar de documento en acciones de preparación/publicación/continuación.
+- **AC-20** Pendiente de revalidación integral de E2E/a11y tras cambios de stream/cancel.
+- **AC-21** Alcance web-only mantenido: no cambios en API/DB/mobile/contratos/gates.
 
 ## 5. Comandos ejecutados en esta rebanada
 
@@ -130,8 +131,12 @@ npm run test:e2e
 npm run test:a11y
 ```
 
-Tras los cambios finales de control de streams y límites, estas pruebas deben
-ejecutarse de nuevo para validar nuevamente **AC-19**.
+Tras los cambios finales de control de streams y límites se revalidó el bloque unitario de los puntos afectados:
+
+- `npm run lint` ✅
+- `npm run test:unit src/lib/__tests__/upload-policy.test.ts src/app/api/companies/[companyId]/documents/__tests__/route.test.ts src/app/__tests__/actions.test.ts` ✅
+
+`npm run test:a11y`, `npm run test:e2e` y una corrida completa de `npm run build` / `npm run typecheck` quedan pendientes de infraestructura real (Chromium) y toolchain de navegador.
 
 ### Cadena de verificación recomendada para el siguiente bloque
 
@@ -158,11 +163,13 @@ python3 -B -m tools.quality_gate.cli
 
 ## 6. Riesgos y pendientes técnicos (inmediatos)
 
-1. Los cambios de control de upstream abort/cancel/no cache son funcionales pero no
-   fueron reejecutados en este tramo de revalidación.
-2. La acción de crear mapeo valida fuente inmediatamente con `fetchSource` para
+1. La acción de crear mapeo valida fuente inmediatamente con `fetchSource` para
    evitar race evidente, pero persiste TOCTOU entre esa validación y el guardado.
    Esto requiere una tarea backend (fuera de alcance) para cierre atómico.
+2. `npm run build` y `npm run typecheck` siguen fallando por TS preexistente en
+   `src/app/api/companies/[companyId]/documents/__tests__/route.test.ts`
+   (`Property 'aborted' does not exist on type 'never'`), sin tocar este comportamiento en
+   esta tarea.
 3. Se detecta el patrón de WSL/Docker con caducidad del subsistema en algunos
    entornos; no se alteró CI por esto.
 
