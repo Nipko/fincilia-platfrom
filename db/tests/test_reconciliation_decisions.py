@@ -192,6 +192,46 @@ class ReconciliationDecisionTests(rec.ReconciliationCandidateTests):
         self.assertEqual({"open", "confirmed", "rejected"},
                          {item["status"] for item in listed.json()})
 
+        queue_url = f"/api/v1/companies/{ESPIGA}/reconciliation/review-queue"
+        open_queue = self.client.get(
+            queue_url, headers=self.auth(REVIEWER),
+            params={"status": "open", "limit": 20})
+        self.assertEqual(200, open_queue.status_code, open_queue.text)
+        current_open = next(
+            item for item in open_queue.json()["items"]
+            if item["candidate_id"] == owner_proposal.json()["candidate_id"])
+        self.assertTrue(all(item["status"] == "open"
+                            for item in open_queue.json()["items"]))
+        self.assertEqual(left, current_open["left_dataset_id"])
+        self.assertEqual(right, current_open["right_dataset_id"])
+        self.assertEqual("none", open_queue.json()["financial_effect"])
+        self.assertFalse(open_queue.json()["proves_balance_reconciliation"])
+
+        decided_page = self.client.get(
+            queue_url, headers=self.auth(REVIEWER),
+            params={"status": "all", "limit": 1})
+        self.assertEqual(200, decided_page.status_code, decided_page.text)
+        self.assertTrue(decided_page.json()["truncated"])
+        next_page = self.client.get(
+            queue_url, headers=self.auth(REVIEWER),
+            params={"status": "all", "limit": 1, "offset": 1})
+        self.assertEqual(200, next_page.status_code, next_page.text)
+        self.assertNotEqual(decided_page.json()["items"][0]["candidate_id"],
+                            next_page.json()["items"][0]["candidate_id"])
+
+        invalid_filter = self.client.get(
+            queue_url, headers=self.auth(REVIEWER), params={"status": "pending"})
+        self.assertEqual(422, invalid_filter.status_code, invalid_filter.text)
+        self.assertEqual("review-filter-invalid",
+                         invalid_filter.json()["type"].rsplit("/", 1)[-1])
+
+        other_company_queue = self.client.get(
+            f"/api/v1/companies/{ANDINOS}/reconciliation/review-queue",
+            headers=self.auth(OWNER), params={"status": "all"})
+        self.assertEqual(200, other_company_queue.status_code,
+                         other_company_queue.text)
+        self.assertEqual([], other_company_queue.json()["items"])
+
         cross_company = self.client.post(
             f"/api/v1/companies/{ANDINOS}/reconciliation/reviews",
             headers={**self.auth(OWNER),

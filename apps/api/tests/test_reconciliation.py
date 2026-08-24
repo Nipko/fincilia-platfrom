@@ -10,11 +10,13 @@ from decimal import Decimal
 from fincilia_api.reconciliation import (
     CandidateQuery,
     CandidateQueryError,
+    ReviewQueueQuery,
     ReviewCommandError,
     RULES,
     candidate_from_row,
     decide_review,
     explore_candidates,
+    list_review_queue,
     propose_review,
 )
 
@@ -162,6 +164,37 @@ class CandidateQueryTests(unittest.TestCase):
                 right_movement_id=RIGHT, max_days=3)
         self.assertEqual("idempotency-key-invalid", raised.exception.code)
         self.assertEqual([], connection.calls)
+
+    def test_review_queue_filter_and_pagination_are_closed(self) -> None:
+        for query in (
+            ReviewQueueQuery(status="pending"),
+            ReviewQueueQuery(offset=-1),
+            ReviewQueueQuery(offset=10_001),
+            ReviewQueueQuery(limit=0),
+            ReviewQueueQuery(limit=101),
+        ):
+            with self.subTest(query=query), self.assertRaises(ReviewCommandError):
+                query.validated()
+
+    def test_review_queue_is_stable_bounded_and_non_financial(self) -> None:
+        now = dt.datetime(2026, 8, 24, 12, tzinfo=dt.timezone.utc)
+        row = (
+            uuid.uuid4(), uuid.uuid4(), uuid.uuid4(), "fnc-rec-exact-v1",
+            list(RULES), 3, 1, uuid.uuid4(), "Ada Preparadora", now,
+            None, None, None, None, None, None, uuid.uuid4(), uuid.uuid4(),
+        )
+        connection = FakeConnection([row, row])
+        result = list_review_queue(
+            connection, status="open", offset=4, limit=1)
+
+        self.assertTrue(result["truncated"])
+        self.assertEqual("none", result["financial_effect"])
+        self.assertFalse(result["proves_balance_reconciliation"])
+        self.assertEqual(1, len(result["items"]))
+        self.assertIn("d.decision_id IS NULL", connection.calls[0][0])
+        self.assertIn("c.proposed_at ASC", connection.calls[0][0])
+        self.assertEqual((2, 4), connection.calls[0][1])
+        self.assertNotIn("amount", result["items"][0])
 
     def test_review_rejects_non_uuid_before_database_work(self) -> None:
         connection = FakeConnection()

@@ -1132,6 +1132,25 @@ def reconciliation_reviews(
             raise _review_problem(error) from None
 
 
+@router.get("/companies/{company_id}/reconciliation/review-queue",
+            tags=["reconciliation"])
+def reconciliation_review_queue(
+        request: Request, company_id: str, status: str = "open",
+        offset: int = 0, limit: int = 50,
+        principal: Principal = Depends(principal_dependency)) -> dict:
+    context = company_context(request, principal, company_id)
+    require(context, "movement.read")
+    _synthetic_reconciliation_only(request)
+    with request.app.state.database.session(
+            company_id=context.company_id,
+            subject_id=principal.subject_id) as connection:
+        try:
+            return reconciliation.list_review_queue(
+                connection, status=status, offset=offset, limit=limit)
+        except reconciliation.ReviewCommandError as error:
+            raise _review_problem(error) from None
+
+
 @router.post("/companies/{company_id}/reconciliation/reviews",
              tags=["reconciliation"])
 def propose_reconciliation_review(

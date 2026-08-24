@@ -40,6 +40,9 @@ RULES = (
 
 REVIEW_RULE_VERSION = "fnc-rec-exact-v1"
 IDEMPOTENCY_KEY = re.compile(r"^[A-Za-z0-9._:-]{16,128}$")
+REVIEW_QUEUE_STATUSES = frozenset(("open", "confirmed", "rejected", "all"))
+MAX_REVIEW_QUEUE_LIMIT = 100
+MAX_REVIEW_QUEUE_OFFSET = 10_000
 DECISION_REASONS = {
     "confirmed": frozenset((
         "documented_counterpart", "documented_transfer", "reference_supported")),
@@ -65,6 +68,26 @@ class ReviewCommandError(Exception):
         super().__init__(detail)
         self.code = code
         self.detail = detail
+
+
+@dataclass(frozen=True)
+class ReviewQueueQuery:
+    status: str = "open"
+    offset: int = 0
+    limit: int = 50
+
+    def validated(self) -> "ReviewQueueQuery":
+        if self.status not in REVIEW_QUEUE_STATUSES:
+            raise ReviewCommandError(
+                "review-filter-invalid",
+                "status must be open, confirmed, rejected or all")
+        if not 0 <= self.offset <= MAX_REVIEW_QUEUE_OFFSET:
+            raise ReviewCommandError(
+                "review-filter-invalid", "offset must be between 0 and 10000")
+        if not 1 <= self.limit <= MAX_REVIEW_QUEUE_LIMIT:
+            raise ReviewCommandError(
+                "review-filter-invalid", "limit must be between 1 and 100")
+        return self
 
 
 @dataclass(frozen=True)
@@ -305,6 +328,8 @@ def _review_from_row(row: tuple[Any, ...]) -> dict[str, Any]:
         "proposed_by": str(row[7]),
         "proposed_by_name": row[8],
         "proposed_at": row[9].isoformat(),
+        "left_dataset_id": str(row[16]),
+        "right_dataset_id": str(row[17]),
         "status": decision["decision"] if decision else "open",
         "decision": decision,
         "financial_effect": "none",
@@ -317,11 +342,14 @@ REVIEW_SELECT = (
     "       c.rule_version, c.signals, c.date_window_days, "
     "       c.date_distance_days, c.proposed_by, proposer.display_name, "
     "       c.proposed_at, d.decision_id, d.decision, d.reason_code, "
-    "       d.decided_by, decider.display_name, d.decided_at "
+    "       d.decided_by, decider.display_name, d.decided_at, "
+    "       lm.dataset_version_id, rm.dataset_version_id "
     "FROM fincilia.match_candidate c "
     "JOIN fincilia.subject proposer ON proposer.subject_id = c.proposed_by "
     "LEFT JOIN fincilia.match_decision d ON d.candidate_id = c.candidate_id "
-    "LEFT JOIN fincilia.subject decider ON decider.subject_id = d.decided_by ")
+    "LEFT JOIN fincilia.subject decider ON decider.subject_id = d.decided_by "
+    "JOIN fincilia.canonical_movement lm ON lm.movement_id = c.left_movement_id "
+    "JOIN fincilia.canonical_movement rm ON rm.movement_id = c.right_movement_id ")
 
 
 def _load_review(connection: psycopg.Connection, *, candidate_id: str) -> dict[str, Any] | None:
@@ -565,10 +593,39 @@ def list_reviews(connection: psycopg.Connection, *, left_dataset_id: str,
     with connection.cursor() as cursor:
         cursor.execute(
             REVIEW_SELECT
-            + "JOIN fincilia.canonical_movement lm ON lm.movement_id = c.left_movement_id "
-              "JOIN fincilia.canonical_movement rm ON rm.movement_id = c.right_movement_id "
-              "WHERE ((lm.dataset_version_id = %s AND rm.dataset_version_id = %s) "
+            + "WHERE ((lm.dataset_version_id = %s AND rm.dataset_version_id = %s) "
               "    OR (lm.dataset_version_id = %s AND rm.dataset_version_id = %s)) "
               "ORDER BY c.proposed_at DESC, c.candidate_id LIMIT %s",
             (left, right, right, left, bounded))
         return [_review_from_row(row) for row in cursor]
+
+
+def list_review_queue(connection: psycopg.Connection, *, status: str = "open",
+                      offset: int = 0, limit: int = 50) -> dict[str, Any]:
+    """Devuelve trabajo company-scoped sin agregar importes ni saldos."""
+    query = ReviewQueueQuery(
+        status=status, offset=int(offset), limit=int(limit)).validated()
+    predicate = ""
+    params: list[Any] = []
+    if query.status == "open":
+        predicate = "WHERE d.decision_id IS NULL "
+    elif query.status in {"confirmed", "rejected"}:
+        predicate = "WHERE d.decision = %s "
+        params.append(query.status)
+    params.extend((query.limit + 1, query.offset))
+    with connection.cursor() as cursor:
+        cursor.execute(
+            REVIEW_SELECT + predicate
+            + "ORDER BY (d.decision_id IS NOT NULL), c.proposed_at ASC, "
+              "c.candidate_id LIMIT %s OFFSET %s",
+            tuple(params))
+        rows = list(cursor)
+    return {
+        "status": query.status,
+        "offset": query.offset,
+        "limit": query.limit,
+        "truncated": len(rows) > query.limit,
+        "items": [_review_from_row(row) for row in rows[:query.limit]],
+        "financial_effect": "none",
+        "proves_balance_reconciliation": False,
+    }
