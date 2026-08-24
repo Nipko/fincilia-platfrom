@@ -47,6 +47,15 @@ SIX_STAGES = ["artifact_version", "raw_locator", "extracted_field",
               "transformed_value", "source_record_field", "financial_fact_field"]
 
 
+def slug_of(response) -> str:
+    """El codigo de un problema vive al final de su `type`, no en un campo.
+
+    Es RFC 7807: el documento no lleva `code`, lleva un `type` que es una URI, y
+    el ultimo segmento es el identificador estable.
+    """
+    return str(response.json()["type"]).rsplit("/", 1)[-1]
+
+
 def digest_like(marker: str) -> str:
     """Una huella con la forma correcta y sintetica a gritos."""
     return (marker * 64)[:64]
@@ -185,7 +194,7 @@ class RowOverrideTests(OverrideHarness):
 
         refused = self.publish(dataset_id)
         self.assertEqual(422, refused.status_code, refused.text)
-        self.assertEqual("override-not-approved", refused.json()["code"])
+        self.assertEqual("override-not-approved", slug_of(refused))
 
         # Y despues de que lo mire otro, si.
         self.assertEqual(200, self.approve(created.json()["override_id"]).status_code)
@@ -202,7 +211,7 @@ class RowOverrideTests(OverrideHarness):
         # Sofia tiene los dos permisos y aun asi no puede las dos cosas.
         refused = self.approve(override_id, user=OWNER)
         self.assertEqual(409, refused.status_code, refused.text)
-        self.assertEqual("segregation-of-duties", refused.json()["code"])
+        self.assertEqual("segregation-of-duties", slug_of(refused))
 
         # Y el `CHECK` de la base dice lo mismo cuando se llega por otro camino.
         with as_migrator() as cursor:
@@ -228,7 +237,10 @@ class RowOverrideTests(OverrideHarness):
 
         # Y por debajo, la clave ajena compuesta impide colgar una excepcion de
         # Andinos sobre un dataset de Espiga. Se escribe una legitima primero
-        # para tomar de ella las referencias, que si existen.
+        # para tomar de ella las referencias, que si existen, y el intento va con
+        # otro ordinal: `uq_override_target` es un indice y los indices no
+        # filtran por politica, asi que chocaria antes de llegar a la frontera
+        # que se quiere probar.
         created = self.override(dataset_id, record_id,
                                 resulting_value_digest=published)
         self.assertEqual(201, created.status_code, created.text)
@@ -246,9 +258,10 @@ class RowOverrideTests(OverrideHarness):
                     "dataset_version_id, source_record_id, raw_record_id, "
                     "field_name, base_plan_step_id, override_kind, "
                     "original_value_digest, resulting_value_digest, rule_version, "
-                    "reason_code, created_by, engine_release_id, "
+                    "reason_code, override_ordinal, created_by, engine_release_id, "
                     "canonical_schema_version) VALUES (%s, %s, %s, %s, 'amount', "
-                    "%s, 'manual_correction', %s, %s, 'x', 'y', %s, %s, '0.1.0')",
+                    "%s, 'manual_correction', %s, %s, 'x', 'y', 99, %s, %s, "
+                    "'0.1.0')",
                     (ANDINOS, dataset_id, record_id, raw_id, step_id,
                      digest_like("a"), digest_like("b"), author, release_id))
 
@@ -262,7 +275,7 @@ class RowOverrideTests(OverrideHarness):
 
         refused = self.publish(dataset_id, OWNER)
         self.assertEqual(422, refused.status_code, refused.text)
-        self.assertEqual("override-not-approved", refused.json()["code"])
+        self.assertEqual("override-not-approved", slug_of(refused))
         self.assertIn("does not carry", refused.json()["detail"])
 
     def test_a_rule_that_holds_for_one_row_is_reconstructible_TST_P36_024(self) -> None:
@@ -328,7 +341,7 @@ class RowOverrideTests(OverrideHarness):
         self.assertEqual(201, created.status_code, created.text)
         refused = self.publish(dataset_id)
         self.assertEqual(422, refused.status_code, refused.text)
-        self.assertEqual("override-not-approved", refused.json()["code"])
+        self.assertEqual("override-not-approved", slug_of(refused))
 
         with as_migrator() as cursor:
             cursor.execute(
@@ -404,20 +417,20 @@ class OverrideStorageTests(OverrideHarness):
                                 original_value_digest=same,
                                 resulting_value_digest=same)
         self.assertEqual(422, refused.status_code, refused.text)
-        self.assertEqual("override-changes-nothing", refused.json()["code"])
+        self.assertEqual("override-changes-nothing", slug_of(refused))
 
     def test_a_field_the_plan_does_not_publish_is_refused_TST_P36_030(self) -> None:
         dataset_id, record_id, _ = self.dataset_with_a_row("ovr-stage")
         refused = self.override(dataset_id, record_id, field_name="no_existe")
         self.assertEqual(422, refused.status_code, refused.text)
-        self.assertEqual("override-field-unknown", refused.json()["code"])
+        self.assertEqual("override-field-unknown", slug_of(refused))
 
     def test_a_published_dataset_takes_no_more_overrides_TST_P36_031(self) -> None:
         dataset_id, record_id, _ = self.dataset_with_a_row("ovr-sealed")
         self.assertEqual(200, self.publish(dataset_id).status_code)
         refused = self.override(dataset_id, record_id)
         self.assertEqual(409, refused.status_code, refused.text)
-        self.assertEqual("dataset-already-published", refused.json()["code"])
+        self.assertEqual("dataset-already-published", slug_of(refused))
 
     def test_public_cannot_execute_the_override_trigger_TST_P36_032(self) -> None:
         """Un ACL nulo significa ejecutable por PUBLIC, y esa es la trampa."""

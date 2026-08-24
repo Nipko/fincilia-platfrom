@@ -317,7 +317,9 @@
       "evidence": [
         "docs/domain/lineage-model.json",
         "docs/implementation/handoffs/FNC-P3.md",
-        "db/migrations/V0009__onboarding_release_gate_and_lineage_plan.sql"
+        "db/migrations/V0009__onboarding_release_gate_and_lineage_plan.sql",
+        "db/migrations/V0012__lineage_row_override.sql",
+        "docs/implementation/handoffs/FNC-P3.6.md"
       ],
       "id": "ADR-024",
       "owners": [

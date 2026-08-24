@@ -289,11 +289,15 @@ def prepare(migrator_dsn: str, company_id: str, marker: str,
             artifact_id = str(cursor.fetchone()[0])
             identifiers = []
             for attempt in range(1, runs + 1):
+                # `succeeded` y no `running`: `ck_run_lease` acopla estar en
+                # curso a tener arriendo vivo, y una ejecucion sintetica sin
+                # worker no lo tiene. Tampoco se encola —`enqueue` es quien
+                # crea el puntero— asi que ningun worker la reclama.
                 cursor.execute(
                     "INSERT INTO fincilia.processing_run (run_id, company_id, "
-                    "artifact_id, kind, status, attempt, started_at) "
-                    "VALUES (gen_random_uuid(), %s, %s, 'extract', 'running', "
-                    "%s, now()) RETURNING run_id",
+                    "artifact_id, kind, status, attempt, started_at, finished_at) "
+                    "VALUES (gen_random_uuid(), %s, %s, 'extract', 'succeeded', "
+                    "%s, now(), now()) RETURNING run_id",
                     (company_id, artifact_id, attempt))
                 identifiers.append(str(cursor.fetchone()[0]))
     return {"artifact_id": artifact_id, "sha256": sha256, "runs": identifiers}
