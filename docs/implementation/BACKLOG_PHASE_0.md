@@ -118,7 +118,7 @@ dependencias de `FNC-GAT-002` ni afirmar que Sprint 1 está habilitado.
 | FNC-WEB-002 | A5/A6 | WEB-001, API-001, P3.6 | Review pending | Readiness server-side, cola de overrides, aprobacion SoD y rechazo motivado en web |
 | FNC-WEB-003 | A6 | WEB-002, API-001, PLT-008 | Review pending | Portafolio multiempresa, vencimientos y navegacion historica sin agregar importes |
 | FNC-CLN-001 | A5/A6 | DOM-005, WEB-002, P3.6 | Review pending | Propuesta tipada y revisión SoD de correcciones por fila, sin mutar el dataset base |
-| FNC-QA-006 | A6 | PLT-008, WEB-001, WEB-003, CLN-001 | In progress | Arranque local coherente y aceptación web automatizada de roles y frontera multiempresa |
+| FNC-QA-006 | A6 | PLT-008, WEB-001, WEB-003, CLN-001 | Review pending | Arranque local coherente y aceptación web automatizada de roles y frontera multiempresa |
 
 ## No codificar todavía
 

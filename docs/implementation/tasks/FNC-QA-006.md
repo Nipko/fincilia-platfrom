@@ -2,7 +2,7 @@
 id: FNC-QA-006
 alias: FNC-P4.5
 title: Aceptación web integral y arranque local coherente
-status: in_progress
+status: review_pending
 implementer: Codex principal dev + Integration Steward
 base_sha: 774575cfc01529016e9ae189d760993376962ead
 gate: S1-READY
@@ -112,7 +112,7 @@ el script falla cerrado y conserva la evidencia para diagnóstico.
 
 # Definition of Done
 
-- AC-01..AC-13 tienen evidencia reproducible.
+- AC-01..AC-14 tienen evidencia reproducible.
 - Se realizan commits incrementales de contrato, arranque, E2E y handoff.
 - No se tocan API, DB, móvil, worker ni semántica financiera.
 - La tarea termina `review_pending`, con revisión independiente pendiente o
