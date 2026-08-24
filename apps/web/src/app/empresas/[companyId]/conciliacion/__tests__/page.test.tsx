@@ -118,4 +118,21 @@ describe('ReconciliationPage', () => {
     expect(screen.getByText(/Esto no demuestra que falten movimientos/))
       .toBeInTheDocument();
   });
+
+  it('prioriza una URL invalida aunque aun no existan dos datasets aptos', async () => {
+    mocks.fetchDatasets.mockResolvedValue([dataset(LEFT)]);
+
+    render(await ReconciliationPage({
+      params: Promise.resolve({ companyId: COMPANY }),
+      searchParams: Promise.resolve({
+        izquierda: 'repetido', derecha: 'repetido', ventana: '32',
+      }),
+    }));
+
+    expect(screen.getByText('La comparacion solicitada no es valida'))
+      .toBeInTheDocument();
+    expect(screen.queryByText('Se necesitan dos datasets aptos'))
+      .not.toBeInTheDocument();
+    expect(mocks.fetchCandidates).not.toHaveBeenCalled();
+  });
 });

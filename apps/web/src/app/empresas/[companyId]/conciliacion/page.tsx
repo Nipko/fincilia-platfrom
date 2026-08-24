@@ -173,17 +173,17 @@ export default async function ReconciliationPage({
           {result ? <span className="tag">pagina {selection.page + 1}</span> : null}
         </div>
 
-        {selectable.length < 2 ? (
-          <PageState
-            kind="empty"
-            title="Se necesitan dos datasets aptos"
-            description="Prepara al menos dos versiones validadas o publicadas de cuentas distintas."
-          />
-        ) : selection.requested && !selection.valid ? (
+        {selection.requested && !selection.valid ? (
           <PageState
             kind="degraded"
             title="La comparacion solicitada no es valida"
             description="Elige dos datasets distintos de esta empresa y una ventana entre 0 y 31 dias."
+          />
+        ) : selectable.length < 2 ? (
+          <PageState
+            kind="empty"
+            title="Se necesitan dos datasets aptos"
+            description="Prepara al menos dos versiones validadas o publicadas de cuentas distintas."
           />
         ) : failure === 'scope' ? (
           <PageState
