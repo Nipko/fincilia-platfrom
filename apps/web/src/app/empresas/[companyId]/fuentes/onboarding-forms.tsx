@@ -328,7 +328,8 @@ export function CycleForm({
                type="number" min={0} max={120} defaultValue={3} />
       </label>
       {orphaned ? (
-        <p className="notice error" role="alert">
+        <p className="notice error" role="alert"
+           id={`cycle_owner_note_${source.data_source_id}`}>
           Quien respondia de este ciclo ya no tiene acceso a la empresa. El
           calendario se conserva —revocar a alguien no borra la historia— pero
           queda <strong>pendiente de reemplazo</strong>: elige a otra persona.
@@ -338,6 +339,14 @@ export function CycleForm({
         Quien responde de que llegue
         <select id={`cycle_owner_${source.data_source_id}`} name="responsible"
                 required
+                aria-invalid={orphaned || undefined}
+                // Un aviso que solo esta al lado no lo lee un lector de
+                // pantalla al llegar al campo: hay que atarlo al campo.
+                aria-describedby={
+                  orphaned
+                    ? `cycle_owner_note_${source.data_source_id}`
+                    : undefined
+                }
                 defaultValue={
                   cycle && cycle.responsible_eligible !== false
                     ? cycle.responsible_subject_id

@@ -3,10 +3,10 @@
 | Campo | Valor |
 |---|---|
 | Rama | `claude/principal-dev` |
-| Base de esta ejecución | `31e791a` |
-| Migraciones añadidas | `V0009`, `V0010`, `V0011` — `V0001`–`V0008` con su checksum intacto |
-| Permisos nuevos | `financial_account.manage`, `data_source.manage` |
-| ADR propuesta | ADR-024 — representación lógica y física del linaje |
+| Base de esta ejecución | `5aa8c53` |
+| Migraciones añadidas | `V0012` — `V0001`–`V0011` con su checksum intacto |
+| Rutas nuevas | overrides de linaje (listar, crear, aprobar) y miembros asignables |
+| ADR propuesta | ADR-024 — actualizada, **sigue `Proposed`** |
 | Gate S1-READY | sigue `not_met`, y nada de esto lo mueve |
 
 ---
@@ -37,66 +37,48 @@ componentes y qué digests estás aprobando.
 
 ## 2. Qué hay ahora
 
-El detalle está en [el handoff](docs/implementation/handoffs/FNC-P3.5.md). En
-corto, tres cosas que P3 dejó abiertas:
+El detalle está en [el handoff](docs/implementation/handoffs/FNC-P3.6.md). En
+corto, cuatro de las cinco divergencias que P3.5 dejó declaradas:
 
 | Antes | Ahora |
 |---|---|
-| una release en borrador podía publicar | preparar y publicar exigen `approved`, con constancia de quién firmó y digest de lo firmado |
-| no había alta de cuentas ni de fuentes | pantalla de onboarding con cuentas, fuentes, vínculos tipados y ciclos esperados |
-| el linaje crecía por fila × campo | las seis etapas viven en un plan por columna; **2 nodos** para 100.000 filas |
-| techo de 10.000 filas | 100.000 medidas en CI: 75,8 s de preparación, 50 lotes, 229 MiB de RSS pico |
+| seis tablas sin contrato que dijera de quién eran | cada una bajo su autoridad, y `DOM-FOREIGN-AUTHORITY` impide meterlas en el modelo financiero por comodidad |
+| ADR-024 no contestaba qué pasa con la fila que no sigue el plan | `lineage_row_override`: siete clases, huellas sin valores, autor ≠ aprobador, intercalado en su posición lógica |
+| la extracción cargaba el fichero entero | generador real: 100.000 filas en 110,9 s, 193,7 MiB de pico y **52,0 de crecimiento** |
+| el desplegable de responsables listaba sólo a quien tenía sesión | endpoint de miembros elegibles con las tres condiciones del autorizador |
 
-Y un defecto de P3 que salió revisando: una lectura truncada terminaba bien
-—`truncated` es un estado, no un fallo— y la preparación no lo miraba. Un fichero
-cortado por el límite de tiempo podía publicarse como completo.
+Y `accounting_date` sigue nula **a propósito**, ahora con nueve pruebas que
+impiden inferirla de `occurrence_date` o `posting_date`.
 
 ---
 
-## 3. Tres cosas que costaron una vuelta
+## 3. Dos cosas que costaron una vuelta
 
-**`COPY FROM` no funciona bajo seguridad por filas.** Era la pieza central del
-diseño de escala y PostgreSQL simplemente no lo admite sobre una tabla con RLS.
-Se cambió por sentencias multifila de 500. Entre perder el aislamiento y perder
-velocidad, se pierde velocidad.
+**Un permiso que no existe no deniega selectivamente: deniega todo.** La ruta de
+overrides pedía `dataset.prepare`, que no es un permiso de este sistema —quien
+prepara tiene `dataset.map`—. Doce pruebas contra PostgreSQL real recibieron 403
+donde esperaban 201, y que las doce fallaran a la vez por lo mismo fue la señal
+útil.
 
-**Un CHECK de V0008 hacía imposible retirar una release.** Decía «sólo una
-aprobada tiene referencia de aprobación», y al pasar a `superseded` la referencia
-sigue ahí porque tiene que seguir. El error estaba en el enunciado, no en el
-estado: `V0010` lo corrige.
-
-**Una función nueva nace ejecutable por `PUBLIC`.** Los privilegios por defecto
-de V0005 no se aplicaron al disparador de V0009, y un `proacl` nulo significa el
-valor por defecto del motor. Lo delató la misma prueba que en V0005 destapó que
-un `REVOKE` de quien no es dueño avisa y no hace nada.
+**Un contrato puede describir un sistema que no existe.** `lineage-model.json`
+nombra tablas físicas y ningún validador lo cruzaba: el de linaje mira la forma
+del contrato y el de migraciones mira el SQL. Ahora `cross-contract` los cruza.
 
 ---
 
 ## 4. La siguiente rebanada, exacta
 
-**La extracción sigue sin ser streaming, y es el cuello que queda.** La
-publicación se rediseñó por lotes; leer el fichero no. `extraction.py` construye
-la lista completa de filas y `_LineFeeder` guarda dos listas más del fichero
-entero. Medido en CI: 33 s para 100.000 filas, contra un límite declarado de 60 s. Con
-el doble de filas se trunca, y truncar ahora bloquea la publicación, que es
-correcto pero no es lo que uno quiere descubrir en producción.
-
-Lo que hay que hacer, por orden:
-
-1. **Extracción incremental.** `extract()` debería emitir filas en vez de
-   devolverlas todas, y el worker escribirlas por tandas según llegan. La
-   coordenada de bytes ya se calcula por registro, así que el cambio es de forma,
-   no de fondo.
-2. **Preparación en el worker.** Hoy la API prepara con presupuesto de tiempo y
+1. **Preparación en el worker.** Hoy la API prepara con presupuesto de tiempo y
    devuelve `202` para que el llamante continúe. Funciona y es honesto, pero un
-   trabajo de minutos pertenece a la cola, no a una petición HTTP. La cola ya
-   admite un tipo nuevo sin tocar el despachador: basta añadirlo a las **tres**
-   listas, y hay una prueba que comprueba que coinciden.
+   trabajo de minutos pertenece a la cola, no a una petición HTTP. La cola admite
+   un tipo nuevo sin tocar el despachador: basta añadirlo a las **tres** listas, y
+   hay una prueba que comprueba que coinciden.
+2. **`accounting_date` en P4.** Periodo contable, reglas y revisión humana. Está
+   blindada para que nadie la invente antes.
 3. **Exportación del dataset publicado.** Un conjunto canónico que no se puede
    sacar obliga a mirarlo por pantalla.
-4. **Lectura de miembros de la empresa.** El desplegable de responsables del
-   ciclo lista sólo a quien tiene sesión, porque no hay endpoint que devuelva los
-   miembros.
+4. **Pantalla de overrides.** La API los crea, aprueba y lista, y el drill-down
+   los enseña; no hay interfaz para escribirlos.
 5. **Formatos que no son CSV.** Un libro de cálculo sigue quedándose en
    cuarentena con `no_scanner_for_format`, y eso es correcto.
 
@@ -111,9 +93,14 @@ Ninguno se ha movido y ninguno se ha marcado como aceptado.
 - **Aprobación real de `engine_release`** en cualquier entorno que no sea el
   local sintético: exige `approval_ref`, `result_diff_report` y revisión
   independiente, y es de `human_platform_owner`.
-- **ADR-024**, `Proposed` y registrada `blocked`. Propone separar la
-  representación lógica del linaje de la física; falta ratificación de Data y
-  Architecture y la enmienda del contrato ejecutable.
+- **ADR-024**, `Proposed` y registrada `blocked`. Falta ratificación de Data y
+  Architecture.
+- **Re-adjudicación del registro dorado y del de mutaciones.** Los digests de
+  entrada se re-anotaron porque los ficheros cambiaron de verdad —paso 2 del
+  procedimiento—; el **paso 3**, revisión independiente por quien no tocó el
+  contrato, sigue pendiente. Ninguna expectativa se movió.
+- **Adopción o descarte formal de la ruta `COPY`/temporal.** El spike mide y
+  comprueba; adoptar es una decisión que se toma leyendo los números.
 - **Vault o KMS** para `FINCILIA_IDENTIFIER_TOKENIZATION_KEY` fuera de local. Hoy
   el validador levanta si `env` no es `local` ni `test`, que es la trampa para el
   día que alguien añada `staging`.
@@ -131,8 +118,7 @@ Ninguno se ha movido y ninguno se ha marcado como aceptado.
 
 ## 6. Divergencias declaradas
 
-Las cinco están en la [sección 9 del handoff](docs/implementation/handoffs/FNC-P3.5.md).
-La que más pesa: **seis tablas nuevas no están en `canonical-model.json`**, porque
-añadirlas exige editar la lista de entidades del validador, que es la guarda
-contra la deriva accidental del modelo. Hacerlo en silencio la volvería inútil, y
-por eso lo propone ADR-024 en vez de darlo por hecho.
+Las cinco están en la [sección 9 del handoff](docs/implementation/handoffs/FNC-P3.6.md).
+La que más pesa: **el modelo canónico dice `uuid_v7` y las migraciones usan
+`gen_random_uuid()`** en las veintidós entidades. Es anterior a P3.6 y ningún
+validador lo cruza, así que hoy nadie se enteraría de que divergen.

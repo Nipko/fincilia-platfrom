@@ -13,8 +13,8 @@ Una celda de implementación vacía significa no implementado. No se rellena con
 | REQ-FNC-015-MONEY | §15.4 | DOM-002 | Modelo canónico | TST-MON-001 | S1-READY | Planned |
 | REQ-FNC-016-COMPLETENESS | §16.1 | DOM-003 | ADR-014 | TST-CMP-001 | S1-READY | Planned |
 | REQ-FNC-017-DEDUPE | §17 | DOM-004 | ADR-015 | TST-IDEM-001, TST-DED-001 | S1-READY | Planned |
-| REQ-FNC-018-LINEAGE | §18 | DOM-005, ARC-006A | ADR-005/006/023, `lineage-model.json`, `cross-contract-vocabulary.json` | TST-LIN-001..006, TST-OVR-001..006, TST-PAR-001..007, TST-XCON-001..006 | S1-READY | Review |
-| REQ-FNC-024-RETRY | §24 | ARC-004, PLT-005 | ADR-007, ADR-008, `events-retries.json` | TST-OUT-001, TST-RET-001, TST-DLQ-001 | S1-READY | Review |
+| REQ-FNC-018-LINEAGE | §18 | DOM-005, ARC-006A, P3.5, P3.6 | ADR-005/006/023/024, `lineage-model.json` (`transform_plan_contract`, `row_override_contract`), `cross-contract-vocabulary.json`, `V0009`, `V0012` | TST-LIN-001..006, TST-OVR-001..006, TST-PAR-001..007, TST-XCON-001..006, TST-P36-018..032 | S1-READY | Review |
+| REQ-FNC-024-RETRY | §24 | ARC-004, PLT-005, P3.6 | ADR-007, ADR-008, `events-retries.json` (`checkpoint_contract`) | TST-OUT-001, TST-RET-001, TST-DLQ-001, TST-CHK-001..003, TST-P36-033..034 | S1-READY | Review |
 | REQ-FNC-025-CONNECTOR | §25 | ARC-005 | `connector-contract.json`, manifest schema | TST-CON-001..015 | S1-READY | Review |
 | REQ-FNC-029-XTENANT | §29 | SEC-001, SEC-002, PLT-005 | ADR-002, matriz auth, `spikes/FNC-PLT-005` | TST-RLS-001/002, TST-AUTH-001/002 | DRG-01 | Review |
 | REQ-FNC-037-AI | §37–§41 | ARC-006 | ADR-009 | TST-AI-001 | Fase 4 | Planned |
