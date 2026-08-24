@@ -202,8 +202,13 @@ class ReconciliationDecisionTests(rec.ReconciliationCandidateTests):
             if item["candidate_id"] == owner_proposal.json()["candidate_id"])
         self.assertTrue(all(item["status"] == "open"
                             for item in open_queue.json()["items"]))
-        self.assertEqual(left, current_open["left_dataset_id"])
-        self.assertEqual(right, current_open["right_dataset_id"])
+        self.assertEqual(
+            {left, right},
+            {
+                current_open["left_dataset_id"],
+                current_open["right_dataset_id"],
+            },
+        )
         self.assertEqual("none", open_queue.json()["financial_effect"])
         self.assertFalse(open_queue.json()["proves_balance_reconciliation"])
 

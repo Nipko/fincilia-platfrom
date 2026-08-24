@@ -75,6 +75,11 @@ volumenes sintéticos. La pestaña integrada queda en
    muestra la empresa truncada en vez de fingir completitud; la API admite 100.
 4. El laboratorio conserva expedientes de corridas previas a proposito. Esto
    ejercito orden estable, historial y tolerancia a una base no vacia.
+5. El primer CI integral encontro una suposicion invalida de la prueba: el par
+   conciliable es simetrico, mientras que el ledger normaliza izquierda y
+   derecha por UUID de movimiento. La evidencia correcta exige ambos datasets,
+   no una orientacion de carga que el dominio no promete. La asercion ahora
+   compara el conjunto y conserva la validacion de pertenencia exacta.
 
 ## Riesgos y pendientes humanos
 
