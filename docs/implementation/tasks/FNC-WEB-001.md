@@ -2,7 +2,7 @@
 id: FNC-WEB-001
 alias: FNC-P3.7
 title: Endurecimiento verificable del recorrido web P3
-status: in_progress
+status: review_pending
 implementer: Codex principal dev + Integration Steward
 base_sha: 52ea3a8bad92b92acd39a33be108853d87bbe5d2
 gate: S1-READY
