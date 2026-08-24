@@ -112,6 +112,7 @@ Hasta S1-READY solo se admite scaffolding, automatización, pruebas, documentaci
 | FNC-WEB-003 | Portafolio multiempresa e historico operativo web | Review pending | Codex + Integration Steward | portafolio, vencimientos, volumenes e historico de datasets web |
 | FNC-CLN-001 | Propuestas tipadas de correccion por fila | Review pending | Codex + Integration Steward | overlay tipado, revision SoD, blockers, PostgreSQL y web |
 | FNC-QA-006 | Aceptacion web integral y arranque local coherente | Review pending | Codex + Integration Steward | bootstrap local, contrato ejecutable y E2E de roles/tenancy |
+| FNC-REC-001 | Explorador read-only de candidatos de conciliacion | In progress | Codex + Integration Steward | motor/endpoint sintetico, estacion web y pruebas |
 
 Solo el Integration Steward modifica esta tabla.
 

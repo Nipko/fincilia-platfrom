@@ -54,5 +54,18 @@
       "agent_may_accept": false
     }
   ],
-  "active_reservations": []
+  "active_reservations": [
+    {
+      "task": "FNC-REC-001",
+      "holder": "codex-integration-steward",
+      "paths": [
+        "apps/api/src/fincilia_api/reconciliation.py",
+        "apps/api/src/fincilia_api/routes.py",
+        "apps/api/tests",
+        "db/tests/test_reconciliation_candidates.py",
+        "apps/web/src",
+        "apps/web/tests"
+      ]
+    }
+  ]
 }
