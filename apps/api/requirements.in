@@ -2,7 +2,7 @@
 # python:3.12-slim-bookworm sobre linux/amd64, no en la maquina del desarrollador:
 # psycopg trae ruedas binarias distintas por plataforma y un lock resuelto en
 # Windows instalaria otra cosa en el contenedor.
-fastapi==0.115.6
+fastapi==0.141.1
 uvicorn[standard]==0.34.0
 pydantic==2.10.4
 pydantic-settings==2.7.0
