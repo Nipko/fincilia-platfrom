@@ -64,6 +64,18 @@
         "docs/implementation/tasks/FNC-WEB-001.md",
         "docs/implementation/handoffs/FNC-WEB-001.md"
       ]
+    },
+    {
+      "task": "FNC-API-001",
+      "holder": "Codex principal dev",
+      "paths": [
+        "apps/api/src/fincilia_api/datasets.py",
+        "apps/api/src/fincilia_api/routes.py",
+        "apps/api/tests",
+        "db/tests/test_p3_vertical.py",
+        "docs/implementation/tasks/FNC-API-001.md",
+        "docs/implementation/handoffs/FNC-API-001.md"
+      ]
     }
   ]
 }
