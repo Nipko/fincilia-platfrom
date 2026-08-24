@@ -3,7 +3,7 @@ task_id: FNC-REC-002
 status: REVIEW_PENDING
 base_sha: 1c9cbf5336b5c04a3672d7eb9e2200f48143c3db
 reservation_sha: dce6965
-tested_head_sha: 01f0266
+tested_head_sha: e9680c2
 data_ceiling: synthetic_only
 gate_effect: none
 reviewers_pending: [Accounting, Security, Database, Backend/Architecture, Accessibility/QA]
@@ -62,6 +62,7 @@ importe, saldo, cierre o reporte certificado cambia.
 | Playwright Chromium focal | 3, OK; propuesta abierta confirmada por Beto |
 | Axe focal | 1, 0 violaciones |
 | navegador integrado | estados confirmado/rechazado visibles; 0 warnings/errores de consola tras corregir hidratación |
+| lane de políticas reproducida localmente | 1.174 pruebas, OK; incluye readiness de ADR y migraciones |
 | quality gate sobre cada índice Git | `ok: true`, 0 findings |
 
 El laboratorio `fincilia-rec002` usa volúmenes y puertos alternos
@@ -82,6 +83,13 @@ sintético al detectar que dos nombres Compose habían montado el mismo volumen;
 4. El `npm` global de Windows apunta a un módulo inexistente. Las verificaciones
    usaron los binarios fijados en `apps/web/node_modules/.bin`; no se instalaron ni
    cambiaron dependencias.
+5. La primera corrida remota descubrió que ADR-027 no estaba registrada en el
+   modelo ejecutable de readiness. Se incorporó con estado `blocked`, propietarios,
+   revisores y evidencia; no se promovió ni se aceptó ninguna decisión humana.
+6. El mismo carril descubrió un falso positivo del validador de migraciones:
+   PostgreSQL acepta `REVOKE ALL` y `REVOKE ALL PRIVILEGES`, pero la regla sólo
+   reconocía la segunda forma. El validador ahora cubre ambas con una prueba de
+   regresión; los tres triggers de V0017 ya estaban revocados de `PUBLIC`.
 
 ## Riesgos y pendientes humanos
 
@@ -103,6 +111,9 @@ sintético al detectar que dos nombres Compose habían montado el mismo volumen;
 3. `560d44e` — API y pruebas PostgreSQL.
 4. `62a8c23` — experiencia web y unitarias.
 5. `01f0266` — E2E, Axe y corrección de hidratación.
+6. `7a2a45e` — handoff inicial y liberación de rutas.
+7. `e9680c2` — registro ejecutable de ADR-027 y corrección del falso positivo
+   sobre `REVOKE ALL`.
 
 Revertir 5 retira sólo aceptación/corrección visual; 4 retira los controles web;
 3 retira endpoints; 2 retira la migración del código. La migración aplicada es
