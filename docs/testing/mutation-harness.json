@@ -1486,6 +1486,113 @@
       "validator": "event_model"
     },
     {
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-MUTATION",
+      "gate": "S1-READY",
+      "independence": {
+        "mode": "independent",
+        "rationale": "regla distinta con codigo de hallazgo propio"
+      },
+      "max_output_bytes": 262144,
+      "owner_role": "QA",
+      "precondition": {
+        "baseline_must_be_clean": true,
+        "single_change": true,
+        "target_digest_must_match": true
+      },
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "Architecture",
+        "Security"
+      ],
+      "state": "active",
+      "test_refs": [
+        "TST-MUT-001"
+      ],
+      "timeout_seconds": 120,
+      "mutation_id": "MUT-EVT-008",
+      "title": "Valkey pasa a ser autoridad del punto de control",
+      "target": "docs/architecture/events-retries.json",
+      "validator": "event_model",
+      "operator": "flip_boolean",
+      "operator_params": {
+        "pointer": "/checkpoint_contract/valkey_is_checkpoint_authority",
+        "expected_current": false
+      },
+      "control_refs": [
+        "CHK-VALKEY-NEVER-AUTHORITY"
+      ],
+      "expectation": {
+        "exit_code": 1,
+        "kind": "expect_findings",
+        "finding_codes": [
+          "EVT-CHECKPOINT-VALKEY"
+        ]
+      },
+      "risk_refs": [
+        "TM-009"
+      ],
+      "target_sha256": "ab19517d1c50330b287bb11a95c398288fccfa0137c432e96726f458b5ad9fa3"
+    },
+    {
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-MUTATION",
+      "gate": "S1-READY",
+      "independence": {
+        "mode": "independent",
+        "rationale": "regla distinta con codigo de hallazgo propio"
+      },
+      "max_output_bytes": 262144,
+      "owner_role": "QA",
+      "precondition": {
+        "baseline_must_be_clean": true,
+        "single_change": true,
+        "target_digest_must_match": true
+      },
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "Architecture",
+        "Security"
+      ],
+      "state": "active",
+      "test_refs": [
+        "TST-MUT-001"
+      ],
+      "timeout_seconds": 120,
+      "mutation_id": "MUT-EVT-009",
+      "title": "el recibo del tramo se escribe aparte de su efecto",
+      "target": "docs/architecture/events-retries.json",
+      "validator": "event_model",
+      "operator": "replace_scalar",
+      "operator_params": {
+        "pointer": "/checkpoint_contract/checkpoint_and_effect_transaction",
+        "expected_current": "same_transaction",
+        "new_value": "separate_transaction"
+      },
+      "control_refs": [
+        "CHK-SAME-TRANSACTION"
+      ],
+      "expectation": {
+        "exit_code": 1,
+        "kind": "expect_findings",
+        "finding_codes": [
+          "EVT-CHECKPOINT-ATOMIC"
+        ]
+      },
+      "risk_refs": [
+        "TM-009"
+      ],
+      "target_sha256": "ab19517d1c50330b287bb11a95c398288fccfa0137c432e96726f458b5ad9fa3"
+    },
+    {
       "control_refs": [
         "GH-INPUT-HASH"
       ],
@@ -2699,6 +2806,166 @@
       "timeout_seconds": 120,
       "title": "control metamorfico: reordenar campos criticos no cambia nada",
       "validator": "lineage_model"
+    },
+    {
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-MUTATION",
+      "gate": "S1-READY",
+      "independence": {
+        "mode": "independent",
+        "rationale": "regla distinta con codigo de hallazgo propio"
+      },
+      "max_output_bytes": 262144,
+      "owner_role": "QA",
+      "precondition": {
+        "baseline_must_be_clean": true,
+        "single_change": true,
+        "target_digest_must_match": true
+      },
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "Architecture",
+        "Security"
+      ],
+      "state": "active",
+      "test_refs": [
+        "TST-MUT-001"
+      ],
+      "timeout_seconds": 120,
+      "mutation_id": "MUT-LIN-010",
+      "title": "un override por fila se puede editar despues",
+      "target": "docs/domain/lineage-model.json",
+      "validator": "lineage_model",
+      "operator": "flip_boolean",
+      "operator_params": {
+        "pointer": "/row_override_contract/immutable",
+        "expected_current": true
+      },
+      "control_refs": [
+        "OVR-IMMUTABLE"
+      ],
+      "expectation": {
+        "exit_code": 1,
+        "kind": "expect_findings",
+        "finding_codes": [
+          "LIN-OVERRIDE-MUTABLE"
+        ]
+      },
+      "risk_refs": [
+        "TM-015"
+      ],
+      "target_sha256": "61ad8682dc39eaec2b86bfdde6618a922ebb88410f3ce7ce9152249acc416332"
+    },
+    {
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-MUTATION",
+      "gate": "S1-READY",
+      "independence": {
+        "mode": "independent",
+        "rationale": "regla distinta con codigo de hallazgo propio"
+      },
+      "max_output_bytes": 262144,
+      "owner_role": "QA",
+      "precondition": {
+        "baseline_must_be_clean": true,
+        "single_change": true,
+        "target_digest_must_match": true
+      },
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "Architecture",
+        "Security"
+      ],
+      "state": "active",
+      "test_refs": [
+        "TST-MUT-001"
+      ],
+      "timeout_seconds": 120,
+      "mutation_id": "MUT-LIN-011",
+      "title": "un override sin aprobar deja de bloquear la publicacion",
+      "target": "docs/domain/lineage-model.json",
+      "validator": "lineage_model",
+      "operator": "replace_scalar",
+      "operator_params": {
+        "pointer": "/row_override_contract/on_missing_required_override",
+        "expected_current": "block_publication",
+        "new_value": "warn"
+      },
+      "control_refs": [
+        "OVR-UNAPPROVED-BLOCKS"
+      ],
+      "expectation": {
+        "exit_code": 1,
+        "kind": "expect_findings",
+        "finding_codes": [
+          "LIN-OVERRIDE-INCOMPLETE"
+        ]
+      },
+      "risk_refs": [
+        "TM-015"
+      ],
+      "target_sha256": "61ad8682dc39eaec2b86bfdde6618a922ebb88410f3ce7ce9152249acc416332"
+    },
+    {
+      "data_classification": "synthetic_only",
+      "evidence_ref": "EV-QA-MUTATION",
+      "gate": "S1-READY",
+      "independence": {
+        "mode": "independent",
+        "rationale": "regla distinta con codigo de hallazgo propio"
+      },
+      "max_output_bytes": 262144,
+      "owner_role": "QA",
+      "precondition": {
+        "baseline_must_be_clean": true,
+        "single_change": true,
+        "target_digest_must_match": true
+      },
+      "result_affecting_versions": {
+        "canonical_schema_version": "0.1.0",
+        "python_minimum_minor": "3.11",
+        "registry_schema": "1"
+      },
+      "reviewer_roles": [
+        "Architecture",
+        "Security"
+      ],
+      "state": "active",
+      "test_refs": [
+        "TST-MUT-001"
+      ],
+      "timeout_seconds": 120,
+      "mutation_id": "MUT-LIN-012",
+      "title": "el plan de transformacion admite cobertura media",
+      "target": "docs/domain/lineage-model.json",
+      "validator": "lineage_model",
+      "operator": "flip_boolean",
+      "operator_params": {
+        "pointer": "/transform_plan_contract/average_coverage_allowed",
+        "expected_current": false
+      },
+      "control_refs": [
+        "PLAN-STAGE-COVERAGE"
+      ],
+      "expectation": {
+        "exit_code": 1,
+        "kind": "expect_findings",
+        "finding_codes": [
+          "LIN-PLAN-COVERAGE"
+        ]
+      },
+      "risk_refs": [
+        "TM-015"
+      ],
+      "target_sha256": "61ad8682dc39eaec2b86bfdde6618a922ebb88410f3ce7ce9152249acc416332"
     },
     {
       "control_refs": [

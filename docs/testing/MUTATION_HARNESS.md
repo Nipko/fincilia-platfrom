@@ -41,7 +41,7 @@ sobre la copia mutada. Si la primera ejecución no sale con exit `0`, el caso se
 
 El motivo es exacto: si la línea base ya fallaba —porque falta un input, porque el contrato
 venía roto, porque el módulo no importa— entonces el fallo posterior **no prueba nada sobre
-la mutación**. Sin esta precondición, un directorio temporal mal armado produciría 63
+la mutación**. Sin esta precondición, un directorio temporal mal armado produciría 68
 «controles acreditados» y ni uno solo sería real.
 
 ---
@@ -129,7 +129,7 @@ Un grupo cuenta como **un** control, no como tres.
 
 ## 7. Cobertura actual
 
-63 mutaciones sobre 9 validadores ya inyectables. `test-strategy.json` exige
+68 mutaciones sobre 9 validadores ya inyectables. `test-strategy.json` exige
 `minimum_mutants_per_validator: 5`; ninguno baja de 6.
 
 | Validador | Mutaciones | Dominio atacado |
@@ -137,33 +137,39 @@ Un grupo cuenta como **un** control, no como tres.
 | `canonical_model` | 6 | company scope, Decimal, dirección, campos obligatorios |
 | `completeness_model` | 6 | Unknown, auto-match, compuerta de cierre, aceptación |
 | `connector_model` | 7 | egress, SSRF, credenciales bancarias, alcance E0 |
-| `event_model` | 7 | propiedad del retry, DLQ sin raw, revalidación, autoridad |
+| `event_model` | 9 | propiedad del retry, DLQ sin raw, revalidación, autoridad, punto de control del lote |
 | `golden_harness` | 7 | digest de input, traversal, autoridad de adjudicación |
 | `idempotency_model` | 7 | composite UNIQUE, fingerprint, precheck, cross-company |
-| `lineage_model` | 9 | engine release, tokens flotantes, SoD de overlay, gates |
+| `lineage_model` | 12 | engine release, tokens flotantes, SoD de overlay, gates, plan de transformación, excepción por fila |
 | `privacy_model` | 7 | IA externa, autoridad de almacén, legal hold, clasificación |
 | `quality_strategy` | 7 | dominios protegidos, cobertura promedio, gates |
 
-Resultado del run completo (`registry_digest` `1bd9073…`):
+Resultado del run completo tras FNC-P3.6 (`registry_digest` `8082aef…`):
 
 ```json
-{"executed": 63, "outcomes": {"killed": 61, "survived": 2},
+{"executed": 68, "outcomes": {"killed": 68},
  "unresolved": [], "source_tree_unchanged": true}
 ```
 
-### Los dos supervivientes son hallazgos reales
+**Hoy no sobrevive ninguna**, y por eso `run` sale con cero. La sección siguiente
+describe los dos supervivientes que hubo, y se conserva sin cambios: por qué
+dejaron de serlo no se ha comprobado en esta ejecución, y darlo por arreglado
+sería exactamente la clase de afirmación que este arnés existe para impedir.
 
-Ninguno se ha arreglado: ambos caen en herramientas ya integradas, fuera del alcance de
-FNC-QA-005.
+### Los dos supervivientes que hubo
+
+Se documentaron cuando el arnés los reportaba. Ambos caen en herramientas ya
+integradas, fuera del alcance de FNC-QA-005.
 
 | Mutación | Validador | Hallazgo | Owner | Gate |
 |---|---|---|---|---|
 | `MUT-PRV-006` | `privacy_model` | valida las rutas de evidencia por **existencia**, no por contención canónica: `docs/../docs/architecture/dfd-flows.json` se acepta | Security | S1-READY |
 | `MUT-GHR-006` | `golden_harness` | `adjudication.runner_can_update_expected` se declara pero no se comprueba; solo `auto_update_expected_allowed` está aplicado | QA | S1-READY |
 
-Por eso `run` y `report` salen con exit distinto de cero. **Eso es el resultado correcto**,
-no un arnés averiado: hay dos controles que el repositorio cree tener y no tiene. Rebajar la
-severidad para forzar verde sería exactamente el fallo que este arnés existe para detectar.
+Mientras estuvieron vivos, `run` y `report` salían con exit distinto de cero, y
+**ese era el resultado correcto**: había dos controles que el repositorio creía
+tener y no tenía. Rebajar la severidad para forzar verde habría sido exactamente
+el fallo que este arnés existe para detectar.
 
 Observación relacionada y deliberadamente **no** codificada como mutación: `privacy_model`
 también acepta una ruta de evidencia **absoluta** del host si ese fichero existe en la
