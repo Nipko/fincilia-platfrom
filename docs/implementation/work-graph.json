@@ -54,5 +54,15 @@
       "agent_may_accept": false
     }
   ],
-  "active_reservations": []
+  "active_reservations": [
+    {
+      "task": "FNC-QA-006",
+      "holder": "codex-integration-steward",
+      "paths": [
+        "infra/local/up.sh",
+        "tools/local_stack",
+        "apps/web/tests/e2e"
+      ]
+    }
+  ]
 }
