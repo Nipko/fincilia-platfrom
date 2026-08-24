@@ -25,6 +25,7 @@ from fincilia_platform.probes import Probe, build_probes, ensure_buckets
 from fincilia_contracts.errors import ProblemDetail, problem
 
 from . import repository
+from .corrections import router as corrections_router
 from .routes import router
 from .security import ProblemError
 from .throttle import AttemptThrottle
@@ -160,6 +161,7 @@ def create_app(settings: ApiSettings | None = None,
         }
 
     app.include_router(router)
+    app.include_router(corrections_router)
     return app
 
 

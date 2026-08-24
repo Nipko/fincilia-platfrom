@@ -1778,6 +1778,26 @@ def publication_blockers(connection: psycopg.Connection, *, dataset: dict[str, A
     if override_issues:
         blockers.append(PublicationBlocker(
             "override-not-approved", "; ".join(override_issues)))
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT coalesce(r.decision, 'pending_review'), count(*) "
+            "FROM fincilia.field_overlay o "
+            "LEFT JOIN fincilia.field_overlay_review r ON r.overlay_id = o.overlay_id "
+            "WHERE o.dataset_version_id = %s "
+            "AND (r.decision IS NULL OR r.decision = 'approved') "
+            "GROUP BY coalesce(r.decision, 'pending_review')",
+            (dataset["dataset_version_id"],))
+        correction_states = {state: count for state, count in cursor}
+    pending = int(correction_states.get("pending_review", 0))
+    approved = int(correction_states.get("approved", 0))
+    if pending:
+        blockers.append(PublicationBlocker(
+            "correction-pending-review",
+            f"{pending} typed correction proposal(s) still need independent review"))
+    if approved:
+        blockers.append(PublicationBlocker(
+            "correction-not-applied",
+            f"{approved} approved correction proposal(s) require a new dataset version"))
     return tuple(blockers)
 
 
