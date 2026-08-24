@@ -54,24 +54,5 @@
       "agent_may_accept": false
     }
   ],
-  "active_reservations": [
-    {
-      "task": "FNC-WEB-003",
-      "holder": "Codex principal dev",
-      "paths": [
-        "apps/web/src/app/empresas/page.tsx",
-        "apps/web/src/app/empresas/[companyId]/page.tsx",
-        "apps/web/src/app/empresas/[companyId]/documentos/[artifactId]/mapeo",
-        "apps/web/src/app/empresas/**/__tests__",
-        "apps/web/src/lib/api.ts",
-        "apps/web/src/lib/navigation.ts",
-        "apps/web/src/lib/portfolio.ts",
-        "apps/web/src/lib/__tests__/navigation.test.ts",
-        "apps/web/src/lib/__tests__/portfolio.test.ts",
-        "apps/web/src/app/globals.css",
-        "docs/implementation/tasks/FNC-WEB-003.md",
-        "docs/implementation/handoffs/FNC-WEB-003.md"
-      ]
-    }
-  ]
+  "active_reservations": []
 }

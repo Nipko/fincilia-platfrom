@@ -2,7 +2,7 @@
 id: FNC-WEB-003
 alias: FNC-P4.3
 title: Portafolio multiempresa e historico operativo web
-status: in_progress
+status: review_pending
 implementer: Codex principal dev + Integration Steward
 base_sha: 5565010
 gate: S1-READY
