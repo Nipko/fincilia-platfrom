@@ -1297,3 +1297,33 @@ def list_expectations(request: Request, company_id: str,
         return onboarding.list_expectations(
             connection, today=dt.date.today(), data_source_id=data_source_id,
             limit=limit)
+
+
+@router.get("/companies/{company_id}/assignees", tags=["onboarding"])
+def list_assignees(request: Request, company_id: str,
+                   principal: Principal = Depends(principal_dependency)) -> list[dict]:
+    """Quien puede responder de un ciclo en esta empresa.
+
+    Pide `data_source.manage` y no `company.read`: es la lectura de quien va a
+    asignar una tarea, no un directorio de personas. Devuelve el identificador
+    opaco, el nombre visible y los roles **en esta empresa**; ni correo, ni
+    vinculo externo, ni en que otras firmas milita alguien.
+
+    Se resuelve contra la base en cada peticion. Cachearlo en Valkey haria que
+    revocar a alguien tardara en notarse lo que tarde una entrada en caducar, y
+    durante ese rato la cache seria la autoridad sobre quien puede.
+    """
+    context = company_context(request, principal, company_id)
+    require(context, "data_source.manage")
+    database = request.app.state.database
+    with database.session(company_id=context.company_id,
+                          subject_id=principal.subject_id) as connection:
+        people = onboarding.eligible_assignees(connection)
+        # Consultar quien puede recibir una tarea es una lectura sobre personas,
+        # y deja rastro. Cuantas, no quienes.
+        repository.record_audit(
+            connection, subject_id=principal.subject_id,
+            company_id=context.company_id, action="assignee.list",
+            resource_kind="company", resource_ref=context.company_id,
+            outcome="allowed", detail={"candidates": len(people)})
+    return people

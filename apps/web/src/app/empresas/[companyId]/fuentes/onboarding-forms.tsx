@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from 'react';
 
-import type { Account, Source } from '@/lib/api';
+import type { Account, Assignee, Source, SourceCycle } from '@/lib/api';
 import {
   closeAccountAction,
   createAccountAction,
@@ -269,15 +269,31 @@ export function CycleForm({
   companyId,
   source,
   people,
+  cycle,
   today,
 }: {
   companyId: string;
   source: Source;
-  people: { subject_id: string; display_name: string }[];
+  people: Assignee[];
+  cycle: SourceCycle | null;
   today: string;
 }) {
   const [state, action, pending] = useActionState(setCycleAction, INITIAL);
   const [periodicity, setPeriodicity] = useState('monthly');
+
+  if (people.length === 0) {
+    // Sin candidatos no hay ciclo posible, y decirlo con el motivo es mejor que
+    // un desplegable vacio que parece un fallo.
+    return (
+      <p className="notice error" role="status">
+        Nadie de esta empresa puede recibir la responsabilidad todavia. Hace
+        falta una persona con delegacion viva de la firma, membresia activa y
+        una concesion sin revocar sobre esta empresa.
+      </p>
+    );
+  }
+
+  const orphaned = cycle !== null && cycle.responsible_eligible === false;
 
   return (
     <form className="upload" action={action}>
@@ -311,12 +327,29 @@ export function CycleForm({
         <input id={`cycle_grace_${source.data_source_id}`} name="graceDays"
                type="number" min={0} max={120} defaultValue={3} />
       </label>
+      {orphaned ? (
+        <p className="notice error" role="alert">
+          Quien respondia de este ciclo ya no tiene acceso a la empresa. El
+          calendario se conserva —revocar a alguien no borra la historia— pero
+          queda <strong>pendiente de reemplazo</strong>: elige a otra persona.
+        </p>
+      ) : null}
       <label htmlFor={`cycle_owner_${source.data_source_id}`}>
         Quien responde de que llegue
-        <select id={`cycle_owner_${source.data_source_id}`} name="responsible" required>
+        <select id={`cycle_owner_${source.data_source_id}`} name="responsible"
+                required
+                defaultValue={
+                  cycle && cycle.responsible_eligible !== false
+                    ? cycle.responsible_subject_id
+                    : ''
+                }>
+          {orphaned || !cycle ? <option value="">elige a alguien</option> : null}
           {people.map((person) => (
             <option key={person.subject_id} value={person.subject_id}>
               {person.display_name}
+              {person.company_roles.length > 0
+                ? ` · ${person.company_roles.join(', ')}`
+                : ''}
             </option>
           ))}
         </select>
@@ -333,7 +366,7 @@ export function CycleForm({
       </label>
       <input type="hidden" name="timezone" value={source.timezone} />
       <div>
-        <button type="submit" disabled={pending || people.length === 0}>
+        <button type="submit" disabled={pending}>
           {pending ? 'Guardando...' : 'Guardar ciclo'}
         </button>
       </div>

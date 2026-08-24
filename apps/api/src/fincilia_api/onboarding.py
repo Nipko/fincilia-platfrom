@@ -427,6 +427,14 @@ def set_cycle(connection: psycopg.Connection, *, company_id: str,
         raise OnboardingError("invalid-timezone", f"{timezone!r} is not supported")
     if load_source(connection, data_source_id) is None:
         raise OnboardingError("source-unknown", "no such data source")
+    # Un responsable que ya no puede entrar a la empresa no puede recibir una
+    # tarea en ella. Se comprueba al asignar y no solo al pintar el desplegable:
+    # el desplegable es una comodidad, y esto es la regla.
+    if not is_eligible(connection, responsible_subject_id):
+        raise OnboardingError(
+            "assignee-not-eligible",
+            "that person is not an active member with a live grant on this "
+            "company, so they cannot answer for anything here")
 
     with connection.cursor() as cursor:
         cursor.execute(
@@ -454,7 +462,15 @@ def load_cycle(connection: psycopg.Connection,
             "       anchor_date, status, created_at FROM fincilia.source_cycle "
             "WHERE data_source_id = %s AND status = 'active'", (data_source_id,))
         row = _one(cursor)
-    return _stamp(row) if row else None
+    if row is None:
+        return None
+    cycle = _stamp(row)
+    # Revocar a alguien **no** borra el ciclo: la historia se conserva y lo que
+    # cambia es que queda pendiente de reemplazo. Borrarlo dejaria la fuente sin
+    # calendario justo el dia que alguien se fue.
+    cycle["responsible_eligible"] = is_eligible(
+        connection, cycle["responsible_subject_id"])
+    return cycle
 
 
 def generate_expectations(connection: psycopg.Connection, *, company_id: str,
@@ -560,3 +576,52 @@ def satisfy_expectation(connection: psycopg.Connection, *, data_source_id: str,
             (artifact_id, data_source_id, uploaded_on))
         row = cursor.fetchone()
     return str(row[0]) if row else None
+
+
+# --------------------------------------------------------------------------- #
+# Quien puede responder de un ciclo (FNC-P3.6)
+# --------------------------------------------------------------------------- #
+
+def eligible_assignees(connection: psycopg.Connection) -> list[dict[str, Any]]:
+    """Personas que pueden recibir la responsabilidad de un ciclo en esta empresa.
+
+    Las **mismas tres condiciones** que usa el autorizador para dejar entrar, y
+    no una lista parecida escrita aparte: delegacion viva de una firma sobre la
+    empresa, membresia activa del sujeto **en esa firma**, y al menos una
+    concesion sin revocar. Dos definiciones de «quien puede» acaban discrepando,
+    y la que discrepa siempre es la que nadie mira.
+
+    Que la membresia se una a la firma **del engagement** tiene una consecuencia
+    que importa: si la empresa cambia de firma, los miembros de la anterior dejan
+    de ser elegibles el mismo dia, sin que nadie tenga que acordarse de limpiar
+    nada.
+
+    Sale el identificador opaco, el nombre visible y los roles **en esta
+    empresa**. Ni correo, ni vinculo externo, ni credencial, ni en que otras
+    firmas milita: un selector de responsables no es un directorio de personas.
+    """
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT s.subject_id, s.display_name, "
+            "       array_agg(DISTINCT g.company_role ORDER BY g.company_role) "
+            "FROM fincilia.company_grant g "
+            "JOIN fincilia.subject s ON s.subject_id = g.subject_id "
+            "JOIN fincilia.engagement e ON e.company_id = g.company_id "
+            "JOIN fincilia.membership m ON m.firm_id = e.firm_id "
+            "                          AND m.subject_id = g.subject_id "
+            "WHERE g.revoked_at IS NULL "
+            "  AND e.status = 'active' "
+            "  AND (e.valid_to IS NULL OR e.valid_to >= CURRENT_DATE) "
+            "  AND m.status = 'active' "
+            # Un principal de servicio no responde de que llegue un extracto.
+            "  AND s.subject_kind = 'person' "
+            "GROUP BY s.subject_id, s.display_name "
+            "ORDER BY s.display_name")
+        return [{"subject_id": str(row[0]), "display_name": row[1],
+                 "company_roles": list(row[2])} for row in cursor]
+
+
+def is_eligible(connection: psycopg.Connection, subject_id: str) -> bool:
+    """Si **este** sujeto sigue pudiendo recibir tareas en esta empresa."""
+    return any(item["subject_id"] == subject_id
+               for item in eligible_assignees(connection))

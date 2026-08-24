@@ -669,6 +669,7 @@ export type SourceLink = {
 
 export type SourceCycle = {
   cycle_id: string;
+  responsible_eligible?: boolean;
   data_source_id: string;
   periodicity: string;
   custom_days: number | null;
@@ -882,4 +883,21 @@ export function continueDataset(
     method: 'POST',
     token,
   });
+}
+
+/** Alguien que puede responder de un ciclo. Sin correo y sin vinculo externo. */
+export type Assignee = {
+  subject_id: string;
+  display_name: string;
+  company_roles: string[];
+};
+
+export function fetchAssignees(
+  token: string,
+  companyId: string,
+): Promise<Assignee[]> {
+  return request<Assignee[]>(
+    `/api/v1/companies/${encodeURIComponent(companyId)}/assignees`,
+    { token },
+  );
 }

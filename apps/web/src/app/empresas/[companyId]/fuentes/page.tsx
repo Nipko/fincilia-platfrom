@@ -4,14 +4,16 @@ import { redirect } from 'next/navigation';
 import {
   ApiError,
   fetchAccountsFull,
+  fetchAssignees,
   fetchCompany,
   fetchExpectations,
   fetchLinks,
-  fetchMe,
   fetchSourcesFull,
   type Account,
+  type Assignee,
   type Expectation,
   type Source,
+  type SourceCycle,
   type SourceLink,
 } from '@/lib/api';
 import { readSession } from '@/lib/session';
@@ -84,12 +86,17 @@ export default async function SourcesPage({
   const canManageAccounts = company.permissions.includes('financial_account.manage');
   const canManageSources = company.permissions.includes('data_source.manage');
 
-  const [accounts, sources, links, expectations, me] = await Promise.all([
+  const [accounts, sources, links, expectations, people] = await Promise.all([
     fetchAccountsFull(session.token, companyId).catch(() => [] as Account[]),
     fetchSourcesFull(session.token, companyId).catch(() => [] as Source[]),
     fetchLinks(session.token, companyId).catch(() => [] as SourceLink[]),
     fetchExpectations(session.token, companyId).catch(() => [] as Expectation[]),
-    fetchMe(session.token).catch(() => null),
+    // Quien puede responder de un ciclo sale de la base, no de quien mira la
+    // pantalla: la version anterior ofrecia un solo candidato —tu— porque no
+    // habia de donde sacar los demas.
+    canManageSources
+      ? fetchAssignees(session.token, companyId).catch(() => [] as Assignee[])
+      : Promise.resolve([] as Assignee[]),
   ]);
 
   const linksBySource = new Map<string, SourceLink[]>();
@@ -98,14 +105,12 @@ export default async function SourcesPage({
                       [...(linksBySource.get(link.data_source_id) ?? []), link]);
   }
   const activeAccounts = accounts.filter((account) => account.status === 'active');
+  // El ciclo vivo de cada fuente, para que el formulario sepa si su responsable
+  // sigue valiendo. Se lee al abrir la fuente, no aqui, para no pedir uno por
+  // fuente en cada carga de la pantalla.
+  const cycleOf = new Map<string, SourceCycle>();
   const overdue = expectations.filter((item) => item.state === 'late');
   const today = new Date().toISOString().slice(0, 10);
-  // El desplegable de responsables sale de quien tiene sesion. Cuando exista una
-  // lectura de miembros de la empresa, sale de ahi; inventar nombres aqui seria
-  // ofrecer un responsable que la base no conoce.
-  const people = me
-    ? [{ subject_id: me.subject_id, display_name: me.display_name }]
-    : [];
 
   return (
     <main>
@@ -280,7 +285,8 @@ export default async function SourcesPage({
                   </details>
                   <details>
                     <summary>Ciclo esperado</summary>
-                    <CycleForm companyId={companyId} source={source} people={people}
+                    <CycleForm companyId={companyId} source={source}
+                               people={people} cycle={cycleOf.get(source.data_source_id) ?? null}
                                today={today} />
                   </details>
                 </>
