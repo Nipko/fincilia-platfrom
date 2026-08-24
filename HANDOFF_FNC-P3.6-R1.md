@@ -7,10 +7,10 @@
 | Campo | Valor |
 |---|---|
 | Base del mandato | `666745dc6a488fab2b0f8aa108404251790af48f` |
-| HEAD al escribir esto | `0e729b1` |
+| HEAD al escribir esto | `c1b02d0` (empujado) |
 | Rama | `claude/principal-dev` |
 | Worktree | limpio |
-| CI del último commit | **no lanzada todavía** — hay que empujar `0e729b1` |
+| CI del último commit | lanzada al empujar `c1b02d0`; **hay que leerla** |
 | Última CI verde conocida | `666745d` → https://github.com/Nipko/fincilia-platfrom/actions/runs/32684955542 |
 
 ---
@@ -18,14 +18,17 @@
 ## 0. Lo primero que tiene que hacer quien siga
 
 ```bash
-git -C C:/Users/USER/Desktop/Projects/knowledge-app push origin claude/principal-dev
+gh run list --branch claude/principal-dev --limit 1
 ```
 
-`0e729b1` está commiteado y **sin empujar**. Todo lo que corre en local está
-verde (316 pruebas de contrato, 24 validadores, quality gate), pero **nada de
-esto se ha ejercido contra PostgreSQL real todavía**, y ahí es donde vive el
-riesgo de esta tanda: los cambios del worker (`_flush`, `_stored_records`) y del
-carril sólo los prueba CI.
+Todo está commiteado y empujado hasta `c1b02d0`. Lo que corre en local está verde
+(316 pruebas de contrato, 24 validadores, quality gate), pero **nada de esto se ha
+ejercido contra PostgreSQL real todavía**, y ahí es donde vive el riesgo de esta
+tanda: los cambios del worker (`_flush`, `_stored_records`) y del carril sólo los
+prueba CI. Lee esa corrida antes que nada.
+
+Si sale en rojo, lo más probable es que sea algo del §2.2 que se pasó por alto, o
+el `_flush` nuevo contra PostgreSQL de verdad. `gh run view <id> --log-failed`.
 
 Ciclo de verificación: escribir → `git push` → `gh run list --branch
 claude/principal-dev` → `gh run view <id> --log-failed`. Unos 7 minutos por
@@ -80,10 +83,16 @@ Detectadas por la auditoría; **están sin tocar y romperán CI**:
 
 | Fichero | Qué asume | Qué hacer |
 |---|---|---|
-| `db/tests/test_extraction_resume.py:126-127` | `outcome.content_digest` | pasa a `outcome.record_digest` |
-| `db/tests/test_extraction_resume.py:211` | `settled['result'].get('content_digest')` | pasa a `record_digest` |
-| `db/tests/test_extraction_resume.py` (`TST_P36_041`) | el detalle del evento de auditoría tiene **como mucho** las claves `{records, state, reason, digest, run}` — es un `assertLessEqual` sobre el conjunto | el worker ahora emite `{records, stored, state, reason, object_digest, record_digest, run}`. Actualizar el conjunto permitido y **mantener** la aserción de que ningún valor del fichero aparece |
-| `workers/document/tests/test_jobs.py:175` | `test_an_unreadable_stream_is_classified_as_unextractable` tiene `try/except` sin `else` ni `self.fail` | la prueba **no puede fallar**. Arreglarla; además `b'solo cabecera'` ahora levanta por `no_data_rows`, que es otro motivo |
+**Las cuatro ya están hechas en `c1b02d0`.** Se dejan listadas porque si CI sale
+en rojo son el primer sitio donde mirar, y porque puede haber una quinta que no
+se vio:
+
+| Fichero | Qué asumía | Hecho |
+|---|---|---|
+| `db/tests/test_extraction_resume.py:127` | `outcome.content_digest` | → `record_digest` |
+| `db/tests/test_extraction_resume.py:211` | `settled['result'].get('content_digest')` | → `record_digest`, y se añadió que `object_digest` es el sha256 del fichero subido y que no coincide con el de registros |
+| `db/tests/test_extraction_resume.py` (`TST_P36_041`) | lista cerrada `{records, state, reason, digest, run}` | → `{records, stored, state, reason, object_digest, record_digest, run}`, cerrada igual |
+| `workers/document/tests/test_jobs.py` | `try/except` sin `else` ni `self.fail` | arreglada, y añadida la clasificación de `RawRecordConflict` |
 
 Ojo: `db/tests/test_scale_publication.py` afirma que a 100.000 filas la lectura
 **no** sale truncada. Con el arreglo del límite eso sigue siendo cierto (100.000
