@@ -117,6 +117,7 @@ dependencias de `FNC-GAT-002` ni afirmar que Sprint 1 está habilitado.
 | FNC-API-001 | A5 | P3.6, WEB-001 | Review pending | Creacion de plantilla y primera version de mapeo atomica, con conflictos estables y aislamiento cross-tenant |
 | FNC-WEB-002 | A5/A6 | WEB-001, API-001, P3.6 | Review pending | Readiness server-side, cola de overrides, aprobacion SoD y rechazo motivado en web |
 | FNC-WEB-003 | A6 | WEB-002, API-001, PLT-008 | Review pending | Portafolio multiempresa, vencimientos y navegacion historica sin agregar importes |
+| FNC-CLN-001 | A5/A6 | DOM-005, WEB-002, P3.6 | In progress | Propuesta tipada y revisión SoD de correcciones por fila, sin mutar el dataset base |
 
 ## No codificar todavía
 

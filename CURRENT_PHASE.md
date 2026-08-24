@@ -110,6 +110,7 @@ Hasta S1-READY solo se admite scaffolding, automatización, pruebas, documentaci
 | FNC-API-001 | Creacion atomica y segura de mapeos | Review pending | Codex + Integration Steward | rutas/dominio API de mapeos, prueba PostgreSQL y handoff |
 | FNC-WEB-002 | Puesto web de revision y excepciones de dataset | Review pending | Codex + Integration Steward | readiness API, overrides/rechazo web, pruebas PostgreSQL y web |
 | FNC-WEB-003 | Portafolio multiempresa e historico operativo web | Review pending | Codex + Integration Steward | portafolio, vencimientos, volumenes e historico de datasets web |
+| FNC-CLN-001 | Propuestas tipadas de correccion por fila | In progress | Codex + Integration Steward | overlay tipado, revision SoD, blockers, PostgreSQL y web |
 
 Solo el Integration Steward modifica esta tabla.
 

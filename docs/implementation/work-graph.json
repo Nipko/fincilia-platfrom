@@ -54,5 +54,21 @@
       "agent_may_accept": false
     }
   ],
-  "active_reservations": []
+  "active_reservations": [
+    {
+      "task": "FNC-CLN-001",
+      "holder": "Codex principal dev + Integration Steward",
+      "paths": [
+        "docs/adr/ADR-026-staged-field-overlay.md",
+        "db/migrations/V0016__staged_field_overlay.sql",
+        "db/tests/test_field_overlays.py",
+        "apps/api/src/fincilia_api/corrections.py",
+        "apps/api/src/fincilia_api/main.py",
+        "apps/api/src/fincilia_api/datasets.py",
+        "apps/api/tests/test_corrections.py",
+        "apps/web/src/app/empresas",
+        "apps/web/src/lib/corrections.ts"
+      ]
+    }
+  ]
 }
