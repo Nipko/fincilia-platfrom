@@ -92,6 +92,12 @@ test('FNC-REC-003 prioriza revisiones multiempresa y abre el expediente exacto',
     .toBeVisible();
   await expect(page.getByText(/no prueba saldos/i)).toBeVisible();
 
+  // El caso REC-002 anterior confirma deliberadamente el unico expediente que
+  // trae una semilla vacia. La bandeja debe conservarlo en el historico, no
+  // fabricar otro pendiente ni depender del orden de ejecucion de la suite.
+  await page.getByRole('link', { name: 'Todas' }).click();
+  await expect(page).toHaveURL(/\/revisiones\?estado=todas$/);
+
   const first = page.getByRole('link', { name: 'Abrir expediente' }).first();
   await expect(first).toBeVisible();
   await first.click();

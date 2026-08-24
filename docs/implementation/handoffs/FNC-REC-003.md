@@ -80,6 +80,10 @@ volumenes sintéticos. La pestaña integrada queda en
    derecha por UUID de movimiento. La evidencia correcta exige ambos datasets,
    no una orientacion de carga que el dominio no promete. La asercion ahora
    compara el conjunto y conserva la validacion de pertenencia exacta.
+6. El segundo CI integral ejecuto REC-002 antes de REC-003 y confirmo el unico
+   expediente de una semilla vacia. REC-003 esperaba despues un pendiente que ya
+   no debia existir. El recorrido abre ahora el filtro historico `Todas`: prueba
+   persistencia y navegacion exacta sin fabricar estado ni depender del orden.
 
 ## Riesgos y pendientes humanos
 
