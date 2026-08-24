@@ -79,10 +79,6 @@ pero **ninguna prueba lo ejerce**. Hay que añadir a
 
 ### 2.2 Pruebas que este cambio rompe y hay que actualizar
 
-Detectadas por la auditoría; **están sin tocar y romperán CI**:
-
-| Fichero | Qué asume | Qué hacer |
-|---|---|---|
 **Las cuatro ya están hechas en `c1b02d0`.** Se dejan listadas porque si CI sale
 en rojo son el primer sitio donde mirar, y porque puede haber una quinta que no
 se vio:
