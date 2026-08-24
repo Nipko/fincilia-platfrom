@@ -21,7 +21,9 @@ import json
 import sys
 import unittest
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from decimal import Decimal
+from unittest.mock import patch
 
 import psycopg
 from fastapi.testclient import TestClient
@@ -32,6 +34,7 @@ sys.path.insert(0, "/app/worker_src")
 
 from db.seed.local import DEFAULT_SECRET, seed, stable_id
 from db.tests.test_api_authorization import MIGRATOR_DSN, RUNTIME_DSN, build_settings
+from fincilia_api import datasets
 from fincilia_api.main import create_app
 from fincilia_contracts.ingestion import sha256_bytes
 from fincilia_contracts.release import digest_of
@@ -43,6 +46,7 @@ RUN = uuid.uuid4().hex[:12]
 ESPIGA = stable_id("company", "espiga")
 ANDINOS = stable_id("company", "andinos")
 SOURCE = stable_id("data_source", "espiga")
+ANDINOS_SOURCE = stable_id("data_source", "andinos")
 ACCOUNT = stable_id("account", "espiga")
 
 # Marcados a gritos: una aprobacion sintetica que pareciera humana seria peor
@@ -352,12 +356,45 @@ class VerticalHarness(unittest.TestCase):
         return artifact_id
 
     def create_mapping(self, artifact_id: str, definition: dict | None = None,
-                       user: str = PREPARER):
+                       user: str = PREPARER, *, data_source_id: str = SOURCE,
+                       display_name: str | None = None):
         body = dict(definition or MAPPING)
-        body.update({"artifact_id": artifact_id, "data_source_id": SOURCE,
-                     "display_name": f"mapeo {uuid.uuid4().hex[:8]}"})
+        body.update({"artifact_id": artifact_id,
+                     "data_source_id": data_source_id,
+                     "display_name": display_name or
+                     f"mapeo {uuid.uuid4().hex[:8]}"})
         return self.client.post(f"/api/v1/companies/{ESPIGA}/mappings",
                                 headers=self.auth(user), json=body)
+
+    def mapping_row_counts(self, display_name: str) -> tuple[int, int]:
+        """Cuenta plantilla y versiones desde PostgreSQL, no desde la respuesta."""
+        with psycopg.connect(MIGRATOR_DSN, autocommit=True) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT set_config('fincilia.company_id', %s, false)",
+                               (ESPIGA,))
+                cursor.execute(
+                    "SELECT count(*), coalesce(sum(version_count), 0) FROM ("
+                    " SELECT m.mapping_id, count(v.mapping_version_id) version_count"
+                    " FROM fincilia.column_mapping m"
+                    " LEFT JOIN fincilia.column_mapping_version v"
+                    "   ON v.mapping_id = m.mapping_id AND v.company_id = m.company_id"
+                    " WHERE m.company_id = %s AND m.display_name = %s"
+                    " GROUP BY m.mapping_id) counted",
+                    (ESPIGA, display_name))
+                row = cursor.fetchone()
+        return int(row[0]), int(row[1])
+
+    def mapping_audit_count(self, artifact_id: str) -> int:
+        with psycopg.connect(MIGRATOR_DSN, autocommit=True) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT set_config('fincilia.company_id', %s, false)",
+                               (ESPIGA,))
+                cursor.execute(
+                    "SELECT count(*) FROM fincilia.audit_event"
+                    " WHERE company_id = %s AND action = 'dataset.map'"
+                    " AND detail ->> 'artifact' = %s",
+                    (ESPIGA, artifact_id))
+                return int(cursor.fetchone()[0])
 
     def validated_mapping(self, artifact_id: str) -> str:
         created = self.create_mapping(artifact_id)
@@ -464,6 +501,85 @@ class VerticalTests(VerticalHarness):
             self.assertNotIn(value, rendered)
 
     # ------------------------------------------------------------------ mapeo #
+
+    def test_a_cross_company_or_malformed_source_writes_nothing_FNC_API_001_AC_01(
+            self) -> None:
+        artifact = self.promoted(statement_csv("source-scope"), "extracto.csv")
+        cases = (ANDINOS_SOURCE, "not-a-uuid")
+        for source_id in cases:
+            name = f"scope-{uuid.uuid4().hex}"
+            with self.subTest(source_id=source_id):
+                response = self.create_mapping(
+                    artifact, data_source_id=source_id, display_name=name)
+                self.assertEqual(403, response.status_code, response.text)
+                self.assertEqual(response.json()["type"].rsplit("/", 1)[-1],
+                                 "forbidden")
+                self.assertEqual((0, 0), self.mapping_row_counts(name))
+
+    def test_a_duplicate_name_is_a_stable_conflict_without_a_second_version_FNC_API_001_AC_04(
+            self) -> None:
+        artifact = self.promoted(statement_csv("duplicate"), "extracto.csv")
+        name = f"duplicate-{uuid.uuid4().hex}"
+
+        first = self.create_mapping(artifact, display_name=name)
+        second = self.create_mapping(artifact, display_name=name)
+
+        self.assertEqual(201, first.status_code, first.text)
+        self.assertEqual(409, second.status_code, second.text)
+        self.assertEqual(second.json()["type"].rsplit("/", 1)[-1],
+                         "mapping-name-conflict")
+        self.assertEqual((1, 1), self.mapping_row_counts(name))
+        self.assertEqual(1, self.mapping_audit_count(artifact))
+
+    def test_concurrent_creation_has_one_winner_and_no_orphan_FNC_API_001_AC_03(
+            self) -> None:
+        artifact = self.promoted(statement_csv("concurrent-map"), "extracto.csv")
+        name = f"concurrent-{uuid.uuid4().hex}"
+        headers = self.auth(PREPARER)
+        body = {**MAPPING, "artifact_id": artifact, "data_source_id": SOURCE,
+                "display_name": name}
+
+        def submit():
+            return self.client.post(
+                f"/api/v1/companies/{ESPIGA}/mappings", headers=headers, json=body)
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            responses = list(executor.map(lambda _: submit(), range(2)))
+
+        self.assertEqual([201, 409], sorted(item.status_code for item in responses),
+                         [item.text for item in responses])
+        self.assertEqual((1, 1), self.mapping_row_counts(name))
+        self.assertEqual(1, self.mapping_audit_count(artifact))
+
+    def test_a_second_insert_failure_rolls_back_the_template_FNC_API_001_AC_03(
+            self) -> None:
+        name = f"rollback-{uuid.uuid4().hex}"
+        unknown_artifact = str(uuid.uuid4())
+        with psycopg.connect(RUNTIME_DSN, autocommit=False) as connection:
+            with self.assertRaises(datasets.MappingReferenceRefused):
+                with connection.transaction():
+                    with connection.cursor() as cursor:
+                        cursor.execute(
+                            "SELECT set_config('fincilia.company_id', %s, true)",
+                            (ESPIGA,))
+                        cursor.execute(
+                            "SELECT set_config('fincilia.subject_id', %s, true)",
+                            (stable_id("subject", "ana"),))
+                    datasets.create_mapping(
+                        connection, company_id=ESPIGA, data_source_id=SOURCE,
+                        artifact_id=unknown_artifact, display_name=name,
+                        definition=MAPPING, subject_id=stable_id("subject", "ana"),
+                        source_schema="0" * 64)
+
+        self.assertEqual((0, 0), self.mapping_row_counts(name))
+
+    def test_an_unexpected_mapping_failure_is_not_reported_as_forbidden_FNC_API_001_AC_05(
+            self) -> None:
+        artifact = self.promoted(statement_csv("unexpected"), "extracto.csv")
+        with patch("fincilia_api.routes.datasets.create_mapping",
+                   side_effect=RuntimeError("synthetic unexpected failure")):
+            with self.assertRaisesRegex(RuntimeError, "synthetic unexpected failure"):
+                self.create_mapping(artifact)
 
     def test_an_ambiguous_date_blocks_validation_until_someone_chooses_TST_P3_032(self) -> None:
         artifact = self.promoted(ambiguous_csv("block"), "ambiguo.csv")
