@@ -109,6 +109,7 @@ Hasta S1-READY solo se admite scaffolding, automatización, pruebas, documentaci
 | FNC-WEB-001 | Endurecimiento verificable del recorrido web P3 | Review pending | Codex + Integration Steward | apps/web, pruebas web, CI, ficha y handoff |
 | FNC-API-001 | Creacion atomica y segura de mapeos | Review pending | Codex + Integration Steward | rutas/dominio API de mapeos, prueba PostgreSQL y handoff |
 | FNC-WEB-002 | Puesto web de revision y excepciones de dataset | Review pending | Codex + Integration Steward | readiness API, overrides/rechazo web, pruebas PostgreSQL y web |
+| FNC-WEB-003 | Portafolio multiempresa e historico operativo web | In progress | Codex + Integration Steward | portafolio, vencimientos, volumenes e historico de datasets web |
 
 Solo el Integration Steward modifica esta tabla.
 
