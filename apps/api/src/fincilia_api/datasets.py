@@ -119,6 +119,14 @@ class PreparationError(Exception):
         self.blockers = blockers or []
 
 
+class MappingNameConflict(Exception):
+    """La empresa ya tiene una plantilla con ese nombre."""
+
+
+class MappingReferenceRefused(Exception):
+    """Una fuente o un artefacto no pertenece al alcance de la operacion."""
+
+
 @dataclass(frozen=True)
 class Preparation:
     """Lo que se sabe de una preparacion, en conteos y nunca en payload."""
@@ -253,23 +261,42 @@ def create_mapping(connection: psycopg.Connection, *, company_id: str,
                    data_source_id: str, artifact_id: str, display_name: str,
                    definition: dict[str, Any], subject_id: str,
                    source_schema: str) -> dict[str, Any]:
-    """Crea la plantilla y su primera version, en borrador."""
-    with connection.cursor() as cursor:
-        cursor.execute(
-            "INSERT INTO fincilia.column_mapping (mapping_id, company_id, "
-            "data_source_id, display_name, created_by) "
-            "VALUES (gen_random_uuid(), %s, %s, %s, %s) RETURNING mapping_id",
-            (company_id, data_source_id, display_name, subject_id))
-        mapping_id = str(cursor.fetchone()[0])
-        cursor.execute(
-            "INSERT INTO fincilia.column_mapping_version (mapping_version_id, "
-            "company_id, mapping_id, version_number, artifact_id, definition, "
-            "definition_digest, source_schema_digest, created_by) "
-            "VALUES (gen_random_uuid(), %s, %s, 1, %s, %s::jsonb, %s, %s, %s) "
-            "RETURNING mapping_version_id",
-            (company_id, mapping_id, artifact_id, json.dumps(definition),
-             definition_digest(definition), source_schema, subject_id))
-        version_id = str(cursor.fetchone()[0])
+    """Crea la plantilla y su primera version como una unidad atomica.
+
+    El bloque transaccional es deliberadamente propio. La ruta hoy ya llama
+    dentro de una sesion, donde psycopg lo convierte en un savepoint; mantener
+    aqui la frontera evita que otro consumidor capture un error de la segunda
+    insercion y confirme una plantilla huerfana por accidente.
+    """
+    try:
+        with connection.transaction():
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "INSERT INTO fincilia.column_mapping (mapping_id, company_id, "
+                    "data_source_id, display_name, created_by) "
+                    "VALUES (gen_random_uuid(), %s, %s, %s, %s) "
+                    "RETURNING mapping_id",
+                    (company_id, data_source_id, display_name, subject_id))
+                mapping_id = str(cursor.fetchone()[0])
+                cursor.execute(
+                    "INSERT INTO fincilia.column_mapping_version "
+                    "(mapping_version_id, company_id, mapping_id, version_number, "
+                    "artifact_id, definition, definition_digest, "
+                    "source_schema_digest, created_by) "
+                    "VALUES (gen_random_uuid(), %s, %s, 1, %s, %s::jsonb, %s, "
+                    "%s, %s) RETURNING mapping_version_id",
+                    (company_id, mapping_id, artifact_id, json.dumps(definition),
+                     definition_digest(definition), source_schema, subject_id))
+                version_id = str(cursor.fetchone()[0])
+    except psycopg.errors.UniqueViolation as error:
+        if error.diag.constraint_name == "uq_mapping_name":
+            raise MappingNameConflict from None
+        raise
+    except psycopg.errors.ForeignKeyViolation as error:
+        if error.diag.constraint_name in {
+                "fk_mapping_source", "fk_mapping_version_artifact"}:
+            raise MappingReferenceRefused from None
+        raise
     return {"mapping_id": mapping_id, "mapping_version_id": version_id,
             "version_number": 1, "state": "draft"}
 

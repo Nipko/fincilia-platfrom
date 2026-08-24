@@ -487,10 +487,24 @@ def _artifact_or_forbidden(connection, artifact_id: str):
     buscador de documentos ajenos, y eso vale para toda esta seccion igual que
     para la de documentos.
     """
-    artifact = repository.find_artifact_by_id(connection, artifact_id)
+    try:
+        artifact = repository.find_artifact_by_id(connection, artifact_id)
+    except psycopg.errors.InvalidTextRepresentation:
+        raise forbidden() from None
     if artifact is None:
         raise forbidden()
     return artifact
+
+
+def _source_or_forbidden(connection, data_source_id: str):
+    """Resuelve una fuente dentro del contexto RLS sin permitir enumerarla."""
+    try:
+        source = onboarding.load_source(connection, data_source_id)
+    except psycopg.errors.InvalidTextRepresentation:
+        raise forbidden() from None
+    if source is None:
+        raise forbidden()
+    return source
 
 
 def _preparation_problem(error: datasets.PreparationError) -> ProblemError:
@@ -567,6 +581,7 @@ def create_mapping(request: Request, company_id: str, body: MappingRequest,
     with database.session(company_id=context.company_id,
                           subject_id=principal.subject_id) as connection:
         _artifact_or_forbidden(connection, body.artifact_id)
+        _source_or_forbidden(connection, body.data_source_id)
         profile_run = datasets.latest_run(connection, body.artifact_id, "profile")
         profile = (profile_run or {}).get("result") or {}
         try:
@@ -581,7 +596,12 @@ def create_mapping(request: Request, company_id: str, body: MappingRequest,
                 display_name=body.display_name, definition=definition,
                 subject_id=principal.subject_id,
                 source_schema=datasets.schema_digest(profile))
-        except Exception:  # noqa: BLE001 - una referencia ajena no se distingue
+        except datasets.MappingNameConflict:
+            raise ProblemError(
+                problem("mapping-name-conflict", "Mapping name already in use", 409,
+                        "this company already has a mapping with that display name")
+            ) from None
+        except datasets.MappingReferenceRefused:
             logger.warning("mapping refused for company %s", context.company_id)
             raise forbidden() from None
         blockers = datasets.blockers_for(mapping, profile, [])
