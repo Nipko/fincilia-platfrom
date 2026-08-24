@@ -180,6 +180,20 @@ def security_checks(app_dsn: str, migrator_dsn: str, *, company_id: str,
                 "SELECT has_database_privilege(current_user, current_database(), "
                 "       'TEMPORARY')")
             findings["temp_privilege_already_held"] = bool(cursor.fetchone()[0])
+            # Los privilegios se comprueban **por nombre**. Contarlos decia
+            # «tiene doce» sin decir cuales, y la afirmacion que hace falta
+            # sostener no es cuantos tiene sino que no tiene los que no debe:
+            # `V0008` le concede SELECT e INSERT sobre `raw_record`, y nada mas.
+            for privilege in ("SELECT", "INSERT"):
+                cursor.execute(
+                    "SELECT has_table_privilege(current_user, "
+                    "       'fincilia.raw_record', %s)", (privilege,))
+                findings["may_" + privilege.lower()] = bool(cursor.fetchone()[0])
+            for privilege in ("UPDATE", "DELETE", "TRUNCATE"):
+                cursor.execute(
+                    "SELECT has_table_privilege(current_user, "
+                    "       'fincilia.raw_record', %s)", (privilege,))
+                findings["may_not_" + privilege.lower()] = not bool(cursor.fetchone()[0])
             cursor.execute(
                 "SELECT count(*) FROM information_schema.role_table_grants "
                 "WHERE grantee = current_user AND table_schema = 'fincilia'")
@@ -249,7 +263,13 @@ def security_checks(app_dsn: str, migrator_dsn: str, *, company_id: str,
                 sha256=sha256, start=800_001)), conflict=False)
             findings["cross_company_refused"] = False
         except psycopg.Error as error:
-            findings["cross_company_refused"] = True
+            # Y no basta con que falle: tiene que fallar **por la politica**.
+            # `42501` es `insufficient_privilege`, que es lo que levanta una
+            # comprobacion `WITH CHECK` de RLS. Un `23503` seria la clave ajena,
+            # que tambien impediria la fila pero probaria otra cosa: dejar pasar
+            # cualquier error convertiria esta comprobacion en «algo salio mal».
+            findings["cross_company_refused"] = error.sqlstate == RLS_SQLSTATE
+            findings["cross_company_sqlstate"] = error.sqlstate
             findings["cross_company_error"] = type(error).__name__
         finally:
             connection.rollback()
@@ -257,12 +277,20 @@ def security_checks(app_dsn: str, migrator_dsn: str, *, company_id: str,
     return findings
 
 
+# `insufficient_privilege`. Es el codigo que levanta una comprobacion `WITH
+# CHECK` de una politica de filas, y el unico que prueba que la frontera que
+# detuvo la escritura fue esa y no otra.
+RLS_SQLSTATE = "42501"
+
 REQUIRED_CHECKS = (
     "rls_still_enabled", "rls_still_forced", "company_context_before_load",
     "temp_privilege_already_held", "invisible_to_another_session",
     "dropped_on_commit", "no_persistent_shared_staging",
     "rollback_leaves_nothing", "rollback_drops_the_temp_table",
     "cross_company_refused",
+    # Los privilegios, por nombre y en los dos sentidos.
+    "may_select", "may_insert", "may_not_update", "may_not_delete",
+    "may_not_truncate",
 )
 
 

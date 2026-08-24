@@ -36,6 +36,7 @@ from db.tests.test_api_authorization import MIGRATOR_DSN, RUNTIME_DSN, build_set
 from db.tests.test_p3_vertical import MAPPING, approve_fixture_release, purge
 from db.tests.test_scale_publication import peak_rss_mib, synthetic_statement
 from fincilia_api.main import create_app
+from fincilia_contracts.extraction import MAX_EXTRACT_ROWS
 from fincilia_contracts.ingestion import sha256_bytes
 from fincilia_platform.objects import S3ObjectStore
 from fincilia_platform.probes import ensure_buckets
@@ -49,12 +50,20 @@ ACCOUNT = stable_id("account", "espiga")
 PREPARER = "ana@demo.local"
 REVIEWER = "beto@demo.local"
 
-TARGET_ROWS = 250_000
+# El carril mide **el limite productivo**, y por eso el numero sale de la
+# constante y no de un deseo. Antes decia 250.000 mientras `MAX_EXTRACT_ROWS`
+# decia 200.000: el carril habria medido una lectura truncada creyendo medir una
+# entera, que es la peor clase de medida —sale un numero, y el numero no
+# corresponde a lo que se dice haber medido—.
+#
+# Reconciliar hacia arriba habria sido subir el techo del producto para que
+# cuadrara una prueba. Se reconcilia hacia el contrato.
+TARGET_ROWS = MAX_EXTRACT_ROWS
 
-# Dos veces y media el volumen de la corrida bloqueante, con el mismo margen
-# proporcional sobre los presupuestos de aquella. Si el importe fuera lineal,
-# 110,9 s se convertirian en unos 277; se deja hasta 600 porque el carril corre
-# en una maquina que no se reserva para el.
+# Dos veces el volumen de la corrida bloqueante, con el mismo margen proporcional
+# sobre sus presupuestos. Si el importe fuera lineal, 94,2 s se convertirian en
+# unos 188; se deja hasta 600 porque el carril corre en una maquina que no se
+# reserva para el.
 MAX_TOTAL_SECONDS = 600
 MAX_PEAK_MIB = 600
 MAX_GROWTH_MIB = 200
@@ -127,9 +136,23 @@ class PerformanceLaneTests(unittest.TestCase):
         finally:
             database.close()
 
+    def extraction_of(self, artifact_id: str) -> dict:
+        """El resultado de la extraccion, tal y como quedo guardado."""
+        with psycopg.connect(MIGRATOR_DSN, autocommit=True) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT set_config('fincilia.company_id', %s, false)", (ESPIGA,))
+                cursor.execute(
+                    "SELECT result FROM fincilia.processing_run "
+                    "WHERE artifact_id = %s AND kind = 'extract' "
+                    "AND status = 'succeeded'", (artifact_id,))
+                row = cursor.fetchone()
+        return (row[0] if row else {}) or {}
+
     # ------------------------------------------------------------------ el caso
 
-    def test_a_quarter_million_rows_import_within_budget_TST_P36_039(self) -> None:
+    def test_the_productive_ceiling_imports_within_budget_TST_P36_039(self) -> None:
+        """El fichero mas grande que el producto acepta, entero y medido."""
         payload = synthetic_statement(TARGET_ROWS)
         type(self).created.add(sha256_bytes(payload))
         self.measurements.update({"target_rows": TARGET_ROWS,
@@ -186,6 +209,9 @@ class PerformanceLaneTests(unittest.TestCase):
         self.assertEqual("validated", final["state"], final)
         self.assertEqual(TARGET_ROWS,
                          final["movement_count"] + final["rejected_count"])
+        # Y estaba **entera**: el limite es el techo, no una fila menos.
+        self.assertIs(False, self.extraction_of(artifact).get("truncated"),
+                      "la lectura del limite exacto no puede salir truncada")
 
         with psycopg.connect(MIGRATOR_DSN, autocommit=True) as connection:
             with connection.cursor() as cursor:
@@ -203,6 +229,37 @@ class PerformanceLaneTests(unittest.TestCase):
                         f"the import took {self.measurements['total_seconds']} s")
         self.assertLess(self.measurements["process_peak_rss_mib"], MAX_PEAK_MIB)
         self.assertLess(self.measurements["rss_growth_mib"], MAX_GROWTH_MIB)
+
+    def test_one_row_over_the_ceiling_truncates_at_scale_TST_P36_044(self) -> None:
+        """Y una fila mas se trunca, a tamano real.
+
+        La prueba pura lo comprueba con cinco filas y un techo de cinco, que es
+        donde vive la logica. Esta lo comprueba donde vive el riesgo: con el
+        techo de verdad, sobre PostgreSQL y el almacen de objetos, porque un
+        limite que se aplica bien en una prueba de mesa y mal a escala no es un
+        limite.
+        """
+        payload = synthetic_statement(TARGET_ROWS + 1)
+        type(self).created.add(sha256_bytes(payload))
+        upload = self.client.post(
+            f"/api/v1/companies/{ESPIGA}/documents", headers=self.auth(PREPARER),
+            files={"file": (f"techo-{RUN}.csv", io.BytesIO(payload), "text/csv")})
+        self.assertEqual(200, upload.status_code, upload.text)
+        self.drain()
+
+        result = self.extraction_of(upload.json()["artifact_id"])
+        self.measurements["over_the_ceiling"] = {
+            "row_count": result.get("row_count"),
+            "truncated": result.get("truncated"),
+            "reason": result.get("truncation_reason"),
+            "stored": result.get("stored_records"),
+        }
+        self.assertIs(True, result.get("truncated"))
+        self.assertEqual("row_limit", result.get("truncation_reason"))
+        self.assertEqual(TARGET_ROWS, result.get("row_count"))
+        # La fila que sobra no se persiste: el techo no es orientativo.
+        self.assertEqual(TARGET_ROWS + 1, result.get("stored_records"),
+                         "se guardan el membrete y las filas del techo, ni una mas")
 
     def test_the_staging_spike_at_scale_TST_P36_040(self) -> None:
         """La comparacion INSERT/COPY con el volumen que la hace significativa."""

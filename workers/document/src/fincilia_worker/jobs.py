@@ -124,6 +124,16 @@ def run_profile(payload: bytes) -> tuple[dict | None, str | None, str | None]:
     return table.as_dict(), None, None
 
 
+class RawRecordConflict(RuntimeError):
+    """Un tramo ya escrito no coincide con lo que esta lectura produce.
+
+    No es un choque de unicidad cualquiera: la fila que ya esta y la que llega
+    dicen cosas distintas sobre el **mismo** registro del mismo fichero.
+    Reintentar no lo arregla —volveria a divergir— y quedarse con una de las dos
+    en silencio deja publicada una evidencia que nadie eligio.
+    """
+
+
 def classify_extraction(error: Exception) -> tuple[str, str]:
     """Que hacer con un fallo al extraer: `(codigo, clase_de_fallo)`.
 
@@ -135,6 +145,11 @@ def classify_extraction(error: Exception) -> tuple[str, str]:
     tandas; sostenerla entera para poder clasificar un fallo seria volver a
     tener el fichero en memoria por si acaso.
     """
+    if isinstance(error, RawRecordConflict):
+        # Fatal a proposito: el reintento leeria lo mismo y volveria a chocar.
+        # Lo que hace falta es que alguien mire por que dos lecturas del mismo
+        # tramo no coinciden.
+        return "raw_record_conflict", FATAL
     if isinstance(error, ExtractionError):
         # El fichero es el que es: releerlo dara lo mismo.
         logger.warning("unextractable artifact: %s", error)

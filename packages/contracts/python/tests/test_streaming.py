@@ -176,20 +176,20 @@ class OutcomeTests(unittest.TestCase):
     def test_the_digest_is_the_same_for_the_same_content(self) -> None:
         _, _, first = read(BANK)
         _, _, second = read(BANK)
-        self.assertEqual(first.content_digest, second.content_digest)
-        self.assertEqual(len(first.content_digest), 64)
+        self.assertEqual(first.record_digest, second.record_digest)
+        self.assertEqual(len(first.record_digest), 64)
 
     def test_the_digest_changes_when_a_row_changes(self) -> None:
         # Es lo que permite decir si dos lecturas vieron lo mismo sin guardar el
         # fichero para compararlo.
         _, _, original = read(BANK)
         _, _, altered = read(BANK.replace(b"980.000,00", b"980.000,01"))
-        self.assertNotEqual(original.content_digest, altered.content_digest)
+        self.assertNotEqual(original.record_digest, altered.record_digest)
 
     def test_a_partial_read_has_a_different_digest_than_the_whole(self) -> None:
         _, _, whole = read(BANK)
         _, _, partial = read(BANK, max_rows=2)
-        self.assertNotEqual(whole.content_digest, partial.content_digest)
+        self.assertNotEqual(whole.record_digest, partial.record_digest)
 
     def test_the_summary_carries_no_value_from_the_file(self) -> None:
         preamble, _, outcome = read(BANK)

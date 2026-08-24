@@ -30,6 +30,7 @@ from typing import Final, Iterator
 
 from .profiling import (
     CANDIDATE_DELIMITERS,
+    ENCODINGS,
     MAX_COLUMNS,
     SNIFF_BYTES,
     UnprofilableFile,
@@ -51,6 +52,22 @@ LOCATOR_KIND: Final[str] = "tabular_delimited"
 # Motivos por los que una lectura se detuvo antes de acabar. Son estados, no
 # fallos: el trabajo termina bien y la interfaz dice lo que falta.
 TRUNCATION_REASONS: Final[tuple[str, ...]] = ("row_limit", "byte_limit", "time_limit")
+
+# Y por que puede no terminar. Un truncamiento acaba bien y no publica; un fallo
+# no acaba. Mezclarlos dejaria «se dejo de leer» indistinguible de «se leyo
+# entero», que es justo la diferencia que importa.
+FAILURE_REASONS: Final[tuple[str, ...]] = (
+    "malformed_delimited_file", "too_many_columns", "cell_too_long",
+    "encoding_mismatch", "no_data_rows", "object_digest_mismatch", "reader_error",
+)
+
+# Las codificaciones admitidas, en el orden en que `decode()` las prueba y sin la
+# marca de orden, que no es un codec distinto sino el mismo con tres bytes
+# delante. Es la lista que usa la promocion, y tiene que ser esta y no otra: si
+# la corriente probara otro orden, elegiria un codec distinto del que elige
+# `extract()` sobre el mismo fichero.
+WIRE_ENCODINGS: Final[tuple[str, ...]] = tuple(
+    dict.fromkeys("utf-8" if name == "utf-8-sig" else name for name in ENCODINGS))
 
 
 class ExtractionError(ValueError):
@@ -146,6 +163,24 @@ class Extraction:
         }
 
 
+def _lf_lines(text: str) -> list[str]:
+    """Corta solo por `\n`, conservando el salto. Igual que la corriente.
+
+    `str.splitlines()` corta ademas por ocho puntos de codigo que no terminan un
+    registro CSV: tabulacion vertical, avance de pagina, los separadores de
+    fichero, grupo y registro, y los de linea y parrafo de Unicode. Usarlo aqui
+    hacia que el lector entero y el de corriente partieran el mismo fichero en
+    registros distintos, y entonces «el mismo fichero» dejaba de ser el mismo
+    segun quien lo leyera. Un campo entrecomillado con un avance de pagina dentro
+    era un registro para uno y dos para el otro.
+    """
+    parts = text.split("\n")
+    lines = [part + "\n" for part in parts[:-1]]
+    if parts[-1]:
+        lines.append(parts[-1])
+    return lines
+
+
 class _LineFeeder:
     """Alimenta al lector CSV linea a linea y recuerda cuantas consumio.
 
@@ -155,11 +190,14 @@ class _LineFeeder:
     """
 
     def __init__(self, text: str, wire_encoding: str, byte_prefix: int) -> None:
-        self._lines = text.splitlines(keepends=True)
+        self._lines = _lf_lines(text)
         self._spans: list[tuple[int, int]] = []
         offset = byte_prefix
         for line in self._lines:
-            size = len(line.encode(wire_encoding, errors="replace"))
+            # Sin `errors`: el texto salio de decodificar estos mismos bytes con
+            # este mismo codec, asi que volver a codificarlo es exacto. Un
+            # `replace` aqui solo podria tapar un fallo que hay que ver.
+            size = len(line.encode(wire_encoding))
             self._spans.append((offset, offset + size))
             offset += size
         self.consumed = 0
@@ -393,14 +431,26 @@ class StreamOutcome:
     data_rows: int = 0
     ragged_rows: int = 0
     bytes_read: int = 0
-    content_digest: str = ""
+    # Dos huellas, dos preguntas. `object_digest` es sha256 de los bytes tal y
+    # como salieron del almacen —contesta «esto es lo que se subio»— y
+    # `record_digest` resume los registros ya entendidos —contesta «esta lectura
+    # vio lo mismo que aquella»—. La version anterior tenia una sola, llamada
+    # `content_digest`, que no era la del contenido y por tanto no contestaba la
+    # primera.
+    object_digest: str = ""
+    record_digest: str = ""
+    # Con que codec se acabo leyendo. Puede no ser el que eligio la muestra.
+    effective_encoding: str = ""
 
     def as_dict(self) -> dict[str, object]:
         return {"state": self.state, "truncation_reason": self.reason,
                 "truncated": self.state == "truncated",
+                "failed": self.state == "failed",
                 "record_count": self.records, "row_count": self.data_rows,
                 "ragged_rows": self.ragged_rows, "bytes_read": self.bytes_read,
-                "content_digest": self.content_digest}
+                "object_digest": self.object_digest,
+                "record_digest": self.record_digest,
+                "effective_encoding": self.effective_encoding}
 
 
 class _HeadReader:
@@ -429,6 +479,33 @@ class _HeadReader:
         closer = getattr(self._rest, "close", None)
         if closer is not None:
             closer()
+
+
+class _RawTap:
+    """Cuenta y resume los bytes **antes** de entenderlos.
+
+    La huella se toma sobre lo que sale del almacen, sin decodificar y sin quitar
+    la marca de orden: es la del objeto, no la de lo que se entendio de el.
+    Compararla con `source_artifact.content_sha256` contesta una pregunta que
+    ninguna otra comprobacion contesta —si lo leido es lo subido— y que hasta
+    ahora nadie hacia.
+    """
+
+    def __init__(self, reader) -> None:
+        self._reader = reader
+        self._digest = hashlib.sha256()
+        self.bytes_read = 0
+
+    def read(self, size: int) -> bytes:
+        chunk = self._reader.read(size)
+        if chunk:
+            self._digest.update(chunk)
+            self.bytes_read += len(chunk)
+        return chunk
+
+    @property
+    def object_digest(self) -> str:
+        return self._digest.hexdigest()
 
 
 def _byte_lines(reader, *, chunk_size: int = READ_CHUNK):
@@ -473,7 +550,18 @@ class _StreamFeeder:
         self._prefix = preamble.byte_prefix
         self._spans: list[tuple[int, int]] = []
         self._first = True
+        # Mientras cuanto se ha leido sea ASCII, cambiar de codec no reinterpreta
+        # ni una linea anterior: las cuatro codificaciones admitidas coinciden en
+        # ASCII byte a byte. En cuanto se decodifica un caracter que no lo es, el
+        # codec ha afirmado algo sobre esos bytes y ya no se puede cambiar de
+        # opinion sin cambiar filas que ya salieron.
+        self._ascii_so_far = True
+        self.promoted_from: str | None = None
         self.bytes_read = 0
+
+    @property
+    def encoding(self) -> str:
+        return self._encoding
 
     def __iter__(self):
         return self
@@ -490,7 +578,62 @@ class _StreamFeeder:
                 start += len(UTF8_BOM)
         self._spans.append((start, offset + len(raw) + (start - offset)))
         self.bytes_read = offset + len(raw) + (start - offset)
-        return raw.decode(self._encoding, errors="replace")
+        return self._decode(raw)
+
+    def _decode(self, raw: bytes) -> str:
+        """Decodifica sin red. Un byte que no se entiende no se sustituye.
+
+        La version anterior pasaba `errors="replace"`, y eso convertia
+        `Comision cafe` en `Comision caf` con un caracter de reemplazo dentro,
+        dejando el desenlace en `complete`. Una evidencia parecida a la real es
+        peor que ninguna: se publica, cuadra, y nadie mira dos veces.
+        """
+        if b"\x00" in raw:
+            # `decode()` mira los primeros kilobytes; mas alla no lo miraba
+            # nadie, y `latin-1` decodifica el NUL sin protestar. Un binario con
+            # cabecera de texto se «extraia» en columnas de basura.
+            raise ExtractionError(
+                "the artifact contains control bytes and is not text")
+        try:
+            text = raw.decode(self._encoding)
+        except UnicodeDecodeError as error:
+            text = self._promote(raw, error)
+        if self._ascii_so_far and not raw.isascii():
+            self._ascii_so_far = False
+        return text
+
+    def _promote(self, raw: bytes, error: UnicodeDecodeError) -> str:
+        """Vuelve a decidir la codificacion, y solo cuando es demostrable.
+
+        La muestra que eligio el codec puede ser ASCII entera y el primer byte
+        acentuado aparecer mucho mas alla de ella. Ese fichero es legitimo y
+        `extract()` lo lee bien, porque decodifica el fichero entero. Rechazarlo
+        aqui seria perder una capacidad que el producto ya tiene.
+
+        Asi que se promociona, pero solo mientras todo lo leido haya sido ASCII,
+        que es cuando cambiar de codec no toca ni una fila anterior. Si ya se
+        habia decodificado algo que no era ASCII, se levanta: el fichero no es
+        consistentemente decodificable, y seguir seria elegir en silencio cual de
+        las dos lecturas vale.
+        """
+        if not self._ascii_so_far:
+            raise ExtractionError(
+                "the file stops being decodable as "
+                f"{self._encoding!r} after a non-ASCII character was already "
+                "read; two different encodings cannot both be right")
+        for candidate in WIRE_ENCODINGS:
+            if candidate == self._encoding:
+                continue
+            try:
+                text = raw.decode(candidate)
+            except UnicodeDecodeError:
+                continue
+            self.promoted_from = self._encoding
+            self._encoding = candidate
+            return text
+        raise ExtractionError(
+            "the file is not decodable as text in any supported encoding "
+            f"(failed at byte {error.start} of a record)")
 
     def take_span(self) -> tuple[int, int] | None:
         """El tramo de las lineas consumidas desde la ultima llamada."""
@@ -511,12 +654,31 @@ def sniff(reader, *, header_row: int = 1,
     """
     if header_row < 1:
         raise ExtractionError("header_row is 1-based")
-    head = reader.read(SNIFF_WINDOW)
+    # Un `read` puede devolver menos de lo pedido sin que se haya acabado el
+    # objeto —un cuerpo HTTP lo hace a menudo— y decidir la codificacion sobre
+    # media muestra es decidirla sobre otra cosa.
+    head = b""
+    while len(head) < SNIFF_WINDOW:
+        chunk = reader.read(SNIFF_WINDOW - len(head))
+        if not chunk:
+            break
+        head += chunk
     if not head:
         raise ExtractionError("the artifact has no readable content")
 
+    # La ventana es un corte por bytes y puede caer **dentro** de un caracter
+    # multibyte. Si eso pasa, `utf-8` falla por el trozo suelto y gana `cp1252`,
+    # que decodifica cualquier byte sin quejarse: el fichero entero se leeria mal
+    # por culpa de donde cayo el corte, y sin un solo error. Se decide sobre
+    # lineas completas, que por construccion nunca parten un caracter.
+    sample = head
+    if len(head) == SNIFF_WINDOW:
+        boundary = head.rfind(b"\n")
+        if boundary >= 0:
+            sample = head[:boundary + 1]
+
     try:
-        text, encoding = decode(head)
+        text, encoding = decode(sample)
     except UnprofilableFile as error:
         raise ExtractionError(str(error)) from error
     if not text.strip():
@@ -566,6 +728,7 @@ def sniff(reader, *, header_row: int = 1,
 
 def stream_records(reader, preamble: Preamble, *, artifact_sha256: str = "",
                    max_rows: int = MAX_EXTRACT_ROWS,
+                   max_bytes: int = MAX_EXTRACT_BYTES,
                    max_seconds: float = MAX_EXTRACT_SECONDS,
                    outcome: StreamOutcome | None = None):
     """Emite registros uno a uno, con su coordenada exacta y sin acumular nada.
@@ -580,7 +743,8 @@ def stream_records(reader, preamble: Preamble, *, artifact_sha256: str = "",
     filas de menos.
     """
     report = outcome if outcome is not None else StreamOutcome()
-    feeder = _StreamFeeder(_byte_lines(reader), preamble)
+    tap = _RawTap(reader)
+    feeder = _StreamFeeder(_byte_lines(tap), preamble)
     csv_reader = csv.reader(feeder, delimiter=preamble.delimiter)
     digest = hashlib.sha256()
     started = time.monotonic()
@@ -589,6 +753,24 @@ def stream_records(reader, preamble: Preamble, *, artifact_sha256: str = "",
 
     try:
         while True:
+            # El techo de bytes se comprueba antes de pedir el siguiente
+            # registro. Leyendo por partes no se sabe cuanto ocupa el fichero
+            # hasta que se acaba, asi que la unica forma de aplicarlo es dejar de
+            # leer al alcanzarlo y decirlo.
+            if tap.bytes_read > max_bytes:
+                report.state = "truncated"
+                report.reason = "byte_limit"
+                break
+            # El reloj se mira en cada vuelta y no cada quinientas filas de
+            # datos. Con la condicion anterior, un fichero de cuatrocientas filas
+            # —o uno lleno de lineas en blanco, que no cuentan como datos— no
+            # miraba el reloj **jamas**, y el limite de tiempo declarado no
+            # existia para el. Una llamada a `monotonic` por registro es ruido al
+            # lado de analizar el registro.
+            if time.monotonic() - started > max_seconds:
+                report.state = "truncated"
+                report.reason = "time_limit"
+                break
             try:
                 values = next(csv_reader)
             except StopIteration:
@@ -619,14 +801,33 @@ def stream_records(reader, preamble: Preamble, *, artifact_sha256: str = "",
             if not any(value.strip() for value in values):
                 continue
 
+            is_data = ordinal >= preamble.first_data_row
+            # El techo se comprueba **antes** de emitir, y solo cuando hay otra
+            # fila de verdad. Comprobarlo despues marcaba truncado un fichero de
+            # exactamente `max_rows` filas, que esta entero: el operador no
+            # tendria forma de distinguirlo de uno al que le faltan filas, y un
+            # truncamiento bloquea la publicacion.
+            if is_data and emitted >= max_rows:
+                report.state = "truncated"
+                report.reason = "row_limit"
+                break
+
             # Huella incremental sobre lo leido, en orden. No hace falta tener el
             # fichero para saber si dos lecturas vieron lo mismo.
-            digest.update(f"{ordinal}\x1f".encode("utf-8"))
-            digest.update("\x1f".join(values).encode("utf-8", errors="replace"))
-            digest.update(b"\x1e")
+            #
+            # Va con la longitud delante de cada valor y no con separadores. Los
+            # separadores que llevaba —0x1F y 0x1E— pueden aparecer dentro de un
+            # valor, y entonces dos conjuntos distintos dan la misma huella:
+            # `["a\x1fb"]` y `["a", "b"]` se resumian igual. Con la longitud
+            # delante eso no puede pasar, porque la huella se puede deshacer.
+            digest.update(f"{ordinal}:{len(values)}|".encode("ascii"))
+            for value in values:
+                encoded = value.encode("utf-8", "surrogatepass")
+                digest.update(f"{len(encoded)}:".encode("ascii"))
+                digest.update(encoded)
 
             report.records = ordinal
-            if ordinal >= preamble.first_data_row:
+            if is_data:
                 emitted += 1
                 report.data_rows = emitted
                 if preamble.header and len(values) != len(preamble.header):
@@ -635,18 +836,41 @@ def stream_records(reader, preamble: Preamble, *, artifact_sha256: str = "",
             yield ExtractedRow(record_ordinal=ordinal, byte_start=span[0],
                                byte_end=span[1], values=tuple(values))
 
-            if emitted >= max_rows:
-                report.state = "truncated"
-                report.reason = "row_limit"
-                break
-            if emitted and emitted % DEADLINE_EVERY == 0 \
-                    and time.monotonic() - started > max_seconds:
-                report.state = "truncated"
-                report.reason = "time_limit"
-                break
+        if report.state == "complete":
+            # Lo leido tiene que ser lo subido. Solo se puede comprobar sobre una
+            # lectura entera: una truncada resume un prefijo, y comparar su
+            # huella diria «el fichero cambio» cuando lo que paso es que no se
+            # acabo de leer.
+            if artifact_sha256 and tap.object_digest != artifact_sha256:
+                report.state = "failed"
+                report.reason = "object_digest_mismatch"
+                raise ExtractionError(
+                    "the bytes read do not match the digest declared for this "
+                    "artifact; the object is not the one that was uploaded")
+            if report.data_rows == 0:
+                # Una cabecera sin filas no es un extracto vacio: es un fichero
+                # roto. Dejarlo pasar como `complete` produce un conjunto
+                # publicable que no dice nada, y nadie mira dos veces un cero.
+                report.state = "failed"
+                report.reason = "no_data_rows"
+                raise ExtractionError(
+                    "the artifact declares a header and carries no data rows")
+    except ExtractionError:
+        raise
+    except Exception:
+        # Cualquier otra cosa —el almacen que se cae, la conexion que se corta—
+        # deja el desenlace en `failed`. Que quedara en `complete` hacia
+        # indistinguible «se leyo entero» de «se dejo de leer», y la primera
+        # alimenta una publicacion.
+        if report.state == "complete":
+            report.state = "failed"
+            report.reason = "reader_error"
+        raise
     finally:
         report.bytes_read = feeder.bytes_read
-        report.content_digest = digest.hexdigest()
+        report.object_digest = tap.object_digest
+        report.record_digest = digest.hexdigest()
+        report.effective_encoding = feeder.encoding
         # Cerrar pase lo que pase: una excepcion a mitad no puede dejar abierta
         # una conexion al almacen.
         closer = getattr(reader, "close", None)
@@ -661,6 +885,9 @@ def extraction_summary(preamble: Preamble, outcome: StreamOutcome) -> dict[str, 
     `raw_record`, que exige contexto de empresa.
     """
     return {
+        # `encoding` es lo que decidio la muestra; `effective_encoding`, dentro de
+        # `as_dict`, es con lo que se acabo leyendo. Suelen coincidir, y cuando no,
+        # decirlo es la diferencia entre una lectura explicada y una afortunada.
         "encoding": preamble.encoding,
         "delimiter": preamble.delimiter,
         "header": list(preamble.header),

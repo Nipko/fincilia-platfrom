@@ -293,7 +293,8 @@ def _extract_streaming(database: Database, store, claim: "jobs.Claim") -> bool:
             preamble, reader = sniff(stream)
             written = _store_stream(
                 database, claim, artifact,
-                stream_records(reader, preamble, outcome=outcome))
+                stream_records(reader, preamble, outcome=outcome,
+                               artifact_sha256=artifact["content_sha256"]))
         except Exception as error:  # noqa: BLE001 - un fallo raro no tumba el worker
             # La clasificacion vive en `jobs` porque de ella depende si el
             # trabajo se reintenta, muere o acaba delante de una persona, y eso
@@ -301,7 +302,11 @@ def _extract_streaming(database: Database, store, claim: "jobs.Claim") -> bool:
             error_code, failure_class = jobs.classify_extraction(error)
         else:
             result = extraction_summary(preamble, outcome)
-            result["stored_records"] = written
+            # Dos cifras distintas y las dos ciertas: cuantas filas escribio
+            # **este** intento, y cuantas hay. Al reanudar se separan, y es
+            # justo entonces cuando una sola no basta para saber que paso.
+            result["inserted_records"] = written
+            result["stored_records"] = _stored_records(database, claim)
             _audit_extraction(database, claim, result)
         finally:
             # Cerrar pase lo que pase: una corriente abierta retiene una conexion
@@ -358,8 +363,22 @@ STAGED_COLUMNS = ("company_id", "artifact_id", "processing_run_id",
                   "values_digest")
 
 
+# Lo que hace distinto un conflicto de otro. `IS DISTINCT FROM` y no `<>`
+# porque cualquiera de los dos lados puede ser nulo, y con `<>` un nulo dejaria
+# la comparacion sin ser ni cierta ni falsa: pasaria por buena.
+DIVERGENT_ROWS = (
+    "SELECT s.record_ordinal FROM staging_raw_record s "
+    "JOIN fincilia.raw_record r "
+    "  ON r.processing_run_id = s.processing_run_id "
+    " AND r.record_ordinal = s.record_ordinal "
+    "WHERE r.origin_locator IS DISTINCT FROM s.origin_locator "
+    "   OR r.raw_values     IS DISTINCT FROM s.raw_values "
+    "   OR r.values_digest  IS DISTINCT FROM s.values_digest "
+    "ORDER BY s.record_ordinal LIMIT 5")
+
+
 def _flush(database: Database, claim: "jobs.Claim", batch: list[tuple]) -> int:
-    """Una tanda, una transaccion. Reintentar no duplica: lo impide la unicidad.
+    """Una tanda, una transaccion. Devuelve lo que PostgreSQL escribio.
 
     La tanda entra por `COPY` a una tabla `TEMPORARY ... ON COMMIT DROP` y de ahi
     a `raw_record` con un `INSERT ... SELECT`. `COPY` directo sobre la tabla con
@@ -371,6 +390,12 @@ def _flush(database: Database, claim: "jobs.Claim", batch: list[tuple]) -> int:
     `db/spikes/staging_benchmark.py` es lo que autoriza esta ruta: comprueba las
     diez propiedades contra PostgreSQL real y mide. En la corrida que la adopto
     salio en 1,9x sobre el `INSERT` multifila con tandas de quinientas.
+
+    Reintentar no duplica —lo impide la unicidad— pero **no todos los conflictos
+    son reanudaciones**. Uno identico lo es y se ignora. Uno que trae otro
+    localizador, otros valores u otra huella es otra lectura del mismo tramo, y
+    entonces la tanda entera se deshace: entre dos evidencias que se contradicen,
+    quedarse con la que llego primero es elegir sin mirar.
     """
     with database.session(company_id=claim.company_id) as connection:
         with connection.cursor() as cursor:
@@ -383,6 +408,15 @@ def _flush(database: Database, claim: "jobs.Claim", batch: list[tuple]) -> int:
                              ", ".join(STAGED_COLUMNS) + ") FROM STDIN") as copy:
                 for row in batch:
                     copy.write_row(row)
+            cursor.execute(DIVERGENT_ROWS)
+            clash = [int(row[0]) for row in cursor.fetchall()]
+            if clash:
+                # Levantar aqui deshace la transaccion entera de la tanda: no
+                # queda media tanda escrita ni la tabla temporal.
+                raise jobs.RawRecordConflict(
+                    "records " + ", ".join(str(item) for item in clash) +
+                    " of this run already exist with different content; two "
+                    "readings of the same file do not agree")
             cursor.execute(
                 "INSERT INTO fincilia.raw_record (raw_record_id, company_id, "
                 "artifact_id, processing_run_id, record_ordinal, origin_locator, "
@@ -390,7 +424,27 @@ def _flush(database: Database, claim: "jobs.Claim", batch: list[tuple]) -> int:
                 "SELECT gen_random_uuid(), " + ", ".join(STAGED_COLUMNS) + " "
                 "FROM staging_raw_record "
                 "ON CONFLICT (processing_run_id, record_ordinal) DO NOTHING")
-    return len(batch)
+            # `rowcount` tras un `INSERT` cuenta las filas **insertadas**: las
+            # que `DO NOTHING` salto no entran. Es el unico numero de aqui que
+            # puede sostener una afirmacion sobre lo que hay en la base.
+            inserted = cursor.rowcount
+    return max(inserted, 0)
+
+
+def _stored_records(database: Database, claim: "jobs.Claim") -> int:
+    """Cuantas filas de esta ejecucion hay en PostgreSQL. Sin interpretar.
+
+    Contar lo que se intento escribir da otro numero en cuanto hay una
+    reanudacion, y ese numero se guarda en el resultado de la ejecucion, se
+    audita y se lee para decidir. Una cifra que dice «se escribieron mil» cuando
+    hay novecientas es peor que no tener cifra.
+    """
+    with database.session(company_id=claim.company_id) as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT count(*) FROM fincilia.raw_record "
+                "WHERE processing_run_id = %s", (claim.run_id,))
+            return int(cursor.fetchone()[0])
 
 
 def _audit_extraction(database: Database, claim: "jobs.Claim",
@@ -410,9 +464,11 @@ def _audit_extraction(database: Database, claim: "jobs.Claim",
                 (claim.company_id, claim.artifact_id,
                  "allowed" if summary.get("state") == "complete" else "denied",
                  jobs.dumps({"records": summary.get("record_count"),
+                             "stored": summary.get("stored_records"),
                              "state": summary.get("state"),
                              "reason": summary.get("truncation_reason"),
-                             "digest": summary.get("content_digest"),
+                             "object_digest": summary.get("object_digest"),
+                             "record_digest": summary.get("record_digest"),
                              "run": claim.run_id})))
 
 
