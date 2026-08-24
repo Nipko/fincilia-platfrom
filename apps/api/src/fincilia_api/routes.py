@@ -17,6 +17,7 @@ import time
 import psycopg
 
 from fastapi import APIRouter, Depends, File, Request, Response, UploadFile
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from fincilia_contracts.ingestion import MAX_UPLOAD_BYTES, RejectedUpload, admit
@@ -25,7 +26,7 @@ from fincilia_platform.identity import AuthenticationError
 from fincilia_platform.objects import ObjectStoreError, object_key
 from fincilia_platform.tokens import issue
 
-from . import datasets, onboarding, reconciliation, repository
+from . import datasets, exports, onboarding, reconciliation, repository
 from .security import (Principal, ProblemError, company_context, current_principal,
                        forbidden, require, unauthorized)
 from fincilia_contracts.errors import problem
@@ -841,6 +842,73 @@ def read_dataset(request: Request, company_id: str, dataset_version_id: str,
         dataset["publish_blockers"] = blockers
         dataset["can_publish"] = not blockers
     return dataset
+
+
+@router.get("/companies/{company_id}/datasets/{dataset_version_id}/export",
+            tags=["datasets"])
+def export_dataset(request: Request, company_id: str, dataset_version_id: str,
+                   principal: Principal = Depends(principal_dependency)) -> Response:
+    """Transmite el dataset canonico publicado; nunca la evidencia original."""
+    context = company_context(request, principal, company_id)
+    require(context, "dataset.export")
+    if request.app.state.settings.real_data_enabled:
+        raise ProblemError(problem(
+            "dataset-export-disabled", "Dataset export unavailable", 503,
+            "dataset export is enabled only for synthetic data"))
+
+    database = request.app.state.database
+    refusal: exports.ExportError | None = None
+    descriptor: exports.ExportDescriptor | None = None
+    with database.session(company_id=context.company_id,
+                          subject_id=principal.subject_id) as connection:
+        try:
+            descriptor = exports.preflight_export(connection, dataset_version_id)
+        except exports.ExportError as error:
+            refusal = error
+        else:
+            repository.record_audit(
+                connection, subject_id=principal.subject_id,
+                company_id=context.company_id, action="dataset.export.request",
+                resource_kind="dataset", resource_ref=dataset_version_id,
+                outcome="allowed",
+                detail={"format": "csv", "profile": exports.EXPORT_PROFILE,
+                        "rows": descriptor.row_count,
+                        "canonical_schema_version":
+                            descriptor.canonical_schema_version,
+                        "reproduction_key": descriptor.reproduction_key})
+
+    if refusal is not None:
+        if refusal.code == "dataset-unknown":
+            raise forbidden() from None
+        with database.session(company_id=context.company_id,
+                              subject_id=principal.subject_id) as connection:
+            repository.record_audit(
+                connection, subject_id=principal.subject_id,
+                company_id=context.company_id, action="dataset.export.request",
+                resource_kind="dataset", resource_ref=dataset_version_id,
+                outcome="denied", detail={"reason": refusal.code})
+        raise ProblemError(problem(
+            refusal.code, "The dataset cannot be exported", 409,
+            refusal.detail))
+
+    assert descriptor is not None
+    return StreamingResponse(
+        exports.stream_dataset_csv(
+            database, company_id=context.company_id,
+            subject_id=principal.subject_id, descriptor=descriptor),
+        media_type="text/csv",
+        headers={
+            "Content-Disposition":
+                f'attachment; filename="{descriptor.filename}"',
+            "Cache-Control": "private, no-store, max-age=0",
+            "Pragma": "no-cache",
+            "X-Content-Type-Options": "nosniff",
+            "X-Fincilia-Export-Profile": exports.EXPORT_PROFILE,
+            "X-Fincilia-Export-Rows": str(descriptor.row_count),
+            "X-Fincilia-Canonical-Schema":
+                descriptor.canonical_schema_version,
+        },
+    )
 
 
 @router.post("/companies/{company_id}/datasets/{dataset_version_id}/publish",
