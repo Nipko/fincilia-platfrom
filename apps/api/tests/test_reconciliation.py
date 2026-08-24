@@ -1,0 +1,154 @@
+"""Pruebas puras del explorador read-only de candidatos FNC-REC-001."""
+
+from __future__ import annotations
+
+import datetime as dt
+import unittest
+import uuid
+from decimal import Decimal
+
+from fincilia_api.reconciliation import (
+    CandidateQuery,
+    CandidateQueryError,
+    RULES,
+    candidate_from_row,
+    explore_candidates,
+)
+
+
+LEFT = str(uuid.uuid4())
+RIGHT = str(uuid.uuid4())
+
+
+def dataset_row(dataset_id: str, *, state: str = "validated",
+                completeness: str = "verified",
+                lineage: str = "complete") -> tuple:
+    return (dataset_id, state, completeness, lineage, 3)
+
+
+def candidate_row(*, amount: str = "1234.56", currency: str = "COP",
+                  left_direction: str = "outflow",
+                  right_direction: str = "inflow",
+                  reference_match: bool = True,
+                  left_ordinal: int = 1, right_ordinal: int = 2) -> tuple:
+    left = (
+        uuid.uuid4(), Decimal(amount), currency, left_direction,
+        "Pago sintético", "REF-01", dt.date(2026, 2, 13), "proposed",
+        left_ordinal,
+    )
+    right = (
+        uuid.uuid4(), Decimal(amount), currency, right_direction,
+        "Abono sintético", "REF-01", dt.date(2026, 2, 14), "confirmed",
+        right_ordinal,
+    )
+    return left + right + (1, reference_match)
+
+
+class FakeCursor:
+    def __init__(self, rows: list[tuple], calls: list[tuple]) -> None:
+        self.rows = rows
+        self.calls = calls
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_args) -> None:
+        return None
+
+    def execute(self, statement: str, params: tuple) -> None:
+        self.calls.append((statement, params))
+
+    def __iter__(self):
+        return iter(self.rows)
+
+
+class FakeConnection:
+    def __init__(self, *result_sets: list[tuple]) -> None:
+        self.result_sets = list(result_sets)
+        self.calls: list[tuple] = []
+
+    def cursor(self) -> FakeCursor:
+        return FakeCursor(self.result_sets.pop(0), self.calls)
+
+
+class CandidateQueryTests(unittest.TestCase):
+    def test_query_is_bounded_and_requires_two_distinct_datasets(self) -> None:
+        invalid = (
+            CandidateQuery(LEFT, LEFT),
+            CandidateQuery(LEFT, RIGHT, max_days=-1),
+            CandidateQuery(LEFT, RIGHT, max_days=32),
+            CandidateQuery(LEFT, RIGHT, offset=-1),
+            CandidateQuery(LEFT, RIGHT, offset=10_001),
+            CandidateQuery(LEFT, RIGHT, limit=0),
+            CandidateQuery(LEFT, RIGHT, limit=201),
+        )
+        for query in invalid:
+            with self.subTest(query=query), self.assertRaises(CandidateQueryError):
+                query.validated()
+
+    def test_money_is_fixed_point_string_and_reference_only_explains(self) -> None:
+        candidate = candidate_from_row(candidate_row(amount="1.2"))
+        self.assertEqual("1.200000000000", candidate["left"]["amount"])
+        self.assertEqual("1.200000000000", candidate["right"]["amount"])
+        self.assertEqual(list(RULES) + ["same_normalised_reference"],
+                         candidate["signals"])
+        self.assertNotIn("score", candidate)
+        self.assertNotIn("confidence", candidate)
+
+    def test_reference_difference_does_not_exclude_a_candidate(self) -> None:
+        candidate = candidate_from_row(candidate_row(reference_match=False))
+        self.assertEqual(list(RULES), candidate["signals"])
+
+    def test_exploration_is_paginated_deterministic_and_candidate_only(self) -> None:
+        rows = [candidate_row(left_ordinal=index, right_ordinal=index + 10)
+                for index in range(1, 4)]
+        connection = FakeConnection(
+            [dataset_row(LEFT), dataset_row(RIGHT)], rows)
+        result = explore_candidates(
+            connection, left_dataset_id=LEFT, right_dataset_id=RIGHT,
+            max_days=7, offset=4, limit=2)
+
+        self.assertEqual("candidate_only", result["mode"])
+        self.assertFalse(result["proves_balance_reconciliation"])
+        self.assertTrue(result["truncated"])
+        self.assertEqual(2, len(result["candidates"]))
+        statement, params = connection.calls[1]
+        self.assertIn("LIMIT %s OFFSET %s", statement)
+        self.assertIn("ORDER BY reference_match DESC", statement)
+        self.assertEqual((RIGHT, 7, LEFT, 3, 4), params)
+
+    def test_missing_foreign_or_ineligible_dataset_is_neutral(self) -> None:
+        cases = (
+            [dataset_row(LEFT)],
+            [dataset_row(LEFT), dataset_row(RIGHT, state="draft")],
+            [dataset_row(LEFT), dataset_row(RIGHT, completeness="mismatch")],
+            [dataset_row(LEFT), dataset_row(RIGHT, lineage="invalidated")],
+        )
+        for found in cases:
+            with self.subTest(found=found):
+                connection = FakeConnection(found)
+                with self.assertRaises(CandidateQueryError) as raised:
+                    explore_candidates(
+                        connection, left_dataset_id=LEFT,
+                        right_dataset_id=RIGHT)
+                self.assertEqual("candidate-scope-unavailable",
+                                 raised.exception.code)
+
+    def test_many_to_many_pairs_are_not_collapsed(self) -> None:
+        repeated_left = uuid.uuid4()
+        first = list(candidate_row())
+        second = list(candidate_row(right_ordinal=3))
+        first[0] = repeated_left
+        second[0] = repeated_left
+        connection = FakeConnection(
+            [dataset_row(LEFT), dataset_row(RIGHT)],
+            [tuple(first), tuple(second)])
+        result = explore_candidates(
+            connection, left_dataset_id=LEFT, right_dataset_id=RIGHT)
+        self.assertEqual(2, len(result["candidates"]))
+        self.assertEqual(result["candidates"][0]["left"]["movement_id"],
+                         result["candidates"][1]["left"]["movement_id"])
+
+
+if __name__ == "__main__":
+    unittest.main()

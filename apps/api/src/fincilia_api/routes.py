@@ -25,7 +25,7 @@ from fincilia_platform.identity import AuthenticationError
 from fincilia_platform.objects import ObjectStoreError, object_key
 from fincilia_platform.tokens import issue
 
-from . import datasets, onboarding, repository
+from . import datasets, onboarding, reconciliation, repository
 from .security import (Principal, ProblemError, company_context, current_principal,
                        forbidden, require, unauthorized)
 from fincilia_contracts.errors import problem
@@ -1042,6 +1042,40 @@ def read_movement(request: Request, company_id: str, movement_id: str,
         if movement is None:
             raise forbidden()
     return movement
+
+
+@router.get("/companies/{company_id}/reconciliation/candidates",
+            tags=["reconciliation"])
+def reconciliation_candidates(
+        request: Request, company_id: str, left_dataset_id: str,
+        right_dataset_id: str,
+        max_days: int = reconciliation.DEFAULT_DATE_WINDOW_DAYS,
+        offset: int = 0, limit: int = reconciliation.DEFAULT_CANDIDATE_LIMIT,
+        principal: Principal = Depends(principal_dependency)) -> dict:
+    """Explora hipotesis exactas; nunca confirma ni persiste un match."""
+    context = company_context(request, principal, company_id)
+    require(context, "movement.read")
+    # El gate de Settings hace hoy imposible encender datos reales. Esta guarda
+    # explicita evita que una futura ampliacion habilite esta superficie por
+    # accidente sin revisar primero privacidad y reglas contables.
+    if request.app.state.settings.real_data_enabled:
+        raise ProblemError(problem(
+            "candidate-explorer-disabled", "Candidate explorer unavailable", 503,
+            "candidate exploration is enabled only for synthetic data"))
+
+    database = request.app.state.database
+    with database.session(company_id=context.company_id,
+                          subject_id=principal.subject_id) as connection:
+        try:
+            return reconciliation.explore_candidates(
+                connection, left_dataset_id=left_dataset_id,
+                right_dataset_id=right_dataset_id, max_days=max_days,
+                offset=offset, limit=limit)
+        except reconciliation.CandidateQueryError as error:
+            if error.code == "candidate-scope-unavailable":
+                raise forbidden() from None
+            raise ProblemError(problem(
+                error.code, "Candidate request invalid", 422, error.detail)) from None
 
 
 # --------------------------------------------------------------------------- #
