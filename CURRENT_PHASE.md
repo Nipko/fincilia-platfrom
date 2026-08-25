@@ -112,7 +112,7 @@ Hasta S1-READY solo se admite scaffolding, automatización, pruebas, documentaci
 | FNC-WEB-002 | Puesto web de revision y excepciones de dataset | Review pending | Codex + Integration Steward | readiness API, overrides/rechazo web, pruebas PostgreSQL y web |
 | FNC-WEB-003 | Portafolio multiempresa e historico operativo web | Review pending | Codex + Integration Steward | portafolio, vencimientos, volumenes e historico de datasets web |
 | FNC-CLN-001 | Propuestas tipadas de correccion por fila | Review pending | Codex + Integration Steward | overlay tipado, revision SoD, blockers, PostgreSQL y web |
-| FNC-CLN-002 | Aplicacion reproducible de correcciones aprobadas | In progress | Codex + Integration Steward | V0023, version derivada, manifest, linaje digest-only, API/web y PostgreSQL sintetico |
+| FNC-CLN-002 | Aplicacion reproducible de correcciones aprobadas | Review pending | Codex + Integration Steward | V0023/V0024, version derivada, manifest, linaje digest-only, API/web, PostgreSQL y recorrido visual sintetico |
 | FNC-QA-006 | Aceptacion web integral y arranque local coherente | Review pending | Codex + Integration Steward | bootstrap local, contrato ejecutable y E2E de roles/tenancy |
 | FNC-QA-007 | Administracion final de usuarios y roles por empresa | Review pending | Codex + Integration Steward | API member.manage, revocacion/versionado, web equipo y pruebas PostgreSQL/E2E |
 | FNC-REC-001 | Explorador read-only de candidatos de conciliacion | Review pending | Codex + Integration Steward | motor/endpoint sintetico, estacion web y pruebas |

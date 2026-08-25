@@ -40,6 +40,7 @@ Una celda de implementación vacía significa no implementado. No se rellena con
 | REQ-FNC-073-JOB-CONTEXT | §29; tenancy §7; events/retries | SEC-005, SEC-004 | V0022, `enqueue_processing_run(..., issued_context_id)`, `processing_context_is_valid` | 5 pruebas PostgreSQL nuevas; 44 contexto/despacho; 26 HTTP; API/worker unit | S1-READY | Review pending; consumidor de procesamiento implementado, fase contract y revision independiente pendientes |
 | REQ-FNC-074-AUDIT-CENTER | PRD §7 y §9; privacy PA-12/PA-13 | AUD-001, SEC-001 | `/audit/events`, `list_audit_page`, `/auditoria` | 111 API, 28 PostgreSQL/HTTP, 170 web y recorrido visual real de filtros/paginacion; build/lint/typecheck | S1-READY | Review pending; solo metadatos sinteticos, consulta company-by-company y revision independiente pendiente |
 | REQ-FNC-075-WSL-RUNTIME | §20; developer CLI UD-PLT-CLI-WSL | PLT-009, PLT-007 | `fincilia-local.ps1`, `wsl-local-runtime.json`, validador | 11 pruebas de contrato; 126 suites Platform/CLI; up/status/down/up y persistencia real | S1-READY | Review pending; stack local estable y sintetico, revision independiente pendiente |
+| REQ-FNC-076-CORRECTION-APPLICATION | §18; ADR-026 | CLN-002, CLN-001, DOM-005 | V0023/V0024, `correction_application.py`, manifiesto y `lineage_row_override`, accion/pantalla web | 115 API, 4 PostgreSQL, 174 web, migracion repetible y recorrido visual Sofia→Beto→Sofia | S1-READY | Review pending; base inmutable y version derivada validadas con datos sinteticos; ADR-026 y revision independiente pendientes |
 
 ## Campos al implementar
 

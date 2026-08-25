@@ -1,7 +1,7 @@
 ---
 id: FNC-CLN-002
 title: Aplicacion reproducible de correcciones aprobadas
-status: in_progress
+status: review_pending
 implementer: Codex principal dev + Integration Steward
 base_sha: 97d9122
 gate: S1-READY
