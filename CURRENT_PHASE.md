@@ -66,6 +66,7 @@ Hasta S1-READY solo se admite scaffolding, automatización, pruebas, documentaci
 
 | ID | Resultado | Estado | Implementador | Rutas |
 |---|---|---|---|---|
+| FNC-GOV-001 | Owners humanos y gobierno unipersonal provisional | In progress | Integration Steward | CURRENT_PHASE, ownership, decisiones, modelo de gobierno y handoff |
 | FNC-GOV-002 | Paquete de implementación multiagente | Done | Integration Steward | raíz, docs/implementation, docs/adr |
 | FNC-PRD-001 | PRD y wedge de firma contable | Review pending | Hume | docs/product/PRD_WEDGE.md, handoff |
 | FNC-DOM-001 | Tenancy company/engagement | Review pending | Einstein | docs/domain/TENANCY_MODEL.md, handoff |
