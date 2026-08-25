@@ -19,11 +19,18 @@ test('FNC-CLS-001 diagnostica por periodo sin habilitar un cierre', async ({
 
   await page.getByRole('combobox', { name: 'Empresa' }).selectOption(ESPIGA);
   await page.getByRole('button', { name: 'Actualizar diagnostico' }).click();
-  await expect(page).toHaveURL(new RegExp(`empresa=${ESPIGA}$`));
+  await expect.poll(() => new URL(page.url()).searchParams.get('empresa'))
+    .toBe(ESPIGA);
   await expect(page.getByRole('heading', { level: 2, name: 'Panaderia La Espiga SAS' }))
     .toBeVisible();
   await expect(page.getByRole('heading', { level: 2, name: 'Transportes Andinos SAS' }))
     .toHaveCount(0);
+
+  await page.getByRole('combobox', { name: 'Periodo' }).selectOption({ index: 1 });
+  await page.getByRole('button', { name: 'Actualizar diagnostico' }).click();
+  const selectedPeriod = new URL(page.url()).searchParams.get('periodo');
+  expect(selectedPeriod).toMatch(/^\d{4}-\d{2}-\d{2}:\d{4}-\d{2}-\d{2}$/);
+  await expect(page.getByText('No listo para cierre')).toHaveCount(1);
 
   await page.getByText('Ver evidencia por fuente', { exact: false }).first().click();
   await expect(page.getByRole('table').first()).toBeVisible();

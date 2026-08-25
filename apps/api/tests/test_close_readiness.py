@@ -9,7 +9,9 @@ import uuid
 from fincilia_api.close_readiness import (
     CloseReadinessError,
     CloseReadinessQuery,
+    MAX_EXPECTATIONS,
     _build_period,
+    _period_rows,
     _row_source,
 )
 
@@ -109,6 +111,35 @@ class CloseReadinessTests(unittest.TestCase):
             START, END, [source], checks(source["dataset_version_id"]))
         controls = {item["code"]: item for item in period["controls"]}
         self.assertEqual("blocked", controls["published_datasets"]["state"])
+
+    def test_a_period_window_cannot_hide_sources_by_silent_truncation(self) -> None:
+        class Cursor:
+            def __init__(self) -> None:
+                self.rows: list[tuple] = []
+                self.calls = 0
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args) -> None:
+                return None
+
+            def execute(self, _statement: str, _params: tuple) -> None:
+                self.calls += 1
+                self.rows = ([(START, END)] if self.calls == 1
+                             else [source_row()] * (MAX_EXPECTATIONS + 1))
+
+            def __iter__(self):
+                return iter(self.rows)
+
+        cursor = Cursor()
+
+        class Connection:
+            def cursor(self):
+                return cursor
+
+        with self.assertRaisesRegex(CloseReadinessError, "more than 1200"):
+            _period_rows(Connection(), 12)  # type: ignore[arg-type]
 
 
 if __name__ == "__main__":

@@ -10,9 +10,12 @@ import {
 } from '@/lib/api';
 import {
   aggregateCloseReadinessCounts,
+  availableClosePeriods,
+  filterCloseReadinessPeriod,
   formatClosePeriod,
   loadCloseReadinessCenter,
   selectCloseReadinessCompanies,
+  selectClosePeriod,
   type CloseReadinessSnapshot,
 } from '@/lib/close-readiness';
 import { readSession } from '@/lib/session';
@@ -171,7 +174,10 @@ export default async function CloseReadinessPage({ searchParams }: {
     if (error instanceof ApiError && error.status === 401) redirect('/entrar');
     throw error;
   }
-  const totals = aggregateCloseReadinessCounts(snapshots);
+  const availablePeriods = availableClosePeriods(snapshots);
+  const selectedPeriod = selectClosePeriod(availablePeriods, query.periodo);
+  const displayedSnapshots = filterCloseReadinessPeriod(snapshots, selectedPeriod);
+  const totals = aggregateCloseReadinessCounts(displayedSnapshots);
   const partial = snapshots.filter((snapshot) => snapshot.access !== 'available');
 
   return (
@@ -202,6 +208,14 @@ export default async function CloseReadinessPage({ searchParams }: {
             </option>
           ))}
         </select></label>
+        <label>Periodo<select name="periodo" defaultValue={selectedPeriod}>
+          <option value="todos">Ultimos periodos visibles</option>
+          {availablePeriods.map((period) => (
+            <option key={period.key} value={period.key}>
+              {formatClosePeriod(period.start, period.end)}
+            </option>
+          ))}
+        </select></label>
         <button type="submit">Actualizar diagnostico</button>
       </form>
 
@@ -225,7 +239,7 @@ export default async function CloseReadinessPage({ searchParams }: {
       </p>
 
       <div className="close-company-list">
-        {snapshots.map((snapshot) => (
+        {displayedSnapshots.map((snapshot) => (
           <CompanyReadiness key={snapshot.company.company_id} snapshot={snapshot} />
         ))}
       </div>

@@ -9,9 +9,12 @@ import {
 } from '../api';
 import {
   aggregateCloseReadinessCounts,
+  availableClosePeriods,
+  filterCloseReadinessPeriod,
   formatClosePeriod,
   loadCloseReadinessCompany,
   selectCloseReadinessCompanies,
+  selectClosePeriod,
 } from '../close-readiness';
 
 const COMPANY: CompanySummary = {
@@ -117,5 +120,21 @@ describe('preparacion diagnostica de cierre', () => {
   it('formatea periodos sin reinterpretar la zona horaria', () => {
     expect(formatClosePeriod('2026-07-01', '2026-07-31'))
       .toMatch(/1.*jul.*2026.*31.*jul.*2026/i);
+  });
+
+  it('filtra solo periodos descubiertos en respuestas autorizadas', async () => {
+    const snapshot = await loadCloseReadinessCompany('token', COMPANY, client());
+    const available = availableClosePeriods([snapshot]);
+    expect(available).toEqual([{
+      key: '2026-07-01:2026-07-31', start: '2026-07-01', end: '2026-07-31',
+    }]);
+    expect(selectClosePeriod(available, 'foreign:period')).toBe('todos');
+    const selected = selectClosePeriod(available, available[0]?.key);
+    const filtered = filterCloseReadinessPeriod([snapshot], selected);
+    expect(filtered[0]?.result).toMatchObject({
+      period_count: 1, blocked_period_count: 1, source_count: 2,
+    });
+    expect(filterCloseReadinessPeriod([snapshot], '2025-01-01:2025-01-31')[0]
+      ?.result).toMatchObject({ period_count: 0, source_count: 0 });
   });
 });

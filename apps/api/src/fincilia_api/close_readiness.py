@@ -17,6 +17,7 @@ import psycopg
 
 DEFAULT_LIMIT = 12
 MAX_LIMIT = 24
+MAX_EXPECTATIONS = 1_200
 
 
 class CloseReadinessError(Exception):
@@ -117,9 +118,15 @@ def _period_rows(connection: psycopg.Connection, limit: int) -> list[tuple[Any, 
             ") chosen ON true "
             f"WHERE (e.period_start, e.period_end) IN ({pairs}) "
             "ORDER BY e.period_end DESC, e.period_start DESC, "
-            "         s.display_name, e.expectation_id",
-            tuple(parameters))
-        return list(cursor)
+            "         s.display_name, e.expectation_id LIMIT %s",
+            tuple(parameters) + (MAX_EXPECTATIONS + 1,))
+        rows = list(cursor)
+        if len(rows) > MAX_EXPECTATIONS:
+            raise CloseReadinessError(
+                "close-readiness-scope-too-large",
+                "the selected periods contain more than 1200 expectations; "
+                "reduce the period window")
+        return rows
 
 
 def _dataset_checks(connection: psycopg.Connection,

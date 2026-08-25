@@ -84,6 +84,55 @@ export function loadCloseReadinessCenter(
     loadCloseReadinessCompany(token, company));
 }
 
+export function closePeriodKey(start: string, end: string): string {
+  return `${start}:${end}`;
+}
+
+export function availableClosePeriods(
+  snapshots: readonly CloseReadinessSnapshot[],
+): Array<{ key: string; start: string; end: string }> {
+  const periods = new Map<string, { key: string; start: string; end: string }>();
+  for (const { result } of snapshots) {
+    for (const period of result?.items ?? []) {
+      const key = closePeriodKey(period.period_start, period.period_end);
+      periods.set(key, { key, start: period.period_start, end: period.period_end });
+    }
+  }
+  return [...periods.values()].sort((left, right) =>
+    right.end.localeCompare(left.end) || right.start.localeCompare(left.start));
+}
+
+export function selectClosePeriod(
+  available: readonly { key: string }[],
+  requested: string | string[] | undefined,
+): string {
+  return typeof requested === 'string'
+    && available.some((period) => period.key === requested)
+    ? requested : 'todos';
+}
+
+export function filterCloseReadinessPeriod(
+  snapshots: readonly CloseReadinessSnapshot[],
+  selected: string,
+): CloseReadinessSnapshot[] {
+  if (selected === 'todos') return [...snapshots];
+  return snapshots.map((snapshot) => {
+    if (!snapshot.result) return snapshot;
+    const items = snapshot.result.items.filter((period) =>
+      closePeriodKey(period.period_start, period.period_end) === selected);
+    return {
+      ...snapshot,
+      result: {
+        ...snapshot.result,
+        items,
+        period_count: items.length,
+        blocked_period_count: items.length,
+        source_count: items.reduce((total, period) => total + period.source_count, 0),
+      },
+    };
+  });
+}
+
 export function aggregateCloseReadinessCounts(
   snapshots: readonly CloseReadinessSnapshot[],
 ): { periods: number; blockedPeriods: number; sources: number;
