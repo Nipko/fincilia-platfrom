@@ -69,6 +69,42 @@ class CloseReadinessTests(unittest.TestCase):
         self.assertNotIn("amount", str(period).lower())
         self.assertNotIn("currency", str(period).lower())
 
+    def test_balance_observation_without_complete_lineage_still_blocks(self) -> None:
+        source = _row_source(source_row())
+        key = (source["dataset_version_id"], source["financial_account_id"])
+        balance_checks = {key: [{
+            "balance_type": "closing",
+            "as_of_date": END,
+            "lineage_state": "required_pending",
+        }]}
+        period = _build_period(
+            START, END, [source], checks(source["dataset_version_id"]),
+            balance_checks)
+        control = next(item for item in period["controls"]
+                       if item["code"] == "account_balances")
+        self.assertEqual("blocked", control["state"])
+        self.assertEqual(1, control["count"])
+        self.assertIn("1 observacion", control["detail"])
+
+    def test_only_right_type_period_and_complete_lineage_pass_balance_control(self) -> None:
+        source = _row_source(source_row())
+        key = (source["dataset_version_id"], source["financial_account_id"])
+        balance_checks = {key: [
+            {"balance_type": "available", "as_of_date": END,
+             "lineage_state": "complete"},
+            {"balance_type": "closing", "as_of_date": END + dt.timedelta(days=1),
+             "lineage_state": "complete"},
+            {"balance_type": "closing", "as_of_date": END,
+             "lineage_state": "complete"},
+        ]}
+        period = _build_period(
+            START, END, [source], checks(source["dataset_version_id"]),
+            balance_checks)
+        control = next(item for item in period["controls"]
+                       if item["code"] == "account_balances")
+        self.assertEqual("pass", control["state"])
+        self.assertEqual(0, control["count"])
+
     def test_unknown_exception_and_waiver_fail_closed(self) -> None:
         source = _row_source(source_row(
             expectation_state="waived", dataset_state=None,

@@ -27,7 +27,7 @@ from fincilia_platform.identity import AuthenticationError
 from fincilia_platform.objects import ObjectStoreError, object_key
 from fincilia_platform.tokens import issue
 
-from . import (access, audit as audit_query, close_readiness, datasets, exports,
+from . import (access, audit as audit_query, balances, close_readiness, datasets, exports,
                onboarding, operations, quality, reconciliation, reports,
                repository)
 from . import company_onboarding
@@ -2006,6 +2006,115 @@ def read_close_readiness(
                 "periods_returned": result["period_count"],
                 "sources_returned": result["source_count"],
             })
+    return result
+
+
+# --------------------------------------------------------------------------- #
+# Observaciones canonicas de saldo (FNC-CLS-002)
+# --------------------------------------------------------------------------- #
+
+class BalanceRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    source_record_id: str = Field(min_length=1, max_length=64)
+    balance_type: str = Field(min_length=1, max_length=32)
+    amount_field_index: int = Field(ge=0, le=2047)
+    as_of_field_index: int = Field(ge=0, le=2047)
+
+
+def _balance_synthetic_only(request: Request) -> None:
+    if request.app.state.settings.real_data_enabled:
+        raise ProblemError(problem(
+            "account-balances-disabled", "Account balances unavailable", 503,
+            "account balances are enabled only for synthetic data"))
+
+
+def _balance_problem(error: balances.BalanceError) -> ProblemError:
+    if error.code == "balance-evidence-unavailable":
+        return forbidden()
+    status = 409 if error.code == "balance-observation-conflict" else 422
+    return ProblemError(problem(
+        error.code, "The balance observation cannot be applied", status,
+        error.detail))
+
+
+@router.get("/companies/{company_id}/balances", tags=["balances"])
+def list_account_balances(
+        request: Request, company_id: str, limit: int = balances.DEFAULT_LIMIT,
+        principal: Principal = Depends(principal_dependency)) -> dict:
+    context = company_context(request, principal, company_id)
+    require(context, "movement.read")
+    _balance_synthetic_only(request)
+    with request.app.state.database.session(
+            company_id=context.company_id,
+            subject_id=principal.subject_id) as connection:
+        try:
+            result = balances.list_balances(connection, limit=limit)
+        except balances.BalanceError as error:
+            raise _balance_problem(error) from None
+    return result
+
+
+@router.get("/companies/{company_id}/balances/evidence", tags=["balances"])
+def list_balance_evidence(
+        request: Request, company_id: str,
+        limit: int = balances.DEFAULT_EVIDENCE_LIMIT,
+        principal: Principal = Depends(principal_dependency)) -> dict:
+    context = company_context(request, principal, company_id)
+    require(context, "close.prepare")
+    _balance_synthetic_only(request)
+    with request.app.state.database.session(
+            company_id=context.company_id,
+            subject_id=principal.subject_id) as connection:
+        try:
+            result = balances.list_evidence(connection, limit=limit)
+        except balances.BalanceError as error:
+            raise _balance_problem(error) from None
+        repository.record_audit(
+            connection, subject_id=principal.subject_id,
+            company_id=context.company_id, action="balance.evidence.read",
+            resource_kind="company", resource_ref=context.company_id,
+            outcome="allowed", detail={
+                "returned": len(result["items"]),
+                "truncated": result["truncated"],
+            })
+    return result
+
+
+@router.post("/companies/{company_id}/balances", tags=["balances"], status_code=201)
+def create_account_balance(
+        request: Request, response: Response, company_id: str, body: BalanceRequest,
+        principal: Principal = Depends(principal_dependency)) -> dict:
+    context = company_context(request, principal, company_id)
+    require(context, "close.prepare")
+    _balance_synthetic_only(request)
+    with request.app.state.database.session(
+            company_id=context.company_id,
+            subject_id=principal.subject_id) as connection:
+        try:
+            result = balances.create_balance(
+                connection, company_id=context.company_id,
+                subject_id=principal.subject_id,
+                source_record_id=body.source_record_id,
+                balance_type=body.balance_type,
+                amount_field_index=body.amount_field_index,
+                as_of_field_index=body.as_of_field_index)
+        except balances.BalanceError as error:
+            raise _balance_problem(error) from None
+        repository.record_audit(
+            connection, subject_id=principal.subject_id,
+            company_id=context.company_id, action="balance.observe",
+            resource_kind="account_balance", resource_ref=result["balance_id"],
+            outcome="allowed", detail={
+                "balance_type": result["balance_type"],
+                "currency_code": result["currency_code"],
+                "amount_field_index": result["amount_field_index"],
+                "as_of_field_index": result["as_of_field_index"],
+                "lineage_state": result["lineage_state"],
+                "replayed": result["replayed"],
+            })
+    if result["replayed"]:
+        response.status_code = 200
     return result
 
 

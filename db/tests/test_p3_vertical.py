@@ -153,6 +153,12 @@ def purge(created: set[str]) -> None:
     if not created:
         return
     statements = (
+        "DELETE FROM fincilia.account_balance WHERE source_record_id IN ("
+        " SELECT source_record_id FROM fincilia.source_record"
+        " WHERE dataset_version_id IN (SELECT dataset_version_id"
+        "  FROM fincilia.dataset_version WHERE artifact_id IN ("
+        "   SELECT artifact_id FROM fincilia.source_artifact"
+        "   WHERE content_sha256 = ANY(%s))))",
         "DELETE FROM fincilia.lineage_edge WHERE processing_run_id IN ("
         " SELECT run_id FROM fincilia.processing_run WHERE artifact_id IN ("
         "  SELECT artifact_id FROM fincilia.source_artifact"

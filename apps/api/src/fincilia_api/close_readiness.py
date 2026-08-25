@@ -67,6 +67,7 @@ def _row_source(row: tuple[Any, ...]) -> dict[str, Any]:
         "rejected_count": int(row[12] or 0),
         "movement_count": int(row[13] or 0),
         "prepared_at": row[14].isoformat() if row[14] is not None else None,
+        "account_family": row[15] if len(row) > 15 else None,
         "selection_rule": (
             "published_then_validated_then_latest_for_satisfied_artifact"
             if dataset_id else "no_dataset_for_satisfied_artifact"),
@@ -100,11 +101,14 @@ def _period_rows(connection: psycopg.Connection, limit: int) -> list[tuple[Any, 
             "       e.state, e.satisfied_by, chosen.dataset_version_id, "
             "       chosen.state, chosen.completeness_state, "
             "       chosen.lineage_state, chosen.rejected_count, "
-            "       chosen.movement_count, chosen.prepared_at "
+            "       chosen.movement_count, chosen.prepared_at, a.account_family "
             "FROM fincilia.source_expectation e "
             "JOIN fincilia.data_source s "
             "  ON s.data_source_id = e.data_source_id "
             " AND s.company_id = e.company_id "
+            "LEFT JOIN fincilia.financial_account a "
+            "  ON a.account_id = e.financial_account_id "
+            " AND a.company_id = e.company_id "
             "LEFT JOIN LATERAL ("
             "  SELECT d.dataset_version_id, d.state, d.completeness_state, "
             "         d.lineage_state, d.rejected_count, d.movement_count, "
@@ -218,9 +222,36 @@ def _count_unique(checks: Iterable[dict[str, Any]], field: str) -> int:
     return len(values)
 
 
+def _balance_checks(connection: psycopg.Connection,
+                    dataset_ids: list[str]) -> dict[tuple[str, str], list[dict[str, Any]]]:
+    """Metadatos de saldo por dataset/cuenta; nunca lee importes."""
+    checks: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    if not dataset_ids:
+        return checks
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT s.dataset_version_id, b.financial_account_id, b.balance_type, "
+            "       (b.as_of AT TIME ZONE b.source_timezone)::date, b.lineage_state "
+            "FROM fincilia.account_balance b "
+            "JOIN fincilia.source_record s "
+            "  ON s.source_record_id = b.source_record_id "
+            " AND s.company_id = b.company_id "
+            "WHERE s.dataset_version_id = ANY(%s::uuid[])",
+            (dataset_ids,))
+        for dataset_id, account_id, balance_type, as_of_date, lineage_state in cursor:
+            checks.setdefault((str(dataset_id), str(account_id)), []).append({
+                "balance_type": balance_type,
+                "as_of_date": as_of_date,
+                "lineage_state": lineage_state,
+            })
+    return checks
+
+
 def _build_period(period_start: dt.date, period_end: dt.date,
                   sources: list[dict[str, Any]],
-                  dataset_checks: dict[str, dict[str, Any]]) -> dict[str, Any]:
+                  dataset_checks: dict[str, dict[str, Any]],
+                  balance_checks: dict[tuple[str, str], list[dict[str, Any]]] | None = None
+                  ) -> dict[str, Any]:
     selected = [source for source in sources if source["dataset_version_id"]]
     checks = [dataset_checks[source["dataset_version_id"]] for source in selected]
 
@@ -240,6 +271,30 @@ def _build_period(period_start: dt.date, period_end: dt.date,
     pending_corrections = sum(
         check["proposed_corrections"] + check["approved_unapplied_corrections"]
         for check in checks)
+
+    balances = balance_checks or {}
+    observed_balances = 0
+    eligible_balances = 0
+    expected_balances = 0
+    for source in sources:
+        dataset_id = source.get("dataset_version_id")
+        account_id = source.get("financial_account_id")
+        if not dataset_id or not account_id:
+            expected_balances += 1
+            continue
+        expected_balances += 1
+        required_type = ("ledger" if source.get("account_family") == "accounting_ledger"
+                         else "closing")
+        candidates = [
+            item for item in balances.get((dataset_id, account_id), [])
+            if item["balance_type"] == required_type
+            and period_start <= item["as_of_date"] <= period_end
+        ]
+        if candidates:
+            observed_balances += 1
+        if any(item["lineage_state"] == "complete" for item in candidates):
+            eligible_balances += 1
+    missing_balances = expected_balances - eligible_balances
 
     controls = [
         _control("expected_sources", "pass" if sources else "blocked", len(sources),
@@ -264,8 +319,13 @@ def _build_period(period_start: dt.date, period_end: dt.date,
                  high_issues, "Alertas de calidad altas abiertas o reconocidas."),
         _control("pending_corrections", "pass" if pending_corrections == 0 else "blocked",
                  pending_corrections, "Correcciones propuestas o aprobadas sin aplicar."),
-        _control("account_balances", "unavailable", 1,
-                 "El producto aun no materializa evidencia de saldo por cuenta y periodo."),
+        _control(
+            "account_balances",
+            "pass" if expected_balances > 0 and missing_balances == 0 else "blocked",
+            missing_balances,
+            f"{observed_balances} observacion(es) encontrada(s); "
+            f"{eligible_balances} con linaje completo para {expected_balances} "
+            "fuente(s) esperada(s)."),
         _control("reconciliation_statements", "unavailable", 1,
                  "El producto aun no materializa un estado de conciliacion por periodo."),
         _control("product_close", "unavailable", 1,
@@ -298,11 +358,12 @@ def list_close_readiness(connection: psycopg.Connection,
     dataset_ids = sorted({source["dataset_version_id"] for source in sources
                           if source["dataset_version_id"]})
     checks = _dataset_checks(connection, dataset_ids)
+    balances = _balance_checks(connection, dataset_ids)
 
     periods: dict[tuple[dt.date, dt.date], list[dict[str, Any]]] = {}
     for row, source in zip(rows, sources, strict=True):
         periods.setdefault((row[4], row[5]), []).append(source)
-    items = [_build_period(start, end, period_sources, checks)
+    items = [_build_period(start, end, period_sources, checks, balances)
              for (start, end), period_sources in periods.items()]
 
     return {
