@@ -14,6 +14,7 @@ from fincilia_api.correction_application import (
     overlay_set_digest,
 )
 from fincilia_contracts.release import digest_of
+from fincilia_api.corrections import complete_lineage_fields
 
 
 def approved(identifier: str, *, field: str = "amount",
@@ -27,6 +28,32 @@ def approved(identifier: str, *, field: str = "amount",
 
 
 class CorrectionApplicationTests(unittest.TestCase):
+    def test_only_a_complete_ordered_lineage_path_is_applicable(self) -> None:
+        stages = (
+            "artifact_version", "raw_locator", "extracted_field",
+            "transformed_value", "source_record_field", "financial_fact_field",
+        )
+        complete = [("amount", index, stage)
+                    for index, stage in enumerate(stages, start=1)]
+        incomplete = [("currency", index, stage)
+                      for index, stage in enumerate(stages[:-1], start=1)]
+        unknown = [("description", index, stage)
+                   for index, stage in enumerate(stages, start=1)]
+        self.assertEqual(frozenset({"amount"}),
+                         complete_lineage_fields(complete + incomplete + unknown))
+
+    def test_duplicate_or_misordered_stage_is_not_applicable(self) -> None:
+        stages = (
+            "artifact_version", "raw_locator", "extracted_field",
+            "transformed_value", "source_record_field", "financial_fact_field",
+        )
+        rows = [("amount", index, stage)
+                for index, stage in enumerate(stages, start=1)]
+        duplicated = rows + [("amount", 6, "financial_fact_field")]
+        wrong = rows[:-1] + [("amount", 6, "source_record_field")]
+        self.assertEqual(frozenset(), complete_lineage_fields(duplicated))
+        self.assertEqual(frozenset(), complete_lineage_fields(wrong))
+
     def test_overlay_set_digest_is_order_independent_and_value_free(self) -> None:
         first = approved("00000000-0000-0000-0000-000000000001")
         second = approved("00000000-0000-0000-0000-000000000002",

@@ -28,6 +28,7 @@ de la versión y una petición manipulada se rechaza antes de crear el overlay.
 - `apps/api/src/fincilia_api/corrections.py`
 - `apps/api/tests/test_correction_application.py`
 - `db/tests/test_correction_application.py`
+- `db/tests/test_field_overlays.py`
 - `apps/web/src/app/empresas/[companyId]/movimientos/[movementId]/page.tsx`
 - pruebas web directamente relacionadas si son necesarias.
 - ficha, handoff y registros centrales por Integration Steward.

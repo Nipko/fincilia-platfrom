@@ -122,7 +122,8 @@ class FieldOverlayTests(VerticalHarness):
     def test_rejection_unblocks_publication_and_review_is_once_FNC_CLN_001_AC_05_06(
             self) -> None:
         dataset, movement, _ = self.dataset("correction-rejected")
-        created = self.propose(dataset, movement["movement_id"], "currency", "USD")
+        created = self.propose(
+            dataset, movement["movement_id"], "occurred_on", "2026-03-01")
         self.assertEqual(201, created.status_code, created.text)
         overlay_id = created.json()["overlay_id"]
         first = self.client.post(
@@ -180,8 +181,8 @@ class FieldOverlayTests(VerticalHarness):
 
     def test_owner_cannot_review_own_critical_correction_FNC_CLN_001_AC_05(self) -> None:
         dataset, movement, _ = self.dataset("correction-sod")
-        created = self.propose(dataset, movement["movement_id"], "direction",
-                               "inflow", user=OWNER)
+        created = self.propose(dataset, movement["movement_id"], "occurred_on",
+                               "2026-03-02", user=OWNER)
         self.assertEqual(201, created.status_code, created.text)
         response = self.client.post(
             f"/api/v1/companies/{ESPIGA}/corrections/{created.json()['overlay_id']}/review",
@@ -193,7 +194,7 @@ class FieldOverlayTests(VerticalHarness):
 
     def test_runtime_cannot_update_or_delete_overlay_FNC_CLN_001_AC_04(self) -> None:
         dataset, movement, _ = self.dataset("correction-immutable")
-        created = self.propose(dataset, movement["movement_id"], "currency", "USD")
+        created = self.propose(dataset, movement["movement_id"], "amount", "2222.22")
         self.assertEqual(201, created.status_code, created.text)
         subject = stable_id("subject", PREPARER)
         for statement in (

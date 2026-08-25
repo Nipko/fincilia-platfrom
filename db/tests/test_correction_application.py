@@ -225,13 +225,13 @@ class CorrectionApplicationDatabaseTests(VerticalHarness):
             f"/api/v1/companies/{ESPIGA}/datasets/{dataset}/movements/"
             f"{movement['movement_id']}/correction-targets",
             headers=self.auth(PREPARER))
-        target = {item["field"]: item for item in target_response.json()}["currency"]
+        target = {item["field"]: item for item in target_response.json()}["amount"]
         pending = self.client.post(
             f"/api/v1/companies/{ESPIGA}/datasets/{dataset}/corrections",
             headers=self.auth(PREPARER), json={
-                "movement_id": movement["movement_id"], "field": "currency",
+                "movement_id": movement["movement_id"], "field": "amount",
                 "expected_base_digest": target["expected_base_digest"],
-                "new_value": "USD", "reason_code": "source_correction",
+                "new_value": "2500.25", "reason_code": "source_correction",
                 "reason_comment": "pendiente sintético",
             })
         self.assertEqual(201, pending.status_code, pending.text)
@@ -242,19 +242,31 @@ class CorrectionApplicationDatabaseTests(VerticalHarness):
         cross = self.apply(dataset, company=ANDINOS)
         self.assertEqual(403, cross.status_code, cross.text)
 
-        dated, dated_movement = self.dataset("apply-invalid-date")
-        self.propose_and_review(dated, dated_movement, "posted_on", "2020-01-01")
-        invalid = self.apply(dated)
+        dated, dated_movement = self.dataset("apply-unavailable-field")
+        available = self.client.get(
+            f"/api/v1/companies/{ESPIGA}/datasets/{dated}/movements/"
+            f"{dated_movement['movement_id']}/correction-targets",
+            headers=self.auth(PREPARER))
+        self.assertEqual(200, available.status_code, available.text)
+        self.assertNotIn("posted_on", {item["field"] for item in available.json()})
+        invalid = self.client.post(
+            f"/api/v1/companies/{ESPIGA}/datasets/{dated}/corrections",
+            headers=self.auth(PREPARER), json={
+                "movement_id": dated_movement["movement_id"],
+                "field": "posted_on", "expected_base_digest": "0" * 64,
+                "new_value": "2026-03-01", "reason_code": "date_correction",
+                "reason_comment": "campo sin camino de linaje completo",
+            })
         self.assertEqual(409, invalid.status_code, invalid.text)
-        self.assertEqual("correction-lineage-step-missing",
+        self.assertEqual("correction-field-not-applicable",
                          invalid.json()["type"].rsplit("/", 1)[-1])
         with psycopg.connect(MIGRATOR_DSN) as connection:
             with connection.cursor() as cursor:
                 cursor.execute(
                     "SELECT set_config('fincilia.company_id', %s, true)", (ESPIGA,))
                 cursor.execute(
-                    "SELECT count(*) FROM fincilia.field_overlay_application "
-                    "WHERE base_dataset_version_id = %s", (dated,))
+                    "SELECT count(*) FROM fincilia.field_overlay "
+                    "WHERE dataset_version_id = %s", (dated,))
                 self.assertEqual(0, cursor.fetchone()[0])
 
     def test_application_ledgers_are_append_only_and_rls_scoped_FNC_CLN_002_AC_04_07(
