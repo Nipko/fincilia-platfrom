@@ -203,6 +203,26 @@ class TenancyTests(unittest.TestCase):
         self.assertFalse(preparer.has("dataset.publish"))
         self.assertNotIn("portability.export", PERMISSIONS)
 
+    def test_quality_signals_are_readable_without_granting_triage(self) -> None:
+        self.assertIn("quality.read", PERMISSIONS)
+        self.assertIn("quality.manage", PERMISSIONS)
+        for role in ("owner", "firm_admin", "preparer", "reviewer"):
+            with self.subTest(role=role):
+                self.assertIn("quality.read", ROLE_PERMISSIONS[role])
+                self.assertIn("quality.manage", ROLE_PERMISSIONS[role])
+        for role in ("auditor", "read_only"):
+            with self.subTest(role=role):
+                self.assertIn("quality.read", ROLE_PERMISSIONS[role])
+                self.assertNotIn("quality.manage", ROLE_PERMISSIONS[role])
+
+    def test_quality_permissions_do_not_change_financial_state_permissions(self) -> None:
+        reader = context(roles=("read_only",))
+        self.assertTrue(reader.has("quality.read"))
+        self.assertFalse(reader.has("quality.manage"))
+        self.assertFalse(reader.has("dataset.publish"))
+        self.assertFalse(reader.has("match.confirm"))
+        self.assertFalse(reader.has("close.approve"))
+
     def test_mapping_and_publishing_are_segregated_in_both_directions(self) -> None:
         self.assertEqual(violates_segregation("dataset.publish", {"dataset.map"}),
                          "dataset.map")

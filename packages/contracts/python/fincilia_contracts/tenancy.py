@@ -43,6 +43,8 @@ PERMISSIONS: Final[tuple[str, ...]] = (
     "close.approve",
     "audit.read",
     "member.manage",
+    "quality.read",
+    "quality.manage",
 )
 
 # Matriz explicita. Un rol que no aparece aqui no tiene ningun permiso.
@@ -52,23 +54,25 @@ ROLE_PERMISSIONS: Final[dict[str, frozenset[str]]] = {
         "company.read", "document.upload", "document.read", "dataset.map",
         "financial_account.manage", "data_source.manage",
         "movement.read", "match.propose", "match.reject", "close.prepare",
-        "audit.read", "member.manage",
+        "audit.read", "member.manage", "quality.read", "quality.manage",
     }),
     "preparer": frozenset({
         "company.read", "document.upload", "document.read", "dataset.map",
         "dataset.export", "movement.read", "match.propose", "match.reject",
-        "close.prepare",
+        "close.prepare", "quality.read", "quality.manage",
     }),
     "reviewer": frozenset({
         "company.read", "document.read", "dataset.publish", "dataset.export",
         "movement.read", "match.confirm", "match.reject", "close.approve",
-        "audit.read",
+        "audit.read", "quality.read", "quality.manage",
     }),
     "auditor": frozenset({
         "company.read", "document.read", "dataset.export", "movement.read",
-        "audit.read",
+        "audit.read", "quality.read",
     }),
-    "read_only": frozenset({"company.read", "document.read", "movement.read"}),
+    "read_only": frozenset({
+        "company.read", "document.read", "movement.read", "quality.read",
+    }),
 }
 
 # Segregacion de funciones: quien puede proponer no puede confirmar lo suyo.
