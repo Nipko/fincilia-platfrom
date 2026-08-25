@@ -297,6 +297,35 @@ class ApiAuthorizationTests(unittest.TestCase):
             # de una empresa y no debe aparecer aqui.
             self.assertNotEqual("auth.session.open", event["action"])
 
+    def test_audit_keyset_pagination_has_actor_and_no_overlap(self) -> None:
+        headers = self.auth("carla@demo.local")
+        first = self.client.get(
+            f"/api/v1/companies/{ANDINOS}/audit/events?limit=2",
+            headers=headers)
+        self.assertEqual(200, first.status_code, first.text)
+        page = first.json()
+        self.assertLessEqual(len(page["items"]), 2)
+        self.assertTrue(all(item["actor_name"] for item in page["items"]))
+        if page["has_more"]:
+            self.assertTrue(page["next_cursor"])
+            second = self.client.get(
+                f"/api/v1/companies/{ANDINOS}/audit/events?limit=2"
+                f"&cursor={page['next_cursor']}", headers=headers)
+            self.assertEqual(200, second.status_code, second.text)
+            first_ids = {item["audit_event_id"] for item in page["items"]}
+            second_ids = {item["audit_event_id"] for item in second.json()["items"]}
+            self.assertFalse(first_ids & second_ids)
+
+    def test_audit_filters_fail_closed(self) -> None:
+        response = self.client.get(
+            f"/api/v1/companies/{ANDINOS}/audit/events?outcome=successful",
+            headers=self.auth("carla@demo.local"))
+        self.assertEqual(422, response.status_code)
+        malformed = self.client.get(
+            f"/api/v1/companies/{ANDINOS}/audit/events?cursor=not-base64",
+            headers=self.auth("carla@demo.local"))
+        self.assertEqual(422, malformed.status_code)
+
     # --------------------------------------------------------- revocacion #
 
     def test_a_token_older_than_a_permission_change_is_rejected(self) -> None:

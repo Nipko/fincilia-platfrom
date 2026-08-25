@@ -27,7 +27,7 @@ from fincilia_platform.identity import AuthenticationError
 from fincilia_platform.objects import ObjectStoreError, object_key
 from fincilia_platform.tokens import issue
 
-from . import (access, datasets, exports, onboarding, operations, quality,
+from . import (access, audit as audit_query, datasets, exports, onboarding, operations, quality,
                reconciliation, reports, repository)
 from . import company_onboarding
 from .issued_contexts import issue_context
@@ -121,6 +121,15 @@ class AuditEvent(BaseModel):
     outcome: str
     occurred_at: str
     detail: dict
+    subject_id: str | None = None
+    actor_name: str = "Sistema"
+
+
+class AuditPage(BaseModel):
+    items: list[AuditEvent]
+    has_more: bool
+    next_cursor: str | None
+    limit: int
 
 
 class MatchProposalRequest(BaseModel):
@@ -423,6 +432,40 @@ def read_audit(request: Request, company_id: str, limit: int = 50,
                           subject_id=principal.subject_id) as connection:
         events = repository.list_audit(connection, limit=limit)
     return [AuditEvent(**event) for event in events]
+
+
+@router.get("/companies/{company_id}/audit/events", response_model=AuditPage,
+            tags=["audit"])
+def read_audit_page(request: Request, company_id: str, limit: int = 25,
+                    action: str | None = None, outcome: str | None = None,
+                    resource_kind: str | None = None, cursor: str | None = None,
+                    principal: Principal = Depends(principal_dependency),
+                    ) -> AuditPage:
+    """Pagina keyset de auditoria, siempre bajo una sola company y su RLS."""
+    context: TenantContext = company_context(request, principal, company_id)
+    require(context, "audit.read")
+    bounded = max(1, min(limit, 100))
+    action = audit_query.validate_filter(action, field="action")
+    outcome = audit_query.validate_filter(outcome, field="outcome")
+    resource_kind = audit_query.validate_filter(
+        resource_kind, field="resource_kind")
+    decoded = audit_query.decode_cursor(cursor)
+    database = request.app.state.database
+    with database.session(company_id=context.company_id,
+                          subject_id=principal.subject_id) as connection:
+        events, has_more = repository.list_audit_page(
+            connection, limit=bounded, action=action, outcome=outcome,
+            resource_kind=resource_kind,
+            before=(decoded.occurred_at, decoded.audit_event_id)
+            if decoded else None)
+    next_cursor = None
+    if has_more and events:
+        last = events[-1]
+        next_cursor = audit_query.encode_cursor(
+            dt.datetime.fromisoformat(last["occurred_at"]),
+            last["audit_event_id"])
+    return AuditPage(items=[AuditEvent(**event) for event in events],
+                     has_more=has_more, next_cursor=next_cursor, limit=bounded)
 
 
 # --------------------------------------------------------------------------- #

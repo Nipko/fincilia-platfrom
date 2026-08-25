@@ -38,6 +38,23 @@ export type AuditEvent = {
   outcome: string;
   occurred_at: string;
   detail: Record<string, unknown>;
+  subject_id: string | null;
+  actor_name: string;
+};
+
+export type AuditPage = {
+  items: AuditEvent[];
+  has_more: boolean;
+  next_cursor: string | null;
+  limit: number;
+};
+
+export type AuditFilters = {
+  action?: string;
+  outcome?: 'allowed' | 'denied' | 'error';
+  resourceKind?: string;
+  cursor?: string;
+  limit?: number;
 };
 
 export type Me = {
@@ -666,6 +683,23 @@ export function fetchDatasets(
     : '';
   return request<DatasetSummary[]>(
     `/api/v1/companies/${company}/datasets${query}`,
+    { token },
+  );
+}
+
+export function fetchAuditPage(
+  token: string,
+  companyId: string,
+  filters: AuditFilters = {},
+): Promise<AuditPage> {
+  const query = new URLSearchParams();
+  query.set('limit', String(Math.max(1, Math.min(filters.limit ?? 25, 100))));
+  if (filters.action) query.set('action', filters.action);
+  if (filters.outcome) query.set('outcome', filters.outcome);
+  if (filters.resourceKind) query.set('resource_kind', filters.resourceKind);
+  if (filters.cursor) query.set('cursor', filters.cursor);
+  return request<AuditPage>(
+    `/api/v1/companies/${encodeURIComponent(companyId)}/audit/events?${query}`,
     { token },
   );
 }

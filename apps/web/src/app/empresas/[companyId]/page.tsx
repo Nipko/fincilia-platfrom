@@ -338,6 +338,11 @@ export default async function CompanyPage({
 
       <h2>Registro de auditoria</h2>
       {auditVisible ? (
+        <p><Link href={`/auditoria?empresa=${encodeURIComponent(companyId)}`}>
+          Abrir historial completo con filtros
+        </Link></p>
+      ) : null}
+      {auditVisible ? (
         <div className="card scroll">
           <table>
             <caption className="meta">

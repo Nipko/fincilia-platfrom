@@ -165,6 +165,7 @@ export default async function CompaniesPage() {
         <Link href="/calidad">Abrir centro de calidad</Link>
         <Link href="/recordatorios">Abrir ciclos y recordatorios</Link>
         <Link href="/revisiones">Abrir bandeja de revisiones multiempresa</Link>
+        <Link href="/auditoria">Abrir accesos y auditoria</Link>
       </nav>
 
       {snapshots.length === 0 ? (
