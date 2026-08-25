@@ -1,10 +1,10 @@
 ---
 id: FNC-LIN-001
 title: Linaje materializado de saldos y decisiones previas al cierre
-status: in_progress
+status: review_pending
 implementer: Codex principal dev + Integration Steward
 base_sha: 891a1a0
-integration_sha: pending
+integration_sha: 830336dc8c1211816250cdb4f80f12e0232cc555
 gate: S1-READY
 gate_effect: none
 data_ceiling: synthetic_only
