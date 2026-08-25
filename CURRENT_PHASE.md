@@ -105,6 +105,7 @@ Hasta S1-READY solo se admite scaffolding, automatización, pruebas, documentaci
 | FNC-QA-005 | Arnés determinista de mutaciones | Review pending | Claude + Integration Steward | docs/testing/MUTATION_HARNESS.md, mutation-harness.json, tools/mutation_harness, tests/golden/mutations, CI, handoff |
 | FNC-SUP-001 | Baseline ejecutable de cadena de suministro | Review pending | Claude + Integration Steward | cobertura de updates completa; check acotado por gate; procedencia/SBOM/firma siguen bloqueando DRG-00 |
 | FNC-DB-002 | Spike PostgreSQL de migraciones SQL-first | Review pending | Claude + Integration Steward | docs/database/MIGRATION_SPIKE.md, migration-spike.json, spikes/FNC-DB-002, tools/migration_spike, handoff |
+| FNC-DB-004 | Spike PostgreSQL de claim, outbox y fencing | In progress | Codex + Integration Steward | Laboratorio aislado para TST-IDEM-001/004/005; sin cambios productivos ni puertos publicados |
 | FNC-PLT-007 | CLI segura de desarrollo local | Review pending | Claude + Integration Steward | docs/platform/DEVELOPER_CLI.md, developer-cli.json, tools/dev_cli, handoff |
 | FNC-GAT-003 | Agregador ejecutable de readiness S1 | Review pending | Claude + Integration Steward | docs/implementation/S1_READINESS_REPORT.md, s1-readiness.json, tools/s1_readiness, handoff |
 | FNC-WEB-001 | Endurecimiento verificable del recorrido web P3 | Review pending | Codex + Integration Steward | apps/web, pruebas web, CI, ficha y handoff |
