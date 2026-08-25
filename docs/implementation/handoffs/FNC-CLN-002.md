@@ -5,7 +5,7 @@ base_sha: 97d9122
 reservation_sha: 56ca1f1
 backend_schema_sha: f6b6b91
 web_sha: f882c2f
-integration_sha: pending
+integration_sha: d90d6cb
 data_ceiling: synthetic_only
 implemented_by: Codex principal dev + Integration Steward
 independent_reviewers: [Accounting, Security, Database, Product, QA]
