@@ -37,6 +37,7 @@ Una celda de implementación vacía significa no implementado. No se rellena con
 | REQ-FNC-070-S1-READINESS | §51–§52 | GAT-003 | `s1-readiness.json`, reporte fail-closed | `tools.s1_readiness.test_validate` | S1-READY | Review pending; 10 blockers, aceptación humana pendiente |
 | REQ-FNC-071-OPERATIONS | PRD §5.2, §7, §9 y §13 | OPS-001 | `source_cycle`, `source_expectation`, proyeccion operativa API/web | 134 web, 95 API, 292 PostgreSQL, 16 Chromium y 9 Axe | S1-READY | Review pending; recordatorios solo dentro de plataforma y datos sinteticos; CI 32796949542 verde |
 | REQ-FNC-072-ISSUED-CONTEXT | §29; tenancy §7 | SEC-004, PLT-005 | IMP-017/`UD-ISSUED-CONTEXT`, V0021, `issued_contexts.py` | 8 pruebas PostgreSQL reales; migration readiness | S1-READY | Review pending; capacidad durable implementada, consumidores y revision independiente pendientes |
+| REQ-FNC-073-JOB-CONTEXT | §29; tenancy §7; events/retries | SEC-005, SEC-004 | V0022, `enqueue_processing_run(..., issued_context_id)`, `processing_context_is_valid` | 5 pruebas PostgreSQL nuevas; 44 contexto/despacho; 26 HTTP; API/worker unit | S1-READY | Review pending; consumidor de procesamiento implementado, fase contract y revision independiente pendientes |
 
 ## Campos al implementar
 

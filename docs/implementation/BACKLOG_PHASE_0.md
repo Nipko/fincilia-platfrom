@@ -129,6 +129,7 @@ dependencias de `FNC-GAT-002` ni afirmar que Sprint 1 está habilitado.
 | FNC-RPT-001 | A5/A6 | WEB-003, REC-003, DQ-001, EXP-001 | Review pending | Informes operativos e historicos company-scoped, importes exactos por moneda, CSV determinista y web verificada; revision humana pendiente |
 | FNC-ONB-001 | A5/A6 | PLT-008, QA-007, P3.5 | Review pending | Alta atomica de empresa, engagement y configuracion inicial desde la web; solo sintetico mientras DRG-00 siga cerrado |
 | FNC-SEC-004 | A3/A5 | SEC-001, PLT-005, DB-002 | Review pending | Contexto durable company-scoped con emision idempotente, revalidacion online, revocacion append-only, HMAC y V0021; sin consumidor artificial ni datos reales |
+| FNC-SEC-005 | A3/A5 | SEC-004, DB-002, P3.6 | Review pending | Trabajos nuevos ligados a issued context y revalidados al reclamar, escribir y cerrar; fase expand compatible con filas legacy |
 
 ## No codificar todavía
 

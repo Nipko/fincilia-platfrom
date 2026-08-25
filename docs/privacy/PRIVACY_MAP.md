@@ -289,8 +289,10 @@ Reglas no negociables:
 
 IMP-017 resolvió `UD-ISSUED-CONTEXT` y FNC-SEC-004/V0021 materializa el contexto
 emitido con alcance inmutable, expiración, huellas HMAC y revocación append-only.
-La base ya permite revalidar online; cada consumidor durable debe integrarla y
-mantener la doble comprobación antes de leer y antes de publicar o entregar.
+FNC-SEC-005/V0022 integra el primer consumidor: los trabajos de documentos se
+comprueban al reclamar, en cada lote y antes de cerrar. Exports, enlaces y
+schedules aún deben integrar la misma doble comprobación antes de leer y antes
+de publicar o entregar.
 
 ---
 
