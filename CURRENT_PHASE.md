@@ -119,6 +119,7 @@ Hasta S1-READY solo se admite scaffolding, automatización, pruebas, documentaci
 | FNC-REC-001 | Explorador read-only de candidatos de conciliacion | Review pending | Codex + Integration Steward | motor/endpoint sintetico, estacion web y pruebas |
 | FNC-REC-002 | Propuesta y decision humana de conciliacion sin efecto financiero | Review pending | Codex + Integration Steward | ledger append-only, SoD, idempotencia, API/web y pruebas; revisiones independientes pendientes |
 | FNC-REC-003 | Bandeja multiempresa de revision de conciliaciones | Review pending | Codex + Integration Steward | proyeccion company-scoped, agregacion web acotada y pruebas; sin efecto financiero |
+| FNC-REC-004 | Exclusividad uno-a-uno de confirmaciones | In progress | Codex + Integration Steward | V0025, conflicto concurrente, API/web y pruebas; sin efecto financiero |
 | FNC-EXP-001 | Exportacion canonica segura de dataset publicado | Review pending | Codex + Integration Steward | permiso explicito, CSV determinista, BFF streaming y pruebas; solo sintetico y no certificado |
 | FNC-OPS-001 | Centro operativo de ciclos y recordatorios web | Review pending | Codex + Integration Steward | API y web company-by-company verificadas; revision humana Product/Accounting, Security/Privacy, Backend/Architecture y Accessibility/QA pendiente |
 | FNC-DQ-001 | Centro de alertas de calidad y anomalias deterministas | Review pending | Codex + Integration Steward | backend, V0018, web multiempresa, PostgreSQL, E2E y a11y verdes; revision humana independiente pendiente |

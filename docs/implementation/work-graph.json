@@ -54,5 +54,23 @@
       "agent_may_accept": false
     }
   ],
-  "active_reservations": []
+  "active_reservations": [
+    {
+      "task": "FNC-REC-004",
+      "implementer": "Codex principal dev + Integration Steward",
+      "base_sha": "94142c2",
+      "paths": [
+        "db/migrations/V0025__exclusive_confirmed_match_members.sql",
+        "db/tests/test_reconciliation_exclusivity.py",
+        "apps/api/src/fincilia_api/reconciliation.py",
+        "apps/api/tests/test_reconciliation.py",
+        "apps/web/src/app/empresas/[companyId]/conciliacion",
+        "apps/web/src/app/actions.ts",
+        "apps/web/src/app/__tests__/actions.test.ts",
+        "docs/adr/ADR-027-reconciliation-review-ledger.md",
+        "docs/implementation/tasks/FNC-REC-004.md",
+        "docs/implementation/handoffs/FNC-REC-004.md"
+      ]
+    }
+  ]
 }
