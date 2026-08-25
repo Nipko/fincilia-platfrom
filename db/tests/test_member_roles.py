@@ -19,6 +19,7 @@ ANDINOS = stable_id("company", "andinos")
 FIRM = stable_id("firm", "andes")
 SOFIA = stable_id("subject", "sofia")
 ANA = stable_id("subject", "ana")
+CARLA = stable_id("subject", "carla")
 
 
 class MemberRoleTests(unittest.TestCase):
@@ -107,6 +108,9 @@ class MemberRoleTests(unittest.TestCase):
         by_id = {item["subject_id"]: item for item in response.json()}
         self.assertIn(self.target, by_id)
         self.assertEqual([], by_id[self.target]["company_roles"])
+        # Carla pertenece a la firma, pero nunca ha tenido un grant en Espiga.
+        # El LEFT JOIN no puede convertir esa ausencia en un rol JSON `null`.
+        self.assertEqual([], by_id[CARLA]["company_roles"])
         self.assertNotIn(self.foreign, by_id)
         for item in by_id.values():
             self.assertEqual(
