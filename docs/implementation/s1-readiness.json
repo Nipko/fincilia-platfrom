@@ -1185,8 +1185,8 @@
     },
     {
       "path": "docs/testing/mutation-harness.json",
-      "sha256": "fdce2d0ff3607f38765c8571746c1222129c55c436486de4ae7e82f28e59b12c",
-      "produced_by": "FNC-QA-005 registry review; declaration baseline, not runtime evidence"
+      "sha256": "b3d82c9b01fa7415f4b1cbf7921d32f6b611296dab27462c2cf9f7bd6b1e005d",
+      "produced_by": "FNC-SEC-004 adjudicated registry review plus 68/68 mutation run; declaration baseline remains distinct from runtime evidence"
     }
   ],
   "heavy_checks_not_run_here": [

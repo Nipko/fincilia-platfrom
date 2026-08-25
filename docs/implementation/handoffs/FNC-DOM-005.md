@@ -176,7 +176,7 @@ Cinco contradicciones entre contratos ya integrados. **No edité ninguna de sus 
 3. **Proveedores externos sin versión fijable.** El contrato prohíbe prometer reproducibilidad en ese caso, pero no dice qué se ofrece en su lugar. `UD-EXTERNAL-MODEL-PINNING`.
 4. **La aprobación de releases no tiene owner nominal.** `UD-RELEASE-APPROVAL`: el contrato exige un humano de Platform, pero Platform sigue `UNASSIGNED` en ownership.
 5. **El eje personal está vacío por diseño.** Hasta que `DR-PRV-001` se cierre, todo nodo arrastra `unknown` y el bloqueo de egreso externo será la norma, no la excepción. Es correcto, pero conviene que Privacy sepa que el efecto práctico es «nada sale» hasta decidir.
-6. **`issued_authorization_context` ya tiene evidencia ejecutable** en FNC-PLT-005 (`5fb0220`): company, principal, purpose, versión, emisión, expiración y revocación se revalidan en PostgreSQL. Sigue pendiente convertir el bootstrap del spike en migración productiva y auditar la emisión real.
+6. **`issued_authorization_context` pasó de evidencia a capacidad productiva local** en FNC-SEC-004/V0021 (`028fd1b`): company, principal, purpose, versión, emisión, expiración y revocación se revalidan en PostgreSQL; emisión, uso y revocación dejan auditoría sin referencias de recurso en claro. Cada consumidor durable sigue obligado a integrarla y a revalidar antes de leer y publicar.
 
 ## 10. Revisiones requeridas
 

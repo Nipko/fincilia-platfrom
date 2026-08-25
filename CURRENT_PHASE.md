@@ -122,6 +122,7 @@ Hasta S1-READY solo se admite scaffolding, automatización, pruebas, documentaci
 | FNC-DQ-001 | Centro de alertas de calidad y anomalias deterministas | Review pending | Codex + Integration Steward | backend, V0018, web multiempresa, PostgreSQL, E2E y a11y verdes; revision humana independiente pendiente |
 | FNC-RPT-001 | Centro web de informes operativos e historicos | Review pending | Codex + Integration Steward | API, PostgreSQL, web, CSV, E2E y a11y verdes en a18afcf; revision humana independiente pendiente |
 | FNC-ONB-001 | Alta transaccional de empresa y espacio operativo | Review pending | Codex + Integration Steward | Company, engagement, owner y maestros iniciales sin depender de la semilla; V0020 aplicada y recorridos PostgreSQL/E2E/a11y verdes |
+| FNC-SEC-004 | Contexto durable de autorizacion | Review pending | Codex + Integration Steward | V0021, kernel de emision/revalidacion/revocacion, PostgreSQL real y auditoria; revision Security + Database/Architecture pendiente |
 
 Solo el Integration Steward modifica esta tabla.
 

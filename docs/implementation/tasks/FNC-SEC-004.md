@@ -1,7 +1,7 @@
 ---
 id: FNC-SEC-004
 title: Contexto de autorizacion persistente y revocable
-status: in_progress
+status: review_pending
 implementer: Codex principal dev + Integration Steward
 base_sha: 9ae4e1d
 gate: S1-READY
@@ -39,3 +39,8 @@ schedules que sobreviven una peticion.
 Solo datos sinteticos. No autoriza DRG-00/01, produccion, enlaces publicos ni
 trabajo programado. Security y Database/Architecture deben revisar de forma
 independiente antes de declarar la tarea Done.
+
+# Implementacion
+
+Commit productor: `028fd1b`. Integracion y evidencia documental se entregan en
+un commit posterior para que el handoff pueda apuntar a un SHA ya probado.

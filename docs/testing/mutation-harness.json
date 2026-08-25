@@ -1614,7 +1614,7 @@
       "mutation_id": "MUT-GHR-001",
       "operator": "replace_scalar",
       "operator_params": {
-        "expected_current": "3e6d96cd5e1b58099f8b4240dede8a6ab9f16a3f80a6dd76bbf70a966989a062",
+        "expected_current": "0d343730b0741a6fd9eab9f9e0d956cd7f2dfef23495cee8b38d52c1e593479a",
         "new_value": "0000000000000000000000000000000000000000000000000000000000000000",
         "pointer": "/cases/0/inputs/0/sha256"
       },
@@ -1638,7 +1638,7 @@
       ],
       "state": "active",
       "target": "docs/testing/golden-harness.json",
-      "target_sha256": "6361c08ef81b76745df056e192987f09c355badf271e0d3434127aac6197cfc6",
+      "target_sha256": "21a517296bdb7c5e948ccd86bfe5931ef998654680eb839863e3db769d560c8e",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -1691,7 +1691,7 @@
       ],
       "state": "active",
       "target": "docs/testing/golden-harness.json",
-      "target_sha256": "6361c08ef81b76745df056e192987f09c355badf271e0d3434127aac6197cfc6",
+      "target_sha256": "21a517296bdb7c5e948ccd86bfe5931ef998654680eb839863e3db769d560c8e",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -1744,7 +1744,7 @@
       ],
       "state": "active",
       "target": "docs/testing/golden-harness.json",
-      "target_sha256": "6361c08ef81b76745df056e192987f09c355badf271e0d3434127aac6197cfc6",
+      "target_sha256": "21a517296bdb7c5e948ccd86bfe5931ef998654680eb839863e3db769d560c8e",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -1797,7 +1797,7 @@
       ],
       "state": "active",
       "target": "docs/testing/golden-harness.json",
-      "target_sha256": "6361c08ef81b76745df056e192987f09c355badf271e0d3434127aac6197cfc6",
+      "target_sha256": "21a517296bdb7c5e948ccd86bfe5931ef998654680eb839863e3db769d560c8e",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -1851,7 +1851,7 @@
       ],
       "state": "active",
       "target": "docs/testing/golden-harness.json",
-      "target_sha256": "6361c08ef81b76745df056e192987f09c355badf271e0d3434127aac6197cfc6",
+      "target_sha256": "21a517296bdb7c5e948ccd86bfe5931ef998654680eb839863e3db769d560c8e",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -1904,7 +1904,7 @@
       ],
       "state": "active",
       "target": "docs/testing/golden-harness.json",
-      "target_sha256": "6361c08ef81b76745df056e192987f09c355badf271e0d3434127aac6197cfc6",
+      "target_sha256": "21a517296bdb7c5e948ccd86bfe5931ef998654680eb839863e3db769d560c8e",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -1954,7 +1954,7 @@
       ],
       "state": "active",
       "target": "docs/testing/golden-harness.json",
-      "target_sha256": "6361c08ef81b76745df056e192987f09c355badf271e0d3434127aac6197cfc6",
+      "target_sha256": "21a517296bdb7c5e948ccd86bfe5931ef998654680eb839863e3db769d560c8e",
       "test_refs": [
         "TST-META-001"
       ],
@@ -3012,7 +3012,7 @@
       ],
       "state": "active",
       "target": "docs/privacy/privacy-map.json",
-      "target_sha256": "a356e83bc91e7c5b4bb367d3a01edc165e5b6923a6d991d05f280680d9259853",
+      "target_sha256": "b6bdd3427c3520730e045c580c66d5d3a20570f57fbf35d09f626844dd28fd70",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -3065,7 +3065,7 @@
       ],
       "state": "active",
       "target": "docs/privacy/privacy-map.json",
-      "target_sha256": "a356e83bc91e7c5b4bb367d3a01edc165e5b6923a6d991d05f280680d9259853",
+      "target_sha256": "b6bdd3427c3520730e045c580c66d5d3a20570f57fbf35d09f626844dd28fd70",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -3118,7 +3118,7 @@
       ],
       "state": "active",
       "target": "docs/privacy/privacy-map.json",
-      "target_sha256": "a356e83bc91e7c5b4bb367d3a01edc165e5b6923a6d991d05f280680d9259853",
+      "target_sha256": "b6bdd3427c3520730e045c580c66d5d3a20570f57fbf35d09f626844dd28fd70",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -3174,7 +3174,7 @@
       ],
       "state": "active",
       "target": "docs/privacy/privacy-map.json",
-      "target_sha256": "a356e83bc91e7c5b4bb367d3a01edc165e5b6923a6d991d05f280680d9259853",
+      "target_sha256": "b6bdd3427c3520730e045c580c66d5d3a20570f57fbf35d09f626844dd28fd70",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -3228,7 +3228,7 @@
       ],
       "state": "active",
       "target": "docs/privacy/privacy-map.json",
-      "target_sha256": "a356e83bc91e7c5b4bb367d3a01edc165e5b6923a6d991d05f280680d9259853",
+      "target_sha256": "b6bdd3427c3520730e045c580c66d5d3a20570f57fbf35d09f626844dd28fd70",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -3281,7 +3281,7 @@
       ],
       "state": "active",
       "target": "docs/privacy/privacy-map.json",
-      "target_sha256": "a356e83bc91e7c5b4bb367d3a01edc165e5b6923a6d991d05f280680d9259853",
+      "target_sha256": "b6bdd3427c3520730e045c580c66d5d3a20570f57fbf35d09f626844dd28fd70",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -3331,7 +3331,7 @@
       ],
       "state": "active",
       "target": "docs/privacy/privacy-map.json",
-      "target_sha256": "a356e83bc91e7c5b4bb367d3a01edc165e5b6923a6d991d05f280680d9259853",
+      "target_sha256": "b6bdd3427c3520730e045c580c66d5d3a20570f57fbf35d09f626844dd28fd70",
       "test_refs": [
         "TST-META-001"
       ],

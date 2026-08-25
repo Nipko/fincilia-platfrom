@@ -28,7 +28,7 @@
       "inputs": [
         {
           "path": "docs/architecture/module-boundaries.json",
-          "sha256": "3e6d96cd5e1b58099f8b4240dede8a6ab9f16a3f80a6dd76bbf70a966989a062"
+          "sha256": "0d343730b0741a6fd9eab9f9e0d956cd7f2dfef23495cee8b38d52c1e593479a"
         }
       ],
       "max_output_bytes": 262144,
@@ -81,7 +81,7 @@
       "inputs": [
         {
           "path": "docs/architecture/module-boundaries.json",
-          "sha256": "3e6d96cd5e1b58099f8b4240dede8a6ab9f16a3f80a6dd76bbf70a966989a062"
+          "sha256": "0d343730b0741a6fd9eab9f9e0d956cd7f2dfef23495cee8b38d52c1e593479a"
         },
         {
           "path": "docs/domain/canonical-model.json",
@@ -138,7 +138,7 @@
       "inputs": [
         {
           "path": "docs/architecture/module-boundaries.json",
-          "sha256": "3e6d96cd5e1b58099f8b4240dede8a6ab9f16a3f80a6dd76bbf70a966989a062"
+          "sha256": "0d343730b0741a6fd9eab9f9e0d956cd7f2dfef23495cee8b38d52c1e593479a"
         },
         {
           "path": "docs/domain/canonical-model.json",
@@ -271,7 +271,7 @@
         },
         {
           "path": "docs/architecture/module-boundaries.json",
-          "sha256": "3e6d96cd5e1b58099f8b4240dede8a6ab9f16a3f80a6dd76bbf70a966989a062"
+          "sha256": "0d343730b0741a6fd9eab9f9e0d956cd7f2dfef23495cee8b38d52c1e593479a"
         },
         {
           "path": "docs/domain/canonical-model.json",
@@ -389,7 +389,7 @@
         },
         {
           "path": "docs/architecture/module-boundaries.json",
-          "sha256": "3e6d96cd5e1b58099f8b4240dede8a6ab9f16a3f80a6dd76bbf70a966989a062"
+          "sha256": "0d343730b0741a6fd9eab9f9e0d956cd7f2dfef23495cee8b38d52c1e593479a"
         },
         {
           "path": "docs/domain/idempotency-dedupe.json",
@@ -450,7 +450,7 @@
         },
         {
           "path": "docs/architecture/module-boundaries.json",
-          "sha256": "3e6d96cd5e1b58099f8b4240dede8a6ab9f16a3f80a6dd76bbf70a966989a062"
+          "sha256": "0d343730b0741a6fd9eab9f9e0d956cd7f2dfef23495cee8b38d52c1e593479a"
         },
         {
           "path": "docs/domain/canonical-model.json",
@@ -516,7 +516,7 @@
         },
         {
           "path": "docs/architecture/module-boundaries.json",
-          "sha256": "3e6d96cd5e1b58099f8b4240dede8a6ab9f16a3f80a6dd76bbf70a966989a062"
+          "sha256": "0d343730b0741a6fd9eab9f9e0d956cd7f2dfef23495cee8b38d52c1e593479a"
         },
         {
           "path": "docs/domain/canonical-model.json",
@@ -532,7 +532,7 @@
         },
         {
           "path": "docs/privacy/privacy-map.json",
-          "sha256": "a356e83bc91e7c5b4bb367d3a01edc165e5b6923a6d991d05f280680d9259853"
+          "sha256": "b6bdd3427c3520730e045c580c66d5d3a20570f57fbf35d09f626844dd28fd70"
         },
         {
           "path": "docs/security/threat-model.json",
@@ -595,7 +595,7 @@
         },
         {
           "path": "docs/privacy/privacy-map.json",
-          "sha256": "a356e83bc91e7c5b4bb367d3a01edc165e5b6923a6d991d05f280680d9259853"
+          "sha256": "b6bdd3427c3520730e045c580c66d5d3a20570f57fbf35d09f626844dd28fd70"
         },
         {
           "path": "docs/security/threat-model.json",
@@ -709,7 +709,7 @@
       "inputs": [
         {
           "path": "docs/architecture/module-boundaries.json",
-          "sha256": "3e6d96cd5e1b58099f8b4240dede8a6ab9f16a3f80a6dd76bbf70a966989a062"
+          "sha256": "0d343730b0741a6fd9eab9f9e0d956cd7f2dfef23495cee8b38d52c1e593479a"
         },
         {
           "path": "docs/security/threat-model.json",

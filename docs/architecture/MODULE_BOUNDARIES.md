@@ -94,9 +94,9 @@ No se usa evento para completar una invariante que debe ser atómica. No se crea
 
 ## 6. Access y tenancy como capacidades transversales
 
-Access resuelve la decisión; Tenancy posee la frontera company/engagement. Los módulos reciben un `authorization_context` ya verificado y vuelven a aplicar RLS dentro de la transacción.
+Access resuelve la decisión; Tenancy posee la frontera company/engagement. Los módulos reciben un `authorization_context` de petición ya verificado y vuelven a aplicar RLS dentro de la transacción. Cuando una capability sobrevive a la petición, Access posee `issued_authorization_context` y su tombstone append-only `issued_authorization_revocation` (V0021); no se convierte por ello en estado financiero canónico.
 
-El contexto contiene como mínimo subject, company resuelta desde recurso, ruta directa/delegada, grant/action/purpose, assurance y authorization version. No contiene una autorización eterna: jobs, exports, links y confirmaciones críticas revalidan.
+El contexto contiene como mínimo subject, company resuelta desde recurso, ruta directa/delegada, grant/action/purpose, assurance y authorization version. No contiene una autorización eterna: jobs, exports, links y confirmaciones críticas revalidan sujeto, membresía, engagement, grant, versión, expiración y revocación en PostgreSQL. Las referencias persistentes son HMAC company-scoped y no payload ni identificadores en claro.
 
 ## 7. Audit sin acoplamiento
 

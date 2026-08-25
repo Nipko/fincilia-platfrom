@@ -2255,7 +2255,7 @@
         "no_data_rewrite_on_revocation"
       ],
       "name": "engagement_revocation_and_invalidation",
-      "notes": "Revocar no reescribe datos. Depende de la entidad issued_authorization_context aun inexistente.",
+      "notes": "Revocar no reescribe datos. V0021 materializa issued_authorization_context y un tombstone append-only; cada uso revalida autoridad vigente y solo persiste huellas HMAC company-scoped del recurso y de idempotencia.",
       "owner_role": "Security",
       "provisional_role": "joint_or_context_dependent",
       "purpose_id": "company_administration",

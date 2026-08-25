@@ -37,8 +37,8 @@ Observed locally: 11/11 Vitest integration tests and 6/6 Python tests pass; type
 
 ## Explicit follow-ups
 
-1. Production migrations must not copy the bootstrap file wholesale.
-2. Add authentication and assurance-backed issuance; callers must never choose trusted principal claims.
+1. V0021 materializó el contexto sin copiar el bootstrap: alcance inmutable, revocación append-only, RLS y referencias HMAC; ver FNC-SEC-004 (`028fd1b`).
+2. Cada consumidor durable debe emitir desde un `TenantContext` resuelto server-side; callers nunca eligen principal ni company confiables.
 3. Define portfolio-scoped authorization and authoritative company discovery independently of cached candidates.
 4. Emit audit events for issue/use/revoke/failure and privileged database operations.
 5. Add lease-expiry, crash-before-ACK and retry-budget scenarios when the dispatcher module is built.

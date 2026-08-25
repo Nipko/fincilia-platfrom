@@ -30,7 +30,7 @@
       "allowed_dependencies": ["tenancy"],
       "authoritative_financial_state": false,
       "id": "access",
-      "owns": ["subject", "identity", "membership", "grant", "service_principal", "authorization_context"],
+      "owns": ["subject", "identity", "membership", "grant", "service_principal", "issued_authorization_context", "issued_authorization_revocation"],
       "plane": "control"
     },
     {

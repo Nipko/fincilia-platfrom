@@ -287,8 +287,10 @@ Reglas no negociables:
 - El paquete **no incluye companies vecinas**. El portafolio se calcula desde la lista autoritativa, empresa por empresa.
 - **Acceso histórico no equivale a propiedad.** Que una firma haya operado una company no le concede titularidad sobre su información.
 
-IMP-017 resolvió `UD-ISSUED-CONTEXT`, pero este apartado depende de implementar la entidad canónica de
-contexto emitido, la revalidación online de enlaces y exports no tiene dónde apoyarse.
+IMP-017 resolvió `UD-ISSUED-CONTEXT` y FNC-SEC-004/V0021 materializa el contexto
+emitido con alcance inmutable, expiración, huellas HMAC y revocación append-only.
+La base ya permite revalidar online; cada consumidor durable debe integrarla y
+mantener la doble comprobación antes de leer y antes de publicar o entregar.
 
 ---
 
