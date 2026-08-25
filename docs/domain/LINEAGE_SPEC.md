@@ -117,9 +117,15 @@ cuando solo lo *consultó*. Son cosas distintas y el contrato las separa.
 `average_coverage_allowed: true`: un 99,7% de campos con linaje significa que hay campos
 publicados sin evidencia, y es precisamente ese 0,3% el que rompe una auditoría.
 
-Las 18 entidades del modelo canónico con `lineage_required: true` se derivan
+Las entidades del modelo canónico con `lineage_required: true` se derivan
 **dinámicamente** de `canonical-model.json`. No se mantiene una lista paralela, porque una
 lista paralela daría cobertura falsa en cuanto el modelo canónico cambiara.
+
+Las decisiones de completitud, partidas conciliatorias y estados de conciliación se
+materializan como nodos `decision`. Un estado `complete` sólo puede sobrevivir al
+`COMMIT` si un trigger diferido verifica el camino exacto a sus datasets, saldos y
+registros fuente. La base almacena nodos de baja cardinalidad y digests; las seis etapas
+lógicas por columna permanecen en el plan de transformación versionado de ADR-024.
 
 ---
 

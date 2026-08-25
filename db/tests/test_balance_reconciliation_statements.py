@@ -10,6 +10,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 import psycopg
 
+from fincilia_api import financial_lineage
 from db.seed.local import stable_id
 from db.tests.test_api_authorization import MIGRATOR_DSN, RUNTIME_DSN
 from db.tests.test_p3_vertical import (
@@ -32,6 +33,7 @@ class BalanceReconciliationDatabaseTests(VerticalHarness):
     reconciliation_roots: set[str] = set()
     assessments: set[str] = set()
     expectations: set[str] = set()
+    lineage_entities: set[str] = set()
 
     @classmethod
     def tearDownClass(cls) -> None:
@@ -58,6 +60,19 @@ class BalanceReconciliationDatabaseTests(VerticalHarness):
                 roots = list(cls.reconciliation_roots)
                 assessments = list(cls.assessments)
                 expectations = list(cls.expectations)
+                lineage_entities = list(cls.lineage_entities)
+                if lineage_entities:
+                    cursor.execute(
+                        "DELETE FROM fincilia.lineage_edge WHERE from_node_id IN ("
+                        "SELECT node_id FROM fincilia.lineage_node WHERE entity_ref=ANY(%s)) "
+                        "OR to_node_id IN (SELECT node_id FROM fincilia.lineage_node "
+                        "WHERE entity_ref=ANY(%s))",
+                        (lineage_entities, lineage_entities),
+                    )
+                    cursor.execute(
+                        "DELETE FROM fincilia.lineage_node WHERE entity_ref=ANY(%s)",
+                        (lineage_entities,),
+                    )
                 if roots:
                     cursor.execute(
                         "DELETE FROM fincilia.reconciliation_statement "
@@ -128,6 +143,12 @@ class BalanceReconciliationDatabaseTests(VerticalHarness):
                         amount: str, release_id: str, schema: str) -> str:
         balance_id = str(uuid.uuid4())
         digest = uuid.uuid4().hex * 2
+        self.lineage_entities.update((balance_id, source_record))
+        financial_lineage.materialize_balance(
+            cursor, company_id=ESPIGA, subject_id=PREPARER_ID,
+            balance_id=balance_id, source_record_id=source_record,
+            amount_field_index=3, as_of_field_index=0,
+            field_digests={"amount": digest, "as_of": digest})
         cursor.execute(
             "INSERT INTO fincilia.account_balance "
             "(balance_id, company_id, financial_account_id, source_record_id, "
@@ -161,11 +182,19 @@ class BalanceReconciliationDatabaseTests(VerticalHarness):
         self.reconciliation_roots.add(root)
         self.assessments.add(assessment)
         self.expectations.add(expectation)
+        self.lineage_entities.update((assessment, control, item_root,
+                                      confirmed_decision))
 
         with psycopg.connect(MIGRATOR_DSN) as connection:
             with connection.cursor() as cursor:
                 cursor.execute("SELECT set_config('fincilia.company_id', %s, true)",
                                (ESPIGA,))
+                assessment_key = uuid.uuid4().hex * 2
+                assessment_node = financial_lineage.materialize_assessment(
+                    cursor, company_id=ESPIGA, subject_id=PREPARER_ID,
+                    assessment_id=assessment, dataset_version_id=dataset,
+                    assessment_key=assessment_key, state="verified",
+                    rule_version="fnc-completeness-v1")
                 cursor.execute(
                     "INSERT INTO fincilia.source_expectation "
                     "(expectation_id, company_id, data_source_id, financial_account_id, "
@@ -191,12 +220,20 @@ class BalanceReconciliationDatabaseTests(VerticalHarness):
                     "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'verified', %s, "
                     " %s, %s, %s, 'complete')",
                     (assessment, ESPIGA, source, expectation, ACCOUNT, dataset,
-                     period_start, period_end, uuid.uuid4().hex * 2, PREPARER_ID,
+                     period_start, period_end, assessment_key, PREPARER_ID,
                      release_id, schema))
                 evidence = json.dumps([
                     {"kind": "dataset_version", "ref": dataset},
                     {"kind": "source_expectation", "ref": expectation},
                 ])
+                financial_lineage.materialize_control(
+                    cursor, company_id=ESPIGA, subject_id=PREPARER_ID,
+                    control_result_id=control, assessment_id=assessment,
+                    dataset_version_id=dataset,
+                    control_type="provenance_integrity", outcome="match",
+                    expected={"value": True}, observed={"value": True},
+                    rule_version="fnc-completeness-v1",
+                    assessment_node_id=assessment_node)
                 cursor.execute(
                     "INSERT INTO fincilia.completeness_control_result "
                     "(control_result_id, company_id, assessment_id, control_type, "
@@ -208,6 +245,16 @@ class BalanceReconciliationDatabaseTests(VerticalHarness):
                     " 'fnc-completeness-v1', %s, %s, 'complete')",
                     (control, ESPIGA, assessment, json.dumps({"value": True}),
                      json.dumps({"value": True}), evidence, release_id, schema))
+                financial_lineage.materialize_item(
+                    cursor, company_id=ESPIGA, subject_id=REVIEWER_ID,
+                    item_decision_id=confirmed_decision,
+                    evidence_source_record_ids=[source_record],
+                    decision_payload={
+                        "item_root_id": item_root, "state": "confirmed",
+                        "adjustment_side": "add_to_bank", "amount": "100.000000000000",
+                        "currency_code": "COP", "reason_code": "documented_timing",
+                        "evidence_refs": [source_record], "decision_version": 2,
+                    }, release_id=release_id, schema_version=schema)
                 cursor.execute(
                     "INSERT INTO fincilia.reconciliation_statement_root "
                     "(statement_root_id, company_id, financial_account_id, period_start, "
@@ -374,6 +421,7 @@ class BalanceReconciliationDatabaseTests(VerticalHarness):
         statement = statement_responses[0].json()
         self.reconciliation_roots.add(statement["statement_root_id"])
         self.assertEqual("balanced", statement["state"])
+        self.assertEqual("complete", statement["lineage_state"])
         self.assertEqual("0.000000000000", statement["unexplained_difference"])
         self.assertFalse(statement["certifies_close"])
 
@@ -394,11 +442,26 @@ class BalanceReconciliationDatabaseTests(VerticalHarness):
             item["code"]: item for item in readiness_period["controls"]}
         self.assertEqual("pass", readiness_controls["reconciliation_statements"]["state"])
         self.assertEqual(
-            "blocked", readiness_controls["reconciliation_statement_lineage"]["state"])
+            "pass", readiness_controls["reconciliation_statement_lineage"]["state"])
+        # El linaje deja de ser el bloqueo; otros controles diagnosticos del
+        # periodo pueden mantenerlo bloqueado y no se relajan en esta tarea.
         self.assertEqual("blocked", readiness_period["status"])
         self.assertFalse(readiness_period["close_ready"])
         self.assertFalse(readiness_period["can_execute_close"])
         self.assertNotIn("amount", str(readiness_period).lower())
+
+        lineage = self.client.get(
+            f"/api/v1/companies/{ESPIGA}/balance-reconciliation/statements/"
+            f"{statement['statement_id']}/lineage", headers=self.auth(OWNER))
+        self.assertEqual(200, lineage.status_code, lineage.text)
+        self.assertTrue(lineage.json()["complete"])
+        self.assertEqual(3, len(lineage.json()["inputs"]))
+        self.assertTrue(all(len(item["value_digest"]) == 64
+                            for item in lineage.json()["inputs"]))
+        foreign_lineage = self.client.get(
+            f"/api/v1/companies/{ANDINOS}/balance-reconciliation/statements/"
+            f"{statement['statement_id']}/lineage", headers=self.auth(OWNER))
+        self.assertEqual(403, foreign_lineage.status_code, foreign_lineage.text)
 
         item_response = self.client.post(
             f"/api/v1/companies/{ESPIGA}/balance-reconciliation/statements/"

@@ -28,8 +28,8 @@ from fincilia_platform.objects import ObjectStoreError, object_key
 from fincilia_platform.tokens import issue
 
 from . import (access, audit as audit_query, balance_reconciliation, balances,
-               close_readiness, datasets, exports, onboarding, operations, quality,
-               reconciliation, reports, repository)
+               close_readiness, datasets, exports, financial_lineage, onboarding,
+               operations, quality, reconciliation, reports, repository)
 from . import company_onboarding
 from .issued_contexts import issue_context
 from .security import (Principal, ProblemError, company_context, current_principal,
@@ -2256,6 +2256,37 @@ def create_balance_reconciliation_statement(
             })
     if result["replayed"]:
         response.status_code = 200
+    return result
+
+
+@router.get(
+    "/companies/{company_id}/balance-reconciliation/statements/"
+    "{statement_id}/lineage",
+    tags=["balance-reconciliation"],
+)
+def get_balance_reconciliation_statement_lineage(
+        request: Request, company_id: str, statement_id: str,
+        principal: Principal = Depends(principal_dependency)) -> dict:
+    context = company_context(request, principal, company_id)
+    require(context, "movement.read")
+    _balance_reconciliation_synthetic_only(request)
+    with request.app.state.database.session(
+            company_id=context.company_id,
+            subject_id=principal.subject_id) as connection:
+        try:
+            result = financial_lineage.explain_statement(
+                connection, statement_id=statement_id)
+        except financial_lineage.LineageError:
+            raise forbidden() from None
+        repository.record_audit(
+            connection, subject_id=principal.subject_id,
+            company_id=context.company_id,
+            action="financial_lineage.read",
+            resource_kind="reconciliation_statement",
+            resource_ref=result["statement_id"], outcome="allowed", detail={
+                "lineage_state": result["lineage_state"],
+                "input_count": len(result["inputs"]),
+            })
     return result
 
 

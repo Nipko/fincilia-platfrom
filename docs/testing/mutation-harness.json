@@ -1638,7 +1638,7 @@
       ],
       "state": "active",
       "target": "docs/testing/golden-harness.json",
-      "target_sha256": "53ba0bba23c77cef78145f85b583c66b6d31a2c52ea31c7d281ba92a4cd230d5",
+      "target_sha256": "1d11df10ae585bc0d3e6041039eeb94df3e66fd1e26034e2c9803f1ba3b88557",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -1691,7 +1691,7 @@
       ],
       "state": "active",
       "target": "docs/testing/golden-harness.json",
-      "target_sha256": "53ba0bba23c77cef78145f85b583c66b6d31a2c52ea31c7d281ba92a4cd230d5",
+      "target_sha256": "1d11df10ae585bc0d3e6041039eeb94df3e66fd1e26034e2c9803f1ba3b88557",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -1744,7 +1744,7 @@
       ],
       "state": "active",
       "target": "docs/testing/golden-harness.json",
-      "target_sha256": "53ba0bba23c77cef78145f85b583c66b6d31a2c52ea31c7d281ba92a4cd230d5",
+      "target_sha256": "1d11df10ae585bc0d3e6041039eeb94df3e66fd1e26034e2c9803f1ba3b88557",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -1797,7 +1797,7 @@
       ],
       "state": "active",
       "target": "docs/testing/golden-harness.json",
-      "target_sha256": "53ba0bba23c77cef78145f85b583c66b6d31a2c52ea31c7d281ba92a4cd230d5",
+      "target_sha256": "1d11df10ae585bc0d3e6041039eeb94df3e66fd1e26034e2c9803f1ba3b88557",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -1851,7 +1851,7 @@
       ],
       "state": "active",
       "target": "docs/testing/golden-harness.json",
-      "target_sha256": "53ba0bba23c77cef78145f85b583c66b6d31a2c52ea31c7d281ba92a4cd230d5",
+      "target_sha256": "1d11df10ae585bc0d3e6041039eeb94df3e66fd1e26034e2c9803f1ba3b88557",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -1904,7 +1904,7 @@
       ],
       "state": "active",
       "target": "docs/testing/golden-harness.json",
-      "target_sha256": "53ba0bba23c77cef78145f85b583c66b6d31a2c52ea31c7d281ba92a4cd230d5",
+      "target_sha256": "1d11df10ae585bc0d3e6041039eeb94df3e66fd1e26034e2c9803f1ba3b88557",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -1954,7 +1954,7 @@
       ],
       "state": "active",
       "target": "docs/testing/golden-harness.json",
-      "target_sha256": "53ba0bba23c77cef78145f85b583c66b6d31a2c52ea31c7d281ba92a4cd230d5",
+      "target_sha256": "1d11df10ae585bc0d3e6041039eeb94df3e66fd1e26034e2c9803f1ba3b88557",
       "test_refs": [
         "TST-META-001"
       ],
@@ -2376,7 +2376,7 @@
       ],
       "state": "active",
       "target": "docs/domain/lineage-model.json",
-      "target_sha256": "cf3d8ba473a99067afb2db9a9b9378261a3a361882fd50b2e0455eb7bbf01d0a",
+      "target_sha256": "a59b8c02d7382449f720be20ba5433d943849cde6d790f394903717384101d4a",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -2428,7 +2428,7 @@
       ],
       "state": "active",
       "target": "docs/domain/lineage-model.json",
-      "target_sha256": "cf3d8ba473a99067afb2db9a9b9378261a3a361882fd50b2e0455eb7bbf01d0a",
+      "target_sha256": "a59b8c02d7382449f720be20ba5433d943849cde6d790f394903717384101d4a",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -2481,7 +2481,7 @@
       ],
       "state": "active",
       "target": "docs/domain/lineage-model.json",
-      "target_sha256": "cf3d8ba473a99067afb2db9a9b9378261a3a361882fd50b2e0455eb7bbf01d0a",
+      "target_sha256": "a59b8c02d7382449f720be20ba5433d943849cde6d790f394903717384101d4a",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -2534,7 +2534,7 @@
       ],
       "state": "active",
       "target": "docs/domain/lineage-model.json",
-      "target_sha256": "cf3d8ba473a99067afb2db9a9b9378261a3a361882fd50b2e0455eb7bbf01d0a",
+      "target_sha256": "a59b8c02d7382449f720be20ba5433d943849cde6d790f394903717384101d4a",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -2588,7 +2588,7 @@
       ],
       "state": "active",
       "target": "docs/domain/lineage-model.json",
-      "target_sha256": "cf3d8ba473a99067afb2db9a9b9378261a3a361882fd50b2e0455eb7bbf01d0a",
+      "target_sha256": "a59b8c02d7382449f720be20ba5433d943849cde6d790f394903717384101d4a",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -2641,7 +2641,7 @@
       ],
       "state": "active",
       "target": "docs/domain/lineage-model.json",
-      "target_sha256": "cf3d8ba473a99067afb2db9a9b9378261a3a361882fd50b2e0455eb7bbf01d0a",
+      "target_sha256": "a59b8c02d7382449f720be20ba5433d943849cde6d790f394903717384101d4a",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -2695,7 +2695,7 @@
       ],
       "state": "active",
       "target": "docs/domain/lineage-model.json",
-      "target_sha256": "cf3d8ba473a99067afb2db9a9b9378261a3a361882fd50b2e0455eb7bbf01d0a",
+      "target_sha256": "a59b8c02d7382449f720be20ba5433d943849cde6d790f394903717384101d4a",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -2749,7 +2749,7 @@
       ],
       "state": "active",
       "target": "docs/domain/lineage-model.json",
-      "target_sha256": "cf3d8ba473a99067afb2db9a9b9378261a3a361882fd50b2e0455eb7bbf01d0a",
+      "target_sha256": "a59b8c02d7382449f720be20ba5433d943849cde6d790f394903717384101d4a",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -2799,7 +2799,7 @@
       ],
       "state": "active",
       "target": "docs/domain/lineage-model.json",
-      "target_sha256": "cf3d8ba473a99067afb2db9a9b9378261a3a361882fd50b2e0455eb7bbf01d0a",
+      "target_sha256": "a59b8c02d7382449f720be20ba5433d943849cde6d790f394903717384101d4a",
       "test_refs": [
         "TST-META-001"
       ],
@@ -2858,7 +2858,7 @@
       "risk_refs": [
         "TM-015"
       ],
-      "target_sha256": "cf3d8ba473a99067afb2db9a9b9378261a3a361882fd50b2e0455eb7bbf01d0a"
+      "target_sha256": "a59b8c02d7382449f720be20ba5433d943849cde6d790f394903717384101d4a"
     },
     {
       "data_classification": "synthetic_only",
@@ -2912,7 +2912,7 @@
       "risk_refs": [
         "TM-015"
       ],
-      "target_sha256": "cf3d8ba473a99067afb2db9a9b9378261a3a361882fd50b2e0455eb7bbf01d0a"
+      "target_sha256": "a59b8c02d7382449f720be20ba5433d943849cde6d790f394903717384101d4a"
     },
     {
       "data_classification": "synthetic_only",
@@ -2965,7 +2965,7 @@
       "risk_refs": [
         "TM-015"
       ],
-      "target_sha256": "cf3d8ba473a99067afb2db9a9b9378261a3a361882fd50b2e0455eb7bbf01d0a"
+      "target_sha256": "a59b8c02d7382449f720be20ba5433d943849cde6d790f394903717384101d4a"
     },
     {
       "control_refs": [

@@ -493,6 +493,12 @@ class LineageModelTest(unittest.TestCase):
                                      if p["id"] != "PATH-DECISION"]
         self.assertIn("LIN-PATH-COVERAGE", self._codes(mutated))
 
+    def test_reconciliation_statement_cannot_drop_decision_lineage(self) -> None:
+        mutated = copy.deepcopy(self.model)
+        decision = self._node(mutated, "decision")
+        decision["produces_lineage_for"].remove("reconciliation_statement")
+        self.assertIn("LIN-DECISION-COVERAGE", self._codes(mutated))
+
     def test_edge_operations_must_stay_distinct(self) -> None:
         mutated = copy.deepcopy(self.model)
         mutated["edge_operations"] = [o for o in mutated["edge_operations"]

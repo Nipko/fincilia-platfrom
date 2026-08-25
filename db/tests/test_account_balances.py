@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import os
+import json
+import uuid
 import unittest
 
 import psycopg
@@ -63,7 +65,7 @@ class AccountBalanceDatabaseTests(VerticalHarness):
         balance = created.json()
         self.assertEqual("-1234.560000000000", balance["amount"])
         self.assertEqual("COP", balance["currency_code"])
-        self.assertEqual("required_pending", balance["lineage_state"])
+        self.assertEqual("complete", balance["lineage_state"])
         self.assertFalse(balance["proves_completeness"])
         self.assertFalse(balance["proves_reconciliation"])
 
@@ -101,6 +103,44 @@ class AccountBalanceDatabaseTests(VerticalHarness):
                                    "SET lineage_state = 'complete' WHERE balance_id = %s",
                                    (balance["balance_id"],))
                 connection.rollback()
+
+        with psycopg.connect(RUNTIME_DSN) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT set_config('fincilia.company_id', %s, true)",
+                               (ESPIGA,))
+                cursor.execute(
+                    "SELECT fincilia.financial_lineage_complete("
+                    "'account_balance', %s, %s), count(*) FROM "
+                    "fincilia.lineage_node WHERE company_id=%s "
+                    "AND node_type='financial_fact_field' AND entity_ref=%s",
+                    (ESPIGA, balance["balance_id"], ESPIGA, balance["balance_id"]))
+                complete, field_count = cursor.fetchone()
+                self.assertTrue(complete)
+                self.assertEqual(2, field_count)
+
+        # El rol runtime conoce todos los datos de una observacion elegible y aun
+        # asi no puede autodeclararla `complete` sin materializar su grafo.
+        with self.assertRaises(psycopg.errors.CheckViolation):
+            with psycopg.connect(RUNTIME_DSN) as connection:
+                with connection.cursor() as cursor:
+                    cursor.execute(
+                        "SELECT set_config('fincilia.company_id', %s, true)",
+                        (ESPIGA,))
+                    forged = uuid.uuid4()
+                    digest = uuid.uuid4().hex * 2
+                    cursor.execute(
+                        "INSERT INTO fincilia.account_balance (balance_id, company_id, "
+                        "financial_account_id, source_record_id, balance_type, amount, "
+                        "currency_code, as_of, source_timezone, amount_field_index, "
+                        "as_of_field_index, field_digests, observation_key, prepared_by, "
+                        "engine_release_id, canonical_schema_version, lineage_state) "
+                        "SELECT %s, company_id, financial_account_id, source_record_id, "
+                        "'available', amount, currency_code, as_of, source_timezone, "
+                        "amount_field_index, as_of_field_index, %s::jsonb, %s, "
+                        "prepared_by, engine_release_id, canonical_schema_version, "
+                        "'complete' FROM fincilia.account_balance WHERE balance_id=%s",
+                        (forged, json.dumps({"amount": digest, "as_of": digest}),
+                         digest, balance["balance_id"]))
 
         events = self.client.get(
             f"/api/v1/companies/{ESPIGA}/audit?limit=50",

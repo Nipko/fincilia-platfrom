@@ -792,7 +792,9 @@
         "completeness_control_result",
         "match_candidate",
         "match_group",
-        "match_member"
+        "match_member",
+        "reconciliation_statement",
+        "reconciling_item"
       ],
       "value_digest": {
         "algorithm": "sha256",

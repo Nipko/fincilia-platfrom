@@ -32,7 +32,8 @@ revisión humana en aprobación financiera.
 
 # Rutas reservadas
 
-- `db/migrations/V0031__financial_decision_lineage.sql` y pruebas DB focales.
+- `db/migrations/V0031__financial_decision_lineage.sql`, `db/migrations/V0032__portable_financial_lineage_triggers.sql`, `db/migrations/V0033__exact_financial_lineage_evidence.sql`, correcciones forward-only
+  contiguas de esta rebanada y pruebas DB focales.
 - `apps/api/src/fincilia_api/financial_lineage.py`, saldos, conciliación de saldos,
   rutas, esquemas y pruebas focales.
 - Contrato de linaje, especificación y validador/pruebas estrictamente necesarios.

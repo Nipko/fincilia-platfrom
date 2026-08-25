@@ -18,6 +18,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import psycopg
 
+from . import financial_lineage
 from fincilia_contracts.mapping import MappingError, normalise_amount, parse_date
 from fincilia_contracts.money import MoneyError, format_money, parse_money
 from fincilia_contracts.release import digest_of
@@ -275,33 +276,61 @@ def create_balance(connection: psycopg.Connection, *, company_id: str,
         "canonical_schema_version": evidence["canonical_schema_version"],
     }
     observation_key = digest_of(key_payload)
+    identity_key = digest_of({
+        "company_id": company_id,
+        "source_record_id": evidence["source_record_id"],
+        "financial_account_id": evidence["financial_account_id"],
+        "balance_type": balance_type,
+        "as_of": as_of.isoformat(),
+        "amount_field_index": amount_field_index,
+        "as_of_field_index": as_of_field_index,
+    })
     with connection.cursor() as cursor:
+        cursor.execute("SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))",
+                       (identity_key,))
+        cursor.execute(
+            "SELECT balance_id FROM fincilia.account_balance WHERE company_id=%s "
+            "AND source_record_id=%s AND financial_account_id=%s "
+            "AND balance_type=%s AND as_of=%s AND amount_field_index=%s "
+            "AND as_of_field_index=%s",
+            (company_id, evidence["source_record_id"],
+             evidence["financial_account_id"], balance_type, as_of,
+             amount_field_index, as_of_field_index))
+        existing = cursor.fetchone()
+        balance_id = str(existing[0]) if existing else str(uuid.uuid4())
         try:
-            cursor.execute(
-                "INSERT INTO fincilia.account_balance (balance_id, company_id, "
-                "financial_account_id, source_record_id, balance_type, amount, "
-                "currency_code, as_of, source_timezone, amount_field_index, "
-                "as_of_field_index, field_digests, observation_key, prepared_by, "
-                "engine_release_id, canonical_schema_version, lineage_state) "
-                "VALUES (gen_random_uuid(), %s, %s, %s, %s, %s, %s, %s, %s, "
-                "%s, %s, %s::jsonb, %s, %s, %s, %s, 'required_pending') "
-                "ON CONFLICT (company_id, source_record_id, financial_account_id, "
-                "balance_type, as_of, amount_field_index, as_of_field_index) "
-                "DO NOTHING RETURNING balance_id",
-                (company_id, evidence["financial_account_id"],
-                 evidence["source_record_id"], balance_type, amount_text,
-                 evidence["currency_code"], as_of, evidence["source_timezone"],
-                 amount_field_index, as_of_field_index, json.dumps(field_digests),
-                 observation_key, subject_id, evidence["engine_release_id"],
-                 evidence["canonical_schema_version"]))
-            inserted = cursor.fetchone()
+            if existing is None:
+                with connection.transaction():
+                    financial_lineage.materialize_balance(
+                        cursor, company_id=company_id, subject_id=subject_id,
+                        balance_id=balance_id,
+                        source_record_id=evidence["source_record_id"],
+                        amount_field_index=amount_field_index,
+                        as_of_field_index=as_of_field_index,
+                        field_digests=field_digests)
+                    cursor.execute(
+                        "INSERT INTO fincilia.account_balance (balance_id, company_id, "
+                        "financial_account_id, source_record_id, balance_type, amount, "
+                        "currency_code, as_of, source_timezone, amount_field_index, "
+                        "as_of_field_index, field_digests, observation_key, prepared_by, "
+                        "engine_release_id, canonical_schema_version, lineage_state) "
+                        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, "
+                        "%s::jsonb, %s, %s, %s, %s, 'complete')",
+                        (balance_id, company_id, evidence["financial_account_id"],
+                         evidence["source_record_id"], balance_type, amount_text,
+                         evidence["currency_code"], as_of, evidence["source_timezone"],
+                         amount_field_index, as_of_field_index, json.dumps(field_digests),
+                         observation_key, subject_id, evidence["engine_release_id"],
+                         evidence["canonical_schema_version"]))
         except psycopg.errors.CheckViolation as error:
             if error.diag.constraint_name == "ck_account_balance_evidence_eligible":
                 raise BalanceError("balance-evidence-unavailable",
                                    "the selected evidence is no longer eligible") from None
             raise
+        except financial_lineage.LineageError as error:
+            raise BalanceError(error.code, error.detail) from None
 
-        replayed = inserted is None
+        replayed = existing is not None
         cursor.execute(
             BALANCE_SELECT +
             "WHERE b.company_id = %s AND b.source_record_id = %s "

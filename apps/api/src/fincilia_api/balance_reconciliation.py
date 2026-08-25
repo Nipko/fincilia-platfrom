@@ -15,6 +15,7 @@ from typing import Any
 
 import psycopg
 
+from . import financial_lineage
 from fincilia_contracts.money import MoneyError, format_money, parse_money
 from fincilia_contracts.release import digest_of
 
@@ -352,45 +353,74 @@ def create_assessment(connection: psycopg.Connection, *, company_id: str,
         "canonical_schema_version": evidence["canonical_schema_version"],
     })
     with connection.cursor() as cursor:
+        cursor.execute("SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))",
+                       (assessment_key,))
         cursor.execute(
-            "INSERT INTO fincilia.completeness_assessment (assessment_id, company_id, "
-            "data_source_id, source_expectation_id, financial_account_id, "
-            "dataset_version_id, period_start, period_end, state, assessment_key, "
-            "prepared_by, engine_release_id, canonical_schema_version, lineage_state) "
-            "VALUES (gen_random_uuid(), %s, %s, %s, %s, %s, %s, %s, %s, %s, "
-            "%s, %s, %s, %s) ON CONFLICT (company_id, assessment_key) DO NOTHING "
-            "RETURNING assessment_id",
-            (company_id, evidence["data_source_id"], evidence["expectation_id"],
-             evidence["financial_account_id"], evidence["dataset_version_id"],
-             evidence["period_start"], evidence["period_end"], state, assessment_key,
-             subject_id, evidence["engine_release_id"],
-             evidence["canonical_schema_version"], lineage))
-        inserted = cursor.fetchone()
-        if inserted:
-            assessment_id = str(inserted[0])
+            "SELECT assessment_id FROM fincilia.completeness_assessment "
+            "WHERE company_id=%s AND assessment_key=%s", (company_id, assessment_key))
+        existing = cursor.fetchone()
+        if existing is None:
+            assessment_id = str(uuid.uuid4())
+            assessment_node = None
+            try:
+                if lineage == "complete":
+                    assessment_node = financial_lineage.materialize_assessment(
+                        cursor, company_id=company_id, subject_id=subject_id,
+                        assessment_id=assessment_id,
+                        dataset_version_id=evidence["dataset_version_id"],
+                        assessment_key=assessment_key, state=state,
+                        rule_version=CONTROL_RULE_VERSION)
+                cursor.execute(
+                    "INSERT INTO fincilia.completeness_assessment (assessment_id, "
+                    "company_id, data_source_id, source_expectation_id, "
+                    "financial_account_id, dataset_version_id, period_start, "
+                    "period_end, state, assessment_key, prepared_by, engine_release_id, "
+                    "canonical_schema_version, lineage_state) VALUES (%s, %s, %s, %s, "
+                    "%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                    (assessment_id, company_id, evidence["data_source_id"],
+                     evidence["expectation_id"], evidence["financial_account_id"],
+                     evidence["dataset_version_id"], evidence["period_start"],
+                     evidence["period_end"], state, assessment_key, subject_id,
+                     evidence["engine_release_id"],
+                     evidence["canonical_schema_version"], lineage))
+            except financial_lineage.LineageError as error:
+                raise ReconciliationError(error.code, error.detail) from None
             evidence_refs = json.dumps([
                 {"kind": "dataset_version", "ref": evidence["dataset_version_id"]},
                 {"kind": "source_expectation", "ref": evidence["expectation_id"]},
             ])
             for spec in specs:
+                control_id = str(uuid.uuid4())
+                try:
+                    if lineage == "complete":
+                        assert assessment_node is not None
+                        financial_lineage.materialize_control(
+                            cursor, company_id=company_id, subject_id=subject_id,
+                            control_result_id=control_id,
+                            assessment_id=assessment_id,
+                            dataset_version_id=evidence["dataset_version_id"],
+                            control_type=spec["type"], outcome=spec["outcome"],
+                            expected=spec["expected"], observed=spec["observed"],
+                            rule_version=CONTROL_RULE_VERSION,
+                            assessment_node_id=assessment_node)
+                except financial_lineage.LineageError as error:
+                    raise ReconciliationError(error.code, error.detail) from None
                 cursor.execute(
                     "INSERT INTO fincilia.completeness_control_result "
-                    "(company_id, assessment_id, control_type, required, outcome, "
+                    "(control_result_id, company_id, assessment_id, control_type, "
+                    "required, outcome, "
                     "expected_value, observed_value, value_type, evidence_refs, "
                     "rule_version, reason, engine_release_id, canonical_schema_version, "
-                    "lineage_state) VALUES (%s, %s, %s, true, %s, %s::jsonb, %s::jsonb, "
-                    "%s, %s::jsonb, %s, %s, %s, %s, %s)",
-                    (company_id, assessment_id, spec["type"], spec["outcome"],
+                    "lineage_state) VALUES (%s, %s, %s, %s, true, %s, %s::jsonb, "
+                    "%s::jsonb, %s, %s::jsonb, %s, %s, %s, %s, %s)",
+                    (control_id, company_id, assessment_id, spec["type"], spec["outcome"],
                      json.dumps(spec["expected"]), json.dumps(spec["observed"]),
                      spec["value_type"], evidence_refs, CONTROL_RULE_VERSION,
                      spec["reason"], evidence["engine_release_id"],
                      evidence["canonical_schema_version"], lineage))
             replayed = False
         else:
-            cursor.execute(
-                "SELECT assessment_id FROM fincilia.completeness_assessment "
-                "WHERE company_id=%s AND assessment_key=%s", (company_id, assessment_key))
-            assessment_id = str(cursor.fetchone()[0])
+            assessment_id = str(existing[0])
             replayed = True
         cursor.execute(ASSESSMENT_SELECT + "WHERE a.assessment_id=%s", (assessment_id,))
         row = cursor.fetchone()
@@ -495,29 +525,49 @@ def create_statement(connection: psycopg.Connection, *, company_id: str,
             "assessment_ids": scope["assessment_ids"], "item_ids": item_ids,
             "rule_versions": [RULE_VERSION],
         })
+        cursor.execute("SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))",
+                       (statement_key,))
         cursor.execute(
-            "INSERT INTO fincilia.reconciliation_statement "
-            "(company_id, statement_root_id, version, financial_account_id, "
-            "period_start, period_end, currency_code, bank_closing_balance_id, "
-            "books_closing_balance_id, completeness_assessment_ids, "
-            "confirmed_reconciling_item_ids, statement_key, prepared_by, "
-            "engine_release_id, canonical_schema_version, rule_version_ids) "
-            "VALUES (%s, %s, 1, %s, %s, %s, %s, %s, %s, %s::uuid[], %s::uuid[], "
-            "%s, %s, %s, %s, %s::jsonb) ON CONFLICT (company_id, statement_key) "
-            "DO NOTHING RETURNING statement_id",
-            (company_id, root_id, scope["financial_account_id"], scope["period_start"],
-             scope["period_end"], scope["currency_code"], scope["bank_id"],
-             scope["books_id"], scope["assessment_ids"], item_ids, statement_key,
-             subject_id, scope["engine_release_id"], scope["canonical_schema_version"],
-             json.dumps([RULE_VERSION])))
-        inserted = cursor.fetchone()
-        if inserted:
-            statement_id, replayed = str(inserted[0]), False
-        else:
+            "SELECT statement_id, lineage_state FROM fincilia.reconciliation_statement "
+            "WHERE company_id=%s AND statement_key=%s", (company_id, statement_key))
+        existing = cursor.fetchone()
+        if existing is None:
+            statement_id, replayed = str(uuid.uuid4()), False
             cursor.execute(
-                "SELECT statement_id FROM fincilia.reconciliation_statement "
-                "WHERE company_id=%s AND statement_key=%s", (company_id, statement_key))
-            statement_id, replayed = str(cursor.fetchone()[0]), True
+                "INSERT INTO fincilia.reconciliation_statement "
+                "(statement_id, company_id, statement_root_id, version, "
+                "financial_account_id, period_start, period_end, currency_code, "
+                "bank_closing_balance_id, books_closing_balance_id, "
+                "completeness_assessment_ids, confirmed_reconciling_item_ids, "
+                "statement_key, prepared_by, engine_release_id, "
+                "canonical_schema_version, rule_version_ids, lineage_state) "
+                "VALUES (%s, %s, %s, 1, %s, %s, %s, %s, %s, %s, %s::uuid[], "
+                "%s::uuid[], %s, %s, %s, %s, %s::jsonb, 'required_pending')",
+                (statement_id, company_id, root_id, scope["financial_account_id"],
+                 scope["period_start"], scope["period_end"], scope["currency_code"],
+                 scope["bank_id"], scope["books_id"], scope["assessment_ids"],
+                 item_ids, statement_key, subject_id, scope["engine_release_id"],
+                 scope["canonical_schema_version"], json.dumps([RULE_VERSION])))
+            lineage_state = "required_pending"
+        else:
+            statement_id, lineage_state = str(existing[0]), existing[1]
+            replayed = True
+        if lineage_state == "required_pending":
+            try:
+                financial_lineage.materialize_statement(
+                    cursor, company_id=company_id, subject_id=subject_id,
+                    statement_id=statement_id)
+            except financial_lineage.LineageError as error:
+                raise ReconciliationError(error.code, error.detail) from None
+            cursor.execute(
+                "UPDATE fincilia.reconciliation_statement SET lineage_state='complete' "
+                "WHERE company_id=%s AND statement_id=%s "
+                "AND lineage_state='required_pending'",
+                (company_id, statement_id))
+            if cursor.rowcount != 1:
+                raise ReconciliationError(
+                    "financial-lineage-seal-conflict",
+                    "the statement lineage could not be sealed atomically")
         cursor.execute(STATEMENT_SELECT + "WHERE r.statement_id=%s", (statement_id,))
         row = cursor.fetchone()
     return _statement_row(row, replayed=replayed)
@@ -556,13 +606,23 @@ def create_item(connection: psycopg.Connection, *, company_id: str, subject_id: 
         item_id = str(uuid.uuid4())
         evidence = json.dumps([{"kind": "source_record", "ref": value} for value in refs])
         try:
+            financial_lineage.materialize_item(
+                cursor, company_id=company_id, subject_id=subject_id,
+                item_decision_id=item_id, evidence_source_record_ids=refs,
+                decision_payload={
+                    "item_root_id": item_id, "state": "proposed",
+                    "adjustment_side": adjustment_side,
+                    "amount": format_money(exact), "currency_code": root[0],
+                    "reason_code": reason_code, "evidence_refs": refs,
+                    "decision_version": 1,
+                }, release_id=str(root[1]), schema_version=root[2])
             cursor.execute(
                 "INSERT INTO fincilia.reconciling_item (item_decision_id, item_root_id, "
                 "company_id, statement_root_id, adjustment_side, amount, currency_code, "
                 "reason_code, state, evidence_refs, prepared_by, decision_version, "
                 "engine_release_id, canonical_schema_version, lineage_state) "
                 "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'proposed', %s::jsonb, "
-                "%s, 1, %s, %s, 'required_pending')",
+                "%s, 1, %s, %s, 'complete')",
                 (item_id, item_id, company_id, root_id, adjustment_side,
                  format_money(exact), root[0], reason_code, evidence, subject_id,
                  root[1], root[2]))
@@ -572,6 +632,8 @@ def create_item(connection: psycopg.Connection, *, company_id: str, subject_id: 
                     "reconciling-item-evidence-unavailable",
                     "the selected evidence is unavailable") from None
             raise
+        except financial_lineage.LineageError as error:
+            raise ReconciliationError(error.code, error.detail) from None
         cursor.execute(ITEM_SELECT + "WHERE item_decision_id=%s", (item_id,))
         row = cursor.fetchone()
     return _item_row(row)
@@ -615,6 +677,22 @@ def decide_item(connection: psycopg.Connection, *, company_id: str, subject_id: 
             "FROM fincilia.reconciling_item WHERE item_decision_id=%s", (previous[0],))
         evidence, release_id, schema = cursor.fetchone()
         decision_id = str(uuid.uuid4())
+        evidence_refs = [str(item["ref"]) for item in evidence]
+        try:
+            financial_lineage.materialize_item(
+                cursor, company_id=company_id, subject_id=subject_id,
+                item_decision_id=decision_id,
+                evidence_source_record_ids=evidence_refs,
+                decision_payload={
+                    "item_root_id": root_id, "state": decision,
+                    "adjustment_side": previous[3],
+                    "amount": format_money(previous[4]),
+                    "currency_code": previous[5], "reason_code": previous[6],
+                    "evidence_refs": evidence_refs,
+                    "decision_version": int(previous[10]) + 1,
+                }, release_id=str(release_id), schema_version=schema)
+        except financial_lineage.LineageError as error:
+            raise ReconciliationError(error.code, error.detail) from None
         cursor.execute(
             "INSERT INTO fincilia.reconciling_item (item_decision_id, item_root_id, "
             "company_id, statement_root_id, adjustment_side, amount, currency_code, "
@@ -625,7 +703,7 @@ def decide_item(connection: psycopg.Connection, *, company_id: str, subject_id: 
             (decision_id, root_id, company_id, previous[2], previous[3], previous[4],
              previous[5], previous[6], decision, json.dumps(evidence), previous[8],
              subject_id, int(previous[10]) + 1, release_id, schema,
-             "complete" if decision == "confirmed" else previous[11]))
+             "complete"))
         cursor.execute(ITEM_SELECT + "WHERE item_decision_id=%s", (decision_id,))
         row = cursor.fetchone()
     result = _item_row(row)
