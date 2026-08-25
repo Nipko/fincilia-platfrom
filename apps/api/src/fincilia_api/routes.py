@@ -27,8 +27,9 @@ from fincilia_platform.identity import AuthenticationError
 from fincilia_platform.objects import ObjectStoreError, object_key
 from fincilia_platform.tokens import issue
 
-from . import (access, audit as audit_query, datasets, exports, onboarding, operations, quality,
-               reconciliation, reports, repository)
+from . import (access, audit as audit_query, close_readiness, datasets, exports,
+               onboarding, operations, quality, reconciliation, reports,
+               repository)
 from . import company_onboarding
 from .issued_contexts import issue_context
 from .security import (Principal, ProblemError, company_context, current_principal,
@@ -1970,6 +1971,40 @@ def operational_periods(
                 "filter": result["filter"],
                 "returned": len(result["items"]),
                 "truncated": result["has_more"],
+            })
+    return result
+
+
+@router.get("/companies/{company_id}/close-readiness", tags=["close-readiness"])
+def read_close_readiness(
+        request: Request, company_id: str,
+        limit: int = close_readiness.DEFAULT_LIMIT,
+        principal: Principal = Depends(principal_dependency)) -> dict:
+    """Diagnostico previo; nunca ejecuta ni certifica un cierre."""
+    context = company_context(request, principal, company_id)
+    require(context, "report.read")
+    if request.app.state.settings.real_data_enabled:
+        raise ProblemError(problem(
+            "close-readiness-disabled", "Close readiness unavailable", 503,
+            "close readiness is enabled only for synthetic data"))
+    with request.app.state.database.session(
+            company_id=context.company_id,
+            subject_id=principal.subject_id) as connection:
+        try:
+            result = close_readiness.list_close_readiness(
+                connection, limit=limit)
+        except close_readiness.CloseReadinessError as error:
+            raise ProblemError(problem(
+                error.code, "Close readiness request invalid", 422,
+                error.detail)) from None
+        repository.record_audit(
+            connection, subject_id=principal.subject_id,
+            company_id=context.company_id, action="close.readiness.read",
+            resource_kind="company", resource_ref=context.company_id,
+            outcome="allowed", detail={
+                "limit": result["limit"],
+                "periods_returned": result["period_count"],
+                "sources_returned": result["source_count"],
             })
     return result
 

@@ -1,0 +1,115 @@
+"""Pruebas puras del diagnostico previo al cierre FNC-CLS-001."""
+
+from __future__ import annotations
+
+import datetime as dt
+import unittest
+import uuid
+
+from fincilia_api.close_readiness import (
+    CloseReadinessError,
+    CloseReadinessQuery,
+    _build_period,
+    _row_source,
+)
+
+
+START = dt.date(2026, 7, 1)
+END = dt.date(2026, 7, 31)
+
+
+def source_row(*, expectation_state: str = "satisfied",
+               dataset_state: str | None = "published",
+               completeness: str | None = "verified",
+               lineage: str | None = "complete",
+               rejected: int = 0) -> tuple:
+    artifact = uuid.uuid4() if expectation_state == "satisfied" else None
+    dataset = uuid.uuid4() if dataset_state is not None else None
+    return (
+        uuid.uuid4(), uuid.uuid4(), "Banco sintetico", uuid.uuid4(),
+        START, END, expectation_state, artifact, dataset, dataset_state,
+        completeness, lineage, rejected, 2,
+        dt.datetime(2026, 8, 1, tzinfo=dt.timezone.utc),
+    )
+
+
+def checks(dataset_id: str, **overrides) -> dict:
+    item = {
+        "missing_accounting_dates": 0,
+        "open_candidate_ids": set(),
+        "active_high_quality_ids": set(),
+        "proposed_corrections": 0,
+        "approved_unapplied_corrections": 0,
+    }
+    item.update(overrides)
+    return {dataset_id: item}
+
+
+class CloseReadinessTests(unittest.TestCase):
+    def test_query_is_bounded(self) -> None:
+        for limit in (0, 25):
+            with self.subTest(limit=limit), self.assertRaises(CloseReadinessError):
+                CloseReadinessQuery(limit).validated()
+        self.assertEqual(24, CloseReadinessQuery(24).validated().limit)
+
+    def test_even_complete_current_evidence_never_enables_close(self) -> None:
+        source = _row_source(source_row())
+        period = _build_period(
+            START, END, [source], checks(source["dataset_version_id"]))
+
+        self.assertEqual("blocked", period["status"])
+        self.assertFalse(period["close_ready"])
+        self.assertFalse(period["can_execute_close"])
+        blocker_codes = {item["code"] for item in period["blockers"]}
+        self.assertEqual(
+            {"account_balances", "reconciliation_statements", "product_close"},
+            blocker_codes)
+        self.assertNotIn("amount", str(period).lower())
+        self.assertNotIn("currency", str(period).lower())
+
+    def test_unknown_exception_and_waiver_fail_closed(self) -> None:
+        source = _row_source(source_row(
+            expectation_state="waived", dataset_state=None,
+            completeness=None, lineage=None))
+        period = _build_period(START, END, [source], {})
+        controls = {item["code"]: item for item in period["controls"]}
+
+        self.assertEqual("blocked", controls["expectations_satisfied"]["state"])
+        self.assertEqual("blocked", controls["dataset_evidence"]["state"])
+        self.assertFalse(period["close_ready"])
+
+    def test_review_quality_dates_and_corrections_are_explainable(self) -> None:
+        source = _row_source(source_row(rejected=3))
+        dataset_id = source["dataset_version_id"]
+        period = _build_period(START, END, [source], checks(
+            dataset_id,
+            missing_accounting_dates=2,
+            open_candidate_ids={"candidate-a", "candidate-b"},
+            active_high_quality_ids={"issue-a"},
+            proposed_corrections=1,
+            approved_unapplied_corrections=2,
+        ))
+        controls = {item["code"]: item for item in period["controls"]}
+
+        self.assertEqual(3, controls["rejected_rows"]["count"])
+        self.assertEqual(2, controls["accounting_dates"]["count"])
+        self.assertEqual(2, controls["reconciliation_reviews"]["count"])
+        self.assertEqual(1, controls["quality_alerts"]["count"])
+        self.assertEqual(3, controls["pending_corrections"]["count"])
+        self.assertTrue(all(controls[code]["state"] == "blocked" for code in (
+            "rejected_rows", "accounting_dates", "reconciliation_reviews",
+            "quality_alerts", "pending_corrections")))
+
+    def test_dataset_selection_is_declared_not_presented_as_completeness(self) -> None:
+        source = _row_source(source_row(dataset_state="validated"))
+        self.assertEqual(
+            "published_then_validated_then_latest_for_satisfied_artifact",
+            source["selection_rule"])
+        period = _build_period(
+            START, END, [source], checks(source["dataset_version_id"]))
+        controls = {item["code"]: item for item in period["controls"]}
+        self.assertEqual("blocked", controls["published_datasets"]["state"])
+
+
+if __name__ == "__main__":
+    unittest.main()
