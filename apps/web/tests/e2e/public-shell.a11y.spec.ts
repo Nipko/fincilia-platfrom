@@ -61,7 +61,7 @@ test('TST-A11Y-001: alta completa de empresa para owner', async ({ page }) => {
 test('TST-A11Y-001: estacion de conciliacion sintetica', async ({ page }) => {
   await signIn(page, 'ana@demo.local');
   await page.getByRole('link', { name: 'Abrir Panaderia La Espiga SAS' }).click();
-  await page.getByRole('link', { name: 'Conciliacion' }).click();
+  await page.getByRole('link', { name: 'Cruzar movimientos' }).click();
   await expect(
     page.getByRole('heading', { level: 1, name: 'Conciliacion visual' }),
   ).toBeVisible();
