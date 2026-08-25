@@ -3,7 +3,7 @@ task_id: FNC-SEC-005
 status: REVIEW_PENDING
 base_sha: b506e93
 implementation_sha: c9b3094
-integration_sha: pending_this_handoff
+integration_sha: 4743412
 data_ceiling: synthetic_only
 implemented_by: Codex principal dev + Integration Steward
 independent_reviewers: [Security, Database/Architecture]
