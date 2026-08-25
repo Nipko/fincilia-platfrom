@@ -1,7 +1,7 @@
 ---
 task: FNC-GOV-001
-title: Owners humanos, gobierno unipersonal provisional y paquete de decisiones
-status: review_pending
+title: Owners humanos, suplentes, RACI y aprobadores por gate
+status: in_progress
 implementer: Integration Steward
 base_sha: 94ac094
 gate: S1-READY
@@ -12,11 +12,16 @@ independent_reviewers: ["Security distinct human pending", "Privacy or Legal dis
 
 # Resultado esperado
 
-Registrar que, durante la etapa fundacional, una sola persona humana —`Founder`—
-asume provisionalmente todos los roles accountable. La entrega debe permitir avanzar
-las decisiones de producto y arquitectura sin representar esa acumulación como una
-revisión independiente de seguridad, privacidad, legal, migraciones o semántica
-financiera.
+Asignar owners humanos nominales, suplentes, RACI y aprobadores por gate. Una identidad
+de prueba multirrol dentro de la aplicación no satisface esta tarea ni reemplaza owners
+de gobierno.
+
+## Corrección 2026-08-24
+
+La frase «una sola persona hará varios roles» se refería al operador físico que prueba
+la aplicación mediante personas sintéticas, no a concentrar todos los owners de
+gobierno en Founder. Los commits iniciales quedan corregidos de forma append-only; sus
+conclusiones no deben consumirse como estado vigente.
 
 ## Rutas reservadas
 
@@ -29,6 +34,7 @@ financiera.
 - `docs/implementation/FOUNDER_GOVERNANCE.md`
 - `docs/implementation/tasks/FNC-GOV-001.md`
 - `docs/implementation/handoffs/FNC-GOV-001.md`
+- `docs/implementation/handoffs/FNC-GOV-001-R1.md`
 - `tools/founder_governance/**`
 
 ## Criterios de aceptación
@@ -52,3 +58,4 @@ financiera.
 - Marcar ADR como Accepted o superar S1-READY.
 - Resolver decisiones jurídicas, regionales o de proveedor sin evidencia aplicable.
 - Cambiar contratos de dominio, migraciones o código de producto.
+- Diseñar o implementar el selector local de persona/rol sintético.

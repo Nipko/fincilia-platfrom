@@ -66,7 +66,7 @@ Hasta S1-READY solo se admite scaffolding, automatización, pruebas, documentaci
 
 | ID | Resultado | Estado | Implementador | Rutas |
 |---|---|---|---|---|
-| FNC-GOV-001 | Owners humanos y gobierno unipersonal provisional | Review pending | Integration Steward | 7 slots asignados a Founder; 10 decisiones preparadas; revisión independiente pendiente |
+| FNC-GOV-001 | Owners humanos, suplentes y RACI por gate | In progress: correction | Integration Steward | Corrige separación entre gobierno humano y personas sintéticas multirrol de prueba |
 | FNC-GOV-002 | Paquete de implementación multiagente | Done | Integration Steward | raíz, docs/implementation, docs/adr |
 | FNC-PRD-001 | PRD y wedge de firma contable | Review pending | Hume | docs/product/PRD_WEDGE.md, handoff |
 | FNC-DOM-001 | Tenancy company/engagement | Review pending | Einstein | docs/domain/TENANCY_MODEL.md, handoff |
@@ -125,7 +125,7 @@ Solo el Integration Steward modifica esta tabla.
 
 | Ola | Tarea | Dependencia | Estado |
 |---:|---|---|---|
-| 0 | FNC-GOV-001 Owners humanos y RACI | Ninguna | Review pending; Founder único, paquete técnico pendiente de confirmación y revisiones independientes pendientes |
+| 0 | FNC-GOV-001 Owners humanos y RACI | Ninguna | Blocked: founder; una persona multirrol de prueba no asigna owners de gobierno |
 | 0 | FNC-GOV-003 Grafo ejecutable de trabajo | FNC-GOV-002 | Review pending |
 | 0 | FNC-PRD-001 PRD general y wedge | FNC-GOV-001 para aprobación | Review pending |
 | 0 | FNC-DOM-001 Modelo tenancy | PRD provisional | Review pending |

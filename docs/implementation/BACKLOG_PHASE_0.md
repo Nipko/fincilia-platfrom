@@ -24,7 +24,7 @@
 
 | ID | Carril | Dependencias | Estado inicial | Resultado verificable |
 |---|---|---|---|---|
-| FNC-GOV-001 | A0/Founder | — | Review | Owners asignados a Founder, gobierno unipersonal ejecutable, RACI y límites de aprobación por gate |
+| FNC-GOV-001 | A0/Founder | — | In progress: correction | Owners nominales, suplentes, RACI y aprobador por gate; no confundir con roles sintéticos de aplicación |
 | FNC-GOV-002 | A0 | — | Done | Gobierno, templates, ownership y protocolo multiagente |
 | FNC-GOV-003 | A0 | GOV-002 | Review | Backlog, dependencias, decisiones y trazabilidad validados |
 | FNC-PRD-001 | A1 | GOV-001 para aceptar | Draftable | PRD del wedge factura→pago→liquidación→banco→ERP |
