@@ -121,15 +121,15 @@ function CompanyReport({ snapshot, days, asOf }: {
 
       <dl className="report-kpis">
         <div><dt>Documentos</dt><dd>{documents.total}</dd>
-          <small>{documents.quarantined} en cuarentena</small></div>
+          <dd className="report-kpi-detail">{documents.quarantined} en cuarentena</dd></div>
         <div><dt>Datasets</dt><dd>{datasets.total}</dd>
-          <small>{datasets.published} publicados</small></div>
+          <dd className="report-kpi-detail">{datasets.published} publicados</dd></div>
         <div><dt>Filas procesadas</dt><dd>{datasets.records.toLocaleString('es-CO')}</dd>
-          <small>{datasets.rejected_records} rechazadas</small></div>
+          <dd className="report-kpi-detail">{datasets.rejected_records} rechazadas</dd></div>
         <div><dt>Por conciliar</dt><dd>{reconciliation.pending}</dd>
-          <small>{reconciliation.confirmed} confirmadas</small></div>
+          <dd className="report-kpi-detail">{reconciliation.confirmed} confirmadas</dd></div>
         <div><dt>Alertas activas</dt><dd>{quality.open + quality.acknowledged}</dd>
-          <small>{quality.active_high} de severidad alta</small></div>
+          <dd className="report-kpi-detail">{quality.active_high} de severidad alta</dd></div>
       </dl>
 
       {(datasets.completeness_mismatch || datasets.completeness_unknown
@@ -144,7 +144,7 @@ function CompanyReport({ snapshot, days, asOf }: {
       <ActivityChart points={report.activity_series} companyName={company.legal_name} />
 
       <div className="report-grid">
-        <section className="card" aria-labelledby={`money-${company.company_id}`}>
+        <section className="card" aria-label={`${company.legal_name}: volumen publicado por moneda`}>
           <h3 id={`money-${company.company_id}`}>Volumen publicado por moneda</h3>
           <p className="meta">
             Solo datasets publicados, verificados y con linaje completo. No es saldo.
@@ -162,7 +162,7 @@ function CompanyReport({ snapshot, days, asOf }: {
           ) : <p role="status">No hay volumen elegible en este rango.</p>}
         </section>
 
-        <section className="card" aria-labelledby={`state-${company.company_id}`}>
+        <section className="card" aria-label={`${company.legal_name}: estado de preparacion`}>
           <h3 id={`state-${company.company_id}`}>Estado de preparacion</h3>
           <dl className="report-state-list">
             <div><dt>Borradores</dt><dd>{datasets.draft}</dd></div>
@@ -193,7 +193,7 @@ function CompanyReport({ snapshot, days, asOf }: {
         </div>
       </details>
 
-      <section aria-labelledby={`recent-${company.company_id}`}>
+      <section aria-label={`${company.legal_name}: datasets recientes`}>
         <h3 id={`recent-${company.company_id}`}>Datasets recientes</h3>
         {report.recent_datasets.length ? (
           <div className="card scroll"><table>

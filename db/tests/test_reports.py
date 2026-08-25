@@ -5,6 +5,9 @@ from __future__ import annotations
 import datetime as dt
 import uuid
 
+import psycopg
+
+from db.tests.test_api_authorization import MIGRATOR_DSN
 from db.tests.test_p3_vertical import (
     ANDINOS, ESPIGA, PREPARER, REVIEWER, VerticalHarness, purge, statement_csv,
 )
@@ -61,6 +64,27 @@ class OperationalReportPostgresTests(VerticalHarness):
         self.assertTrue(exported.content.startswith(b"\xef\xbb\xbfmonth,currency"))
         self.assertIn("attachment;", exported.headers["content-disposition"])
         self.assertNotIn(dataset_id, exported.text)
+
+        with psycopg.connect(MIGRATOR_DSN, autocommit=True) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT set_config('fincilia.company_id', %s, false)",
+                    (ESPIGA,))
+                cursor.execute(
+                    "SELECT action, detail FROM fincilia.audit_event "
+                    "WHERE action IN ('report.operational.read', "
+                    "'report.operational.export') "
+                    "ORDER BY occurred_at DESC LIMIT 2")
+                audited = list(cursor)
+        self.assertEqual(
+            {"report.operational.read", "report.operational.export"},
+            {action for action, _ in audited})
+        for _, detail in audited:
+            self.assertEqual(
+                {"days", "start", "end", "series_rows"}, set(detail))
+            rendered = str(detail).lower()
+            for forbidden in ("amount", "currency", "movement", dataset_id.lower()):
+                self.assertNotIn(forbidden, rendered)
 
     def test_permissions_validation_and_tenancy_fail_closed(self) -> None:
         espiga = f"/api/v1/companies/{ESPIGA}/reports/operational"

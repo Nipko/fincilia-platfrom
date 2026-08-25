@@ -1194,7 +1194,13 @@ ul {
   margin: 0.35rem 0;
 }
 
-.report-kpis small { color: var(--ink-soft); }
+.report-kpis .report-kpi-detail {
+  color: var(--ink-soft);
+  font-family: inherit;
+  font-size: 0.875rem;
+  font-weight: 400;
+  margin: 0;
+}
 .report-aggregation-note { margin-bottom: 2rem; }
 .report-company-list { display: grid; gap: 2.5rem; }
 
