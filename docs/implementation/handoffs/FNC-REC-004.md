@@ -6,7 +6,7 @@ reservation_sha: cca3ff3
 implementation_sha: cefd9a0
 web_sha: 9b6547c
 tested_head_sha: 9b6547c
-integration_sha: pending
+integration_sha: 792198b
 data_ceiling: synthetic_only
 implemented_by: Codex principal dev + Integration Steward
 independent_reviewers: [Accounting, Security, Database, Backend/Architecture, Accessibility/QA]
