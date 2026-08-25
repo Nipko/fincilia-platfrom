@@ -28,7 +28,7 @@ from fincilia_platform.objects import ObjectStoreError, object_key
 from fincilia_platform.tokens import issue
 
 from . import (access, datasets, exports, onboarding, operations, quality,
-               reconciliation, repository)
+               reconciliation, reports, repository)
 from .security import (Principal, ProblemError, company_context, current_principal,
                        forbidden, require, unauthorized)
 from fincilia_contracts.errors import problem
@@ -1840,6 +1840,71 @@ def triage_quality_issue(
                 rationale=body.rationale)
         except quality.QualityError as error:
             raise _quality_problem(error) from None
+
+
+def _report_synthetic_only(request: Request) -> None:
+    if request.app.state.settings.real_data_enabled:
+        raise ProblemError(problem(
+            "report-center-disabled", "Report center unavailable", 503,
+            "operational reports are enabled only for synthetic data"))
+
+
+def _report_problem(error: reports.ReportError) -> ProblemError:
+    return ProblemError(problem(
+        error.code, "Report request invalid", 422, error.detail))
+
+
+def _build_operational_report(request: Request, principal: Principal,
+                              company_id: str, days: int,
+                              as_of: dt.date | None, action: str) -> tuple[dict, TenantContext]:
+    context = company_context(request, principal, company_id)
+    require(context, "report.read" if action == "read" else "report.export")
+    _report_synthetic_only(request)
+    with request.app.state.database.session(
+            company_id=context.company_id,
+            subject_id=principal.subject_id) as connection:
+        try:
+            result = reports.operational_report(
+                connection, days=days, as_of=as_of)
+        except reports.ReportError as error:
+            raise _report_problem(error) from None
+        repository.record_audit(
+            connection, subject_id=principal.subject_id,
+            company_id=context.company_id, action=f"report.operational.{action}",
+            resource_kind="company", resource_ref=context.company_id,
+            outcome="allowed", detail={
+                "days": result["range"]["days"],
+                "start": result["range"]["start"],
+                "end": result["range"]["end"],
+                "series_rows": len(result["money_series"]),
+            })
+    return result, context
+
+
+@router.get("/companies/{company_id}/reports/operational", tags=["reports"])
+def operational_report(
+        request: Request, company_id: str, days: int = 90,
+        as_of: dt.date | None = None,
+        principal: Principal = Depends(principal_dependency)) -> dict:
+    """Historico operativo exacto; no es balance, cierre ni certificacion."""
+    result, _ = _build_operational_report(
+        request, principal, company_id, days, as_of, "read")
+    return result
+
+
+@router.get("/companies/{company_id}/reports/operational.csv", tags=["reports"])
+def export_operational_report(
+        request: Request, company_id: str, days: int = 90,
+        as_of: dt.date | None = None,
+        principal: Principal = Depends(principal_dependency)) -> Response:
+    """La serie visible, en CSV determinista y sin nombres aportados por usuarios."""
+    result, _ = _build_operational_report(
+        request, principal, company_id, days, as_of, "export")
+    filename = f"fincilia-informe-{result['range']['end']}-{days}d.csv"
+    return Response(
+        content=reports.report_csv(result), media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"',
+                 "X-Content-Type-Options": "nosniff"})
 
 
 @router.get("/companies/{company_id}/assignees", tags=["onboarding"])
