@@ -3,7 +3,7 @@ task_id: FNC-AUD-001
 status: REVIEW_PENDING
 base_sha: 4983764
 implementation_sha: c119f91
-integration_sha: pending
+integration_sha: 56e72a5
 data_ceiling: synthetic_only
 implemented_by: Codex principal dev + Integration Steward
 independent_reviewers: [Security/Privacy, Backend/Architecture, Web/Accessibility]
