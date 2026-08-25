@@ -26,7 +26,7 @@ from fincilia_platform.identity import AuthenticationError
 from fincilia_platform.objects import ObjectStoreError, object_key
 from fincilia_platform.tokens import issue
 
-from . import datasets, exports, onboarding, operations, reconciliation, repository
+from . import access, datasets, exports, onboarding, operations, reconciliation, repository
 from .security import (Principal, ProblemError, company_context, current_principal,
                        forbidden, require, unauthorized)
 from fincilia_contracts.errors import problem
@@ -87,6 +87,12 @@ class MatchDecisionRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     decision: str
     reason_code: str = Field(min_length=3, max_length=80)
+
+
+class RoleChangeRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    role: str = Field(min_length=3, max_length=40)
+    reason_code: str = Field(min_length=3, max_length=40)
 
 
 class ArtifactSummary(BaseModel):
@@ -1773,3 +1779,108 @@ def list_assignees(request: Request, company_id: str,
             resource_kind="company", resource_ref=context.company_id,
             outcome="allowed", detail={"candidates": len(people)})
     return people
+
+
+def _access_problem(error: access.AccessManagementError) -> ProblemError:
+    status = 409 if error.code in {
+        "self-role-change", "last-owner", "authorization-missing"
+    } else 422
+    return ProblemError(problem(
+        error.code, "Role change rejected", status, error.detail))
+
+
+@router.get("/companies/{company_id}/members", tags=["access"])
+def list_company_members(
+        request: Request, company_id: str,
+        principal: Principal = Depends(principal_dependency)) -> list[dict]:
+    """Miembros de la firma delegada, sin correo ni identidad externa."""
+    context = company_context(request, principal, company_id)
+    require(context, "member.manage")
+    database = request.app.state.database
+    with database.session(company_id=context.company_id,
+                          subject_id=principal.subject_id) as connection:
+        members = access.list_members(connection, context.company_id)
+        repository.record_audit(
+            connection, subject_id=principal.subject_id,
+            company_id=context.company_id, action="member.list",
+            resource_kind="company", resource_ref=context.company_id,
+            outcome="allowed", detail={"members": len(members)})
+    return members
+
+
+def _change_member_role(
+        *, request: Request, company_id: str, subject_id: str,
+        body: RoleChangeRequest, principal: Principal, operation: str) -> dict:
+    context = company_context(request, principal, company_id)
+    require(context, "member.manage")
+    database = request.app.state.database
+    with database.session(company_id=context.company_id,
+                          subject_id=principal.subject_id) as connection:
+        try:
+            if operation == "grant":
+                result = access.grant_role(
+                    connection, company_id=context.company_id,
+                    actor_id=principal.subject_id, actor_roles=context.roles,
+                    subject_id=subject_id, role=body.role,
+                    reason_code=body.reason_code)
+            else:
+                result = access.revoke_role(
+                    connection, company_id=context.company_id,
+                    actor_id=principal.subject_id, actor_roles=context.roles,
+                    subject_id=subject_id, role=body.role,
+                    reason_code=body.reason_code)
+        except access.AccessManagementError as error:
+            if error.code == "protected-role":
+                raise forbidden() from None
+            raise _access_problem(error) from None
+
+        version = context.authorization_version
+        if result["changed"]:
+            version = repository.bump_authorization_version(
+                connection, context.company_id)
+        repository.record_audit(
+            connection, subject_id=principal.subject_id,
+            company_id=context.company_id,
+            action=f"member.role.{operation}", resource_kind="subject",
+            resource_ref=result["subject_id"], outcome="allowed",
+            detail={
+                "role": result["role"],
+                "reason_code": body.reason_code,
+                "changed": result["changed"],
+                "replayed": result["replayed"],
+                "authorization_version": version,
+            })
+    refreshed_session = None
+    if result["changed"]:
+        settings = request.app.state.settings
+        now = int(time.time())
+        refreshed_session = {
+            "token": issue(
+                principal.subject_id, key=settings.auth_signing_key,
+                issuer=settings.auth_issuer, audience=settings.auth_audience,
+                issued_at=now, ttl_seconds=settings.auth_token_ttl_seconds),
+            "expires_at": now + settings.auth_token_ttl_seconds,
+            "display_name": principal.display_name,
+        }
+    return {**result, "authorization_version": version,
+            "refreshed_session": refreshed_session}
+
+
+@router.post("/companies/{company_id}/members/{subject_id}/roles", tags=["access"])
+def grant_company_role(
+        request: Request, company_id: str, subject_id: str,
+        body: RoleChangeRequest,
+        principal: Principal = Depends(principal_dependency)) -> dict:
+    return _change_member_role(
+        request=request, company_id=company_id, subject_id=subject_id,
+        body=body, principal=principal, operation="grant")
+
+
+@router.delete("/companies/{company_id}/members/{subject_id}/roles", tags=["access"])
+def revoke_company_role(
+        request: Request, company_id: str, subject_id: str,
+        body: RoleChangeRequest,
+        principal: Principal = Depends(principal_dependency)) -> dict:
+    return _change_member_role(
+        request=request, company_id=company_id, subject_id=subject_id,
+        body=body, principal=principal, operation="revoke")
