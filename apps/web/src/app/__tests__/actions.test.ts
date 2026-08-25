@@ -19,6 +19,7 @@ const mocks = vi.hoisted(() => {
     fetchOverrides: vi.fn(),
     proposeCorrection: vi.fn(),
     proposeReconciliationReview: vi.fn(),
+    provisionCompany: vi.fn(),
     decideReconciliationReview: vi.fn(),
     reviewCorrection: vi.fn(),
     createMapping: vi.fn(),
@@ -65,6 +66,7 @@ vi.mock('@/lib/api', () => ({
   publishDataset: vi.fn(),
   proposeCorrection: mocks.proposeCorrection,
   proposeReconciliationReview: mocks.proposeReconciliationReview,
+  provisionCompany: mocks.provisionCompany,
   decideReconciliationReview: mocks.decideReconciliationReview,
   rejectDataset: mocks.rejectDataset,
   reviewCorrection: mocks.reviewCorrection,
@@ -92,6 +94,7 @@ import {
   revokeMemberRoleAction,
   scanQualityAction,
   triageQualityAction,
+  provisionCompanyAction,
 } from '../actions';
 
 function mappingForm(): FormData {
@@ -180,6 +183,27 @@ function roleForm(): FormData {
   form.set('subjectId', '6f0f7b18-0a7a-5c8e-9d2c-6a1f2b3c4d5f');
   form.set('role', 'reviewer');
   form.set('reasonCode', 'access_required');
+  return form;
+}
+
+function companyProvisionForm(): FormData {
+  const form = new FormData();
+  form.set('firmId', '5f0f7b18-0a7a-5c8e-9d2c-6a1f2b3c4d5e');
+  form.set('legalName', 'Empresa Sintetica del Norte SAS');
+  form.set('countryCode', 'CO');
+  form.set('taxIdentifier', 'SYN-900123456');
+  form.set('idempotencyKey', 'onboarding-company-test-0001');
+  form.set('includeSetup', 'on');
+  form.set('accountFamily', 'bank_account');
+  form.set('accountName', 'Cuenta operativa sintetica');
+  form.set('accountIdentifier', 'SYN-ACCOUNT-0001');
+  form.set('currencyCode', 'COP');
+  form.set('sourceFamily', 'bank_account');
+  form.set('sourceName', 'Extracto sintetico inicial');
+  form.set('timezone', 'America/Bogota');
+  form.set('anchorDate', '2026-08-01');
+  form.set('dueDayOffset', '2');
+  form.set('graceDays', '3');
   return form;
 }
 
@@ -605,6 +629,86 @@ describe('continueDatasetAction', () => {
 
     expect(result.error).toContain('no pertenece a este documento');
     expect(mocks.fetchDataset).toHaveBeenCalledOnce();
+  });
+});
+
+describe('company provisioning action', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.readSession.mockResolvedValue({
+      token: 'token-sintetico',
+      displayName: 'Sofia',
+    });
+  });
+
+  it('crea la empresa y sus maestros iniciales, renueva la sesion y navega', async () => {
+    mocks.provisionCompany.mockResolvedValue({
+      company_id: '7f0f7b18-0a7a-5c8e-9d2c-6a1f2b3c4d60',
+      account_id: '8f0f7b18-0a7a-5c8e-9d2c-6a1f2b3c4d70',
+      source_id: '9f0f7b18-0a7a-5c8e-9d2c-6a1f2b3c4d80',
+      replayed: false,
+      refreshed_session: {
+        token: 'token-renovado',
+        expires_at: 2_000_000_000,
+        display_name: 'Sofia Owner',
+      },
+    });
+
+    await expect(provisionCompanyAction(
+      { error: null }, companyProvisionForm(),
+    )).rejects.toThrow('NEXT_REDIRECT');
+
+    expect(mocks.provisionCompany).toHaveBeenCalledWith(
+      'token-sintetico',
+      expect.objectContaining({
+        firm_id: '5f0f7b18-0a7a-5c8e-9d2c-6a1f2b3c4d5e',
+        legal_name: 'Empresa Sintetica del Norte SAS',
+        tax_identifier: 'SYN-900123456',
+        setup: expect.objectContaining({
+          account_identifier: 'SYN-ACCOUNT-0001',
+          anchor_date: '2026-08-01',
+        }),
+      }),
+      'onboarding-company-test-0001',
+    );
+    expect(mocks.writeSession).toHaveBeenCalledWith(
+      'token-renovado', 'Sofia Owner', 2_000_000_000,
+    );
+    expect(mocks.revalidatePath).toHaveBeenCalledWith('/empresas');
+    expect(mocks.redirect).toHaveBeenCalledWith(
+      '/empresas/7f0f7b18-0a7a-5c8e-9d2c-6a1f2b3c4d60/fuentes?alta=creada',
+    );
+  });
+
+  it('rechaza identificadores invalidos antes de enviar secretos a la API', async () => {
+    const form = companyProvisionForm();
+    form.set('firmId', '../otra-firma');
+    form.set('taxIdentifier', 'x');
+
+    const result = await provisionCompanyAction({ error: null }, form);
+
+    expect(result.error).toContain('identificacion protegida');
+    expect(mocks.provisionCompany).not.toHaveBeenCalled();
+  });
+
+  it('explica un replay divergente sin reflejar la identificacion protegida', async () => {
+    mocks.provisionCompany.mockRejectedValue(new mocks.ApiError(409, 'digest mismatch'));
+
+    const result = await provisionCompanyAction(
+      { error: null }, companyProvisionForm(),
+    );
+
+    expect(result.error).toContain('solicitud cambio');
+    expect(result.error).not.toContain('SYN-900123456');
+  });
+
+  it('redirige al acceso cuando la sesion expiro sin capturar el redirect', async () => {
+    mocks.provisionCompany.mockRejectedValue(new mocks.ApiError(401, 'expired'));
+
+    await expect(provisionCompanyAction(
+      { error: null }, companyProvisionForm(),
+    )).rejects.toThrow('NEXT_REDIRECT');
+    expect(mocks.redirect).toHaveBeenCalledWith('/entrar');
   });
 });
 

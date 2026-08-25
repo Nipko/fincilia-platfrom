@@ -61,6 +61,7 @@
       "base_sha": "f19b162",
       "paths": [
         "db/migrations/V0019__company_provisioning.sql",
+        "db/migrations/V0020__manageable_firms_capability.sql",
         "db/seed/local.py",
         "db/tests/test_company_onboarding.py",
         "docs/platform/LOCAL_DEVELOPMENT.md",

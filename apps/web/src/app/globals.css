@@ -1272,3 +1272,81 @@ ul {
   .report-company__header, .report-company__actions { align-items: stretch; display: grid; }
   .report-money-totals dd { display: grid; }
 }
+
+/* Alta vertical de empresa ------------------------------------------------- */
+.company-onboarding {
+  display: grid;
+  gap: 1rem;
+  margin-block: 1.25rem 3rem;
+}
+
+.section-heading,
+.section-heading > div,
+.company-onboarding__submit {
+  align-items: center;
+  display: flex;
+  gap: 0.8rem;
+  justify-content: space-between;
+}
+
+.section-heading h2 { margin: 0; }
+
+.step-number {
+  align-items: center;
+  background: var(--accent);
+  border-radius: 999px;
+  color: white;
+  display: inline-flex;
+  font-family: var(--mono);
+  font-weight: 800;
+  height: 2rem;
+  justify-content: center;
+  width: 2rem;
+}
+
+.form-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 1rem;
+}
+
+.form-grid label {
+  color: var(--ink-soft);
+  display: grid;
+  font-size: 0.82rem;
+  font-weight: 700;
+  gap: 0.4rem;
+}
+
+.form-span-2 { grid-column: 1 / -1; }
+.field-help { font-size: 0.75rem; font-weight: 400; }
+
+.switch-label {
+  align-items: center;
+  color: var(--ink);
+  display: flex;
+  font-weight: 700;
+  gap: 0.5rem;
+}
+
+.switch-label input { height: 1.15rem; width: 1.15rem; }
+
+.company-onboarding__submit {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 1rem;
+  position: sticky;
+  bottom: 1rem;
+  box-shadow: 0 0.7rem 2rem rgb(15 23 42 / 12%);
+}
+
+.company-onboarding__submit p { margin: 0; }
+
+@media (max-width: 40rem) {
+  .form-grid { grid-template-columns: 1fr; }
+  .form-span-2 { grid-column: auto; }
+  .section-heading,
+  .company-onboarding__submit { align-items: stretch; display: grid; }
+}

@@ -49,6 +49,15 @@ test('TST-A11Y-001: portafolio autenticado de preparador', async ({ page }) => {
   await expectNoSeriousOrCriticalViolations(page);
 });
 
+test('TST-A11Y-001: alta completa de empresa para owner', async ({ page }) => {
+  await signIn(page, 'sofia@demo.local');
+  await page.getByRole('link', { name: 'Crear una empresa' }).click();
+  await expect(page.getByRole('heading', { level: 1, name: 'Nueva empresa' }))
+    .toBeVisible();
+
+  await expectNoSeriousOrCriticalViolations(page);
+});
+
 test('TST-A11Y-001: estacion de conciliacion sintetica', async ({ page }) => {
   await signIn(page, 'ana@demo.local');
   await page.getByRole('link', { name: 'Abrir Panaderia La Espiga SAS' }).click();

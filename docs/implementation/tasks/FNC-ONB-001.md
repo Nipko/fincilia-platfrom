@@ -18,7 +18,7 @@ fuente, vinculo principal y ciclo mensual, y queda con acceso owner inmediato.
 
 # Alcance de codigo
 
-- Migracion forward-only V0019 y pruebas PostgreSQL.
+- Migraciones forward-only V0019/V0020 y pruebas PostgreSQL.
 - Contrato de permisos de firma, dominio y rutas API de aprovisionamiento.
 - Semilla local definitiva: una cuenta fundadora con roles acumulables reales;
   las identidades auxiliares solo sostienen pruebas de SoD entre sujetos.

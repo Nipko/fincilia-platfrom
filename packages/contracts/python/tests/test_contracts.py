@@ -36,12 +36,17 @@ from fincilia_contracts.money import (  # noqa: E402
     subtract,
 )
 from fincilia_contracts.tenancy import (  # noqa: E402
+    FIRM_PERMISSIONS,
+    FIRM_ROLE_PERMISSIONS,
+    FIRM_ROLES,
     PERMISSIONS,
     ROLE_PERMISSIONS,
     ROLES,
     AuthorizationError,
     TenantContext,
+    derive_firm_permissions,
     derive_permissions,
+    require_firm_permission,
     violates_segregation,
 )
 
@@ -115,6 +120,26 @@ class MoneyTests(unittest.TestCase):
 
 
 class TenancyTests(unittest.TestCase):
+    def test_only_firm_managers_can_provision_a_company(self) -> None:
+        for role in FIRM_ROLES:
+            with self.subTest(role=role):
+                expected = role in ("owner", "firm_admin")
+                self.assertEqual(
+                    expected,
+                    "company.provision" in derive_firm_permissions(role),
+                )
+                if expected:
+                    require_firm_permission(role, "company.provision")
+                else:
+                    with self.assertRaises(AuthorizationError):
+                        require_firm_permission(role, "company.provision")
+
+    def test_firm_permissions_are_a_closed_vocabulary(self) -> None:
+        self.assertEqual(("company.provision",), FIRM_PERMISSIONS)
+        self.assertEqual(set(FIRM_ROLES), set(FIRM_ROLE_PERMISSIONS))
+        with self.assertRaises(AuthorizationError):
+            require_firm_permission("owner", "company.delete")
+
     def test_a_context_always_names_subject_firm_and_company(self) -> None:
         for missing in ("subject_id", "firm_id", "company_id"):
             with self.subTest(missing=missing), self.assertRaises(AuthorizationError):

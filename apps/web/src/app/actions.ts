@@ -30,6 +30,7 @@ import {
   decideAmbiguity,
   prepareDataset,
   publishDataset,
+  provisionCompany,
   proposeReconciliationReview,
   proposeCorrection,
   rejectDataset,
@@ -77,6 +78,118 @@ export async function signInAction(
 export async function signOutAction(): Promise<void> {
   await clearSession();
   redirect('/entrar');
+}
+
+// --------------------------------------------------------------------------- //
+// Alta transaccional de empresa (FNC-ONB-001)
+// --------------------------------------------------------------------------- //
+
+export type CompanyProvisionState = { error: string | null };
+
+const COUNTRY_CODES = new Set(['AR', 'CL', 'CO', 'MX', 'PE']);
+const ACCOUNT_FAMILIES = new Set([
+  'bank_account', 'payment_gateway', 'merchant_acquirer', 'marketplace',
+  'digital_wallet', 'billing_erp', 'accounting_ledger',
+]);
+const SOURCE_FAMILIES = new Set([
+  'bank_account', 'payment_gateway', 'merchant_acquirer', 'marketplace',
+  'digital_wallet', 'billing_erp', 'accounting_ledger',
+  'tax_documents_received', 'supporting_evidence', 'reference_data',
+]);
+const COMPANY_IDEMPOTENCY_PATTERN = /^[A-Za-z0-9._:-]{16,128}$/;
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+export async function provisionCompanyAction(
+  _previous: CompanyProvisionState,
+  formData: FormData,
+): Promise<CompanyProvisionState> {
+  const session = await readSession();
+  if (!session) redirect('/entrar');
+
+  const firmId = String(formData.get('firmId') ?? '');
+  const legalName = String(formData.get('legalName') ?? '').trim();
+  const countryCode = String(formData.get('countryCode') ?? '').toUpperCase();
+  const taxIdentifier = String(formData.get('taxIdentifier') ?? '').trim();
+  const idempotencyKey = String(formData.get('idempotencyKey') ?? '');
+  const includeSetup = formData.get('includeSetup') === 'on';
+  if (
+    !UUID_PATTERN.test(firmId) || legalName.length < 2 || legalName.length > 300 ||
+    !COUNTRY_CODES.has(countryCode) || taxIdentifier.length < 4 ||
+    taxIdentifier.length > 64 || !COMPANY_IDEMPOTENCY_PATTERN.test(idempotencyKey)
+  ) {
+    return { error: 'Revisa la firma, nombre, pais e identificacion protegida.' };
+  }
+
+  let setup = null;
+  if (includeSetup) {
+    const accountFamily = String(formData.get('accountFamily') ?? '');
+    const sourceFamily = String(formData.get('sourceFamily') ?? '');
+    const accountName = String(formData.get('accountName') ?? '').trim();
+    const accountIdentifier = String(formData.get('accountIdentifier') ?? '').trim();
+    const sourceName = String(formData.get('sourceName') ?? '').trim();
+    const currencyCode = String(formData.get('currencyCode') ?? '').toUpperCase();
+    const timezone = String(formData.get('timezone') ?? 'America/Bogota');
+    const anchorDate = String(formData.get('anchorDate') ?? '');
+    const dueDayOffset = Number.parseInt(
+      String(formData.get('dueDayOffset') ?? '0'), 10);
+    const graceDays = Number.parseInt(String(formData.get('graceDays') ?? '3'), 10);
+    if (
+      !ACCOUNT_FAMILIES.has(accountFamily) || !SOURCE_FAMILIES.has(sourceFamily) ||
+      accountName.length < 1 || accountName.length > 160 ||
+      accountIdentifier.length < 4 || accountIdentifier.length > 64 ||
+      sourceName.length < 1 || sourceName.length > 160 ||
+      !/^[A-Z]{3}$/.test(currencyCode) || !/^\d{4}-\d{2}-\d{2}$/.test(anchorDate) ||
+      !Number.isInteger(dueDayOffset) || dueDayOffset < 0 || dueDayOffset > 120 ||
+      !Number.isInteger(graceDays) || graceDays < 0 || graceDays > 120
+    ) {
+      return { error: 'Revisa la cuenta, fuente y ciclo inicial.' };
+    }
+    setup = {
+      account_family: accountFamily,
+      account_name: accountName,
+      account_identifier: accountIdentifier,
+      currency_code: currencyCode,
+      source_family: sourceFamily,
+      source_name: sourceName,
+      purpose_code: 'operational',
+      timezone,
+      anchor_date: anchorDate,
+      due_day_offset: dueDayOffset,
+      grace_days: graceDays,
+    };
+  }
+
+  let result;
+  try {
+    result = await provisionCompany(session.token, {
+      firm_id: firmId,
+      legal_name: legalName,
+      country_code: countryCode,
+      tax_identifier: taxIdentifier,
+      setup,
+    }, idempotencyKey);
+    await writeSession(
+      result.refreshed_session.token,
+      result.refreshed_session.display_name,
+      result.refreshed_session.expires_at,
+    );
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) redirect('/entrar');
+    if (error instanceof ApiError && error.status === 403) {
+      return { error: 'Ya no puedes crear empresas para esa firma.' };
+    }
+    if (error instanceof ApiError && error.status === 409) {
+      return { error: 'La empresa ya esta registrada o la solicitud cambio al reintentarse.' };
+    }
+    if (error instanceof ApiError && error.status === 422) {
+      return { error: 'La empresa o su configuracion inicial no son validas.' };
+    }
+    return { error: 'No se pudo crear la empresa. Intenta nuevamente.' };
+  }
+
+  revalidatePath('/empresas');
+  redirect(`/empresas/${result.company_id}/fuentes?alta=creada`);
 }
 
 // --------------------------------------------------------------------------- //
@@ -201,8 +314,6 @@ export async function revokeMemberRoleAction(
 
 export type MatchReviewState = { error: string | null; done: string | null };
 
-const UUID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const IDEMPOTENCY_PATTERN = /^[A-Za-z0-9._:-]{16,128}$/;
 
 function reviewError(error: unknown): MatchReviewState {

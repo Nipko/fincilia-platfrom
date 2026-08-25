@@ -25,6 +25,17 @@ ROLES: Final[tuple[str, ...]] = (
     "read_only",
 )
 
+# La firma es un alcance distinto de una company. Estos permisos existen antes
+# de que haya una empresa que pueda formar un TenantContext, por eso no se
+# mezclan con la matriz financiera company-scoped.
+FIRM_ROLES: Final[tuple[str, ...]] = ("owner", "firm_admin", "member")
+FIRM_PERMISSIONS: Final[tuple[str, ...]] = ("company.provision",)
+FIRM_ROLE_PERMISSIONS: Final[dict[str, frozenset[str]]] = {
+    "owner": frozenset(FIRM_PERMISSIONS),
+    "firm_admin": frozenset(FIRM_PERMISSIONS),
+    "member": frozenset(),
+}
+
 # Permisos atomicos. Un permiso ausente es denegacion; no hay comodines.
 PERMISSIONS: Final[tuple[str, ...]] = (
     "company.read",
@@ -145,6 +156,18 @@ def derive_permissions(roles: tuple[str, ...] | list[str]) -> frozenset[str]:
     for role in roles:
         granted |= ROLE_PERMISSIONS.get(role, frozenset())
     return frozenset(granted)
+
+
+def derive_firm_permissions(role: str) -> frozenset[str]:
+    """Permisos previos a company. Un rol desconocido no concede nada."""
+    return FIRM_ROLE_PERMISSIONS.get(role, frozenset())
+
+
+def require_firm_permission(role: str, permission: str) -> None:
+    if permission not in FIRM_PERMISSIONS:
+        raise AuthorizationError(f"unknown firm permission {permission!r}")
+    if permission not in derive_firm_permissions(role):
+        raise AuthorizationError(f"firm role lacks {permission}")
 
 
 def violates_segregation(permission: str, already_exercised: set[str]) -> str | None:

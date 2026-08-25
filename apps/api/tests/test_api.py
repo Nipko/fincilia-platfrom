@@ -237,6 +237,25 @@ class HealthTests(unittest.TestCase):
         self.assertEqual(body["info"]["title"], "Fincilia API")
         self.assertIn("/health/ready", body["paths"])
 
+    def test_company_provisioning_response_cannot_expose_protected_identifiers(
+            self) -> None:
+        body = client(self.all_up()).get("/openapi.json").json()
+        schema = body["components"]["schemas"]["CompanyProvisionResponse"]
+        properties = set(schema["properties"])
+
+        self.assertIn("refreshed_session", properties)
+        self.assertIn("permissions", properties)
+        self.assertIn("account_id", properties)
+        self.assertNotIn("tax_identifier", properties)
+        self.assertNotIn("account_identifier", properties)
+        post = body["paths"]["/api/v1/companies"]["post"]
+        response_schema = post["responses"]["200"]["content"][
+            "application/json"]["schema"]
+        self.assertEqual(
+            "#/components/schemas/CompanyProvisionResponse",
+            response_schema["$ref"],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

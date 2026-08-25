@@ -54,6 +54,44 @@ export type Session = {
   display_name: string;
 };
 
+export type ManagedFirm = {
+  firm_id: string;
+  legal_name: string;
+  firm_role: string;
+};
+
+export type InitialCompanySetup = {
+  account_family: string;
+  account_name: string;
+  account_identifier: string;
+  currency_code: string;
+  source_family: string;
+  source_name: string;
+  purpose_code: string;
+  timezone: string;
+  anchor_date: string;
+  due_day_offset: number;
+  grace_days: number;
+};
+
+export type CompanyProvisionInput = {
+  firm_id: string;
+  legal_name: string;
+  country_code: string;
+  tax_identifier: string;
+  setup: InitialCompanySetup | null;
+};
+
+export type CompanyProvisionResult = CompanyDetail & {
+  account_id: string | null;
+  source_id: string | null;
+  link_id: string | null;
+  cycle_id: string | null;
+  expectations_created: number;
+  replayed: boolean;
+  refreshed_session: Session;
+};
+
 /** Fallo con el codigo que devolvio la API, para poder distinguir 401 de 403. */
 export class ApiError extends Error {
   readonly status: number;
@@ -630,6 +668,26 @@ export function fetchDatasets(
     `/api/v1/companies/${company}/datasets${query}`,
     { token },
   );
+}
+
+export function fetchManageableFirms(token: string): Promise<ManagedFirm[]> {
+  return request<ManagedFirm[]>('/api/v1/firms/manageable', { token });
+}
+
+export function provisionCompany(
+  token: string,
+  input: CompanyProvisionInput,
+  idempotencyKey: string,
+): Promise<CompanyProvisionResult> {
+  return request<CompanyProvisionResult>('/api/v1/companies', {
+    token,
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'idempotency-key': idempotencyKey,
+    },
+    body: JSON.stringify(input),
+  });
 }
 
 export type ReportRange = {

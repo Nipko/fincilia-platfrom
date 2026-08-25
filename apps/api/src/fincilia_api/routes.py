@@ -29,6 +29,7 @@ from fincilia_platform.tokens import issue
 
 from . import (access, datasets, exports, onboarding, operations, quality,
                reconciliation, reports, repository)
+from . import company_onboarding
 from .security import (Principal, ProblemError, company_context, current_principal,
                        forbidden, require, unauthorized)
 from fincilia_contracts.errors import problem
@@ -64,6 +65,51 @@ class CompanyDetail(CompanySummary):
     engagement_id: str | None
     authorization_version: int
     permissions: list[str]
+
+
+class ManagedFirm(BaseModel):
+    firm_id: str
+    legal_name: str
+    firm_role: str
+
+
+class InitialCompanySetupRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    account_family: str = Field(min_length=3, max_length=64)
+    account_name: str = Field(min_length=1, max_length=160)
+    # ``object`` evita que el error automatico de Pydantic repita un
+    # identificador protegido. La ruta comprueba que sea texto con un mensaje
+    # que nunca contiene el valor.
+    account_identifier: object
+    currency_code: str = Field(min_length=3, max_length=3)
+    source_family: str = Field(min_length=3, max_length=64)
+    source_name: str = Field(min_length=1, max_length=160)
+    purpose_code: str = Field(default="operational", min_length=3, max_length=64)
+    timezone: str = Field(default="America/Bogota", min_length=3, max_length=80)
+    anchor_date: dt.date
+    due_day_offset: int = Field(default=0, ge=0, le=120)
+    grace_days: int = Field(default=3, ge=0, le=120)
+
+
+class CompanyProvisionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    firm_id: uuid.UUID
+    legal_name: str = Field(min_length=2, max_length=300)
+    country_code: str = Field(min_length=2, max_length=2)
+    tax_identifier: object
+    setup: InitialCompanySetupRequest | None = None
+
+
+class CompanyProvisionResponse(CompanyDetail):
+    account_id: str | None
+    source_id: str | None
+    link_id: str | None
+    cycle_id: str | None
+    expectations_created: int
+    replayed: bool
+    refreshed_session: SessionResponse
 
 
 class AuditEvent(BaseModel):
@@ -220,6 +266,118 @@ def list_companies(request: Request,
                          principal: Principal = Depends(principal_dependency),
                          ) -> list[CompanySummary]:
     return _my_companies(request, principal)
+
+
+@router.get("/firms/manageable", response_model=list[ManagedFirm],
+            tags=["companies"])
+def manageable_firms(
+        request: Request,
+        principal: Principal = Depends(principal_dependency),
+        ) -> list[ManagedFirm]:
+    """Firmas donde el sujeto puede crear una empresa, sin revelar miembros."""
+    with request.app.state.database.session(
+            subject_id=principal.subject_id) as connection:
+        rows = company_onboarding.list_manageable_firms(
+            connection, subject_id=principal.subject_id)
+    return [ManagedFirm(**row) for row in rows]
+
+
+def _company_onboarding_problem(
+        error: company_onboarding.CompanyOnboardingError) -> ProblemError:
+    return ProblemError(problem(
+        error.code, "Company provisioning rejected", error.status, error.detail))
+
+
+def _protected_identifier(value: object) -> str:
+    if not isinstance(value, str) or not 4 <= len(value.strip()) <= 64:
+        raise _company_onboarding_problem(
+            company_onboarding.CompanyOnboardingError(
+                "invalid-identifier",
+                "the protected identifier must be text between 4 and 64 characters",
+            ))
+    return value
+
+
+@router.post("/companies", response_model=CompanyProvisionResponse,
+             tags=["companies"])
+def provision_company(
+        request: Request, response: Response, body: CompanyProvisionRequest,
+        principal: Principal = Depends(principal_dependency),
+        ) -> CompanyProvisionResponse:
+    """Crea company, engagement, owner y maestros iniciales en una transaccion."""
+    if request.app.state.settings.real_data_enabled:
+        raise ProblemError(problem(
+            "company-provisioning-disabled", "Company provisioning unavailable", 503,
+            "company provisioning is enabled only for synthetic data"))
+    idempotency_key = request.headers.get("idempotency-key", "")
+    tax_identifier = _protected_identifier(body.tax_identifier)
+    setup = None
+    if body.setup is not None:
+        account_identifier = _protected_identifier(body.setup.account_identifier)
+        setup = company_onboarding.InitialSetup(
+            account_family=body.setup.account_family,
+            account_name=body.setup.account_name,
+            account_identifier=account_identifier,
+            currency_code=body.setup.currency_code,
+            source_family=body.setup.source_family,
+            source_name=body.setup.source_name,
+            purpose_code=body.setup.purpose_code,
+            timezone=body.setup.timezone,
+            anchor_date=body.setup.anchor_date,
+            due_day_offset=body.setup.due_day_offset,
+            grace_days=body.setup.grace_days,
+        )
+
+    settings = request.app.state.settings
+    database = request.app.state.database
+    company_id = str(uuid.uuid4())
+    failure: company_onboarding.CompanyOnboardingError | None = None
+    result: dict | None = None
+    try:
+        # La company aun no existe, pero el contexto anticipado obliga a que
+        # cada INSERT company-scoped use exactamente el ID generado en servidor.
+        with database.session(company_id=company_id,
+                              subject_id=principal.subject_id) as connection:
+            result = company_onboarding.provision_company(
+                connection, company_id=company_id, firm_id=str(body.firm_id),
+                subject_id=principal.subject_id, legal_name=body.legal_name,
+                country_code=body.country_code,
+                tax_identifier=tax_identifier,
+                idempotency_key=idempotency_key,
+                tokenization_key=settings.identifier_tokenization_key,
+                key_version=settings.identifier_key_version, setup=setup)
+    except company_onboarding.CompanyOnboardingError as error:
+        failure = error
+
+    if failure is not None:
+        # Se registra tras el rollback de la operacion fallida. No se incluye
+        # firma, nombre, NIT ni identificador de cuenta.
+        with database.session(subject_id=principal.subject_id) as connection:
+            repository.record_audit(
+                connection, subject_id=principal.subject_id, company_id=None,
+                action="company.provision", resource_kind="company",
+                resource_ref="unallocated", outcome="denied",
+                detail={"reason": failure.code})
+        raise _company_onboarding_problem(failure)
+    if result is None:
+        raise RuntimeError("company provisioning completed without a result")
+    # La nueva concesion owner puede hacer anterior el token con el que se creo
+    # la empresa. El BFF recibe uno fresco para navegar de inmediato; no se
+    # guarda en el recibo idempotente ni llega a JavaScript del navegador.
+    refreshed_at = int(time.time())
+    result["refreshed_session"] = {
+        "token": issue(
+            principal.subject_id, key=settings.auth_signing_key,
+            issuer=settings.auth_issuer, audience=settings.auth_audience,
+            issued_at=refreshed_at,
+            ttl_seconds=settings.auth_token_ttl_seconds,
+        ),
+        "expires_at": refreshed_at + settings.auth_token_ttl_seconds,
+        "subject_id": principal.subject_id,
+        "display_name": principal.display_name,
+    }
+    response.status_code = 200 if result["replayed"] else 201
+    return CompanyProvisionResponse(**result)
 
 
 @router.get("/companies/{company_id}", response_model=CompanyDetail,
