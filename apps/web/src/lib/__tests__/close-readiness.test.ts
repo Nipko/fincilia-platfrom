@@ -31,6 +31,7 @@ const RESULT: CloseReadinessResult = {
   can_execute_close: false,
   period_count: 1,
   blocked_period_count: 1,
+  review_ready_period_count: 0,
   source_count: 2,
   limit: 12,
   notice: 'diagnostic_only',
@@ -42,6 +43,8 @@ const RESULT: CloseReadinessResult = {
     can_execute_close: false,
     source_count: 2,
     selected_dataset_count: 1,
+    expected_account_count: 1,
+    missing_account_assignment_count: 0,
     controls: [
       { code: 'reconciliation_reviews', state: 'blocked', count: 3, detail: 'Abiertas' },
       { code: 'quality_alerts', state: 'blocked', count: 2, detail: 'Altas' },
@@ -53,6 +56,7 @@ const RESULT: CloseReadinessResult = {
       { code: 'product_close', count: 1, detail: 'Deshabilitado' },
     ],
     sources: [],
+    account_reconciliations: [],
   }],
 };
 
@@ -110,11 +114,33 @@ describe('preparacion diagnostica de cierre', () => {
       periods: 1,
       blockedPeriods: 1,
       sources: 2,
+      reviewReadyPeriods: 0,
       openReviews: 3,
       highAlerts: 2,
       pendingCorrections: 1,
     });
     expect(JSON.stringify(totals)).not.toMatch(/amount|balance|currency|close_ready/i);
+  });
+
+  it('distingue evidencia lista para revision de un cierre habilitado', () => {
+    const ready: CloseReadinessResult = {
+      ...RESULT,
+      blocked_period_count: 0,
+      review_ready_period_count: 1,
+      items: RESULT.items.map((period) => ({
+        ...period,
+        status: 'ready_for_review',
+        blockers: [],
+      })),
+    };
+    const totals = aggregateCloseReadinessCounts([{
+      company: COMPANY, access: 'available', result: ready,
+    }]);
+
+    expect(totals.reviewReadyPeriods).toBe(1);
+    expect(totals.blockedPeriods).toBe(0);
+    expect(ready.close_ready).toBe(false);
+    expect(ready.can_execute_close).toBe(false);
   });
 
   it('formatea periodos sin reinterpretar la zona horaria', () => {

@@ -126,7 +126,9 @@ export function filterCloseReadinessPeriod(
         ...snapshot.result,
         items,
         period_count: items.length,
-        blocked_period_count: items.length,
+        blocked_period_count: items.filter((item) => item.status === 'blocked').length,
+        review_ready_period_count: items.filter(
+          (item) => item.status === 'ready_for_review').length,
         source_count: items.reduce((total, period) => total + period.source_count, 0),
       },
     };
@@ -136,11 +138,13 @@ export function filterCloseReadinessPeriod(
 export function aggregateCloseReadinessCounts(
   snapshots: readonly CloseReadinessSnapshot[],
 ): { periods: number; blockedPeriods: number; sources: number;
-     openReviews: number; highAlerts: number; pendingCorrections: number } {
+     reviewReadyPeriods: number; openReviews: number; highAlerts: number;
+     pendingCorrections: number } {
   const total = {
     periods: 0,
     blockedPeriods: 0,
     sources: 0,
+    reviewReadyPeriods: 0,
     openReviews: 0,
     highAlerts: 0,
     pendingCorrections: 0,
@@ -150,6 +154,7 @@ export function aggregateCloseReadinessCounts(
     total.periods += result.period_count;
     total.blockedPeriods += result.blocked_period_count;
     total.sources += result.source_count;
+    total.reviewReadyPeriods += result.review_ready_period_count;
     for (const period of result.items) {
       const controls = new Map(period.controls.map((control) => [control.code, control]));
       total.openReviews += controls.get('reconciliation_reviews')?.count ?? 0;

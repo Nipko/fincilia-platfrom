@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 
 import { ESPIGA, signInOwner } from './operations-helpers';
 
-test('FNC-CLS-001 diagnostica por periodo sin habilitar un cierre', async ({
+test('FNC-CLS-004 integra statements sin habilitar un cierre', async ({
   page,
 }) => {
   await signInOwner(page);
@@ -11,9 +11,10 @@ test('FNC-CLS-001 diagnostica por periodo sin habilitar un cierre', async ({
   await expect(page.getByRole('heading', { level: 1, name: 'Preparacion de cierre' }))
     .toBeVisible();
   await expect(page.getByRole('status').filter({
-    hasText: 'Todos los periodos permanecen bloqueados',
+    hasText: 'La operacion de cierre permanece deshabilitada',
   })).toBeVisible();
-  await expect(page.getByText('No listo para cierre').first()).toBeVisible();
+  await expect(page.getByText(/Evidencia bloqueada|Evidencia lista para revision/).first())
+    .toBeVisible();
   await expect(page.getByRole('button', { name: /cerrar|ejecutar cierre/i }))
     .toHaveCount(0);
 
@@ -30,7 +31,8 @@ test('FNC-CLS-001 diagnostica por periodo sin habilitar un cierre', async ({
   await page.getByRole('button', { name: 'Actualizar diagnostico' }).click();
   const selectedPeriod = new URL(page.url()).searchParams.get('periodo');
   expect(selectedPeriod).toMatch(/^\d{4}-\d{2}-\d{2}:\d{4}-\d{2}-\d{2}$/);
-  await expect(page.getByText('No listo para cierre')).toHaveCount(1);
+  await expect(page.getByText(/Evidencia bloqueada|Evidencia lista para revision/))
+    .toHaveCount(1);
 
   await page.getByText('Ver evidencia por fuente', { exact: false }).first().click();
   await expect(page.getByRole('table').first()).toBeVisible();
@@ -38,4 +40,8 @@ test('FNC-CLS-001 diagnostica por periodo sin habilitar un cierre', async ({
   const balances = page.locator('.close-control').filter({ hasText: 'Saldos por cuenta' }).first();
   await expect(balances).toBeVisible();
   await expect(balances.getByText('Bloquea')).toBeVisible();
+  await page.getByText('Ver cobertura por cuenta', { exact: false }).first().click();
+  await expect(page.getByRole('columnheader', { name: 'Statement' }).first()).toBeVisible();
+  await expect(page.getByRole('button', { name: /cerrar|certificar|aceptar materialidad/i }))
+    .toHaveCount(0);
 });

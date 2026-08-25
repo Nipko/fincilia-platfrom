@@ -37,7 +37,9 @@ const CONTROL_LABELS: Record<string, string> = {
   quality_alerts: 'Alertas altas',
   pending_corrections: 'Correcciones pendientes',
   account_balances: 'Saldos por cuenta',
+  completeness_assessments: 'Evaluaciones de completitud',
   reconciliation_statements: 'Estado de conciliacion',
+  reconciliation_statement_lineage: 'Linaje del estado',
   product_close: 'Cierre productivo',
 };
 
@@ -45,6 +47,14 @@ const STATE_LABELS: Record<CloseReadinessControl['state'], string> = {
   pass: 'Cumple',
   blocked: 'Bloquea',
   unavailable: 'Aun no disponible',
+};
+
+const COVERAGE_LABELS: Record<string, string> = {
+  covered: 'Estado vigente y balanceado',
+  missing_assessment: 'Falta evaluacion elegible',
+  missing_statement: 'Falta estado de conciliacion',
+  stale_inputs: 'El estado usa evidencia anterior',
+  review_required: 'La conciliacion requiere revision',
 };
 
 function PeriodCard({ period, companyId }: {
@@ -58,7 +68,11 @@ function PeriodCard({ period, companyId }: {
           <p className="eyebrow">Periodo contable</p>
           <h3>{formatClosePeriod(period.period_start, period.period_end)}</h3>
         </div>
-        <span className="tag close-state close-state--blocked">No listo para cierre</span>
+        <span className={`tag close-state close-state--${period.status}`}>
+          {period.status === 'ready_for_review'
+            ? 'Evidencia lista para revision'
+            : 'Evidencia bloqueada'}
+        </span>
       </header>
 
       <dl className="close-control-grid">
@@ -99,6 +113,37 @@ function PeriodCard({ period, companyId }: {
           </div>
         ) : (
           <p role="status">No hay fuentes configuradas en esta ventana.</p>
+        )}
+      </details>
+
+      <details className="close-evidence">
+        <summary>
+          Ver cobertura por cuenta ({period.account_reconciliations.length} cuenta(s))
+        </summary>
+        {period.account_reconciliations.length ? (
+          <div className="scroll">
+            <table>
+              <thead><tr><th scope="col">Cuenta</th><th scope="col">Fuentes</th>
+                <th scope="col">Evaluaciones</th><th scope="col">Statement</th>
+                <th scope="col">Cobertura</th><th scope="col">Linaje</th></tr></thead>
+              <tbody>{period.account_reconciliations.map((account) => (
+                <tr key={account.financial_account_id}>
+                  <th scope="row">
+                    {account.account_name ?? `Cuenta ${account.financial_account_id.slice(0, 8)}`}
+                  </th>
+                  <td>{account.source_count}</td>
+                  <td>{account.assessment_count}</td>
+                  <td>{account.statement_version
+                    ? `v${account.statement_version} · ${account.statement_state}`
+                    : 'Sin statement'}</td>
+                  <td>{COVERAGE_LABELS[account.coverage_state] ?? account.coverage_state}</td>
+                  <td>{account.statement_lineage_state ?? 'Sin statement'}</td>
+                </tr>
+              ))}</tbody>
+            </table>
+          </div>
+        ) : (
+          <p role="status">No hay cuentas asignadas a las fuentes de este periodo.</p>
         )}
       </details>
 
@@ -194,9 +239,10 @@ export default async function CloseReadinessPage({ searchParams }: {
         explicable: consulta observaciones, no certifica conciliaciones ni ejecuta cierres.
       </p>
       <p className="notice close-readiness-warning" role="status">
-        <strong>Todos los periodos permanecen bloqueados.</strong>{' '}
-        Los saldos observados requieren linaje completo; los estados de conciliacion
-        y la operacion de cierre aun no estan habilitados.
+        <strong>La operacion de cierre permanece deshabilitada.</strong>{' '}
+        {totals.reviewReadyPeriods
+          ? `${totals.reviewReadyPeriods} periodo(s) tienen evidencia lista para revision humana; esto no constituye un cierre.`
+          : 'Los periodos visibles conservan bloqueos de evidencia o conciliacion.'}
       </p>
 
       <form method="get" className="close-toolbar" aria-label="Filtrar preparacion de cierre">
@@ -229,6 +275,7 @@ export default async function CloseReadinessPage({ searchParams }: {
       <dl className="close-summary" aria-label="Resumen diagnostico multiempresa">
         <div><dt>Periodos visibles</dt><dd>{totals.periods}</dd></div>
         <div><dt>Periodos bloqueados</dt><dd>{totals.blockedPeriods}</dd></div>
+        <div><dt>Listos para revision</dt><dd>{totals.reviewReadyPeriods}</dd></div>
         <div><dt>Fuentes esperadas</dt><dd>{totals.sources}</dd></div>
         <div><dt>Revisiones abiertas</dt><dd>{totals.openReviews}</dd></div>
         <div><dt>Alertas altas</dt><dd>{totals.highAlerts}</dd></div>

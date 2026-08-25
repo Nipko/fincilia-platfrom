@@ -1515,6 +1515,7 @@ export type CloseReadinessSource = {
   rejected_count: number;
   movement_count: number;
   prepared_at: string | null;
+  account_name: string | null;
   selection_rule: string;
 };
 
@@ -1524,17 +1525,38 @@ export type CloseReadinessBlocker = {
   detail: string;
 };
 
+export type CloseReadinessAccountReconciliation = {
+  financial_account_id: string;
+  account_name: string | null;
+  source_count: number;
+  assessment_count: number;
+  statement_root_id: string | null;
+  statement_id: string | null;
+  statement_version: number | null;
+  statement_state: string | null;
+  statement_lineage_state: string | null;
+  coverage_state:
+    | 'covered'
+    | 'missing_assessment'
+    | 'missing_statement'
+    | 'stale_inputs'
+    | 'review_required';
+};
+
 export type CloseReadinessPeriod = {
   period_start: string;
   period_end: string;
-  status: 'blocked';
+  status: 'blocked' | 'ready_for_review';
   close_ready: false;
   can_execute_close: false;
   source_count: number;
   selected_dataset_count: number;
+  expected_account_count: number;
+  missing_account_assignment_count: number;
   controls: CloseReadinessControl[];
   blockers: CloseReadinessBlocker[];
   sources: CloseReadinessSource[];
+  account_reconciliations: CloseReadinessAccountReconciliation[];
 };
 
 export type CloseReadinessResult = {
@@ -1543,6 +1565,7 @@ export type CloseReadinessResult = {
   can_execute_close: false;
   period_count: number;
   blocked_period_count: number;
+  review_ready_period_count: number;
   source_count: number;
   limit: number;
   items: CloseReadinessPeriod[];
