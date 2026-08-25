@@ -16,14 +16,14 @@ real_research_corpus_allowed: false
 real_pilot_allowed: false
 public_pricing_allowed: false
 external_ai_with_customer_data_allowed: false
-integration_owner: Founder
-product_owner: Founder
-accounting_owner: Founder
-architecture_owner: Founder
-security_owner: Founder
-privacy_owner: Founder
-legal_owner: Founder
-review_date: 2026-08-24
+integration_owner: UNASSIGNED
+product_owner: UNASSIGNED
+accounting_owner: UNASSIGNED
+architecture_owner: UNASSIGNED
+security_owner: UNASSIGNED
+privacy_owner: UNASSIGNED
+legal_owner: UNASSIGNED
+review_date: UNASSIGNED
 ---
 
 # Fase vigente
@@ -66,7 +66,7 @@ Hasta S1-READY solo se admite scaffolding, automatización, pruebas, documentaci
 
 | ID | Resultado | Estado | Implementador | Rutas |
 |---|---|---|---|---|
-| FNC-GOV-001 | Owners humanos, suplentes y RACI por gate | In progress: correction | Integration Steward | Corrige separación entre gobierno humano y personas sintéticas multirrol de prueba |
+| FNC-GOV-001 | Owners humanos, suplentes y RACI por gate | Blocked: founder | Integration Steward | Una persona multirrol de prueba no asigna owners humanos de gobierno; corrección FNC-GOV-001-R1 |
 | FNC-GOV-002 | Paquete de implementación multiagente | Done | Integration Steward | raíz, docs/implementation, docs/adr |
 | FNC-PRD-001 | PRD y wedge de firma contable | Review pending | Hume | docs/product/PRD_WEDGE.md, handoff |
 | FNC-DOM-001 | Tenancy company/engagement | Review pending | Einstein | docs/domain/TENANCY_MODEL.md, handoff |

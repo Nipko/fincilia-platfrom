@@ -18,6 +18,8 @@ Registro append-only. Una corrección crea una nueva decisión que sustituye a l
 | IMP-012 | 2026-08-21 | TOOLING | Proposed | Automatizar mutaciones aisladas de validadores sin rebajar la adjudicación humana de cambios en contratos y digests golden | QA + Security | `FNC-QA-003`, hallazgo de fragilidad de adjudicación |
 | IMP-013 | 2026-08-24 | GOVERNANCE | Accepted | Durante la etapa fundacional `FOUNDER-01` asume provisionalmente todos los roles humanos; la acumulación asigna responsabilidad pero no cuenta como revisión independiente ni supera gates | Founder | Instrucción humana del Founder; `FOUNDER_GOVERNANCE.md`; FNC-GOV-001 |
 | IMP-014 | 2026-08-24 | GOVERNANCE | Proposed | Adjudicar como un paquete las diez recomendaciones técnicas que bloquean S1-READY, conservando revisión por una persona distinta donde el control la exige | Founder + owners afectados | `founder-governance.json`; confirmación específica del Founder pendiente |
+| IMP-015 | 2026-08-24 | GOVERNANCE | Accepted | La persona única se refiere al operador físico de pruebas que controla personas sintéticas multirrol dentro de la aplicación; no asigna owners humanos de gobierno | Product/Integration Steward | Aclaración humana; `handoffs/FNC-GOV-001-R1.md`; sustituye la interpretación de gobierno unipersonal |
+| IMP-016 | 2026-08-24 | GOVERNANCE | Rejected | No se adjudica el paquete técnico bajo una identidad Founder única; las diez decisiones conservan su estado en los contratos fuente | Founder + owners afectados | Corrección FNC-GOV-001-R1; retira la propuesta de adjudicación conjunta |
 
 ## Campos para nuevas decisiones
 

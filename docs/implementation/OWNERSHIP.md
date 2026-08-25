@@ -1,10 +1,6 @@
 # Ownership provisional
 
-Durante la etapa fundacional una sola identidad humana, `FOUNDER-01` (`Founder`),
-asume provisionalmente todos los roles accountable. Un agente puede preparar evidencia,
-pero no sustituye la decisión del Founder. La misma persona usando roles distintos no
-constituye revisión independiente ni satisface SoD; véase
-`docs/implementation/FOUNDER_GOVERNANCE.md`.
+Los nombres humanos siguen sin asignar. Un agente puede preparar evidencia, pero no sustituir una aprobación de Product, Accounting, Security, Privacy, Legal o Finance. Las personas sintéticas usadas para probar roles dentro de la aplicación no son owners de gobierno.
 
 | Área | Accountable owner | Escritura principal | Revisión obligatoria |
 |---|---|---|---|
@@ -19,18 +15,6 @@ constituye revisión independiente ni satisface SoD; véase
 | Seguridad y privacidad | Security/Privacy | docs/security, tests/security | Architecture; Legal humano |
 | Calidad | QA/SDET | docs/testing, tests | Owner del área |
 | ADR y plan | Architecture/Product | docs/adr, plan maestro | Owners afectados |
-
-## Asignación humana vigente
-
-| Slot | Principal | Condición |
-|---|---|---|
-| Integration Steward | `FOUNDER-01` | Provisional |
-| Product | `FOUNDER-01` | Provisional |
-| Accounting | `FOUNDER-01` | Provisional; no es revisión financiera independiente |
-| Architecture | `FOUNDER-01` | Provisional |
-| Security | `FOUNDER-01` | Provisional; no es revisión de seguridad independiente |
-| Privacy | `FOUNDER-01` | Provisional; no es revisión de privacidad independiente |
-| Legal | `FOUNDER-01` | Provisional; no sustituye asesoría o firma jurídica requerida |
 
 ## Rutas protegidas
 

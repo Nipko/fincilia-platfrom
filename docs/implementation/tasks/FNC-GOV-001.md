@@ -1,7 +1,7 @@
 ---
 task: FNC-GOV-001
 title: Owners humanos, suplentes, RACI y aprobadores por gate
-status: in_progress
+status: blocked
 implementer: Integration Steward
 base_sha: 94ac094
 gate: S1-READY
@@ -39,18 +39,14 @@ conclusiones no deben consumirse como estado vigente.
 
 ## Criterios de aceptación
 
-1. Los siete slots humanos de `CURRENT_PHASE.md` quedan asignados a `Founder`.
-2. El modelo declara una sola identidad humana y detecta que owner y reviewer no son
-   independientes cuando ambos resuelven a esa identidad.
+1. Founder asigna personas humanas nominales o aprueba explícitamente una RACI
+   provisional de gobierno.
+2. Owner y reviewer independientes se resuelven a personas distintas cuando el gate lo
+   exige.
 3. Cada rol conserva sus responsabilidades y autoridad; no se fusionan controles.
-4. Las decisiones técnicas abiertas tienen recomendación, owner, revisores, gate,
-   consecuencias y estado humano explícito.
-5. Founder puede ratificar dirección y riesgo provisional, pero no satisfacer controles
-   que exigen revisión independiente.
-6. S1-READY y los gates de datos permanecen fail-closed hasta cumplir sus condiciones.
-7. La decisión no autoriza datos reales, piloto real, producción, conectores externos ni
+4. S1-READY y los gates de datos permanecen fail-closed hasta cumplir sus condiciones.
+5. La decisión no autoriza datos reales, piloto real, producción, conectores externos ni
    aprobación automática de movimientos financieros.
-8. Existen validador y pruebas negativas para evitar independencia ficticia.
 
 ## Fuera de alcance
 
@@ -59,3 +55,8 @@ conclusiones no deben consumirse como estado vigente.
 - Resolver decisiones jurídicas, regionales o de proveedor sin evidencia aplicable.
 - Cambiar contratos de dominio, migraciones o código de producto.
 - Diseñar o implementar el selector local de persona/rol sintético.
+
+## Bloqueo vigente
+
+Founder debe asignar la RACI humana de gobierno. La cuenta o persona multirrol usada
+para probar la aplicación no satisface este bloqueo.
