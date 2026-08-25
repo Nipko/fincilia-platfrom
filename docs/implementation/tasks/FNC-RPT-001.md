@@ -29,6 +29,7 @@ periodos, no confirma conciliaciones y no habilita datos reales.
 - `packages/contracts/python/tests/test_contracts.py`
 - pruebas API y PostgreSQL de informes/autorizacion
 - `apps/web/src/app/informes/**`
+- `apps/web/src/app/api/companies/[companyId]/reports/**`
 - `apps/web/src/lib/api.ts`
 - `apps/web/src/lib/reports.ts`
 - `apps/web/src/app/empresas/page.tsx`

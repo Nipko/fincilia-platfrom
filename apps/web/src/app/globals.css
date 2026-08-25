@@ -1134,3 +1134,135 @@ ul {
     display: grid;
   }
 }
+
+:root {
+  --report-documents: #7c3aed;
+  --report-datasets: #0d9488;
+  --report-movements: #2563eb;
+}
+
+.report-toolbar {
+  align-items: end;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  display: grid;
+  gap: 0.8rem;
+  grid-template-columns: minmax(14rem, 1.5fr) minmax(10rem, 1fr) minmax(10rem, 1fr) auto;
+  margin-block: 1.25rem;
+  padding: 1rem;
+}
+
+.report-toolbar label {
+  color: var(--ink-soft);
+  display: grid;
+  font-size: 0.78rem;
+  font-weight: 700;
+  gap: 0.35rem;
+  text-transform: uppercase;
+}
+
+.report-portfolio-summary,
+.report-kpis {
+  display: grid;
+  gap: 0.8rem;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  margin-block: 1rem;
+}
+
+.report-portfolio-summary > div,
+.report-kpis > div {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 1rem;
+}
+
+.report-portfolio-summary dt,
+.report-kpis dt {
+  color: var(--ink-soft);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.report-portfolio-summary dd,
+.report-kpis dd {
+  font-family: var(--mono);
+  font-size: 1.8rem;
+  font-weight: 800;
+  margin: 0.35rem 0;
+}
+
+.report-kpis small { color: var(--ink-soft); }
+.report-aggregation-note { margin-bottom: 2rem; }
+.report-company-list { display: grid; gap: 2.5rem; }
+
+.report-company {
+  border-top: 3px solid var(--accent);
+  padding-top: 1.5rem;
+}
+
+.report-company--unavailable { border-top-color: var(--warning); }
+
+.report-company__header,
+.report-company__actions {
+  align-items: center;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.report-company__header h2 { margin: 0.2rem 0 0; }
+.report-company__actions a:not(.button-link) { color: var(--accent); font-weight: 700; }
+
+.report-chart {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  margin: 1rem 0;
+  overflow: hidden;
+  padding: 1rem;
+}
+
+.report-chart svg { display: block; height: auto; width: 100%; }
+.report-chart__axis { stroke: var(--line); stroke-width: 2; }
+.report-chart__label { fill: var(--ink-soft); font-size: 11px; }
+.report-legend { display: flex; flex-wrap: wrap; gap: 1rem; }
+.report-legend span { align-items: center; display: flex; gap: 0.35rem; }
+.report-legend i { border-radius: 2px; display: inline-block; height: 0.75rem; width: 0.75rem; }
+.report-legend__documents { background: var(--report-documents); }
+.report-legend__datasets { background: var(--report-datasets); }
+.report-legend__movements { background: var(--report-movements); }
+
+.report-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(0, 1.4fr) minmax(16rem, 0.6fr);
+  margin-block: 1rem;
+}
+
+.report-grid h3 { margin-top: 0; }
+.report-money-totals, .report-state-list { display: grid; gap: 0.8rem; }
+.report-money-totals > div, .report-state-list > div {
+  border-top: 1px solid var(--line); padding-top: 0.65rem;
+}
+.report-money-totals dd { display: flex; justify-content: space-between; margin: 0.35rem 0 0; }
+.report-money-totals dd span { color: var(--ink-soft); }
+.report-state-list > div { display: flex; justify-content: space-between; }
+.report-state-list dd { font-family: var(--mono); font-weight: 800; margin: 0; }
+.report-detail-table { margin-block: 1rem; }
+.report-detail-table summary { color: var(--accent); cursor: pointer; font-weight: 700; }
+.report-detail-table .scroll { margin-top: 1rem; }
+
+@media (max-width: 56rem) {
+  .report-toolbar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .report-portfolio-summary, .report-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .report-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 36rem) {
+  .report-toolbar, .report-portfolio-summary, .report-kpis { grid-template-columns: 1fr; }
+  .report-company__header, .report-company__actions { align-items: stretch; display: grid; }
+  .report-money-totals dd { display: grid; }
+}

@@ -68,13 +68,15 @@
         "apps/api/tests/test_reports.py",
         "db/tests/test_reports.py",
         "apps/web/src/app/informes",
+        "apps/web/src/app/api/companies/[companyId]/reports",
         "apps/web/src/lib/api.ts",
         "apps/web/src/lib/reports.ts",
+        "apps/web/src/lib/__tests__/reports.test.ts",
         "apps/web/src/app/empresas/page.tsx",
         "apps/web/src/app/empresas/[companyId]/page.tsx",
         "apps/web/src/app/globals.css",
         "apps/web/tests/e2e/reports.spec.ts",
-        "apps/web/tests/a11y/reports.a11y.spec.ts"
+        "apps/web/tests/e2e/reports.a11y.spec.ts"
       ],
       "claimed_at": "2026-08-24"
     }

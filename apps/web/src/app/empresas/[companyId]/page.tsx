@@ -184,6 +184,9 @@ export default async function CompanyPage({
           </span>
         </div>
         <nav aria-label="Navegacion de la empresa">
+          {company.permissions.includes('report.read') ? (
+            <><Link href={`/informes?empresa=${companyId}`}>Informes</Link>{' '}</>
+          ) : null}
           {company.permissions.includes('quality.read') ? (
             <><Link href={`/calidad?empresa=${companyId}`}>Calidad</Link>{' '}</>
           ) : null}

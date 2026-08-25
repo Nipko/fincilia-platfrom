@@ -632,6 +632,81 @@ export function fetchDatasets(
   );
 }
 
+export type ReportRange = {
+  days: 30 | 90 | 180 | 365;
+  start: string;
+  end: string;
+  timezone: 'UTC';
+};
+
+export type ReportActivityPoint = {
+  month: string;
+  documents: number;
+  datasets: number;
+  movements: number;
+};
+
+export type ReportMoneyPoint = {
+  month: string;
+  currency: string;
+  movement_count: number;
+  inflow_amount: string;
+  outflow_amount: string;
+};
+
+export type ReportMoneyTotal = Omit<ReportMoneyPoint, 'month'>;
+
+export type ReportDataset = {
+  dataset_version_id: string;
+  artifact_id: string;
+  state: string;
+  completeness_state: string;
+  lineage_state: string;
+  record_count: number;
+  movement_count: number;
+  rejected_count: number;
+  prepared_at: string;
+};
+
+export type OperationalReport = {
+  range: ReportRange;
+  summary: {
+    documents: { total: number; accepted: number; quarantined: number; bytes: number };
+    datasets: {
+      total: number; draft: number; validated: number; published: number;
+      rejected: number; records: number; movements: number; rejected_records: number;
+      completeness_mismatch: number; completeness_unknown: number;
+      lineage_invalidated: number;
+    };
+    reconciliation: {
+      candidates: number; pending: number; confirmed: number; rejected: number;
+    };
+    quality: {
+      signals: number; open: number; acknowledged: number; closed: number;
+      active_high: number;
+    };
+  };
+  activity_series: ReportActivityPoint[];
+  money_totals: ReportMoneyTotal[];
+  money_series: ReportMoneyPoint[];
+  recent_datasets: ReportDataset[];
+  notice: string;
+};
+
+export function fetchOperationalReport(
+  token: string,
+  companyId: string,
+  days: 30 | 90 | 180 | 365,
+  asOf?: string,
+): Promise<OperationalReport> {
+  const query = new URLSearchParams({ days: String(days) });
+  if (asOf) query.set('as_of', asOf);
+  return request<OperationalReport>(
+    `/api/v1/companies/${encodeURIComponent(companyId)}/reports/operational?${query}`,
+    { token },
+  );
+}
+
 export function fetchDataset(
   token: string,
   companyId: string,
