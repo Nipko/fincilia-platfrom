@@ -54,31 +54,5 @@
       "agent_may_accept": false
     }
   ],
-  "active_reservations": [
-    {
-      "task": "FNC-RPT-001",
-      "implementer": "Codex + Integration Steward",
-      "base_sha": "1211f17",
-      "paths": [
-        "apps/api/src/fincilia_api/reports.py",
-        "apps/api/src/fincilia_api/routes.py",
-        "apps/api/src/fincilia_api/access.py",
-        "packages/contracts/python/fincilia_contracts/tenancy.py",
-        "packages/contracts/python/tests/test_contracts.py",
-        "apps/api/tests/test_reports.py",
-        "db/tests/test_reports.py",
-        "apps/web/src/app/informes",
-        "apps/web/src/app/api/companies/[companyId]/reports",
-        "apps/web/src/lib/api.ts",
-        "apps/web/src/lib/reports.ts",
-        "apps/web/src/lib/__tests__/reports.test.ts",
-        "apps/web/src/app/empresas/page.tsx",
-        "apps/web/src/app/empresas/[companyId]/page.tsx",
-        "apps/web/src/app/globals.css",
-        "apps/web/tests/e2e/reports.spec.ts",
-        "apps/web/tests/e2e/reports.a11y.spec.ts"
-      ],
-      "claimed_at": "2026-08-24"
-    }
-  ]
+  "active_reservations": []
 }

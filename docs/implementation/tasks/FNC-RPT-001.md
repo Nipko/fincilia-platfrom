@@ -1,9 +1,11 @@
 ---
 id: FNC-RPT-001
 title: Centro web de informes operativos e historicos
-status: in_progress
+status: review_pending
 implementer: Codex principal dev + Integration Steward
 base_sha: 1211f17
+tested_head_sha: a18afcf
+implementation_commits: [daf852a, 3bb4ec8, 5df883c, 5aa913a, f7c637d, a18afcf]
 gate: S1-READY
 gate_effect: none
 data_ceiling: synthetic_only
@@ -64,3 +66,11 @@ periodos, no confirma conciliaciones y no habilita datos reales.
 - Sin migracion ni nueva proyeccion analitica.
 - Sin informe certificado, balance, cierre, IA, conectores o datos reales.
 - S1-READY y decisiones humanas permanecen sin aceptar.
+
+# Evidencia entregada
+
+API, contrato, PostgreSQL real, web, exportacion, E2E y accesibilidad estan
+implementados y verificados en `a18afcf`. El handoff reproducible vive en
+`docs/implementation/handoffs/FNC-RPT-001.md`. La tarea queda en revision
+pendiente porque Product/Accounting, Security, Backend/Architecture y
+Accessibility/QA deben revisarla de forma independiente; no modifica S1-READY.

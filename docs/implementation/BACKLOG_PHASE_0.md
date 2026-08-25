@@ -126,7 +126,7 @@ dependencias de `FNC-GAT-002` ni afirmar que Sprint 1 está habilitado.
 | FNC-EXP-001 | A5/A6 | WEB-002, DOM-005, SEC-001 | Review pending | Exportacion CSV canonica determinista de dataset publicado, con permiso explicito, RLS y BFF streaming; solo sintetica y no certificada |
 | FNC-OPS-001 | A5/A6 | WEB-003, QA-006 | Review pending | Centro web company-by-company de ciclos, vencimientos, recordatorios internos e historico operativo sin importes ni mensajeria externa; CI verde, revision humana pendiente |
 | FNC-DQ-001 | A5/A6 | DOM-003, DOM-004, WEB-003, QA-006 | Review pending | Alertas deterministas company-scoped, triaje auditado y resumen visual sin IA, auto-match, cierre ni afirmacion de fraude; revision independiente pendiente |
-| FNC-RPT-001 | A5/A6 | WEB-003, REC-003, DQ-001, EXP-001 | In progress | Informes operativos e historicos company-scoped, importes exactos por moneda y CSV determinista; sin balance, cierre ni certificacion |
+| FNC-RPT-001 | A5/A6 | WEB-003, REC-003, DQ-001, EXP-001 | Review pending | Informes operativos e historicos company-scoped, importes exactos por moneda, CSV determinista y web verificada; revision humana pendiente |
 
 ## No codificar todavía
 
