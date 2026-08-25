@@ -17,6 +17,7 @@ import {
   selectCloseReadinessCompanies,
   selectClosePeriod,
   type CloseReadinessSnapshot,
+  type StatementLineageSnapshot,
 } from '@/lib/close-readiness';
 import { readSession } from '@/lib/session';
 
@@ -57,9 +58,57 @@ const COVERAGE_LABELS: Record<string, string> = {
   review_required: 'La conciliacion requiere revision',
 };
 
-function PeriodCard({ period, companyId }: {
+const LINEAGE_NODE_LABELS: Record<string, string> = {
+  financial_fact_field: 'Hecho financiero',
+  decision: 'Decision versionada',
+};
+
+function StatementLineageDrilldown({ lineage }: {
+  lineage: StatementLineageSnapshot | undefined;
+}) {
+  if (!lineage || lineage.access === 'unavailable') {
+    return <p className="meta" role="status">Trazabilidad no disponible; no se presume completa.</p>;
+  }
+  if (lineage.access === 'restricted') {
+    return <p className="meta">Sin permiso para inspeccionar la trazabilidad.</p>;
+  }
+  if (!lineage.result) {
+    return <p className="meta" role="status">Trazabilidad sin respuesta verificable.</p>;
+  }
+  return (
+    <details className="statement-lineage">
+      <summary>Ver trazabilidad ({lineage.result.inputs.length} insumo(s))</summary>
+      <p className="meta">
+        Vista solo de identidades, versiones y huellas SHA-256. No contiene importes,
+        valores fuente ni autoridad para cerrar.
+      </p>
+      {lineage.result.inputs.length ? (
+        <ol className="statement-lineage__list">
+          {lineage.result.inputs.map((input) => (
+            <li key={`${input.node_type}:${input.entity_ref}:${input.field_name}`}>
+              <strong>{LINEAGE_NODE_LABELS[input.node_type] ?? input.node_type}</strong>
+              <span>{input.field_name} · {input.operation}</span>
+              <dl>
+                <div><dt>Entidad</dt><dd><code>{input.entity_ref}</code></dd></div>
+                <div><dt>Huella</dt><dd><code className="digest">{input.value_digest}</code></dd></div>
+                <div><dt>Ejecucion</dt><dd><code>{input.processing_run_id}</code></dd></div>
+                <div><dt>Motor</dt><dd><code>{input.engine_release_id}</code></dd></div>
+                <div><dt>Esquema</dt><dd>{input.canonical_schema_version}</dd></div>
+              </dl>
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <p role="status">El statement no expone insumos materializados.</p>
+      )}
+    </details>
+  );
+}
+
+function PeriodCard({ period, companyId, statementLineages }: {
   period: CloseReadinessPeriod;
   companyId: string;
+  statementLineages: Record<string, StatementLineageSnapshot>;
 }) {
   return (
     <article className="card close-period">
@@ -137,7 +186,13 @@ function PeriodCard({ period, companyId }: {
                     ? `v${account.statement_version} · ${account.statement_state}`
                     : 'Sin statement'}</td>
                   <td>{COVERAGE_LABELS[account.coverage_state] ?? account.coverage_state}</td>
-                  <td>{account.statement_lineage_state ?? 'Sin statement'}</td>
+                  <td>
+                    <span>{account.statement_lineage_state ?? 'Sin statement'}</span>
+                    {account.statement_id ? (
+                      <StatementLineageDrilldown
+                        lineage={statementLineages[account.statement_id]} />
+                    ) : null}
+                  </td>
                 </tr>
               ))}</tbody>
             </table>
@@ -157,7 +212,7 @@ function PeriodCard({ period, companyId }: {
 }
 
 function CompanyReadiness({ snapshot }: { snapshot: CloseReadinessSnapshot }) {
-  const { company, result } = snapshot;
+  const { company, result, statementLineages } = snapshot;
   if (!result) {
     return (
       <article className="card close-company close-company--unavailable">
@@ -183,7 +238,8 @@ function CompanyReadiness({ snapshot }: { snapshot: CloseReadinessSnapshot }) {
         <div className="close-period-list">
           {result.items.map((period) => (
             <PeriodCard key={`${period.period_start}:${period.period_end}`}
-              period={period} companyId={company.company_id} />
+              period={period} companyId={company.company_id}
+              statementLineages={statementLineages} />
           ))}
         </div>
       ) : (

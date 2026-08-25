@@ -70,6 +70,13 @@ function client(permissions = ['report.read']) {
       permissions,
     }),
     fetchCloseReadiness: vi.fn().mockResolvedValue(RESULT),
+    fetchStatementLineage: vi.fn().mockResolvedValue({
+      statement_id: 'statement-synthetic',
+      lineage_state: 'complete',
+      complete: true,
+      inputs: [],
+      notice: 'digest_only_lineage; no values or close authority',
+    }),
   };
 }
 
@@ -134,13 +141,55 @@ describe('preparacion diagnostica de cierre', () => {
       })),
     };
     const totals = aggregateCloseReadinessCounts([{
-      company: COMPANY, access: 'available', result: ready,
+      company: COMPANY, access: 'available', result: ready, statementLineages: {},
     }]);
 
     expect(totals.reviewReadyPeriods).toBe(1);
     expect(totals.blockedPeriods).toBe(0);
     expect(ready.close_ready).toBe(false);
     expect(ready.can_execute_close).toBe(false);
+  });
+
+  it('carga el drill-down solo con movement.read y aisla fallos por statement', async () => {
+    const statementResult: CloseReadinessResult = {
+      ...RESULT,
+      items: RESULT.items.map((period) => ({
+        ...period,
+        account_reconciliations: [{
+          financial_account_id: 'account-synthetic',
+          account_name: 'Cuenta sintetica', source_count: 1, assessment_count: 1,
+          statement_root_id: 'root-synthetic', statement_id: 'statement-synthetic',
+          statement_version: 1, statement_state: 'balanced',
+          statement_lineage_state: 'complete', coverage_state: 'covered',
+        }],
+      })),
+    };
+    const allowed = client(['report.read', 'movement.read']);
+    allowed.fetchCloseReadiness.mockResolvedValue(statementResult);
+    const snapshot = await loadCloseReadinessCompany('token', COMPANY, allowed);
+    expect(snapshot.statementLineages['statement-synthetic']).toMatchObject({
+      access: 'available', result: { complete: true },
+    });
+    expect(allowed.fetchStatementLineage).toHaveBeenCalledOnce();
+
+    const restricted = client(['report.read']);
+    restricted.fetchCloseReadiness.mockResolvedValue(statementResult);
+    const restrictedSnapshot = await loadCloseReadinessCompany(
+      'token', COMPANY, restricted);
+    expect(restrictedSnapshot.statementLineages['statement-synthetic'])
+      .toEqual({ access: 'restricted', result: null });
+    expect(restricted.fetchStatementLineage).not.toHaveBeenCalled();
+
+    const unavailable = client(['report.read', 'movement.read']);
+    unavailable.fetchCloseReadiness.mockResolvedValue(statementResult);
+    unavailable.fetchStatementLineage.mockRejectedValue(new ApiError(503, 'down'));
+    await expect(loadCloseReadinessCompany('token', COMPANY, unavailable))
+      .resolves.toMatchObject({
+        access: 'available',
+        statementLineages: {
+          'statement-synthetic': { access: 'unavailable', result: null },
+        },
+      });
   });
 
   it('formatea periodos sin reinterpretar la zona horaria', () => {

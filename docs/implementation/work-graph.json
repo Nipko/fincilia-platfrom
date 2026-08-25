@@ -80,6 +80,8 @@
         "apps/web/src/app/preparacion-cierre",
         "apps/web/src/lib/close-readiness.ts",
         "apps/web/src/lib/api.ts",
+        "apps/web/src/lib/__tests__/close-readiness.test.ts",
+        "apps/web/src/app/globals.css",
         "apps/web/tests/e2e/close-readiness.spec.ts",
         "apps/web/tests/e2e/close-readiness.a11y.spec.ts",
         "docs/implementation/work-graph.json",

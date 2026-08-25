@@ -1572,6 +1572,25 @@ export type CloseReadinessResult = {
   notice: string;
 };
 
+export type StatementLineageInput = {
+  node_type: 'financial_fact_field' | 'decision';
+  entity_ref: string;
+  field_name: string;
+  value_digest: string;
+  operation: 'decided_using';
+  processing_run_id: string;
+  engine_release_id: string;
+  canonical_schema_version: string;
+};
+
+export type StatementLineage = {
+  statement_id: string;
+  lineage_state: 'required_pending' | 'complete' | 'invalidated';
+  complete: boolean;
+  inputs: StatementLineageInput[];
+  notice: 'digest_only_lineage; no values or close authority';
+};
+
 export function fetchCloseReadiness(
   token: string,
   companyId: string,
@@ -1580,6 +1599,19 @@ export function fetchCloseReadiness(
   const bounded = Math.max(1, Math.min(24, limit));
   return request<CloseReadinessResult>(
     `/api/v1/companies/${encodeURIComponent(companyId)}/close-readiness?limit=${bounded}`,
+    { token },
+  );
+}
+
+export function fetchStatementLineage(
+  token: string,
+  companyId: string,
+  statementId: string,
+): Promise<StatementLineage> {
+  const company = encodeURIComponent(companyId);
+  const statement = encodeURIComponent(statementId);
+  return request<StatementLineage>(
+    `/api/v1/companies/${company}/balance-reconciliation/statements/${statement}/lineage`,
     { token },
   );
 }

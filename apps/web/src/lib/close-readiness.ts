@@ -4,8 +4,10 @@ import {
   ApiError,
   fetchCloseReadiness,
   fetchCompany,
+  fetchStatementLineage,
   type CloseReadinessResult,
   type CompanySummary,
+  type StatementLineage,
 } from './api';
 import { mapWithConcurrency } from './portfolio';
 
@@ -19,14 +21,58 @@ export type CloseReadinessSnapshot = {
   company: CompanySummary;
   access: CloseReadinessAccess;
   result: CloseReadinessResult | null;
+  statementLineages: Record<string, StatementLineageSnapshot>;
+};
+
+export type StatementLineageSnapshot = {
+  access: 'available' | 'restricted' | 'unavailable';
+  result: StatementLineage | null;
 };
 
 type CloseReadinessClient = {
   fetchCompany: typeof fetchCompany;
   fetchCloseReadiness: typeof fetchCloseReadiness;
+  fetchStatementLineage: typeof fetchStatementLineage;
 };
 
-const CLIENT: CloseReadinessClient = { fetchCompany, fetchCloseReadiness };
+const CLIENT: CloseReadinessClient = {
+  fetchCompany, fetchCloseReadiness, fetchStatementLineage,
+};
+
+function statementIds(result: CloseReadinessResult): string[] {
+  return [...new Set(result.items.flatMap((period) =>
+    period.account_reconciliations.flatMap((account) =>
+      account.statement_id ? [account.statement_id] : [])))];
+}
+
+async function loadStatementLineages(
+  token: string,
+  companyId: string,
+  result: CloseReadinessResult,
+  allowed: boolean,
+  client: CloseReadinessClient,
+): Promise<Record<string, StatementLineageSnapshot>> {
+  const ids = statementIds(result);
+  if (!allowed) {
+    return Object.fromEntries(ids.map((id) => [id, { access: 'restricted', result: null }]));
+  }
+  const entries = await mapWithConcurrency(ids, 3, async (id) => {
+    try {
+      return [id, {
+        access: 'available',
+        result: await client.fetchStatementLineage(token, companyId, id),
+      }] as const;
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401) throw error;
+      return [id, {
+        access: error instanceof ApiError && [403, 404].includes(error.status)
+          ? 'restricted' : 'unavailable',
+        result: null,
+      }] as const;
+    }
+  });
+  return Object.fromEntries(entries);
+}
 
 export function selectCloseReadinessCompanies(
   companies: readonly CompanySummary[],
@@ -54,16 +100,21 @@ export async function loadCloseReadinessCompany(
       access: error instanceof ApiError && [403, 404].includes(error.status)
         ? 'revoked' : 'unavailable',
       result: null,
+      statementLineages: {},
     };
   }
   if (!detail.permissions.includes('report.read')) {
-    return { company, access: 'restricted', result: null };
+    return { company, access: 'restricted', result: null, statementLineages: {} };
   }
   try {
+    const result = await client.fetchCloseReadiness(token, company.company_id, 12);
     return {
       company,
       access: 'available',
-      result: await client.fetchCloseReadiness(token, company.company_id, 12),
+      result,
+      statementLineages: await loadStatementLineages(
+        token, company.company_id, result,
+        detail.permissions.includes('movement.read'), client),
     };
   } catch (error) {
     if (error instanceof ApiError && error.status === 401) throw error;
@@ -72,6 +123,7 @@ export async function loadCloseReadinessCompany(
       access: error instanceof ApiError && [403, 404].includes(error.status)
         ? 'restricted' : 'unavailable',
       result: null,
+      statementLineages: {},
     };
   }
 }

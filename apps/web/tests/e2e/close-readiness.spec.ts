@@ -42,6 +42,14 @@ test('FNC-CLS-004 integra statements sin habilitar un cierre', async ({
   await expect(balances.getByText('Bloquea')).toBeVisible();
   await page.getByText('Ver cobertura por cuenta', { exact: false }).first().click();
   await expect(page.getByRole('columnheader', { name: 'Statement' }).first()).toBeVisible();
+  const lineage = page.getByText('Ver trazabilidad', { exact: false });
+  if (await lineage.count()) {
+    await lineage.first().click();
+    await expect(page.getByText(/Vista solo de identidades, versiones y huellas SHA-256/)
+      .first()).toBeVisible();
+    await expect(page.locator('.statement-lineage code.digest').first())
+      .toHaveText(/^[a-f0-9]{64}$/);
+  }
   await expect(page.getByRole('button', { name: /cerrar|certificar|aceptar materialidad/i }))
     .toHaveCount(0);
 });
