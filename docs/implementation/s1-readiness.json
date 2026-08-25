@@ -1185,8 +1185,8 @@
     },
     {
       "path": "docs/testing/mutation-harness.json",
-      "sha256": "6414045c9874b153db71c681dd47037f3c28777688ab5b05d2d5c729e7015a57",
-      "produced_by": "FNC-CLS-003 contract integration plus deterministic 68/68 mutation run; declaration baseline remains distinct from runtime evidence"
+      "sha256": "833a6b8392bcfd97a430f0a12138ef0152864a2a8913fee03459cd34bc9c584f",
+      "produced_by": "FNC-LIN-001 contract adjudication plus deterministic 68/68 mutation run; declaration baseline remains distinct from runtime evidence"
     }
   ],
   "heavy_checks_not_run_here": [

@@ -78,6 +78,7 @@
         "tools/lineage_model",
         "docs/testing/golden-harness.json",
         "docs/testing/mutation-harness.json",
+        "docs/implementation/s1-readiness.json",
         "apps/web/src/app/preparacion-cierre",
         "apps/web/src/lib/close-readiness.ts",
         "apps/web/src/lib/api.ts",
