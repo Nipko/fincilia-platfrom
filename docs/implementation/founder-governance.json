@@ -1,0 +1,193 @@
+{
+  "schema_version": "1.0.0",
+  "task": "FNC-GOV-001",
+  "effective_date": "2026-08-24",
+  "data_ceiling": "synthetic_only",
+  "human_principals": [
+    {
+      "id": "FOUNDER-01",
+      "display_name": "Founder",
+      "kind": "natural_person",
+      "identity_state": "founder_confirmed_role_alias"
+    }
+  ],
+  "required_role_slots": [
+    "Integration Steward",
+    "Product",
+    "Accounting",
+    "Architecture",
+    "Security",
+    "Privacy",
+    "Legal"
+  ],
+  "role_assignments": [
+    {"role": "Integration Steward", "principal_id": "FOUNDER-01", "provisional": true},
+    {"role": "Product", "principal_id": "FOUNDER-01", "provisional": true},
+    {"role": "Accounting", "principal_id": "FOUNDER-01", "provisional": true},
+    {"role": "Architecture", "principal_id": "FOUNDER-01", "provisional": true},
+    {"role": "Security", "principal_id": "FOUNDER-01", "provisional": true},
+    {"role": "Privacy", "principal_id": "FOUNDER-01", "provisional": true},
+    {"role": "Legal", "principal_id": "FOUNDER-01", "provisional": true}
+  ],
+  "single_person_governance": {
+    "enabled": true,
+    "founder_direction_state": "confirmed",
+    "counts_as_independent_review": false,
+    "separation_of_duties_satisfied": false,
+    "rationale": "Una sola persona puede asumir responsabilidades y decidir direccion, pero no producir independencia respecto de si misma.",
+    "permitted_scope": [
+      "synthetic_local_development",
+      "synthetic_ci",
+      "product_prioritization",
+      "provisional_architecture_direction",
+      "founder_risk_direction"
+    ],
+    "forbidden_promotions": [
+      "S1-READY",
+      "DRG-00",
+      "DRG-01",
+      "GA-01",
+      "real_financial_data",
+      "real_pilot",
+      "production_release",
+      "certified_financial_report",
+      "automatic_financial_decision"
+    ]
+  },
+  "independence_controls": [
+    {
+      "control": "security_review",
+      "required_distinct_roles": ["Security", "Architecture"],
+      "state": "unsatisfied_single_principal"
+    },
+    {
+      "control": "privacy_legal_review",
+      "required_distinct_roles": ["Privacy", "Legal"],
+      "state": "unsatisfied_single_principal"
+    },
+    {
+      "control": "financial_semantics_review",
+      "required_distinct_roles": ["Accounting", "Product"],
+      "state": "unsatisfied_single_principal"
+    },
+    {
+      "control": "migration_review",
+      "required_distinct_roles": ["Architecture", "Security"],
+      "state": "unsatisfied_single_principal"
+    }
+  ],
+  "decision_sources": [
+    "docs/privacy/privacy-map.json",
+    "docs/domain/lineage-model.json",
+    "docs/testing/test-strategy.json",
+    "docs/testing/test-catalog-model.json"
+  ],
+  "decision_packet": [
+    {
+      "id": "UD-DR-PRV-001",
+      "owner_role": "Privacy",
+      "reviewer_roles": ["Legal", "Architecture", "Security"],
+      "founder_state": "pending_founder_confirmation",
+      "independent_review_state": "pending_distinct_human",
+      "recommendation": "Añadir un eje obligatorio y ortogonal de dato personal: not_personal, personal, sensitive_personal, special_category y unknown; la base juridica y jurisdiccion se validan por separado.",
+      "consequence": "Evita tratar sensibilidad financiera y condicion de dato personal como una sola clasificacion.",
+      "rollback": "Mantener el eje como metadato versionado y migrar clasificaciones sin alterar evidencia original."
+    },
+    {
+      "id": "UD-RELEASE-APPROVAL",
+      "owner_role": "Platform",
+      "reviewer_roles": ["Architecture", "Security", "Data"],
+      "founder_state": "pending_founder_confirmation",
+      "independent_review_state": "pending_distinct_human",
+      "recommendation": "Una engine release pasa a approved solo con firma humana de Platform, CI verde, procedencia, diff golden y revisiones independientes de Security y Data.",
+      "consequence": "La reproducibilidad queda ligada a evidencia verificable y a una accion humana auditable.",
+      "rollback": "Superseder la release conservando firma, artefactos y linaje; nunca reescribirla."
+    },
+    {
+      "id": "UD-LOCATOR-STORAGE",
+      "owner_role": "Architecture",
+      "reviewer_roles": ["Data", "Platform"],
+      "founder_state": "pending_founder_confirmation",
+      "independent_review_state": "pending_distinct_human",
+      "recommendation": "Persistir linaje compacto por artefacto, fila, columna, version de transformacion y referencias de cadena; evitar materializar nodos intermedios repetidos por cada celda.",
+      "consequence": "Conserva descenso a evidencia con coste controlable y admite particionamiento y procesamiento por lotes.",
+      "rollback": "Versionar un segundo locator fisico y reconstruirlo desde evidencia y movimientos inmutables."
+    },
+    {
+      "id": "UD-PRIMARY-OPERATOR",
+      "owner_role": "Architecture",
+      "reviewer_roles": ["Security", "Privacy"],
+      "founder_state": "pending_founder_confirmation",
+      "independent_review_state": "pending_distinct_human",
+      "recommendation": "Imponer en PostgreSQL un indice unico parcial para un solo primary_accounting_operator activo por company, ademas de la politica de aplicacion.",
+      "consequence": "Dos activaciones concurrentes no pueden violar la invariante.",
+      "rollback": "Desactivar la nueva asignacion dentro de una transaccion auditada antes de retirar el constraint."
+    },
+    {
+      "id": "UD-ISSUED-CONTEXT",
+      "owner_role": "Architecture",
+      "reviewer_roles": ["Security", "Privacy", "Backend"],
+      "founder_state": "pending_founder_confirmation",
+      "independent_review_state": "pending_distinct_human",
+      "recommendation": "Crear issued_authorization_context server-side, company-scoped, versionado, expirable y revocable, con principal, purpose, issued_at, expires_at y authorization_version.",
+      "consequence": "Sesiones, enlaces y trabajos pueden revalidarse sin confiar en contexto enviado por el cliente.",
+      "rollback": "Revocar contextos por version y volver a resolucion online por solicitud."
+    },
+    {
+      "id": "UD-PORTFOLIO-CANDIDATES",
+      "owner_role": "Backend",
+      "reviewer_roles": ["Security", "Privacy", "Architecture"],
+      "founder_state": "pending_founder_confirmation",
+      "independent_review_state": "pending_distinct_human",
+      "recommendation": "Derivar companies candidatas desde engagements y grants vigentes en PostgreSQL; cualquier cache es solo optimizacion y se revalida company-by-company.",
+      "consequence": "Una cache obsoleta no puede ampliar el portafolio autorizado.",
+      "rollback": "Deshabilitar cache y resolver exclusivamente desde la fuente autoritativa."
+    },
+    {
+      "id": "UD-QA-CATALOG-DRIFT",
+      "owner_role": "QA",
+      "reviewer_roles": ["Integration Steward", "Architecture"],
+      "founder_state": "pending_founder_confirmation",
+      "independent_review_state": "pending_distinct_human",
+      "recommendation": "QA reconcilia el catalogo en cada PR que cambie contratos o pruebas y ejecuta una auditoria programada semanal; el drift bloqueante falla cerrado.",
+      "consequence": "Los IDs planeados, contractuales e implementados permanecen distinguibles.",
+      "rollback": "Revertir la proyeccion generada; nunca alterar contratos para forzar coincidencia."
+    },
+    {
+      "id": "UD-QA-MUTATION-TOOLING",
+      "owner_role": "QA",
+      "reviewer_roles": ["Platform", "Architecture"],
+      "founder_state": "pending_founder_confirmation",
+      "independent_review_state": "pending_distinct_human",
+      "recommendation": "Mantener el harness declarativo del repositorio; presupuesto inicial de 90 segundos por PR y corrida completa programada, con todo superviviente bloqueante o adjudicado por humano.",
+      "consequence": "El presupuesto cubre la medicion actual aproximada de 41 segundos con margen y evita que verde signifique solo ausencia de errores.",
+      "rollback": "Mover la corrida completa a horario programado conservando una muestra critica por PR."
+    },
+    {
+      "id": "UD-QA-CATALOG-OWNER",
+      "owner_role": "QA",
+      "reviewer_roles": ["Integration Steward", "Architecture"],
+      "founder_state": "pending_founder_confirmation",
+      "independent_review_state": "pending_distinct_human",
+      "recommendation": "QA/SDET es accountable del catalogo; Integration Steward integra cambios compartidos y cada owner de area responde por sus IDs.",
+      "consequence": "Se separan adjudicacion de calidad, integracion y propiedad de la prueba.",
+      "rollback": "Reasignar el owner conservando historial y reglas de reconciliacion."
+    },
+    {
+      "id": "UD-QA-CATALOG-FORMAT",
+      "owner_role": "QA",
+      "reviewer_roles": ["Architecture"],
+      "founder_state": "pending_founder_confirmation",
+      "independent_review_state": "pending_distinct_human",
+      "recommendation": "Los contratos distribuidos siguen siendo fuente de definiciones; generar una proyeccion JSON estructurada y tratar TEST_CATALOG.md como documentacion, nunca como segunda fuente editable.",
+      "consequence": "El catalogo se consulta de forma estructurada sin duplicar autoridad.",
+      "rollback": "Regenerar la proyeccion desde contratos y descartar cualquier salida derivada."
+    }
+  ],
+  "gate_state": {
+    "S1-READY": "not_met",
+    "DRG-00": "not_met",
+    "DRG-01": "not_met",
+    "GA-01": "not_met"
+  }
+}

@@ -16,14 +16,14 @@ real_research_corpus_allowed: false
 real_pilot_allowed: false
 public_pricing_allowed: false
 external_ai_with_customer_data_allowed: false
-integration_owner: UNASSIGNED
-product_owner: UNASSIGNED
-accounting_owner: UNASSIGNED
-architecture_owner: UNASSIGNED
-security_owner: UNASSIGNED
-privacy_owner: UNASSIGNED
-legal_owner: UNASSIGNED
-review_date: UNASSIGNED
+integration_owner: Founder
+product_owner: Founder
+accounting_owner: Founder
+architecture_owner: Founder
+security_owner: Founder
+privacy_owner: Founder
+legal_owner: Founder
+review_date: 2026-08-24
 ---
 
 # Fase vigente

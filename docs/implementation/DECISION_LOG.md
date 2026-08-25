@@ -16,6 +16,8 @@ Registro append-only. Una corrección crea una nueva decisión que sustituye a l
 | IMP-010 | 2026-08-21 | ADR | Proposed | Evaluar Brasil y Chile por flujo/servicio; no seleccionar región antes de A02-G01..G10 | Architecture + Legal | ADR-020 y `decision_requests/FNC-ARC-003-A02.md` |
 | IMP-011 | 2026-08-21 | GOVERNANCE | Proposed | Modelar por separado IDs contractuales ausentes del catálogo e IDs runtime planeados todavía sin contrato; la reconciliación debe ser dinámica y ejecutable | QA + Integration Steward | `FNC-QA-002`, hallazgo `UD-QA-CATALOG-DRIFT` |
 | IMP-012 | 2026-08-21 | TOOLING | Proposed | Automatizar mutaciones aisladas de validadores sin rebajar la adjudicación humana de cambios en contratos y digests golden | QA + Security | `FNC-QA-003`, hallazgo de fragilidad de adjudicación |
+| IMP-013 | 2026-08-24 | GOVERNANCE | Accepted | Durante la etapa fundacional `FOUNDER-01` asume provisionalmente todos los roles humanos; la acumulación asigna responsabilidad pero no cuenta como revisión independiente ni supera gates | Founder | Instrucción humana del Founder; `FOUNDER_GOVERNANCE.md`; FNC-GOV-001 |
+| IMP-014 | 2026-08-24 | GOVERNANCE | Proposed | Adjudicar como un paquete las diez recomendaciones técnicas que bloquean S1-READY, conservando revisión por una persona distinta donde el control la exige | Founder + owners afectados | `founder-governance.json`; confirmación específica del Founder pendiente |
 
 ## Campos para nuevas decisiones
 
