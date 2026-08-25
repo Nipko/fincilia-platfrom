@@ -34,6 +34,8 @@ materialidad, no firma, no certifica, no cambia el ciclo y no ejecuta un cierre.
 
 - `apps/api/src/fincilia_api/close_readiness.py`, `routes.py` y pruebas focales.
 - `db/tests/test_close_readiness.py`.
+- `db/tests/test_balance_reconciliation_statements.py` (solo aserciones de
+  integracion read-only sobre el fixture existente).
 - `apps/web/src/lib/close-readiness.ts`, tipos API y pruebas focales.
 - `apps/web/src/app/preparacion-cierre/**`, estilos y navegacion relacionada.
 - `apps/web/tests/e2e/close-readiness*.spec.ts`.

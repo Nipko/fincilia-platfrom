@@ -47,6 +47,34 @@ def checks(dataset_id: str, **overrides) -> dict:
     return {dataset_id: item}
 
 
+def reconciled_inputs(source: dict, *, statement_state: str = "balanced",
+                      statement_lineage: str = "complete",
+                      statement_assessments: list[str] | None = None) -> tuple[dict, dict, dict]:
+    account_id = source["financial_account_id"]
+    dataset_id = source["dataset_version_id"]
+    assessment_id = str(uuid.uuid4())
+    assessment_checks = {(source["expectation_id"], dataset_id): {
+        "assessment_id": assessment_id,
+        "financial_account_id": account_id,
+        "state": "verified",
+        "lineage_state": "complete",
+    }}
+    balance_checks = {(dataset_id, account_id): [{
+        "balance_type": "closing",
+        "as_of_date": END,
+        "lineage_state": "complete",
+    }]}
+    statement_checks = {(account_id, START, END): {
+        "statement_root_id": str(uuid.uuid4()),
+        "statement_id": str(uuid.uuid4()),
+        "version": 2,
+        "state": statement_state,
+        "lineage_state": statement_lineage,
+        "assessment_ids": statement_assessments or [assessment_id],
+    }}
+    return balance_checks, assessment_checks, statement_checks
+
+
 class CloseReadinessTests(unittest.TestCase):
     def test_query_is_bounded(self) -> None:
         for limit in (0, 25):
@@ -64,7 +92,8 @@ class CloseReadinessTests(unittest.TestCase):
         self.assertFalse(period["can_execute_close"])
         blocker_codes = {item["code"] for item in period["blockers"]}
         self.assertEqual(
-            {"account_balances", "reconciliation_statements", "product_close"},
+            {"account_balances", "completeness_assessments",
+             "reconciliation_statements", "reconciliation_statement_lineage"},
             blocker_codes)
         self.assertNotIn("amount", str(period).lower())
         self.assertNotIn("currency", str(period).lower())
@@ -147,6 +176,50 @@ class CloseReadinessTests(unittest.TestCase):
             START, END, [source], checks(source["dataset_version_id"]))
         controls = {item["code"]: item for item in period["controls"]}
         self.assertEqual("blocked", controls["published_datasets"]["state"])
+
+    def test_complete_reconciliation_is_ready_only_for_human_review(self) -> None:
+        source = _row_source(source_row())
+        balances, assessments, statements = reconciled_inputs(source)
+        period = _build_period(
+            START, END, [source], checks(source["dataset_version_id"]),
+            balances, assessments, statements)
+        controls = {item["code"]: item for item in period["controls"]}
+
+        self.assertEqual("ready_for_review", period["status"])
+        self.assertEqual([], period["blockers"])
+        self.assertEqual("pass", controls["completeness_assessments"]["state"])
+        self.assertEqual("pass", controls["reconciliation_statements"]["state"])
+        self.assertEqual("unavailable", controls["product_close"]["state"])
+        self.assertFalse(period["close_ready"])
+        self.assertFalse(period["can_execute_close"])
+        self.assertNotIn("amount", str(period).lower())
+        self.assertNotIn("currency", str(period).lower())
+
+    def test_stale_or_incomplete_statement_fails_closed(self) -> None:
+        source = _row_source(source_row())
+        balances, assessments, statements = reconciled_inputs(
+            source, statement_assessments=[str(uuid.uuid4())])
+        stale = _build_period(
+            START, END, [source], checks(source["dataset_version_id"]),
+            balances, assessments, statements)
+        self.assertEqual("blocked", stale["status"])
+        self.assertEqual(
+            "stale_inputs", stale["account_reconciliations"][0]["coverage_state"])
+
+        current_assessment_id = next(iter(assessments.values()))["assessment_id"]
+        _, _, pending_lineage = reconciled_inputs(
+            source, statement_lineage="required_pending",
+            statement_assessments=[current_assessment_id])
+        incomplete = _build_period(
+            START, END, [source], checks(source["dataset_version_id"]),
+            balances, assessments, pending_lineage)
+        self.assertEqual("blocked", incomplete["status"])
+        self.assertEqual(
+            "covered",
+            incomplete["account_reconciliations"][0]["coverage_state"])
+        controls = {item["code"]: item for item in incomplete["controls"]}
+        self.assertEqual(
+            "blocked", controls["reconciliation_statement_lineage"]["state"])
 
     def test_a_period_window_cannot_hide_sources_by_silent_truncation(self) -> None:
         class Cursor:

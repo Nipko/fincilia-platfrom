@@ -68,6 +68,7 @@ def _row_source(row: tuple[Any, ...]) -> dict[str, Any]:
         "movement_count": int(row[13] or 0),
         "prepared_at": row[14].isoformat() if row[14] is not None else None,
         "account_family": row[15] if len(row) > 15 else None,
+        "account_name": row[16] if len(row) > 16 else None,
         "selection_rule": (
             "published_then_validated_then_latest_for_satisfied_artifact"
             if dataset_id else "no_dataset_for_satisfied_artifact"),
@@ -101,7 +102,8 @@ def _period_rows(connection: psycopg.Connection, limit: int) -> list[tuple[Any, 
             "       e.state, e.satisfied_by, chosen.dataset_version_id, "
             "       chosen.state, chosen.completeness_state, "
             "       chosen.lineage_state, chosen.rejected_count, "
-            "       chosen.movement_count, chosen.prepared_at, a.account_family "
+            "       chosen.movement_count, chosen.prepared_at, a.account_family, "
+            "       a.display_name "
             "FROM fincilia.source_expectation e "
             "JOIN fincilia.data_source s "
             "  ON s.data_source_id = e.data_source_id "
@@ -247,10 +249,106 @@ def _balance_checks(connection: psycopg.Connection,
     return checks
 
 
+def _assessment_checks(
+        connection: psycopg.Connection,
+        sources: list[dict[str, Any]],
+) -> dict[tuple[str, str], dict[str, Any]]:
+    """Selecciona la evaluacion vigente para la evidencia exacta de cada fuente.
+
+    La clave incluye expectation y dataset. De ese modo, un assessment valido
+    para el extracto anterior no puede volver verde el periodo actual.
+    """
+    expected = {
+        (source["expectation_id"], source["dataset_version_id"])
+        for source in sources if source["dataset_version_id"]
+    }
+    if not expected:
+        return {}
+    expectation_ids = sorted({item[0] for item in expected})
+    dataset_ids = sorted({item[1] for item in expected})
+    checks: dict[tuple[str, str], dict[str, Any]] = {}
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT DISTINCT ON (a.source_expectation_id, a.dataset_version_id) "
+            "a.source_expectation_id, a.dataset_version_id, a.assessment_id, "
+            "a.financial_account_id, a.state, a.lineage_state, "
+            "a.engine_release_id, a.canonical_schema_version, a.created_at "
+            "FROM fincilia.completeness_assessment a "
+            "WHERE a.source_expectation_id = ANY(%s::uuid[]) "
+            "AND a.dataset_version_id = ANY(%s::uuid[]) "
+            "ORDER BY a.source_expectation_id, a.dataset_version_id, "
+            "a.created_at DESC, a.assessment_id DESC",
+            (expectation_ids, dataset_ids))
+        for row in cursor:
+            key = (str(row[0]), str(row[1]))
+            if key not in expected:
+                continue
+            checks[key] = {
+                "assessment_id": str(row[2]),
+                "financial_account_id": str(row[3]) if row[3] else None,
+                "state": row[4],
+                "lineage_state": row[5],
+                "engine_release_id": str(row[6]),
+                "canonical_schema_version": row[7],
+                "created_at": row[8].isoformat(),
+            }
+    return checks
+
+
+def _statement_checks(
+        connection: psycopg.Connection,
+        periods: list[tuple[dt.date, dt.date]],
+) -> dict[tuple[str, dt.date, dt.date], dict[str, Any]]:
+    """Lee la ultima version del root estable por cuenta y periodo.
+
+    `DISTINCT ON` queda completamente ordenado. No existe un "ultimo" global ni
+    se acepta una cuenta/periodo que venga del cliente.
+    """
+    if not periods:
+        return {}
+    unique_periods = sorted(set(periods))
+    pairs = ", ".join(["(%s::date, %s::date)"] * len(unique_periods))
+    parameters: list[dt.date] = []
+    for period_start, period_end in unique_periods:
+        parameters.extend((period_start, period_end))
+    checks: dict[tuple[str, dt.date, dt.date], dict[str, Any]] = {}
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT DISTINCT ON (r.financial_account_id, r.period_start, r.period_end) "
+            "r.financial_account_id, r.period_start, r.period_end, "
+            "r.statement_root_id, s.statement_id, s.version, s.state, "
+            "s.lineage_state, s.completeness_assessment_ids, "
+            "s.engine_release_id, s.canonical_schema_version, s.created_at "
+            "FROM fincilia.reconciliation_statement_root r "
+            "JOIN fincilia.reconciliation_statement s "
+            "ON s.statement_root_id=r.statement_root_id "
+            "AND s.company_id=r.company_id "
+            f"WHERE (r.period_start, r.period_end) IN ({pairs}) "
+            "ORDER BY r.financial_account_id, r.period_start, r.period_end, "
+            "s.version DESC, s.created_at DESC, s.statement_id DESC",
+            tuple(parameters))
+        for row in cursor:
+            checks[(str(row[0]), row[1], row[2])] = {
+                "statement_root_id": str(row[3]),
+                "statement_id": str(row[4]),
+                "version": int(row[5]),
+                "state": row[6],
+                "lineage_state": row[7],
+                "assessment_ids": sorted(str(value) for value in row[8]),
+                "engine_release_id": str(row[9]),
+                "canonical_schema_version": row[10],
+                "created_at": row[11].isoformat(),
+            }
+    return checks
+
+
 def _build_period(period_start: dt.date, period_end: dt.date,
                   sources: list[dict[str, Any]],
                   dataset_checks: dict[str, dict[str, Any]],
-                  balance_checks: dict[tuple[str, str], list[dict[str, Any]]] | None = None
+                  balance_checks: dict[tuple[str, str], list[dict[str, Any]]] | None = None,
+                  assessment_checks: dict[tuple[str, str], dict[str, Any]] | None = None,
+                  statement_checks: dict[
+                      tuple[str, dt.date, dt.date], dict[str, Any]] | None = None,
                   ) -> dict[str, Any]:
     selected = [source for source in sources if source["dataset_version_id"]]
     checks = [dataset_checks[source["dataset_version_id"]] for source in selected]
@@ -296,6 +394,80 @@ def _build_period(period_start: dt.date, period_end: dt.date,
             eligible_balances += 1
     missing_balances = expected_balances - eligible_balances
 
+    assessments = assessment_checks or {}
+    statements = statement_checks or {}
+    expected_accounts = sorted({
+        source["financial_account_id"] for source in sources
+        if source["financial_account_id"]
+    })
+    account_names = {
+        source["financial_account_id"]: source.get("account_name")
+        for source in sources if source["financial_account_id"]
+    }
+    missing_account_assignments = sum(
+        source["financial_account_id"] is None for source in sources)
+    eligible_assessment_ids: dict[str, list[str]] = {
+        account_id: [] for account_id in expected_accounts
+    }
+    missing_assessments = 0
+    for source in sources:
+        dataset_id = source["dataset_version_id"]
+        account_id = source["financial_account_id"]
+        if not dataset_id or not account_id:
+            missing_assessments += 1
+            continue
+        assessment = assessments.get((source["expectation_id"], dataset_id))
+        eligible = bool(
+            assessment
+            and assessment["financial_account_id"] == account_id
+            and assessment["state"] == "verified"
+            and assessment["lineage_state"] == "complete"
+        )
+        if not eligible:
+            missing_assessments += 1
+            continue
+        eligible_assessment_ids[account_id].append(assessment["assessment_id"])
+
+    account_reconciliations: list[dict[str, Any]] = []
+    uncovered_accounts = 0
+    statement_lineage_gaps = 0
+    for account_id in expected_accounts:
+        account_sources = [
+            source for source in sources
+            if source["financial_account_id"] == account_id
+        ]
+        expected_ids = sorted(eligible_assessment_ids[account_id])
+        statement = statements.get((account_id, period_start, period_end))
+        if len(expected_ids) != len(account_sources):
+            coverage_state = "missing_assessment"
+        elif statement is None:
+            coverage_state = "missing_statement"
+        elif statement["assessment_ids"] != expected_ids:
+            coverage_state = "stale_inputs"
+        elif statement["state"] != "balanced":
+            coverage_state = "review_required"
+        else:
+            coverage_state = "covered"
+        if coverage_state != "covered":
+            uncovered_accounts += 1
+        if statement is None or statement["lineage_state"] != "complete":
+            statement_lineage_gaps += 1
+        account_reconciliations.append({
+            "financial_account_id": account_id,
+            "account_name": account_names.get(account_id),
+            "source_count": len(account_sources),
+            "assessment_count": len(expected_ids),
+            "statement_root_id": statement["statement_root_id"] if statement else None,
+            "statement_id": statement["statement_id"] if statement else None,
+            "statement_version": statement["version"] if statement else None,
+            "statement_state": statement["state"] if statement else None,
+            "statement_lineage_state": (
+                statement["lineage_state"] if statement else None),
+            "coverage_state": coverage_state,
+        })
+    if not expected_accounts:
+        uncovered_accounts = 1
+
     controls = [
         _control("expected_sources", "pass" if sources else "blocked", len(sources),
                  "Fuentes esperadas configuradas para el periodo."),
@@ -326,26 +498,49 @@ def _build_period(period_start: dt.date, period_end: dt.date,
             f"{observed_balances} observacion(es) encontrada(s); "
             f"{eligible_balances} con linaje completo para {expected_balances} "
             "fuente(s) esperada(s)."),
-        _control("reconciliation_statements", "unavailable", 1,
-                 "El producto aun no materializa un estado de conciliacion por periodo."),
+        _control(
+            "completeness_assessments",
+            "pass" if sources and missing_assessments == 0 else "blocked",
+            missing_assessments,
+            "Evaluaciones verificadas, con linaje completo y ligadas al dataset actual."),
+        _control(
+            "reconciliation_statements",
+            "pass" if expected_accounts and uncovered_accounts == 0 else "blocked",
+            uncovered_accounts,
+            f"{max(0, len(expected_accounts) - uncovered_accounts)} de "
+            f"{len(expected_accounts)} cuenta(s) tienen un statement balanceado, "
+            "vigente y ligado a las evaluaciones actuales."),
+        _control(
+            "reconciliation_statement_lineage",
+            "pass" if expected_accounts and statement_lineage_gaps == 0 else "blocked",
+            statement_lineage_gaps if expected_accounts else 1,
+            "Statements cuyo linaje de decision aun no alcanza estado completo."),
         _control("product_close", "unavailable", 1,
                  "La ejecucion de cierre permanece fuera del alcance autorizado."),
     ]
+    diagnostic_ready = all(
+        control["state"] == "pass"
+        for control in controls if control["code"] != "product_close"
+    )
     blockers = [
         _blocker(control["code"], control["count"], control["detail"])
-        for control in controls if control["state"] != "pass"
+        for control in controls
+        if control["state"] != "pass" and control["code"] != "product_close"
     ]
     return {
         "period_start": period_start.isoformat(),
         "period_end": period_end.isoformat(),
-        "status": "blocked",
+        "status": "ready_for_review" if diagnostic_ready else "blocked",
         "close_ready": False,
         "can_execute_close": False,
         "source_count": len(sources),
         "selected_dataset_count": len(selected),
+        "expected_account_count": len(expected_accounts),
+        "missing_account_assignment_count": missing_account_assignments,
         "controls": controls,
         "blockers": blockers,
         "sources": sources,
+        "account_reconciliations": account_reconciliations,
     }
 
 
@@ -359,19 +554,24 @@ def list_close_readiness(connection: psycopg.Connection,
                           if source["dataset_version_id"]})
     checks = _dataset_checks(connection, dataset_ids)
     balances = _balance_checks(connection, dataset_ids)
+    assessments = _assessment_checks(connection, sources)
 
     periods: dict[tuple[dt.date, dt.date], list[dict[str, Any]]] = {}
     for row, source in zip(rows, sources, strict=True):
         periods.setdefault((row[4], row[5]), []).append(source)
-    items = [_build_period(start, end, period_sources, checks, balances)
+    statements = _statement_checks(connection, list(periods))
+    items = [_build_period(
+        start, end, period_sources, checks, balances, assessments, statements)
              for (start, end), period_sources in periods.items()]
+    blocked = sum(item["status"] == "blocked" for item in items)
 
     return {
         "mode": "diagnostic_only",
         "close_ready": False,
         "can_execute_close": False,
         "period_count": len(items),
-        "blocked_period_count": len(items),
+        "blocked_period_count": blocked,
+        "review_ready_period_count": len(items) - blocked,
         "source_count": len(sources),
         "limit": query.limit,
         "items": items,

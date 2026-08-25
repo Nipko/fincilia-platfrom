@@ -377,6 +377,29 @@ class BalanceReconciliationDatabaseTests(VerticalHarness):
         self.assertEqual("0.000000000000", statement["unexplained_difference"])
         self.assertFalse(statement["certifies_close"])
 
+        readiness = self.client.get(
+            f"/api/v1/companies/{ESPIGA}/close-readiness",
+            headers=self.auth(OWNER), params={"limit": 24})
+        self.assertEqual(200, readiness.status_code, readiness.text)
+        readiness_period = next(
+            item for item in readiness.json()["items"]
+            if item["period_start"] == period_start
+            and item["period_end"] == period_end)
+        account_coverage = next(
+            item for item in readiness_period["account_reconciliations"]
+            if item["financial_account_id"] == ACCOUNT)
+        self.assertEqual(statement["statement_id"], account_coverage["statement_id"])
+        self.assertEqual("covered", account_coverage["coverage_state"])
+        readiness_controls = {
+            item["code"]: item for item in readiness_period["controls"]}
+        self.assertEqual("pass", readiness_controls["reconciliation_statements"]["state"])
+        self.assertEqual(
+            "blocked", readiness_controls["reconciliation_statement_lineage"]["state"])
+        self.assertEqual("blocked", readiness_period["status"])
+        self.assertFalse(readiness_period["close_ready"])
+        self.assertFalse(readiness_period["can_execute_close"])
+        self.assertNotIn("amount", str(readiness_period).lower())
+
         item_response = self.client.post(
             f"/api/v1/companies/{ESPIGA}/balance-reconciliation/statements/"
             f"{statement['statement_root_id']}/items",
@@ -429,6 +452,22 @@ class BalanceReconciliationDatabaseTests(VerticalHarness):
         self.assertEqual(2, reevaluated["version"])
         self.assertEqual("review_required", reevaluated["state"])
         self.assertEqual("5.000000000000", reevaluated["unexplained_difference"])
+
+        readiness_after_change = self.client.get(
+            f"/api/v1/companies/{ESPIGA}/close-readiness",
+            headers=self.auth(OWNER), params={"limit": 24})
+        self.assertEqual(200, readiness_after_change.status_code,
+                         readiness_after_change.text)
+        changed_period = next(
+            item for item in readiness_after_change.json()["items"]
+            if item["period_start"] == period_start
+            and item["period_end"] == period_end)
+        changed_coverage = next(
+            item for item in changed_period["account_reconciliations"]
+            if item["financial_account_id"] == ACCOUNT)
+        self.assertEqual(reevaluated["statement_id"], changed_coverage["statement_id"])
+        self.assertEqual(2, changed_coverage["statement_version"])
+        self.assertEqual("review_required", changed_coverage["coverage_state"])
 
         replay = self.client.post(
             f"/api/v1/companies/{ESPIGA}/balance-reconciliation/statements",
