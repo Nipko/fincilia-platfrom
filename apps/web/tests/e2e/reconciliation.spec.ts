@@ -10,7 +10,7 @@ async function openReconciliation(page: Page): Promise<void> {
   await expect(page).toHaveURL(/\/empresas$/);
   await page.getByRole('link', { name: 'Abrir Panaderia La Espiga SAS' }).click();
   await expect(page).toHaveURL(/\/empresas\/[0-9a-f-]+$/);
-  await page.getByRole('link', { name: 'Conciliacion' }).click();
+  await page.getByRole('link', { name: 'Cruzar movimientos' }).click();
   await expect(page).toHaveURL(/\/conciliacion$/);
 }
 
@@ -60,7 +60,7 @@ test('FNC-REC-001 conserva un estado invalido en vez de caer en latest', async (
   await expect(page.getByText('Solo candidatos.')).toBeVisible();
 });
 
-test('FNC-REC-002 un revisor confirma sin alterar ni certificar saldos', async ({
+test('FNC-REC-002 conserva una decision humana sin alterar ni certificar saldos', async ({
   page,
   request,
 }) => {
@@ -68,15 +68,28 @@ test('FNC-REC-002 un revisor confirma sin alterar ni certificar saldos', async (
   await signInReviewer(page);
   await page.goto(reviewUrl(pair));
 
-  const open = page.getByLabel('Estado de revision').filter({
-    hasText: 'Pendiente de decision humana',
-  }).first();
-  await expect(open).toBeVisible();
-  await open.getByRole('button', { name: 'Confirmar revision' }).click();
-
-  await expect(page.getByText('Revision confirmada').first()).toBeVisible();
-  await expect(page.getByText('Registro humano sin efecto financiero.').first())
-    .toBeVisible();
+  const review = page.locator(`#revision-${pair.candidateId}`);
+  await expect(review).toBeVisible();
+  if (pair.status === 'open') {
+    if (pair.confirmationConflict) {
+      await expect(review.getByText('No se puede confirmar este par')).toBeVisible();
+      await expect(review.getByRole('button', { name: 'Confirmar revision' }))
+        .toHaveCount(0);
+      await review.getByRole('button', { name: 'Rechazar candidato' }).click();
+      await expect(review.getByText('Candidato rechazado')).toBeVisible();
+    } else {
+      await expect(review.getByText('Pendiente de decision humana')).toBeVisible();
+      await review.getByRole('button', { name: 'Confirmar revision' }).click();
+      await expect(review.getByText('Revision confirmada')).toBeVisible();
+    }
+  } else {
+    await expect(review.getByText(
+      pair.status === 'confirmed' ? 'Revision confirmada' : 'Candidato rechazado',
+    )).toBeVisible();
+    await expect(review.getByRole('button', { name: /Confirmar revision|Rechazar candidato/ }))
+      .toHaveCount(0);
+  }
+  await expect(review.getByText('Registro humano sin efecto financiero.')).toBeVisible();
   await expect(page.getByText(/demuestra que los saldos esten conciliados/))
     .toBeVisible();
 });

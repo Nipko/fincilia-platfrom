@@ -2,6 +2,40 @@ import { expect, type APIRequestContext, type Page } from '@playwright/test';
 
 const API_URL = process.env.FINCILIA_E2E_API_URL ?? 'http://127.0.0.1:58080';
 export const ESPIGA = '161b0037-c445-50aa-b400-72632d3f53f0';
+const CANDIDATE_PAGE_SIZE = 25;
+const CANDIDATE_BATCH_SIZE = 200;
+const MAX_CANDIDATE_OFFSET = 10_000;
+
+type ReviewStatus = 'open' | 'confirmed' | 'rejected';
+
+export type ReviewPair = {
+  candidateId: string;
+  left: string;
+  right: string;
+  maxDays: number;
+  page: number;
+  status: ReviewStatus;
+  confirmationConflict: boolean;
+};
+
+type ReviewSummary = {
+  candidate_id: string;
+  left_movement_id: string;
+  right_movement_id: string;
+  left_dataset_id: string;
+  right_dataset_id: string;
+  date_window_days: number;
+  status: ReviewStatus;
+  confirmation_conflict: boolean;
+};
+
+type CandidateBatch = {
+  truncated: boolean;
+  candidates: Array<{
+    left: { movement_id: string };
+    right: { movement_id: string };
+  }>;
+};
 
 export async function signInReviewer(page: Page): Promise<void> {
   await page.goto('/entrar');
@@ -13,8 +47,8 @@ export async function signInReviewer(page: Page): Promise<void> {
 
 export async function findReviewPair(
   request: APIRequestContext,
-  status?: 'open' | 'confirmed' | 'rejected',
-): Promise<{ left: string; right: string }> {
+  preferredStatus?: ReviewStatus,
+): Promise<ReviewPair> {
   const signed = await request.post(`${API_URL}/api/v1/auth/session`, {
     data: { username: 'beto@demo.local', secret: 'fincilia-demo-only' },
   });
@@ -32,6 +66,7 @@ export async function findReviewPair(
   }>;
   const eligible = datasets.filter((item) =>
     item.state === 'validated' || item.state === 'published');
+  const fallback: ReviewSummary[] = [];
 
   for (let leftIndex = 0; leftIndex < eligible.length; leftIndex += 1) {
     for (let rightIndex = leftIndex + 1; rightIndex < eligible.length; rightIndex += 1) {
@@ -42,13 +77,70 @@ export async function findReviewPair(
         { headers, params: { left_dataset_id: left, right_dataset_id: right } },
       );
       if (!reviewsResponse.ok()) continue;
-      const reviews = (await reviewsResponse.json()) as Array<{ status: string }>;
-      if (reviews.some((review) => !status || review.status === status)) {
-        return { left, right };
+      const reviews = (await reviewsResponse.json()) as ReviewSummary[];
+      for (const review of reviews) {
+        if (preferredStatus && review.status !== preferredStatus) {
+          fallback.push(review);
+          continue;
+        }
+        const located = await locateReviewPage(request, headers, review);
+        if (located) return located;
       }
     }
   }
-  throw new Error(`No synthetic ${status ?? 'any'} review pair was found`);
+
+  // Un ledger persistente no se reabre ni se borra para repetir una prueba. Si
+  // la revision solicitada ya es terminal, devolvemos esa version para verificar
+  // que la UI conserva historia y no ofrece una segunda decision.
+  for (const review of fallback) {
+    const located = await locateReviewPage(request, headers, review);
+    if (located) return located;
+  }
+  throw new Error(`No synthetic ${preferredStatus ?? 'any'} review pair was found`);
+}
+
+function movementPair(left: string, right: string): string {
+  return [left, right].sort().join(':');
+}
+
+async function locateReviewPage(
+  request: APIRequestContext,
+  headers: { authorization: string },
+  review: ReviewSummary,
+): Promise<ReviewPair | null> {
+  const expected = movementPair(review.left_movement_id, review.right_movement_id);
+  for (let offset = 0; offset <= MAX_CANDIDATE_OFFSET; offset += CANDIDATE_BATCH_SIZE) {
+    const response = await request.get(
+      `${API_URL}/api/v1/companies/${ESPIGA}/reconciliation/candidates`,
+      {
+        headers,
+        params: {
+          left_dataset_id: review.left_dataset_id,
+          right_dataset_id: review.right_dataset_id,
+          max_days: review.date_window_days,
+          offset,
+          limit: CANDIDATE_BATCH_SIZE,
+        },
+      },
+    );
+    if (!response.ok()) break;
+    const batch = (await response.json()) as CandidateBatch;
+    const index = batch.candidates.findIndex((candidate) =>
+      movementPair(candidate.left.movement_id, candidate.right.movement_id) === expected);
+    if (index >= 0) {
+      return {
+        candidateId: review.candidate_id,
+        left: review.left_dataset_id,
+        right: review.right_dataset_id,
+        maxDays: review.date_window_days,
+        page: Math.floor((offset + index) / CANDIDATE_PAGE_SIZE),
+        status: review.status,
+        confirmationConflict: review.confirmation_conflict,
+      };
+    }
+    if (!batch.truncated) break;
+  }
+  return null;
 }
 
 export async function findPublishedDataset(
@@ -113,12 +205,12 @@ export function publishedDatasetUrl(dataset: {
   );
 }
 
-export function reviewUrl(pair: { left: string; right: string }): string {
+export function reviewUrl(pair: ReviewPair): string {
   const query = new URLSearchParams({
     izquierda: pair.left,
     derecha: pair.right,
-    ventana: '3',
-    pagina: '0',
+    ventana: String(pair.maxDays),
+    pagina: String(pair.page),
   });
-  return `/empresas/${ESPIGA}/conciliacion?${query.toString()}`;
+  return `/empresas/${ESPIGA}/conciliacion?${query.toString()}#revision-${pair.candidateId}`;
 }
