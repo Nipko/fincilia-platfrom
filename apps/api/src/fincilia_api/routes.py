@@ -26,7 +26,7 @@ from fincilia_platform.identity import AuthenticationError
 from fincilia_platform.objects import ObjectStoreError, object_key
 from fincilia_platform.tokens import issue
 
-from . import datasets, exports, onboarding, reconciliation, repository
+from . import datasets, exports, onboarding, operations, reconciliation, repository
 from .security import (Principal, ProblemError, company_context, current_principal,
                        forbidden, require, unauthorized)
 from fincilia_contracts.errors import problem
@@ -1705,6 +1705,44 @@ def list_expectations(request: Request, company_id: str,
         return onboarding.list_expectations(
             connection, today=dt.date.today(), data_source_id=data_source_id,
             limit=limit)
+
+
+@router.get("/companies/{company_id}/operations/periods", tags=["operations"])
+def operational_periods(
+        request: Request, company_id: str, status: str = "attention",
+        limit: int = operations.DEFAULT_LIMIT, cursor: str | None = None,
+        principal: Principal = Depends(principal_dependency)) -> dict:
+    """Recordatorios visuales e historico; nunca constancia de entrega."""
+    context = company_context(request, principal, company_id)
+    require(context, "data_source.manage")
+    if request.app.state.settings.real_data_enabled:
+        raise ProblemError(problem(
+            "operations-center-disabled", "Operations center unavailable", 503,
+            "the operations center is enabled only for synthetic data"))
+    database = request.app.state.database
+    with database.session(company_id=context.company_id,
+                          subject_id=principal.subject_id) as connection:
+        try:
+            result = operations.list_operational_periods(
+                connection, today=dt.date.today(),
+                subject_id=principal.subject_id, status=status, limit=limit,
+                cursor=cursor)
+        except operations.OperationsQueryError as error:
+            raise ProblemError(problem(
+                error.code, "Operations request invalid", 422,
+                error.detail)) from None
+        # Solo metadatos de la consulta. No se duplican nombres, fechas ni
+        # responsables en auditoria cada vez que el portafolio refresca.
+        repository.record_audit(
+            connection, subject_id=principal.subject_id,
+            company_id=context.company_id, action="operations.periods.read",
+            resource_kind="company", resource_ref=context.company_id,
+            outcome="allowed", detail={
+                "filter": result["filter"],
+                "returned": len(result["items"]),
+                "truncated": result["has_more"],
+            })
+    return result
 
 
 @router.get("/companies/{company_id}/assignees", tags=["onboarding"])

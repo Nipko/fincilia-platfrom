@@ -64,8 +64,9 @@ presentar un recordatorio visual como una notificacion efectivamente enviada.
 
 - **AC-01.** La API devuelve periodos de una sola empresa con filtros cerrados,
   limite acotado y cursor keyset estable; la fecha de evaluacion es server-side.
-- **AC-02.** Estados `overdue`, `due_today`, `due_soon`, `upcoming`, `satisfied`
-  y `waived` se derivan sin reescribir fechas o estados historicos.
+- **AC-02.** Estados `overdue`, `in_grace`, `due_today`, `due_soon`, `upcoming`,
+  `satisfied` y `waived` se derivan sin reescribir fechas o estados historicos;
+  una gracia vigente nunca se rotula falsamente como atraso.
 - **AC-03.** Resumen e historico cuentan periodos por estado, fuente y horizonte
   sin sumar dinero. Ventanas truncadas se divulgan y nunca se presentan como
   totales completos.
