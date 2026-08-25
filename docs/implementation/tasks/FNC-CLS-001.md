@@ -1,7 +1,7 @@
 ---
 id: FNC-CLS-001
 title: Centro diagnostico de preparacion de cierre
-status: in_progress
+status: review_pending
 implementer: Codex principal dev + Integration Steward
 base_sha: d81dadd
 gate: S1-READY
