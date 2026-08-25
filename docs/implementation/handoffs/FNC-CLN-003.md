@@ -4,7 +4,7 @@ status: REVIEW_PENDING
 base_sha: 4654c3b
 reservation_sha: ded2997
 implementation_sha: c9d6b9d
-integration_sha: pending
+integration_sha: 5dd0735
 data_ceiling: synthetic_only
 implemented_by: Codex principal dev + Integration Steward
 independent_reviewers: [Accounting, Security, Product, QA]
