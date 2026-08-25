@@ -120,6 +120,7 @@ Hasta S1-READY solo se admite scaffolding, automatización, pruebas, documentaci
 | FNC-EXP-001 | Exportacion canonica segura de dataset publicado | Review pending | Codex + Integration Steward | permiso explicito, CSV determinista, BFF streaming y pruebas; solo sintetico y no certificado |
 | FNC-OPS-001 | Centro operativo de ciclos y recordatorios web | Review pending | Codex + Integration Steward | API y web company-by-company verificadas; revision humana Product/Accounting, Security/Privacy, Backend/Architecture y Accessibility/QA pendiente |
 | FNC-DQ-001 | Centro de alertas de calidad y anomalias deterministas | Review pending | Codex + Integration Steward | backend, V0018, web multiempresa, PostgreSQL, E2E y a11y verdes; revision humana independiente pendiente |
+| FNC-RPT-001 | Centro web de informes operativos e historicos | In progress | Codex + Integration Steward | API company-scoped, series exactas, CSV y web; solo sintetico y no certificado |
 
 Solo el Integration Steward modifica esta tabla.
 
