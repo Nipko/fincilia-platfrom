@@ -1,7 +1,7 @@
 ---
 id: FNC-REC-004
 title: Exclusividad uno-a-uno de confirmaciones de conciliacion
-status: in_progress
+status: review_pending
 implementer: Codex principal dev + Integration Steward
 base_sha: 94142c2
 gate: S1-READY
