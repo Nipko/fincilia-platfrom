@@ -106,10 +106,10 @@ que es justo lo que la decisión abierta `UD-PLT-CLI-EXPECTED` plantea.
  "reason": "Docker is not available. `doctor`, `validate` and `test` keep working without it."}
 ```
 
-En un Windows con Docker dentro de WSL, la CLI **no** atraviesa el límite por su
-cuenta: construir un comando que nadie declaró sería exactamente lo que el allowlist
-existe para impedir. El diagnóstico dice que se ejecute desde WSL, y la decisión
-`UD-PLT-CLI-WSL` queda abierta.
+En Windows con Docker dentro de WSL, la CLI Python **no** atraviesa el límite de
+forma implícita. FNC-PLT-009 resolvió `UD-PLT-CLI-WSL` con un entrypoint dedicado:
+`infra/local/fincilia-local.ps1`. Ese wrapper usa argv fijo, mantiene una sesión
+WSL oculta y reversible y opera únicamente el proyecto `fincilia-local`.
 
 ---
 
@@ -130,11 +130,11 @@ existe para impedir. El diagnóstico dice que se ejecute desde WSL, y la decisi�
 
 ## 7. Registro actual
 
-25 checks de validación en cuatro grupos y 10 de prueba en tres:
+26 checks de validación en cuatro grupos y 10 de prueba en tres:
 
 | Grupo | Checks | Cubre |
 |---|---:|---|
-| `core` | 8 | arquitectura, canónico, cross-contract, ADR, work graph, workspace, runtime config, stack local |
+| `core` | 9 | arquitectura, canónico, cross-contract, ADR, work graph, workspace, runtime config, stack local y runtime WSL |
 | `security` | 4 | threat model, privacidad, región, cadena de suministro |
 | `data` | 8 | completitud, idempotencia, linaje, DFD, eventos, conectores, migraciones |
 | `qa` | 5 | estrategia, catálogo, golden, mutación, corpus sintético |
@@ -142,16 +142,16 @@ existe para impedir. El diagnóstico dice que se ejecute desde WSL, y la decisi�
 | `golden` | 2 | arnés golden y sus casos |
 | `mutation` | 2 | arnés de mutaciones y su ejecución |
 
-Resultado medido de `validate --group all`: **25 ejecutados, 24 pasan, 1 falla**
+Resultado medido de `validate --group all`: **26 ejecutados, 25 pasan, 1 falla**
 (`security-supply-chain`), 0 fallos inesperados. Exit 1, que es el resultado honesto.
 
 ---
 
 ## 8. `evidence summary`
 
-Lee 12 contratos estructurados y resume estado, aceptación humana, techo de datos,
+Lee 13 contratos estructurados y resume estado, aceptación humana, techo de datos,
 gates no cumplidos y decisiones abiertas. **No ejecuta nada y no produce evidencia
-nueva.** Medición actual: 12 fuentes, **32 decisiones sin resolver, ninguna fuente
+nueva.** Medición actual: 13 fuentes, **22 decisiones sin resolver, ninguna fuente
 con aceptación humana registrada**.
 
 ---
@@ -184,6 +184,5 @@ en silencio rompería a cualquiera que los interpretara.
 
 | ID | Pregunta | Owner |
 |---|---|---|
-| `UD-PLT-CLI-WSL` | Si la CLI debe atravesar WSL o si se documenta ejecutarla desde WSL | Platform |
 | `UD-PLT-CLI-CI` | Si CI debe invocar esta CLI en vez de enumerar comandos, y quién mantiene la equivalencia | Platform |
 | `UD-PLT-CLI-EXPECTED` | Cadencia de revisión de los `expected_today` | QA |

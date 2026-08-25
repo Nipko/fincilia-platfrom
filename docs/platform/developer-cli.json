@@ -98,7 +98,9 @@
   ],
   "expected_paths": [
     "infra/local/compose.yaml",
+    "infra/local/fincilia-local.ps1",
     "docs/platform/runtime-config.json",
+    "docs/platform/wsl-local-runtime.json",
     "docs/testing/test-strategy.json",
     "tests/golden/synthetic",
     "tools"
@@ -123,6 +125,10 @@
     {
       "path": "docs/platform/runtime-config.json",
       "what": "configuracion y secretos"
+    },
+    {
+      "path": "docs/platform/wsl-local-runtime.json",
+      "what": "persistencia explicita del Docker Engine dentro de WSL"
     },
     {
       "path": "docs/privacy/privacy-map.json",
@@ -237,6 +243,21 @@
       "argv": [
         "-m",
         "tools.runtime_config.validate"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 120,
+      "max_output_bytes": 262144,
+      "classification": "read_only",
+      "owner_role": "Platform"
+    },
+    {
+      "id": "core-wsl-runtime",
+      "group": "core",
+      "kind": "validate",
+      "module": "tools.wsl_runtime.validate",
+      "argv": [
+        "-m",
+        "tools.wsl_runtime.validate"
       ],
       "cwd": ".",
       "timeout_seconds": 120,
@@ -591,7 +612,8 @@
         "tools.cross_contract_model.test_validate",
         "tools.local_stack.test_validate",
         "tools.runtime_config.test_validate",
-        "tools.workspace_contract.test_validate"
+        "tools.workspace_contract.test_validate",
+        "tools.wsl_runtime.test_validate"
       ],
       "cwd": ".",
       "timeout_seconds": 600,
@@ -745,11 +767,6 @@
   ],
   "unresolved_decisions": [
     {
-      "id": "UD-PLT-CLI-WSL",
-      "question": "Si la CLI debe atravesar WSL para hablar con Docker en Windows, o si se documenta ejecutarla desde WSL",
-      "owner_role": "Platform"
-    },
-    {
       "id": "UD-PLT-CLI-CI",
       "question": "Si CI debe invocar esta CLI en vez de enumerar comandos, y quien mantiene entonces la equivalencia",
       "owner_role": "Platform"
@@ -758,6 +775,14 @@
       "id": "UD-PLT-CLI-EXPECTED",
       "question": "Cadencia de revision de los `expected_today`: un fallo previsto que nadie revisa se vuelve ruido aceptado",
       "owner_role": "QA"
+    }
+  ],
+  "resolved_decisions": [
+    {
+      "id": "UD-PLT-CLI-WSL",
+      "task_id": "FNC-PLT-009",
+      "decision": "La CLI Python permanece portable y sin cruce implicito. En Windows, un wrapper PowerShell dedicado y contractualmente allowlisted mantiene una sesion WSL oculta y ejecuta el lifecycle fijo de fincilia-local.",
+      "accountable_owner": "FOUNDER-01"
     }
   ],
   "anti_promises": [
