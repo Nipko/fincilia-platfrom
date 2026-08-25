@@ -1,7 +1,7 @@
 ---
 id: FNC-QA-008
 title: Regresion web repetible sobre runtime persistente
-status: in_progress
+status: review_pending
 implementer: Codex principal dev + Integration Steward
 base_sha: a6de61b
 gate: S1-READY

@@ -116,7 +116,7 @@ Hasta S1-READY solo se admite scaffolding, automatización, pruebas, documentaci
 | FNC-CLN-003 | Aplicabilidad de correcciones ligada al plan de linaje | Review pending | Codex + Integration Steward | targets dinámicos, rechazo fail-closed, 117 API, 10 PostgreSQL y recorrido visual sintético |
 | FNC-QA-006 | Aceptacion web integral y arranque local coherente | Review pending | Codex + Integration Steward | bootstrap local, contrato ejecutable y E2E de roles/tenancy |
 | FNC-QA-007 | Administracion final de usuarios y roles por empresa | Review pending | Codex + Integration Steward | API member.manage, revocacion/versionado, web equipo y pruebas PostgreSQL/E2E |
-| FNC-QA-008 | Regresion web repetible sobre runtime persistente | In progress | Codex + Integration Steward | Serializacion explicita de fixtures compartidos, localizacion exacta de expedientes append-only y matriz Chromium/Axe completa |
+| FNC-QA-008 | Regresion web repetible sobre runtime persistente | Review pending | Codex + Integration Steward | 26 Chromium dos veces y 15 Axe verdes; fixtures compartidos seriales y expedientes append-only localizados por pagina exacta |
 | FNC-REC-001 | Explorador read-only de candidatos de conciliacion | Review pending | Codex + Integration Steward | motor/endpoint sintetico, estacion web y pruebas |
 | FNC-REC-002 | Propuesta y decision humana de conciliacion sin efecto financiero | Review pending | Codex + Integration Steward | ledger append-only, SoD, idempotencia, API/web y pruebas; revisiones independientes pendientes |
 | FNC-REC-003 | Bandeja multiempresa de revision de conciliaciones | Review pending | Codex + Integration Steward | proyeccion company-scoped, agregacion web acotada y pruebas; sin efecto financiero |
