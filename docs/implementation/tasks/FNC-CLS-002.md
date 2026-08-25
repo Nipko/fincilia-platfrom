@@ -13,7 +13,7 @@ backend_sha: 7330580
 web_sha: 692a04a
 journey_sha: 96f5edf
 tested_head_sha: 96f5edf
-integration_sha: pending
+integration_sha: f355246
 ---
 
 # Resultado
