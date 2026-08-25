@@ -1,7 +1,7 @@
 ---
 id: FNC-ONB-001
 title: Alta transaccional de empresa y espacio operativo
-status: in_progress
+status: review_pending
 implementer: Codex principal dev + Integration Steward
 base_sha: f19b162
 gate: S1-READY
