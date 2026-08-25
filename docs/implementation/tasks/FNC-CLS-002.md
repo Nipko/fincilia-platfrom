@@ -1,13 +1,19 @@
 ---
 id: FNC-CLS-002
 title: Observaciones canonicas de saldo por cuenta
-status: in_progress
+status: review_pending
 implementer: Codex principal dev + Integration Steward
 base_sha: 042a91c
 gate: S1-READY
 gate_effect: none
 data_ceiling: synthetic_only
 independent_reviewers: [Accounting, Security, Backend/Architecture, Product, Accessibility/QA]
+reservation_sha: df8bda7
+backend_sha: 7330580
+web_sha: 692a04a
+journey_sha: 96f5edf
+tested_head_sha: 96f5edf
+integration_sha: pending
 ---
 
 # Resultado
@@ -64,3 +70,11 @@ No implementa `reconciliation_statement`, partidas conciliatorias, excepciones,
 snapshot, cierre, reapertura, firma, reporte certificado, IA, movil ni datos
 reales. La observacion manual no se marca con linaje completo: completar el
 camino desde la celda exige una rebanada separada del plan de transformacion.
+
+# Estado de entrega
+
+Implementacion y verificaciones completas. La tarea queda `review_pending`
+porque su revision independiente de Accounting, Security, Backend/Architecture,
+Product y Accessibility/QA no puede ser sustituida por el implementador ni por
+`FOUNDER-01`. Evidencia reproducible en
+`docs/implementation/handoffs/FNC-CLS-002.md`.
