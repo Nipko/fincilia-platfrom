@@ -22,6 +22,7 @@ import {
   fetchMapping,
   fetchOverrides,
   fetchSource,
+  grantMemberRole,
   generateExpectations,
   linkAccount,
   setCycle,
@@ -34,6 +35,7 @@ import {
   rejectDataset,
   decideReconciliationReview,
   reviewCorrection,
+  revokeMemberRole,
   signIn,
   validateMapping,
 } from '@/lib/api';
@@ -73,6 +75,122 @@ export async function signInAction(
 export async function signOutAction(): Promise<void> {
   await clearSession();
   redirect('/entrar');
+}
+
+// --------------------------------------------------------------------------- //
+// Administracion de equipo y roles (FNC-QA-007)
+// --------------------------------------------------------------------------- //
+
+export type RoleManagementState = { error: string | null; done: string | null };
+
+const COMPANY_ROLES = new Set([
+  'owner',
+  'firm_admin',
+  'preparer',
+  'reviewer',
+  'auditor',
+  'read_only',
+]);
+const ROLE_REASON_CODES = new Set([
+  'access_required',
+  'responsibility_change',
+  'team_change',
+  'least_privilege',
+  'access_removed',
+]);
+
+function roleManagementError(error: unknown): RoleManagementState {
+  if (error instanceof ApiError && error.status === 403) {
+    return {
+      error: 'Tu rol no puede administrar este acceso o el miembro ya no esta disponible.',
+      done: null,
+    };
+  }
+  if (error instanceof ApiError && error.status === 409) {
+    return {
+      error: 'El cambio entra en conflicto con la proteccion del ultimo owner o con una accion propia.',
+      done: null,
+    };
+  }
+  if (error instanceof ApiError && error.status === 422) {
+    return { error: 'El miembro, el rol o el motivo ya no son validos.', done: null };
+  }
+  if (error instanceof ApiError && error.status === 503) {
+    return { error: 'La administracion de accesos no esta disponible.', done: null };
+  }
+  return {
+    error: error instanceof ApiError ? error.message : 'No se pudo cambiar el rol.',
+    done: null,
+  };
+}
+
+async function changeMemberRoleAction(
+  operation: 'grant' | 'revoke',
+  formData: FormData,
+): Promise<RoleManagementState> {
+  const session = await readSession();
+  if (!session) redirect('/entrar');
+  const companyId = String(formData.get('companyId') ?? '');
+  const subjectId = String(formData.get('subjectId') ?? '');
+  const role = String(formData.get('role') ?? '');
+  const reasonCode = String(formData.get('reasonCode') ?? '');
+  if (
+    !UUID_PATTERN.test(companyId) || !UUID_PATTERN.test(subjectId) ||
+    !COMPANY_ROLES.has(role) || !ROLE_REASON_CODES.has(reasonCode)
+  ) {
+    return { error: 'El cambio de acceso no tiene un contexto valido.', done: null };
+  }
+  try {
+    const result = operation === 'grant'
+      ? await grantMemberRole(session.token, companyId, subjectId, {
+          role,
+          reason_code: reasonCode,
+        })
+      : await revokeMemberRole(session.token, companyId, subjectId, {
+          role,
+          reason_code: reasonCode,
+        });
+    if (result.refreshed_session) {
+      await writeSession(
+        result.refreshed_session.token,
+        result.refreshed_session.display_name,
+        result.refreshed_session.expires_at,
+      );
+    }
+    revalidatePath(`/empresas/${companyId}/equipo`);
+    revalidatePath(`/empresas/${companyId}`);
+    if (operation === 'grant') {
+      return {
+        error: null,
+        done: result.replayed
+          ? 'El miembro ya tenia ese rol.'
+          : 'Rol asignado y sesiones anteriores invalidadas.',
+      };
+    }
+    return {
+      error: null,
+      done: result.replayed
+        ? 'El rol ya estaba revocado.'
+        : 'Rol revocado y sesiones anteriores invalidadas.',
+    };
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) redirect('/entrar');
+    return roleManagementError(error);
+  }
+}
+
+export async function grantMemberRoleAction(
+  _previous: RoleManagementState,
+  formData: FormData,
+): Promise<RoleManagementState> {
+  return changeMemberRoleAction('grant', formData);
+}
+
+export async function revokeMemberRoleAction(
+  _previous: RoleManagementState,
+  formData: FormData,
+): Promise<RoleManagementState> {
+  return changeMemberRoleAction('revoke', formData);
 }
 
 // --------------------------------------------------------------------------- //

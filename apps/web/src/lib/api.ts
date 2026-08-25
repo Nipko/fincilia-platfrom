@@ -1321,3 +1321,76 @@ export function fetchAssignees(
     { token },
   );
 }
+
+// --------------------------------------------------------------------------- //
+// Equipo y roles company-scoped (FNC-QA-007)
+// --------------------------------------------------------------------------- //
+
+/** Miembro activo de la firma delegada. No contiene correo ni identidad externa. */
+export type CompanyMember = {
+  subject_id: string;
+  display_name: string;
+  firm_role: string;
+  company_roles: string[];
+};
+
+export type RoleChangeResult = {
+  subject_id: string;
+  role: string;
+  changed: boolean;
+  replayed: boolean;
+  authorization_version: number;
+  refreshed_session: null | {
+    token: string;
+    expires_at: number;
+    display_name: string;
+  };
+};
+
+export function fetchMembers(
+  token: string,
+  companyId: string,
+): Promise<CompanyMember[]> {
+  return request<CompanyMember[]>(
+    `/api/v1/companies/${encodeURIComponent(companyId)}/members`,
+    { token },
+  );
+}
+
+function changeMemberRole(
+  method: 'POST' | 'DELETE',
+  token: string,
+  companyId: string,
+  subjectId: string,
+  body: { role: string; reason_code: string },
+): Promise<RoleChangeResult> {
+  const company = encodeURIComponent(companyId);
+  const subject = encodeURIComponent(subjectId);
+  return request<RoleChangeResult>(
+    `/api/v1/companies/${company}/members/${subject}/roles`,
+    {
+      method,
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+      token,
+    },
+  );
+}
+
+export function grantMemberRole(
+  token: string,
+  companyId: string,
+  subjectId: string,
+  body: { role: string; reason_code: string },
+): Promise<RoleChangeResult> {
+  return changeMemberRole('POST', token, companyId, subjectId, body);
+}
+
+export function revokeMemberRole(
+  token: string,
+  companyId: string,
+  subjectId: string,
+  body: { role: string; reason_code: string },
+): Promise<RoleChangeResult> {
+  return changeMemberRole('DELETE', token, companyId, subjectId, body);
+}

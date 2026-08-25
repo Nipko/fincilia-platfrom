@@ -891,3 +891,87 @@ ul {
     transition-duration: 0.01ms !important;
   }
 }
+
+.team-guidance h2,
+.team-guidance p,
+.member-card h2 {
+  margin-top: 0;
+}
+
+.team-guidance p:last-child {
+  margin-bottom: 0;
+}
+
+.member-list {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.member-card {
+  display: grid;
+  gap: 1.1rem;
+}
+
+.member-card__header {
+  align-items: start;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.member-card__header .tags {
+  justify-content: end;
+}
+
+.tag--muted {
+  background: var(--ground);
+  color: var(--ink-soft);
+}
+
+.member-role-form,
+.member-revoke-form {
+  align-items: end;
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: minmax(12rem, 1fr) minmax(14rem, 1fr) auto;
+}
+
+.member-role-form .notice,
+.member-revoke-form .notice {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+.member-revoke {
+  border-top: 1px solid var(--line);
+  padding-top: 0.85rem;
+}
+
+.member-revoke summary {
+  color: var(--ink-soft);
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.member-revoke__forms {
+  display: grid;
+  gap: 0.85rem;
+  margin-top: 0.85rem;
+}
+
+@media (max-width: 52rem) {
+  .member-card__header {
+    display: grid;
+  }
+
+  .member-card__header .tags {
+    justify-content: start;
+  }
+
+  .member-role-form,
+  .member-revoke-form {
+    align-items: stretch;
+    grid-template-columns: 1fr;
+  }
+}

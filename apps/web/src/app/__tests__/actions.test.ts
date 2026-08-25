@@ -23,12 +23,15 @@ const mocks = vi.hoisted(() => {
     reviewCorrection: vi.fn(),
     createMapping: vi.fn(),
     fetchSource: vi.fn(),
+    grantMemberRole: vi.fn(),
     rejectDataset: vi.fn(),
     readSession: vi.fn(),
+    revokeMemberRole: vi.fn(),
     redirect: vi.fn((): never => {
       throw new Error('NEXT_REDIRECT');
     }),
     revalidatePath: vi.fn(),
+    writeSession: vi.fn(),
   };
 });
 
@@ -37,7 +40,7 @@ vi.mock('next/navigation', () => ({ redirect: mocks.redirect }));
 vi.mock('@/lib/session', () => ({
   clearSession: vi.fn(),
   readSession: mocks.readSession,
-  writeSession: vi.fn(),
+  writeSession: mocks.writeSession,
 }));
 vi.mock('@/lib/api', () => ({
   ApiError: mocks.ApiError,
@@ -54,6 +57,7 @@ vi.mock('@/lib/api', () => ({
   decideAmbiguity: vi.fn(),
   fetchSource: mocks.fetchSource,
   generateExpectations: vi.fn(),
+  grantMemberRole: mocks.grantMemberRole,
   linkAccount: vi.fn(),
   prepareDataset: vi.fn(),
   publishDataset: vi.fn(),
@@ -62,6 +66,7 @@ vi.mock('@/lib/api', () => ({
   decideReconciliationReview: mocks.decideReconciliationReview,
   rejectDataset: mocks.rejectDataset,
   reviewCorrection: mocks.reviewCorrection,
+  revokeMemberRole: mocks.revokeMemberRole,
   setCycle: vi.fn(),
   signIn: vi.fn(),
   updateAccount: vi.fn(),
@@ -79,6 +84,8 @@ import {
   rejectDatasetAction,
   proposeMatchAction,
   decideMatchAction,
+  grantMemberRoleAction,
+  revokeMemberRoleAction,
 } from '../actions';
 
 function mappingForm(): FormData {
@@ -158,6 +165,15 @@ function correctionReviewForm(): FormData {
   form.set('overlayId', 'df0f7b18-0a7a-5c8e-9d2c-6a1f2b3c4d84');
   form.set('decision', 'approved');
   form.set('rationale', 'Revision independiente sintetica.');
+  return form;
+}
+
+function roleForm(): FormData {
+  const form = new FormData();
+  form.set('companyId', '5f0f7b18-0a7a-5c8e-9d2c-6a1f2b3c4d5e');
+  form.set('subjectId', '6f0f7b18-0a7a-5c8e-9d2c-6a1f2b3c4d5f');
+  form.set('role', 'reviewer');
+  form.set('reasonCode', 'access_required');
   return form;
 }
 
@@ -583,5 +599,105 @@ describe('continueDatasetAction', () => {
 
     expect(result.error).toContain('no pertenece a este documento');
     expect(mocks.fetchDataset).toHaveBeenCalledOnce();
+  });
+});
+
+describe('company member role actions', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.readSession.mockResolvedValue({
+      token: 'token-sintetico',
+      displayName: 'Sofia',
+    });
+  });
+
+  it('rechaza identificadores y roles fuera del contrato sin llamar a la API', async () => {
+    const form = roleForm();
+    form.set('subjectId', '../otra-persona');
+    form.set('role', 'super_admin');
+
+    const result = await grantMemberRoleAction(
+      { error: null, done: null },
+      form,
+    );
+
+    expect(result.error).toContain('contexto valido');
+    expect(mocks.grantMemberRole).not.toHaveBeenCalled();
+  });
+
+  it('asigna el rol, reemplaza la sesion invalidada y revalida ambas vistas', async () => {
+    mocks.grantMemberRole.mockResolvedValue({
+      subject_id: '6f0f7b18-0a7a-5c8e-9d2c-6a1f2b3c4d5f',
+      role: 'reviewer',
+      changed: true,
+      replayed: false,
+      authorization_version: 8,
+      refreshed_session: {
+        token: 'token-renovado',
+        expires_at: 2_000_000_000,
+        display_name: 'Sofia Owner',
+      },
+    });
+
+    const result = await grantMemberRoleAction(
+      { error: null, done: null },
+      roleForm(),
+    );
+
+    expect(result.done).toContain('Rol asignado');
+    expect(mocks.grantMemberRole).toHaveBeenCalledWith(
+      'token-sintetico',
+      '5f0f7b18-0a7a-5c8e-9d2c-6a1f2b3c4d5e',
+      '6f0f7b18-0a7a-5c8e-9d2c-6a1f2b3c4d5f',
+      { role: 'reviewer', reason_code: 'access_required' },
+    );
+    expect(mocks.writeSession).toHaveBeenCalledWith(
+      'token-renovado', 'Sofia Owner', 2_000_000_000,
+    );
+    expect(mocks.revalidatePath).toHaveBeenCalledWith(
+      '/empresas/5f0f7b18-0a7a-5c8e-9d2c-6a1f2b3c4d5e/equipo',
+    );
+    expect(mocks.revalidatePath).toHaveBeenCalledWith(
+      '/empresas/5f0f7b18-0a7a-5c8e-9d2c-6a1f2b3c4d5e',
+    );
+  });
+
+  it('revoca con motivo de minimo privilegio y conserva el replay idempotente', async () => {
+    const form = roleForm();
+    form.set('reasonCode', 'least_privilege');
+    mocks.revokeMemberRole.mockResolvedValue({
+      subject_id: '6f0f7b18-0a7a-5c8e-9d2c-6a1f2b3c4d5f',
+      role: 'reviewer',
+      changed: false,
+      replayed: true,
+      authorization_version: 8,
+      refreshed_session: null,
+    });
+
+    const result = await revokeMemberRoleAction(
+      { error: null, done: null },
+      form,
+    );
+
+    expect(result.done).toContain('ya estaba revocado');
+    expect(mocks.revokeMemberRole).toHaveBeenCalledWith(
+      'token-sintetico',
+      expect.any(String),
+      expect.any(String),
+      { role: 'reviewer', reason_code: 'least_privilege' },
+    );
+    expect(mocks.writeSession).not.toHaveBeenCalled();
+  });
+
+  it('explica los conflictos de autopermiso y ultimo owner', async () => {
+    mocks.revokeMemberRole.mockRejectedValue(new mocks.ApiError(409, 'last owner'));
+
+    const result = await revokeMemberRoleAction(
+      { error: null, done: null },
+      roleForm(),
+    );
+
+    expect(result.error).toContain('ultimo owner');
+    expect(result.done).toBeNull();
   });
 });
