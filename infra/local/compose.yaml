@@ -112,6 +112,7 @@ services:
       FINCILIA_OBJECT_ACCESS_KEY: ${FINCILIA_OBJECT_ACCESS_KEY:-fincilia_local_object}
       FINCILIA_OBJECT_SECRET_KEY: ${FINCILIA_OBJECT_SECRET_KEY:-fincilia_local_object_only}
       FINCILIA_AUTH_SIGNING_KEY: ${FINCILIA_AUTH_SIGNING_KEY:-fincilia_local_signing_key_synthetic_only_32}
+      FINCILIA_AUTHORIZATION_CONTEXT_HMAC_KEY: ${FINCILIA_AUTHORIZATION_CONTEXT_HMAC_KEY:-fincilia_local_context_hmac_key_synthetic_only_32}
       # Clave distinta de la de firma, y a proposito: un secreto que sirve
       # para dos cosas tiene el radio de explosion de las dos. Sintetica.
       FINCILIA_IDENTIFIER_TOKENIZATION_KEY: ${FINCILIA_IDENTIFIER_TOKENIZATION_KEY:-fincilia_local_identifier_token_key_synthetic_32}
@@ -255,6 +256,7 @@ services:
       # Las pruebas de extremo a extremo levantan la API en el proceso, asi
       # que necesitan lo mismo que ella. Sigue siendo sintetico.
       FINCILIA_AUTH_SIGNING_KEY: ${FINCILIA_AUTH_SIGNING_KEY:-fincilia_local_signing_key_synthetic_only_32}
+      FINCILIA_AUTHORIZATION_CONTEXT_HMAC_KEY: ${FINCILIA_AUTHORIZATION_CONTEXT_HMAC_KEY:-fincilia_local_context_hmac_key_synthetic_only_32}
       FINCILIA_IDENTIFIER_TOKENIZATION_KEY: ${FINCILIA_IDENTIFIER_TOKENIZATION_KEY:-fincilia_local_identifier_token_key_synthetic_32}
       FINCILIA_OBJECT_STORE_ENDPOINT: http://objectstore:9000
       FINCILIA_OBJECT_ACCESS_KEY: ${FINCILIA_OBJECT_ACCESS_KEY:-fincilia_local_object}

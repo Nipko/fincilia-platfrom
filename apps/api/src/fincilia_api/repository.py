@@ -327,7 +327,7 @@ def list_artifacts(connection: psycopg.Connection, *, limit: int = 50) -> list[A
 
 
 def enqueue_run(connection: psycopg.Connection, *, company_id: str,
-                artifact_id: str, kind: str) -> str:
+                artifact_id: str, kind: str, issued_context_id: str) -> str:
     """Encola un trabajo a traves de la funcion de despacho.
 
     La API **no tiene ningun privilegio** sobre `fincilia.dispatch_pointer`: la
@@ -341,8 +341,8 @@ def enqueue_run(connection: psycopg.Connection, *, company_id: str,
     """
     with connection.cursor() as cursor:
         cursor.execute(
-            "SELECT fincilia.enqueue_processing_run(%s, %s, %s)::text",
-            (company_id, artifact_id, kind))
+            "SELECT fincilia.enqueue_processing_run(%s, %s, %s, %s)::text",
+            (company_id, artifact_id, kind, issued_context_id))
         row = cursor.fetchone()
     return row[0] if row else ""
 

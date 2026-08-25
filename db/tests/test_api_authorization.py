@@ -14,6 +14,7 @@ from __future__ import annotations
 import os
 import time
 import unittest
+import uuid
 from contextlib import contextmanager
 
 import psycopg
@@ -53,6 +54,7 @@ def isolated_env():
 
 # Sintetica, distinta de la de firma, y nunca la de ningun entorno real.
 TOKENIZATION_KEY = "fincilia_test_identifier_token_key_synthetic_32"
+CONTEXT_HMAC_KEY = "fincilia_test_context_hmac_key_synthetic_only_32"
 
 
 def build_settings(**overrides) -> ApiSettings:
@@ -72,6 +74,7 @@ def build_settings(**overrides) -> ApiSettings:
             object_secret_key="fincilia_local_object_only",
             auth_signing_key=SIGNING_KEY,
             identifier_tokenization_key=TOKENIZATION_KEY,
+            authorization_context_hmac_key=CONTEXT_HMAC_KEY,
             auth_issuer=ISSUER,
             auth_audience=AUDIENCE,
             **overrides,
@@ -236,6 +239,34 @@ class ApiAuthorizationTests(unittest.TestCase):
         detail = self.company_detail("beto@demo.local", ESPIGA)
         self.assertIn("match.confirm", detail["permissions"])
         self.assertNotIn("match.propose", detail["permissions"])
+
+    def test_a_new_upload_is_bound_to_an_issued_context(self) -> None:
+        marker = uuid.uuid4().hex
+        payload = f"Fecha,Referencia,Valor\n2026-08-25,{marker},100.00\n".encode()
+        response = self.client.post(
+            f"/api/v1/companies/{ESPIGA}/documents",
+            headers=self.auth("ana@demo.local"),
+            files={"file": (f"synthetic-{marker}.csv", payload, "text/csv")})
+        self.assertEqual(200, response.status_code, response.text)
+        artifact_id = response.json()["artifact_id"]
+        with psycopg.connect(MIGRATOR_DSN, autocommit=False) as connection:
+            with connection.transaction(), connection.cursor() as cursor:
+                cursor.execute("SELECT set_config('fincilia.company_id', %s, true)",
+                               (ESPIGA,))
+                cursor.execute(
+                    "SELECT run.issued_context_id::text, issued.purpose_code, "
+                    "issued.resource_kind, issued.subject_id::text "
+                    "FROM fincilia.processing_run run "
+                    "JOIN fincilia.issued_authorization_context issued "
+                    "  ON issued.company_id = run.company_id "
+                    " AND issued.context_id = run.issued_context_id "
+                    "WHERE run.artifact_id = %s AND run.kind = 'scan'",
+                    (artifact_id,))
+                row = cursor.fetchone()
+        self.assertIsNotNone(row)
+        self.assertEqual("processing_job", row[1])
+        self.assertEqual("source_artifact", row[2])
+        self.assertEqual(stable_id("subject", "ana"), row[3])
 
     def test_segregation_of_duties_holds_across_the_two_demo_users(self) -> None:
         # Nadie propone y confirma: la separacion no es una nota del manual, se ve

@@ -82,6 +82,10 @@ class Settings(BaseSettings):
         default=None,
         description="Clave HMAC para tokenizar identificadores de cuenta. "
                     "Obligatoria en el servicio que da de alta cuentas.")
+    authorization_context_hmac_key: str | None = Field(
+        default=None,
+        description="Clave HMAC dedicada a referencias e idempotencia de "
+                    "capabilities persistentes. Nunca llega al worker.")
     identifier_key_version: int = Field(
         default=1, ge=1, le=999,
         description="Version de la clave de tokenizacion. Rotarla sube este "
@@ -158,6 +162,24 @@ class Settings(BaseSettings):
                 "not from an environment variable")
         return value
 
+    @field_validator("authorization_context_hmac_key")
+    @classmethod
+    def _context_key_is_dedicated(cls, value: str | None,
+                                  info: ValidationInfo) -> str | None:
+        if value is None:
+            return None
+        if len(value) < 32:
+            raise ValueError("the authorization context key needs at least 32 characters")
+        if value in (info.data.get("auth_signing_key"),
+                     info.data.get("identifier_tokenization_key")):
+            raise ValueError(
+                "the authorization context key must not be reused for signing "
+                "or identifier tokenization")
+        if info.data.get("env") not in ("local", "test"):
+            raise ValueError(
+                "outside local and test this key must come from a key manager")
+        return value
+
     @property
     def buckets(self) -> tuple[str, ...]:
         return (self.object_bucket_quarantine, self.object_bucket_raw,
@@ -189,6 +211,10 @@ class ApiSettings(Settings):
         min_length=32,
         description="Clave HMAC de tokenizacion. Sintetica en local; fuera de "
                     "local tiene que venir de un gestor de claves.")
+    authorization_context_hmac_key: str = Field(
+        min_length=32,
+        description="Clave HMAC exclusiva de capabilities persistentes. "
+                    "Sintetica en local; Vault/KMS fuera de local.")
 
 
 class WorkerSettings(Settings):
@@ -215,6 +241,14 @@ class WorkerSettings(Settings):
         if value:
             raise ValueError(
                 "this service does not issue tokens and must not receive a signing key")
+        return None
+
+    @field_validator("authorization_context_hmac_key")
+    @classmethod
+    def _no_context_hmac_key(cls, value: str | None) -> None:
+        if value:
+            raise ValueError(
+                "this service consumes capabilities but must not receive their HMAC key")
         return None
 
 

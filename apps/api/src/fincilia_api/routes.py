@@ -30,6 +30,7 @@ from fincilia_platform.tokens import issue
 from . import (access, datasets, exports, onboarding, operations, quality,
                reconciliation, reports, repository)
 from . import company_onboarding
+from .issued_contexts import issue_context
 from .security import (Principal, ProblemError, company_context, current_principal,
                        forbidden, require, unauthorized)
 from fincilia_contracts.errors import problem
@@ -525,8 +526,20 @@ def upload_document(request: Request, company_id: str,
             # leer el fichero entero, y eso no se hace sobre algo que todavia no
             # ha pasado inspeccion: el perfilado lo encola el escaneo si decide
             # promover.
-            repository.enqueue_run(connection, company_id=context.company_id,
-                                   artifact_id=artifact.artifact_id, kind="scan")
+            issued = issue_context(
+                connection, tenant=context, purpose_code="processing_job",
+                resource_kind="source_artifact",
+                resource_ref=artifact.artifact_id,
+                idempotency_key=(
+                    f"processing-job:source-artifact:{artifact.artifact_id}"
+                ),
+                expires_at=dt.datetime.now(dt.timezone.utc) + dt.timedelta(days=7),
+                hmac_key=request.app.state.settings.authorization_context_hmac_key,
+            )
+            repository.enqueue_run(
+                connection, company_id=context.company_id,
+                artifact_id=artifact.artifact_id, kind="scan",
+                issued_context_id=issued.context_id)
         # La auditoria distingue una entrega nueva de una repetida. Contarlas
         # igual haria imposible saber si alguien reintenta o si algo se duplica.
         repository.record_audit(

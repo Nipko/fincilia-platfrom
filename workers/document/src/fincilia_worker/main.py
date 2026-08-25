@@ -190,6 +190,12 @@ def _artifact_row(database: Database, claim: "jobs.Claim") -> dict:
     with database.session(company_id=claim.company_id) as connection:
         with connection.cursor() as cursor:
             cursor.execute(
+                "SELECT fincilia.hold_processing_lease(%s, %s)",
+                (claim.run_id, claim.lease_token))
+            if cursor.fetchone()[0] is not True:
+                raise jobs.StaleLease(
+                    "the processing lease or authorization context is no longer valid")
+            cursor.execute(
                 "SELECT object_key, filename, content_sha256 "
                 "FROM fincilia.source_artifact WHERE artifact_id = %s",
                 (claim.artifact_id,))
@@ -240,9 +246,17 @@ def _record_decision(database: Database, store, claim: "jobs.Claim", artifact: d
             # falle no debe impedir el otro.
             if decision["decision"] == "promoted":
                 for kind in ("profile", "extract"):
-                    cursor.execute(
-                        "SELECT fincilia.enqueue_processing_run(%s, %s, %s)",
-                        (claim.company_id, claim.artifact_id, kind))
+                    if claim.issued_context_id is None:
+                        # Compatibilidad expand-only para un scan creado antes
+                        # de V0022. Los productores nuevos nunca pasan por aqui.
+                        cursor.execute(
+                            "SELECT fincilia.enqueue_processing_run(%s, %s, %s)",
+                            (claim.company_id, claim.artifact_id, kind))
+                    else:
+                        cursor.execute(
+                            "SELECT fincilia.enqueue_processing_run(%s, %s, %s, %s)",
+                            (claim.company_id, claim.artifact_id, kind,
+                             claim.issued_context_id))
             cursor.execute(
                 "INSERT INTO fincilia.audit_event (audit_event_id, company_id, "
                 "subject_id, action, resource_kind, resource_ref, outcome, detail) "
