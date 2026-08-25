@@ -58,7 +58,8 @@ def item_row(*, due_on: dt.date, state: str = "pending",
         uuid.uuid4(), uuid.uuid4(), "Banco sintetico",
         dt.date(2026, 8, 1), dt.date(2026, 8, 31), due_on,
         due_on + dt.timedelta(days=3), state, None, None,
-        uuid.UUID(responsible), "Ana Demo", True, reminder, 0,
+        uuid.UUID(responsible), "Ana Demo", True, "America/Bogota", TODAY,
+        reminder, 0,
         (due_on - TODAY).days,
     )
 
@@ -106,11 +107,13 @@ class ProjectionTests(unittest.TestCase):
         first = item_row(due_on=TODAY + dt.timedelta(days=1))
         second = item_row(due_on=TODAY + dt.timedelta(days=2))
         summary = (2, 1, 0, 0, 0, 2, 0, 0, 0, 2,
-                   first[5], second[5])
+                   first[5], second[5], [TODAY])
         connection = FakeConnection([summary], [first, second])
 
         result = list_operational_periods(
-            connection, today=TODAY, subject_id=SUBJECT,
+            connection,
+            evaluated_at=dt.datetime(2026, 8, 25, 0, 30, tzinfo=dt.timezone.utc),
+            subject_id=SUBJECT,
             status="attention", limit=1)
 
         self.assertTrue(result["has_more"])
@@ -118,6 +121,8 @@ class ProjectionTests(unittest.TestCase):
         self.assertEqual(1, len(result["items"]))
         self.assertTrue(result["items"][0]["assigned_to_me"])
         self.assertEqual("2026-08-25", result["items"][0]["due_on"])
+        self.assertEqual("2026-08-24", result["items"][0]["local_as_of"])
+        self.assertEqual(["2026-08-24"], result["local_as_of_dates"])
         self.assertFalse({"amount", "balance", "currency"} & result["items"][0].keys())
         self.assertEqual(2, result["summary"]["filtered_total"])
         self.assertIn("ORDER BY due_on ASC, expectation_id ASC",
@@ -127,16 +132,18 @@ class ProjectionTests(unittest.TestCase):
     def test_second_page_uses_the_exact_tuple_from_the_cursor(self) -> None:
         identifier = str(uuid.uuid4())
         cursor = encode_cursor(TODAY, identifier)
-        summary = (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, None, None)
+        summary = (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, None, None, [])
         connection = FakeConnection([summary], [])
         result = list_operational_periods(
-            connection, today=TODAY, subject_id=SUBJECT,
+            connection,
+            evaluated_at=dt.datetime(2026, 8, 24, 12, tzinfo=dt.timezone.utc),
+            subject_id=SUBJECT,
             status="all", limit=25, cursor=cursor)
         self.assertEqual([], result["items"])
         statement, params = connection.calls[1]
         self.assertIn("(due_on, expectation_id) >", statement)
-        self.assertEqual(TODAY, params[2])
-        self.assertEqual(identifier, params[3])
+        self.assertEqual(TODAY, params[1])
+        self.assertEqual(identifier, params[2])
 
 
 if __name__ == "__main__":

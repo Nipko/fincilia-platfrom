@@ -1724,7 +1724,7 @@ def operational_periods(
                           subject_id=principal.subject_id) as connection:
         try:
             result = operations.list_operational_periods(
-                connection, today=dt.date.today(),
+                connection, evaluated_at=dt.datetime.now(dt.timezone.utc),
                 subject_id=principal.subject_id, status=status, limit=limit,
                 cursor=cursor)
         except operations.OperationsQueryError as error:

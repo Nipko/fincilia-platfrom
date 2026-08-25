@@ -9,6 +9,7 @@ from __future__ import annotations
 import datetime as dt
 import unittest
 import uuid
+from zoneinfo import ZoneInfo
 
 import psycopg
 from fastapi.testclient import TestClient
@@ -116,7 +117,7 @@ class OperationalReminderTests(unittest.TestCase):
         return source_id, expectation_id
 
     def test_company_scoped_center_classifies_pages_and_audits_metadata(self) -> None:
-        today = dt.date.today()
+        today = dt.datetime.now(ZoneInfo("America/Bogota")).date()
         _, overdue_id = self.create_period(
             company=ESPIGA, marker=f"overdue-{uuid.uuid4().hex[:8]}",
             anchor=today - dt.timedelta(days=10), grace_days=1)
@@ -140,7 +141,8 @@ class OperationalReminderTests(unittest.TestCase):
         self.assertEqual("Ana Preparadora", indexed[today_id]["responsible_name"])
         self.assertNotIn("company_id", indexed[today_id])
         self.assertNotIn(foreign_id, indexed)
-        self.assertEqual(today.isoformat(), report["as_of"])
+        self.assertIn(today.isoformat(), report["local_as_of_dates"])
+        self.assertTrue(report["evaluated_at"].endswith("Z"))
         self.assertIn("in_app_projection_only", report["notice"])
 
         foreign = self.client.get(
@@ -176,7 +178,7 @@ class OperationalReminderTests(unittest.TestCase):
         self.assertNotIn("Ana", str(reads[0]))
 
     def test_permission_cursor_and_rls_fail_closed(self) -> None:
-        today = dt.date.today()
+        today = dt.datetime.now(ZoneInfo("America/Bogota")).date()
         _, foreign_id = self.create_period(
             company=ANDINOS, marker=f"rls-{uuid.uuid4().hex[:8]}",
             anchor=today)

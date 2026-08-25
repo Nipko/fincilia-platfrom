@@ -38,54 +38,16 @@ _FILTER_SQL = {
 
 _CLASSIFIED_CTE = """
 WITH clock AS (
-  SELECT %s::date AS today, %s::date AS soon_through
-), classified AS (
-  SELECT e.expectation_id, e.data_source_id, s.display_name AS source_name,
-         e.period_start, e.period_end, e.due_on, e.late_after,
-         e.state AS stored_state, e.satisfied_at, e.waived_reason,
-         c.responsible_subject_id,
+  SELECT %s::timestamptz AS evaluated_at
+), base AS (
+  SELECT e.company_id, e.expectation_id, e.data_source_id,
+         s.display_name AS source_name, e.period_start, e.period_end,
+         e.due_on, e.late_after, e.state AS stored_state, e.satisfied_at,
+         e.waived_reason, c.responsible_subject_id,
          responsible.display_name AS responsible_name,
-         CASE
-           WHEN c.responsible_subject_id IS NULL THEN false
-           ELSE EXISTS (
-             SELECT 1
-             FROM fincilia.company_grant g
-             JOIN fincilia.engagement engagement
-               ON engagement.company_id = g.company_id
-             JOIN fincilia.membership membership
-               ON membership.firm_id = engagement.firm_id
-              AND membership.subject_id = g.subject_id
-             JOIN fincilia.subject eligible
-               ON eligible.subject_id = g.subject_id
-             WHERE g.company_id = e.company_id
-               AND g.subject_id = c.responsible_subject_id
-               AND g.revoked_at IS NULL
-               AND engagement.status = 'active'
-               AND (engagement.valid_to IS NULL
-                    OR engagement.valid_to >= clock.today)
-               AND membership.status = 'active'
-               AND eligible.status = 'active'
-               AND eligible.subject_kind = 'person')
-         END AS responsible_eligible,
-         CASE
-           WHEN e.state = 'satisfied' THEN 'satisfied'
-           WHEN e.state = 'waived' THEN 'waived'
-           WHEN e.state = 'late' OR clock.today > e.late_after THEN 'overdue'
-           WHEN clock.today = e.due_on THEN 'due_today'
-           WHEN clock.today > e.due_on THEN 'in_grace'
-           WHEN e.due_on <= clock.soon_through THEN 'due_soon'
-           ELSE 'upcoming'
-         END AS reminder_state,
-         CASE
-           WHEN e.state IN ('satisfied', 'waived') THEN 0
-           WHEN clock.today > e.late_after
-             THEN (clock.today - e.late_after)
-           ELSE 0
-         END AS days_late,
-         CASE
-           WHEN e.state IN ('satisfied', 'waived') THEN NULL
-           ELSE (e.due_on - clock.today)
-         END AS days_until_due
+         COALESCE(c.timezone, 'UTC') AS cycle_timezone,
+         (clock.evaluated_at AT TIME ZONE COALESCE(c.timezone, 'UTC'))::date
+           AS local_today
   FROM fincilia.source_expectation e
   JOIN fincilia.data_source s
     ON s.data_source_id = e.data_source_id
@@ -96,6 +58,56 @@ WITH clock AS (
   LEFT JOIN fincilia.subject responsible
     ON responsible.subject_id = c.responsible_subject_id
   CROSS JOIN clock
+), classified AS (
+  SELECT base.expectation_id, base.data_source_id, base.source_name,
+         base.period_start, base.period_end, base.due_on, base.late_after,
+         base.stored_state, base.satisfied_at, base.waived_reason,
+         base.responsible_subject_id, base.responsible_name,
+         CASE
+           WHEN base.responsible_subject_id IS NULL THEN false
+           ELSE EXISTS (
+             SELECT 1
+             FROM fincilia.company_grant g
+             JOIN fincilia.engagement engagement
+               ON engagement.company_id = g.company_id
+             JOIN fincilia.membership membership
+               ON membership.firm_id = engagement.firm_id
+              AND membership.subject_id = g.subject_id
+             JOIN fincilia.subject eligible
+               ON eligible.subject_id = g.subject_id
+             WHERE g.company_id = base.company_id
+               AND g.subject_id = base.responsible_subject_id
+               AND g.revoked_at IS NULL
+               AND engagement.status = 'active'
+               AND (engagement.valid_to IS NULL
+                    OR engagement.valid_to >= base.local_today)
+               AND membership.status = 'active'
+               AND eligible.status = 'active'
+               AND eligible.subject_kind = 'person')
+         END AS responsible_eligible,
+         base.cycle_timezone,
+         base.local_today,
+         CASE
+           WHEN base.stored_state = 'satisfied' THEN 'satisfied'
+           WHEN base.stored_state = 'waived' THEN 'waived'
+           WHEN base.stored_state = 'late'
+                OR base.local_today > base.late_after THEN 'overdue'
+           WHEN base.local_today = base.due_on THEN 'due_today'
+           WHEN base.local_today > base.due_on THEN 'in_grace'
+           WHEN base.due_on <= base.local_today + 7 THEN 'due_soon'
+           ELSE 'upcoming'
+         END AS reminder_state,
+         CASE
+           WHEN base.stored_state IN ('satisfied', 'waived') THEN 0
+           WHEN base.local_today > base.late_after
+             THEN (base.local_today - base.late_after)
+           ELSE 0
+         END AS days_late,
+         CASE
+           WHEN base.stored_state IN ('satisfied', 'waived') THEN NULL
+           ELSE (base.due_on - base.local_today)
+         END AS days_until_due
+  FROM base
 )
 """
 
@@ -182,19 +194,25 @@ def _item(row: tuple[Any, ...], subject_id: str) -> dict[str, Any]:
         "responsible_name": row[11],
         "responsible_eligible": bool(row[12]),
         "assigned_to_me": row[10] is not None and str(row[10]) == subject_id,
-        "reminder_state": row[13],
-        "days_late": int(row[14]),
-        "days_until_due": int(row[15]) if row[15] is not None else None,
+        "timezone": row[13],
+        "local_as_of": row[14].isoformat(),
+        "reminder_state": row[15],
+        "days_late": int(row[16]),
+        "days_until_due": int(row[17]) if row[17] is not None else None,
     }
 
 
 def list_operational_periods(
-        connection: psycopg.Connection, *, today: dt.date, subject_id: str,
+        connection: psycopg.Connection, *, evaluated_at: dt.datetime,
+        subject_id: str,
         status: str = "attention", limit: int = DEFAULT_LIMIT,
         cursor: str | None = None) -> dict[str, Any]:
     """Lista y resume periodos company-scoped bajo la RLS de la sesion."""
     query = OperationsQuery(status=status, limit=limit, cursor=cursor).validated()
-    soon_through = today + dt.timedelta(days=7)
+    if evaluated_at.tzinfo is None or evaluated_at.utcoffset() is None:
+        raise OperationsQueryError(
+            "operations-clock-invalid", "evaluated_at must carry a timezone")
+    evaluated_utc = evaluated_at.astimezone(dt.timezone.utc)
     filter_sql = _FILTER_SQL[query.status]
     cursor_sql = ""
     cursor_params: tuple[Any, ...] = ()
@@ -214,21 +232,22 @@ SELECT count(*) AS period_count,
        count(*) FILTER (WHERE reminder_state = 'satisfied') AS satisfied,
        count(*) FILTER (WHERE reminder_state = 'waived') AS waived,
        count(*) FILTER (WHERE {filter_sql}) AS filtered_total,
-       min(due_on), max(due_on)
+       min(due_on), max(due_on),
+       array_agg(DISTINCT local_today ORDER BY local_today)
 FROM classified
 """
     item_sql = _CLASSIFIED_CTE + f"""
 SELECT expectation_id, data_source_id, source_name, period_start, period_end,
        due_on, late_after, stored_state, satisfied_at, waived_reason,
        responsible_subject_id, responsible_name, responsible_eligible,
-       reminder_state, days_late, days_until_due
+       cycle_timezone, local_today, reminder_state, days_late, days_until_due
 FROM classified
 WHERE {filter_sql} {cursor_sql}
 ORDER BY due_on ASC, expectation_id ASC
 LIMIT %s
 """
 
-    clock_params = (today, soon_through)
+    clock_params = (evaluated_utc,)
     with connection.cursor() as db_cursor:
         db_cursor.execute(summary_sql, clock_params)
         summary_row = db_cursor.fetchone()
@@ -258,8 +277,8 @@ LIMIT %s
         summary_row[11].isoformat() if summary_row[11] is not None else None)
 
     return {
-        "as_of": today.isoformat(),
-        "due_soon_through": soon_through.isoformat(),
+        "evaluated_at": evaluated_utc.isoformat().replace("+00:00", "Z"),
+        "local_as_of_dates": [value.isoformat() for value in (summary_row[12] or [])],
         "filter": query.status,
         "limit": query.limit,
         "has_more": has_more,
