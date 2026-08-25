@@ -1463,6 +1463,22 @@ ul {
 }
 .close-control--pass dd:first-of-type { background: var(--accent-soft); color: var(--accent); }
 .close-control--unavailable dd:first-of-type { background: var(--warning-soft); color: var(--warning); }
+
+.balance-form { display: grid; gap: 1rem; }
+.balance-form > label { display: grid; gap: .4rem; }
+.balance-form select { max-width: 100%; }
+.balance-evidence-summary {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: .5rem 1rem;
+  padding: .8rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: .7rem;
+  background: var(--ground);
+}
+.balance-evidence-summary span { color: var(--muted); }
+.money-cell { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .close-control .close-control__count { font-family: var(--mono); font-weight: 800; }
 
 .close-evidence {

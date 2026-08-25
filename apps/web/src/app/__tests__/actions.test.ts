@@ -26,6 +26,7 @@ const mocks = vi.hoisted(() => {
     decideReconciliationReview: vi.fn(),
     reviewCorrection: vi.fn(),
     createMapping: vi.fn(),
+    createAccountBalance: vi.fn(),
     fetchSource: vi.fn(),
     grantMemberRole: vi.fn(),
     rejectDataset: vi.fn(),
@@ -57,6 +58,7 @@ vi.mock('@/lib/api', () => ({
   fetchDataset: mocks.fetchDataset,
   continueDataset: vi.fn(),
   createAccount: vi.fn(),
+  createAccountBalance: mocks.createAccountBalance,
   createMapping: mocks.createMapping,
   fetchMapping: mocks.fetchMapping,
   fetchOverrides: mocks.fetchOverrides,
@@ -100,6 +102,7 @@ import {
   scanQualityAction,
   triageQualityAction,
   provisionCompanyAction,
+  observeBalanceAction,
 } from '../actions';
 
 function mappingForm(): FormData {
@@ -209,6 +212,16 @@ function companyProvisionForm(): FormData {
   form.set('anchorDate', '2026-08-01');
   form.set('dueDayOffset', '2');
   form.set('graceDays', '3');
+  return form;
+}
+
+function balanceForm(): FormData {
+  const form = new FormData();
+  form.set('companyId', '5f0f7b18-0a7a-5c8e-9d2c-6a1f2b3c4d5e');
+  form.set('sourceRecordId', '6f0f7b18-0a7a-5c8e-9d2c-6a1f2b3c4d5f');
+  form.set('balanceType', 'closing');
+  form.set('amountFieldIndex', '3');
+  form.set('asOfFieldIndex', '0');
   return form;
 }
 
@@ -895,6 +908,65 @@ describe('company member role actions', () => {
 
     expect(result.error).toContain('ultimo owner');
     expect(result.done).toBeNull();
+  });
+});
+
+describe('balance observation action', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.readSession.mockResolvedValue({
+      token: 'token-sintetico',
+      displayName: 'Ana',
+    });
+  });
+
+  it('registra solo coordenadas y revalida saldos y cierre', async () => {
+    mocks.createAccountBalance.mockResolvedValue({
+      balance_id: '7f0f7b18-0a7a-5c8e-9d2c-6a1f2b3c4d60',
+      replayed: false,
+      lineage_state: 'required_pending',
+    });
+
+    const result = await observeBalanceAction(
+      { error: null, done: null }, balanceForm());
+
+    expect(mocks.createAccountBalance).toHaveBeenCalledWith(
+      'token-sintetico',
+      '5f0f7b18-0a7a-5c8e-9d2c-6a1f2b3c4d5e',
+      {
+        source_record_id: '6f0f7b18-0a7a-5c8e-9d2c-6a1f2b3c4d5f',
+        balance_type: 'closing',
+        amount_field_index: 3,
+        as_of_field_index: 0,
+      },
+    );
+    expect(result.done).toContain('pendiente completar el linaje');
+    expect(mocks.revalidatePath).toHaveBeenCalledWith(
+      '/empresas/5f0f7b18-0a7a-5c8e-9d2c-6a1f2b3c4d5e/saldos');
+    expect(mocks.revalidatePath).toHaveBeenCalledWith('/preparacion-cierre');
+  });
+
+  it('rechaza indices y tipos fuera del contrato antes de llamar a la API', async () => {
+    const form = balanceForm();
+    form.set('balanceType', 'estimated');
+    form.set('amountFieldIndex', '-1');
+
+    const result = await observeBalanceAction(
+      { error: null, done: null }, form);
+
+    expect(result.error).toContain('dos columnas validas');
+    expect(mocks.createAccountBalance).not.toHaveBeenCalled();
+  });
+
+  it('no refleja valores de evidencia en errores de formato', async () => {
+    mocks.createAccountBalance.mockRejectedValue(
+      new mocks.ApiError(422, 'raw -1.234,56 is invalid'));
+
+    const result = await observeBalanceAction(
+      { error: null, done: null }, balanceForm());
+
+    expect(result.error).toContain('mapeo versionado');
+    expect(result.error).not.toContain('1.234');
   });
 });
 

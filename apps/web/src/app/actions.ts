@@ -17,6 +17,7 @@ import {
   fetchCorrectionTargets,
   fetchCorrections,
   createAccount,
+  createAccountBalance,
   createMapping,
   createSource,
   fetchDataset,
@@ -79,6 +80,65 @@ export async function signInAction(
 export async function signOutAction(): Promise<void> {
   await clearSession();
   redirect('/entrar');
+}
+
+// --------------------------------------------------------------------------- //
+// Observaciones canonicas de saldo (FNC-CLS-002)
+// --------------------------------------------------------------------------- //
+
+export type BalanceObservationState = { error: string | null; done: string | null };
+
+const BALANCE_TYPES = new Set(['opening', 'closing', 'running', 'available', 'ledger']);
+
+export async function observeBalanceAction(
+  _previous: BalanceObservationState,
+  formData: FormData,
+): Promise<BalanceObservationState> {
+  const session = await readSession();
+  if (!session) redirect('/entrar');
+  const companyId = String(formData.get('companyId') ?? '');
+  const sourceRecordId = String(formData.get('sourceRecordId') ?? '');
+  const balanceType = String(formData.get('balanceType') ?? '');
+  const amountFieldIndex = Number.parseInt(
+    String(formData.get('amountFieldIndex') ?? ''), 10);
+  const asOfFieldIndex = Number.parseInt(
+    String(formData.get('asOfFieldIndex') ?? ''), 10);
+  if (
+    !UUID_PATTERN.test(companyId) || !UUID_PATTERN.test(sourceRecordId) ||
+    !BALANCE_TYPES.has(balanceType) ||
+    !Number.isInteger(amountFieldIndex) || amountFieldIndex < 0 || amountFieldIndex > 2047 ||
+    !Number.isInteger(asOfFieldIndex) || asOfFieldIndex < 0 || asOfFieldIndex > 2047
+  ) {
+    return { error: 'Selecciona una fila, un tipo y dos columnas validas.', done: null };
+  }
+  try {
+    const result = await createAccountBalance(session.token, companyId, {
+      source_record_id: sourceRecordId,
+      balance_type: balanceType as 'opening' | 'closing' | 'running' | 'available' | 'ledger',
+      amount_field_index: amountFieldIndex,
+      as_of_field_index: asOfFieldIndex,
+    });
+    revalidatePath(`/empresas/${companyId}/saldos`);
+    revalidatePath('/preparacion-cierre');
+    return {
+      error: null,
+      done: result.replayed
+        ? 'La misma observacion ya estaba registrada; no se duplico.'
+        : 'Saldo observado. Sigue pendiente completar el linaje antes de usarlo en cierre.',
+    };
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) redirect('/entrar');
+    if (error instanceof ApiError && error.status === 403) {
+      return { error: 'La evidencia ya no esta publicada o tu acceso cambio.', done: null };
+    }
+    if (error instanceof ApiError && error.status === 409) {
+      return { error: 'Esa coordenada ya tiene otra observacion. Revisa el historico.', done: null };
+    }
+    if (error instanceof ApiError && error.status === 422) {
+      return { error: 'Las celdas no se pueden leer con el mapeo versionado.', done: null };
+    }
+    return { error: 'No se pudo registrar el saldo. Intenta de nuevo.', done: null };
+  }
 }
 
 // --------------------------------------------------------------------------- //

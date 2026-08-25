@@ -191,12 +191,12 @@ export default async function CloseReadinessPage({ searchParams }: {
 
       <p className="lede">
         Centro de evidencia y bloqueos por empresa y periodo. Es un diagnostico
-        explicable: no calcula saldos, no certifica conciliaciones y no ejecuta cierres.
+        explicable: consulta observaciones, no certifica conciliaciones ni ejecuta cierres.
       </p>
       <p className="notice close-readiness-warning" role="status">
         <strong>Todos los periodos permanecen bloqueados.</strong>{' '}
-        El producto aun no materializa saldos por cuenta ni estados de conciliacion,
-        y la operacion de cierre no esta habilitada.
+        Los saldos observados requieren linaje completo; los estados de conciliacion
+        y la operacion de cierre aun no estan habilitados.
       </p>
 
       <form method="get" className="close-toolbar" aria-label="Filtrar preparacion de cierre">

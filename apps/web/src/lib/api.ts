@@ -1561,6 +1561,103 @@ export function fetchCloseReadiness(
   );
 }
 
+export type AccountBalance = {
+  balance_id: string;
+  financial_account_id: string;
+  account_name: string;
+  source_record_id: string;
+  source_name: string;
+  record_ordinal: number;
+  balance_type: 'opening' | 'closing' | 'running' | 'available' | 'ledger';
+  amount: string;
+  currency_code: string;
+  as_of: string;
+  source_timezone: string;
+  amount_field_index: number;
+  as_of_field_index: number;
+  lineage_state: 'required_pending' | 'complete' | 'invalidated';
+  created_at: string;
+  replayed: boolean;
+  proves_completeness: false;
+  proves_reconciliation: false;
+};
+
+export type AccountBalancePage = {
+  limit: number;
+  truncated: boolean;
+  items: AccountBalance[];
+  notice: string;
+};
+
+export type BalanceEvidenceField = {
+  index: number;
+  label: string;
+  value: string;
+};
+
+export type BalanceEvidence = {
+  source_record_id: string;
+  dataset_version_id: string;
+  source_name: string;
+  financial_account_id: string;
+  account_name: string;
+  currency_code: string;
+  record_ordinal: number;
+  source_timezone: string;
+  fields: BalanceEvidenceField[];
+};
+
+export type BalanceEvidencePage = {
+  limit: number;
+  truncated: boolean;
+  items: BalanceEvidence[];
+};
+
+export function fetchAccountBalances(
+  token: string,
+  companyId: string,
+  limit = 100,
+): Promise<AccountBalancePage> {
+  return request<AccountBalancePage>(
+    `/api/v1/companies/${encodeURIComponent(companyId)}/balances` +
+      `?limit=${Math.max(1, Math.min(200, limit))}`,
+    { token },
+  );
+}
+
+export function fetchBalanceEvidence(
+  token: string,
+  companyId: string,
+  limit = 20,
+): Promise<BalanceEvidencePage> {
+  return request<BalanceEvidencePage>(
+    `/api/v1/companies/${encodeURIComponent(companyId)}/balances/evidence` +
+      `?limit=${Math.max(1, Math.min(50, limit))}`,
+    { token },
+  );
+}
+
+export function createAccountBalance(
+  token: string,
+  companyId: string,
+  body: {
+    source_record_id: string;
+    balance_type: AccountBalance['balance_type'];
+    amount_field_index: number;
+    as_of_field_index: number;
+  },
+): Promise<AccountBalance> {
+  return request<AccountBalance>(
+    `/api/v1/companies/${encodeURIComponent(companyId)}/balances`,
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+      token,
+    },
+  );
+}
+
 export function continueDataset(
   token: string,
   companyId: string,
