@@ -5,13 +5,31 @@ from __future__ import annotations
 import csv
 import io
 
-from db.tests.test_p3_vertical import ANDINOS, ESPIGA, PREPARER, REVIEWER
+from db.tests.test_p3_vertical import (
+    ANDINOS,
+    ESPIGA,
+    PREPARER,
+    REVIEWER,
+    VerticalHarness,
+)
 from db.tests import test_reconciliation_candidates as rec
 
 
-class DatasetExportTests(rec.ReconciliationCandidateTests):
+class DatasetExportTests(VerticalHarness):
+    """Usa los builders REC sin heredar sus tests ni sus colecciones mutables."""
+
+    accounts: set[str] = set()
+    sources: set[str] = set()
+    second_channel = rec.ReconciliationCandidateTests.second_channel
+    dataset = rec.ReconciliationCandidateTests.dataset
+
     @classmethod
     def tearDownClass(cls) -> None:
+        # Este unico dataset es el fixture sintetico que consume el carril web
+        # inmediatamente despues de la suite PostgreSQL. Sus colecciones son
+        # propias (no contaminan REC) y el volumen desechable se purga al final
+        # del job. Conservarlo hace al E2E reproducible sin abrir una puerta de
+        # provisionamiento ni aprobar una release humana desde el navegador.
         cls.client.__exit__(None, None, None)
 
     def test_published_export_is_exact_safe_audited_and_company_scoped(
