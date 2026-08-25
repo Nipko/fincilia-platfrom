@@ -3,7 +3,7 @@ task_id: FNC-PLT-009
 status: REVIEW_PENDING
 base_sha: 63484e4
 implementation_sha: 2ef810f
-integration_sha: pending
+integration_sha: be192d9
 data_ceiling: synthetic_only
 implemented_by: Codex principal dev + Integration Steward
 independent_reviewers: [Platform/SRE, Security, Developer Experience]
