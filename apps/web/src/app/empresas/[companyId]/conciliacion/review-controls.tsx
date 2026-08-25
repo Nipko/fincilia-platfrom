@@ -138,6 +138,25 @@ export function MatchReviewPanel({
     );
   }
 
+  if (review.confirmation_conflict) {
+    return (
+      <section className="match-review-status match-review-status--open"
+        id={`revision-${review.candidate_id}`}
+        aria-label="Conflicto de confirmacion">
+        <strong>No se puede confirmar este par</strong>
+        <span>Uno de los movimientos ya fue confirmado con otra contraparte.</span>
+        <span className="meta">
+          El expediente permanece abierto y visible. Puede rechazarse, pero no
+          crear una segunda confirmacion para el mismo movimiento.
+        </span>
+        {canReject ? (
+          <DecisionForm companyId={companyId} candidateId={review.candidate_id}
+            decision="rejected" commandKey={rejectCommandKey} />
+        ) : null}
+      </section>
+    );
+  }
+
   return (
     <section className="match-review-status match-review-status--open"
       id={`revision-${review.candidate_id}`}

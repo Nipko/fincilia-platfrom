@@ -24,6 +24,7 @@ function review(id: string, proposedAt: string): MatchReview {
     right_movement_id: `${id}-right`,
     left_dataset_id: `${id}-dataset-left`,
     right_dataset_id: `${id}-dataset-right`,
+    confirmation_conflict: false,
     rule_version: 'fnc-rec-exact-v1',
     signals: ['exact_amount'],
     date_window_days: 3,

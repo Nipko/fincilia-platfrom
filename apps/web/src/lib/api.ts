@@ -112,11 +112,13 @@ export type CompanyProvisionResult = CompanyDetail & {
 /** Fallo con el codigo que devolvio la API, para poder distinguir 401 de 403. */
 export class ApiError extends Error {
   readonly status: number;
+  readonly code: string | null;
 
-  constructor(status: number, message: string) {
+  constructor(status: number, message: string, code: string | null = null) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
+    this.code = code;
   }
 }
 
@@ -146,15 +148,19 @@ async function request<T>(
       // El detalle de la API ya esta escrito para no filtrar datos; se pasa tal
       // cual y no se enriquece con nada que el servidor haya decidido callar.
       let detail = 'la peticion no se pudo completar';
+      let code: string | null = null;
       try {
-        const problem = (await response.json()) as { detail?: unknown };
+        const problem = (await response.json()) as { detail?: unknown; type?: unknown };
         if (typeof problem.detail === 'string') {
           detail = problem.detail;
+        }
+        if (typeof problem.type === 'string') {
+          code = problem.type.split('/').filter(Boolean).at(-1) ?? null;
         }
       } catch {
         /* un cuerpo ilegible no cambia el codigo de estado */
       }
-      throw new ApiError(response.status, detail);
+      throw new ApiError(response.status, detail, code);
     }
     // El deadline cubre tambien el cuerpo. Recibir headers no basta: un servidor
     // que entregue JSON gota a gota no puede colgar una pantalla indefinidamente.
@@ -482,6 +488,7 @@ export type MatchReview = {
   right_movement_id: string;
   left_dataset_id: string;
   right_dataset_id: string;
+  confirmation_conflict: boolean;
   rule_version: string;
   signals: string[];
   date_window_days: number;

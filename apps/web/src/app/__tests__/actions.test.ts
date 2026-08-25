@@ -3,10 +3,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => {
   class ApiError extends Error {
     readonly status: number;
+    readonly code: string | null;
 
-    constructor(status: number, message: string) {
+    constructor(status: number, message: string, code: string | null = null) {
       super(message);
       this.status = status;
+      this.code = code;
     }
   }
   return {
@@ -585,6 +587,20 @@ describe('reconciliation review actions', () => {
     );
 
     expect(result.error).toContain('segregacion de funciones');
+    expect(result.done).toBeNull();
+  });
+
+  it('explica la exclusividad cuando el movimiento ya fue confirmado', async () => {
+    mocks.decideReconciliationReview.mockRejectedValue(
+      new mocks.ApiError(409, 'neutral conflict', 'movement-already-confirmed'),
+    );
+
+    const result = await decideMatchAction(
+      { error: null, done: null }, matchDecisionForm(),
+    );
+
+    expect(result.error).toContain('ya fue confirmado con otra contraparte');
+    expect(result.error).not.toContain('neutral conflict');
     expect(result.done).toBeNull();
   });
 

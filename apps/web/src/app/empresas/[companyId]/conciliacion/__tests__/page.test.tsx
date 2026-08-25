@@ -192,6 +192,7 @@ describe('ReconciliationPage', () => {
       candidate_id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
       left_movement_id: LEFT_MOVEMENT,
       right_movement_id: RIGHT_MOVEMENT,
+      confirmation_conflict: false,
       proposed_by_name: 'Ana Preparadora',
       proposed_at: '2026-08-24T12:00:00+00:00',
       status: 'open',
@@ -213,6 +214,55 @@ describe('ReconciliationPage', () => {
       .toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Enviar a revision humana' }))
       .not.toBeInTheDocument();
+  });
+
+  it('bloquea confirmar un movimiento ya reservado y conserva el rechazo', async () => {
+    mocks.fetchCompany.mockResolvedValue({
+      legal_name: 'Servicios Espiga SAS',
+      permissions: ['movement.read', 'match.confirm', 'match.reject'],
+    });
+    mocks.fetchCandidates.mockResolvedValue({
+      candidates: [{
+        left: {
+          movement_id: LEFT_MOVEMENT, amount: '10.000000000000', currency: 'COP',
+          direction: 'outflow', description: 'Pago', reference: null,
+          occurred_on: '2026-02-13', state: 'proposed', record_ordinal: 2,
+        },
+        right: {
+          movement_id: RIGHT_MOVEMENT, amount: '10.000000000000', currency: 'COP',
+          direction: 'inflow', description: 'Abono', reference: null,
+          occurred_on: '2026-02-14', state: 'proposed', record_ordinal: 2,
+        },
+        date_distance_days: 1,
+        signals: ['exact_amount'],
+      }],
+      truncated: false,
+      mode: 'candidate_only',
+      proves_balance_reconciliation: false,
+    });
+    mocks.fetchReviews.mockResolvedValue([{
+      candidate_id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+      left_movement_id: LEFT_MOVEMENT,
+      right_movement_id: RIGHT_MOVEMENT,
+      proposed_by_name: 'Ana Preparadora',
+      proposed_at: '2026-08-24T12:00:00+00:00',
+      status: 'open',
+      decision: null,
+      confirmation_conflict: true,
+      financial_effect: 'none',
+      proves_balance_reconciliation: false,
+    }]);
+
+    render(await ReconciliationPage({
+      params: Promise.resolve({ companyId: COMPANY }),
+      searchParams: Promise.resolve({ izquierda: LEFT, derecha: RIGHT }),
+    }));
+
+    expect(screen.getByText('No se puede confirmar este par')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Confirmar revision' }))
+      .not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Rechazar candidato' }))
+      .toBeInTheDocument();
   });
 
   it('prioriza una URL invalida aunque aun no existan dos datasets aptos', async () => {

@@ -322,6 +322,12 @@ function reviewError(error: unknown): MatchReviewState {
     return { error: 'El candidato o el permiso ya no estan disponibles.', done: null };
   }
   if (error instanceof ApiError && error.status === 409) {
+    if (error.code === 'movement-already-confirmed') {
+      return {
+        error: 'Uno de los movimientos ya fue confirmado con otra contraparte. Revisa ambos expedientes; no se registro esta decision.',
+        done: null,
+      };
+    }
     return {
       error: 'El comando entra en conflicto con una decision, una clave previa o la segregacion de funciones.',
       done: null,
