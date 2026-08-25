@@ -54,5 +54,20 @@
       "agent_may_accept": false
     }
   ],
-  "active_reservations": []
+  "active_reservations": [
+    {
+      "task": "FNC-OPS-001",
+      "holder": "Codex principal dev + Integration Steward",
+      "paths": [
+        "apps/api/src/fincilia_api/operations.py",
+        "apps/api/src/fincilia_api/routes.py",
+        "apps/api/tests",
+        "db/tests/test_operational_reminders.py",
+        "apps/web/src/app/recordatorios",
+        "apps/web/src/lib/operations.ts",
+        "apps/web/src/lib/api.ts",
+        "apps/web/tests"
+      ]
+    }
+  ]
 }
