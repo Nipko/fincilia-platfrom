@@ -124,6 +124,7 @@ Hasta S1-READY solo se admite scaffolding, automatización, pruebas, documentaci
 | FNC-ONB-001 | Alta transaccional de empresa y espacio operativo | Review pending | Codex + Integration Steward | Company, engagement, owner y maestros iniciales sin depender de la semilla; V0020 aplicada y recorridos PostgreSQL/E2E/a11y verdes |
 | FNC-SEC-004 | Contexto durable de autorizacion | Review pending | Codex + Integration Steward | V0021, kernel de emision/revalidacion/revocacion, PostgreSQL real y auditoria; revision Security + Database/Architecture pendiente |
 | FNC-SEC-005 | Trabajos durables vinculados a autorizacion emitida | Review pending | Codex + Integration Steward | V0022, productor API, despacho y vallado por lote; compatibilidad expand-only y revision independiente pendientes |
+| FNC-AUD-001 | Centro web company-scoped de accesos y auditoria | Review pending | Codex + Integration Steward | API keyset, actor, filtros cerrados, portafolio company-by-company y estados parciales; revision independiente pendiente |
 
 Solo el Integration Steward modifica esta tabla.
 

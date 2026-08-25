@@ -130,6 +130,7 @@ dependencias de `FNC-GAT-002` ni afirmar que Sprint 1 está habilitado.
 | FNC-ONB-001 | A5/A6 | PLT-008, QA-007, P3.5 | Review pending | Alta atomica de empresa, engagement y configuracion inicial desde la web; solo sintetico mientras DRG-00 siga cerrado |
 | FNC-SEC-004 | A3/A5 | SEC-001, PLT-005, DB-002 | Review pending | Contexto durable company-scoped con emision idempotente, revalidacion online, revocacion append-only, HMAC y V0021; sin consumidor artificial ni datos reales |
 | FNC-SEC-005 | A3/A5 | SEC-004, DB-002, P3.6 | Review pending | Trabajos nuevos ligados a issued context y revalidados al reclamar, escribir y cerrar; fase expand compatible con filas legacy |
+| FNC-AUD-001 | A5/A6 | SEC-001, QA-007, WEB-003 | Review pending | Centro de auditoria company-scoped con actor, filtros exactos, cursor estable y vista multiempresa sin exponer payload ni convertir fallos en cero |
 
 ## No codificar todavía
 
