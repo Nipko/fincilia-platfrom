@@ -1,0 +1,38 @@
+name: fincilia-concurrency-spike
+
+services:
+  postgres:
+    image: postgres:17.11-alpine3.24@sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73
+    environment:
+      POSTGRES_DB: fincilia_concurrency_spike
+      POSTGRES_USER: fnc_concurrency_bootstrap
+      POSTGRES_PASSWORD: fnc_concurrency_synthetic_only
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256 --auth-local=trust"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+      start_period: 5s
+    stop_grace_period: 15s
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - fincilia_concurrency_spike_data:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+      - ./sql:/spike/sql:ro
+    networks:
+      - fincilia_concurrency_private
+    labels:
+      com.fincilia.data-class: synthetic_only
+      com.fincilia.spike: FNC-DB-004
+      com.fincilia.disposable: "true"
+
+volumes:
+  fincilia_concurrency_spike_data:
+    name: fincilia_concurrency_spike_data
+
+networks:
+  fincilia_concurrency_private:
+    name: fincilia_concurrency_private
+    internal: true

@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "task_id": "FNC-DB-004",
+  "status": "review_pending",
+  "human_acceptance": "pending",
+  "data_ceiling": "synthetic_only",
+  "runtime": {
+    "project": "fincilia-concurrency-spike",
+    "compose": "spikes/FNC-DB-004/compose.yaml",
+    "service": "postgres",
+    "image": "postgres:17.11-alpine3.24@sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73",
+    "published_ports": false,
+    "internal_network": true,
+    "cleanup_with_volumes": true
+  },
+  "roles": {
+    "bootstrap": "fnc_concurrency_bootstrap",
+    "owner": "fnc_concurrency_owner",
+    "runtime": "fnc_concurrency_runtime",
+    "runtime_direct_table_writes": false,
+    "runtime_ddl": false,
+    "runtime_function_allowlist": [
+      "fnc_lab.claim_work(text,integer)",
+      "fnc_lab.commit_effect(text,text,bigint,text,boolean)",
+      "fnc_lab.claim_outbox(text)",
+      "fnc_lab.ack_outbox(bigint,text)"
+    ]
+  },
+  "cases": [
+    {
+      "id": "TST-IDEM-001",
+      "marker": "FNC_IDEM_001_OK",
+      "rule": "two concurrent claims for one queued work item yield exactly one lease holder"
+    },
+    {
+      "id": "TST-IDEM-004",
+      "marker": "FNC_IDEM_004_OK",
+      "rule": "domain effect and outbox are atomic; a committed pending event is recoverable exactly once in the delivery ledger"
+    },
+    {
+      "id": "TST-IDEM-005",
+      "marker": "FNC_IDEM_005_OK",
+      "rule": "a stale fencing token cannot write after another worker reclaims an expired lease"
+    }
+  ],
+  "safety": {
+    "shell": false,
+    "argv_allowlisted": true,
+    "environment_allowlisted": true,
+    "output_bounded": true,
+    "cleanup_project_confined": true,
+    "real_data_forbidden": true,
+    "product_migrations_modified": false,
+    "agent_may_accept_architecture": false
+  }
+}
