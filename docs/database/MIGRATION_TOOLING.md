@@ -39,3 +39,12 @@ migración contract posterior y evidencia de que no quedan productores antiguos.
 le concede lectura de la ruta mínima de identidad porque la revalidación online no
 puede inferirse solo de la versión si una escritura administrativa defectuosa no la
 incrementó. El worker no recibe esas lecturas, la clave HMAC ni UPDATE de cola.
+
+## V0024 — registro de aplicación síncrona de overlays
+
+`record_overlay_application_run` registra un trabajo `overlay_apply` ya completado
+sin conceder a la API escritura directa sobre la cola global. La función comprueba
+empresa, artefacto, capability `processing_job`, versión de autorización, membresía,
+engagement, grant y revocación antes de insertar. Es `SECURITY DEFINER`, pertenece
+a `fincilia_dispatch`, revoca `PUBLIC` y solo concede ejecución a `fincilia_app`.
+Su revisión humana independiente continúa pendiente bajo DB-G03.

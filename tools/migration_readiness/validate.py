@@ -117,8 +117,12 @@ def validate_migrations(root:Path,exemptions=None,definers=None):
    added.setdefault(match.group("name"),set()).add(match.group("col"))
  # Y el `REVOKE` de una funcion puede vivir en una migracion posterior a la que
  # la creo: lo que importa es como acaba el esquema, no en que fichero se dijo.
- revoked=NEWLINE.join(path.read_text(encoding="utf-8")
-                      for path in sorted(directory.glob("*.sql")))
+ revoked=re.sub(
+  r"\s+",
+  " ",
+  NEWLINE.join(path.read_text(encoding="utf-8")
+               for path in sorted(directory.glob("*.sql"))),
+ )
  for path in sorted(directory.glob("*")):
   name=path.name
   # Solo el README y migraciones. Un fichero suelto en este directorio es

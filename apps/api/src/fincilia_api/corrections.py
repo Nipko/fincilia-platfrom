@@ -223,11 +223,16 @@ def list_proposals(connection: psycopg.Connection, *, dataset_id: str) -> list[d
             "SELECT o.overlay_id, o.movement_id, o.target_field, o.value_type, "
             "o.proposed_value, o.reason_code, o.reason_comment, o.sequence, "
             "o.created_by, a.display_name, o.created_at, r.decision, r.reviewer_id, "
-            "rv.display_name, r.rationale, r.reviewed_at "
+            "rv.display_name, r.rationale, r.reviewed_at, "
+            "ai.application_item_id, app.result_dataset_version_id "
             "FROM fincilia.field_overlay o "
             "JOIN fincilia.subject a ON a.subject_id = o.created_by "
             "LEFT JOIN fincilia.field_overlay_review r ON r.overlay_id = o.overlay_id "
             "LEFT JOIN fincilia.subject rv ON rv.subject_id = r.reviewer_id "
+            "LEFT JOIN fincilia.field_overlay_application_item ai "
+            "ON ai.overlay_id = o.overlay_id "
+            "LEFT JOIN fincilia.field_overlay_application app "
+            "ON app.application_id = ai.application_id "
             "WHERE o.dataset_version_id = %s ORDER BY o.created_at, o.overlay_id",
             (dataset_id,))
         rows = cursor.fetchall()
@@ -237,10 +242,12 @@ def list_proposals(connection: psycopg.Connection, *, dataset_id: str) -> list[d
              "reason_comment": row[6], "sequence": row[7],
              "created_by": str(row[8]), "author_name": row[9],
              "created_at": row[10].isoformat(),
-             "status": row[11] or "pending_review", "applied": False,
+             "status": "applied" if row[16] else (row[11] or "pending_review"),
+             "applied": row[16] is not None,
              "reviewer_id": str(row[12]) if row[12] else None,
              "reviewer_name": row[13], "review_rationale": row[14],
-             "reviewed_at": row[15].isoformat() if row[15] else None}
+             "reviewed_at": row[15].isoformat() if row[15] else None,
+             "result_dataset_version_id": str(row[17]) if row[17] else None}
             for row in rows]
 
 
@@ -423,3 +430,64 @@ def review_correction(request: Request, company_id: str, overlay_id: str,
     if reviewed is None:
         raise RuntimeError("correction review completed without a result")
     return reviewed
+
+
+@router.post(
+    "/companies/{company_id}/datasets/{dataset_id}/corrections/apply",
+    tags=["corrections"], status_code=201,
+)
+def apply_corrections(request: Request, company_id: str, dataset_id: str,
+                      principal: Principal = Depends(principal_dependency)) -> dict:
+    """Deriva otra version validada; no publica ni muta la version base."""
+    from .correction_application import ApplicationError, apply_approved
+
+    context = company_context(request, principal, company_id)
+    require(context, "dataset.map")
+    refusal: ApplicationError | None = None
+    result: dict[str, Any] | None = None
+    with request.app.state.database.session(
+            company_id=context.company_id,
+            subject_id=principal.subject_id) as connection:
+        try:
+            # El dominio usa un savepoint propio. Asi una negativa revierte cada
+            # fila funcional ya escrita y el evento de auditoria puede vivir en
+            # la transaccion exterior que se confirma despues.
+            with connection.transaction():
+                result = apply_approved(
+                    connection, tenant=context, dataset_id=dataset_id,
+                    hmac_key=request.app.state.settings.authorization_context_hmac_key)
+        except ApplicationError as error:
+            refusal = error
+        if refusal is None and result is not None:
+            repository.record_audit(
+                connection, subject_id=principal.subject_id,
+                company_id=context.company_id, action="field_overlay.apply",
+                resource_kind="dataset",
+                resource_ref=result["result_dataset_version_id"],
+                outcome="allowed", detail={
+                    "base_dataset_version_id": dataset_id,
+                    "application_id": result["application_id"],
+                    "applied_count": result.get("applied_correction_count", 0),
+                    "idempotent_replay": result["idempotent_replay"],
+                })
+        elif refusal is not None:
+            repository.record_audit(
+                connection, subject_id=principal.subject_id,
+                company_id=context.company_id, action="field_overlay.apply",
+                resource_kind="dataset", resource_ref=dataset_id,
+                outcome="denied", detail={"reason": refusal.code})
+    if refusal is not None:
+        if refusal.code == "correction-dataset-unknown":
+            raise forbidden()
+        conflict = {
+            "correction-dataset-state", "correction-pending-review",
+            "correction-none-approved", "correction-base-stale",
+            "correction-target-drift", "correction-proposal-drift",
+            "correction-date-order", "correction-lineage-step-missing",
+        }
+        raise ProblemError(problem(
+            refusal.code, "The corrections cannot be applied",
+            409 if refusal.code in conflict else 422, refusal.detail))
+    if result is None:
+        raise RuntimeError("correction application completed without a result")
+    return result

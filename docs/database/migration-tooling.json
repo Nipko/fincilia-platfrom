@@ -238,6 +238,16 @@
       "reason": "vallar cada lote con el token y la capability vigentes sin conceder UPDATE directo al worker; el bloqueo vive hasta el commit de la tanda",
       "gate": "DB-G03",
       "human_review_state": "pending"
+    },
+    {
+      "function": "fincilia.record_overlay_application_run",
+      "owner_role": "fincilia_dispatch",
+      "granted_to": [
+        "fincilia_app"
+      ],
+      "reason": "registrar el trabajo sincrono y completado de aplicacion de overlays despues de revalidar la capability, la autoridad viva y el artefacto bajo RLS, sin conceder INSERT directo sobre processing_run a la API",
+      "gate": "DB-G03",
+      "human_review_state": "pending"
     }
   ]
 }

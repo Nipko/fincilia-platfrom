@@ -145,6 +145,7 @@ class MigrationTest(unittest.TestCase):
   names=sorted(x["function"] for x in M["security_definer_functions"])
   self.assertEqual(["fincilia.claim_next_run","fincilia.enqueue_processing_run",
                     "fincilia.finish_run","fincilia.hold_processing_lease",
+                    "fincilia.record_overlay_application_run",
                     "fincilia.send_to_dead_letter"],names)
  def test_no_definer_is_owned_by_the_schema_owner(self):
   # Si el dueno fuera el migrador, cada EXECUTE seria una escalada hasta el
@@ -196,6 +197,10 @@ class MigrationTest(unittest.TestCase):
 
  def test_postgresql_all_synonym_revokes_public_execute(self):
   body='CREATE FUNCTION fincilia.g() RETURNS trigger\nLANGUAGE plpgsql\nAS $x$ BEGIN RETURN NEW; END; $x$;\nREVOKE ALL ON FUNCTION fincilia.g() FROM PUBLIC;\n'
+  self.assertEqual(set(),self.scratch("V0001__x.sql",body,None,[]))
+
+ def test_a_line_wrapped_revoke_still_revokes_public_execute(self):
+  body='CREATE FUNCTION fincilia.g() RETURNS trigger\nLANGUAGE plpgsql\nAS $x$ BEGIN RETURN NEW; END; $x$;\nREVOKE ALL PRIVILEGES ON FUNCTION\n  fincilia.g() FROM PUBLIC;\n'
   self.assertEqual(set(),self.scratch("V0001__x.sql",body,None,[]))
 
  def test_a_definer_whose_owner_is_never_set_bites(self):

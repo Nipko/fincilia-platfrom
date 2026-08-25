@@ -60,14 +60,20 @@
       "holder": "Codex principal dev + Integration Steward",
       "paths": [
         "db/migrations/V0023__apply_approved_field_overlays.sql",
+        "db/migrations/V0024__record_overlay_application_run.sql",
         "db/tests/test_correction_application.py",
         "apps/api/src/fincilia_api/correction_application.py",
+        "apps/api/src/fincilia_api/corrections.py",
         "apps/api/src/fincilia_api/main.py",
         "apps/api/tests/test_correction_application.py",
         "apps/web/src/lib/api.ts",
         "apps/web/src/app/actions.ts",
         "apps/web/src/app/__tests__/actions.test.ts",
-        "apps/web/src/app/empresas/[companyId]/documentos/[artifactId]/mapeo"
+        "apps/web/src/app/empresas/[companyId]/documentos/[artifactId]/mapeo",
+        "docs/database/migration-tooling.json",
+        "docs/database/MIGRATION_TOOLING.md",
+        "tools/migration_readiness/test_validate.py",
+        "tools/migration_readiness/validate.py"
       ]
     }
   ]
