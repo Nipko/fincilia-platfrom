@@ -38,11 +38,13 @@ def evidence(*, values: list[str] | None = None,
 
 
 class Cursor:
-    def __init__(self, *, stored_key: str | None = None, replay: bool = False) -> None:
+    def __init__(self, *, stored_key: str | None = None, replay: bool = False,
+                 lineage_checks: list[bool] | None = None) -> None:
         self.current = None
         self.insert_params = None
         self.stored_key = stored_key
         self.replay = replay
+        self.lineage_checks = list(lineage_checks or [True])
         self.balance_id = uuid.uuid4()
 
     def __enter__(self):
@@ -55,8 +57,13 @@ class Cursor:
         if statement.startswith("SELECT pg_advisory_xact_lock"):
             self.current = (None,)
             return
-        if statement.startswith("SELECT balance_id FROM fincilia.account_balance"):
-            self.current = (self.balance_id,) if self.replay else None
+        if statement.startswith(
+                "SELECT balance_id, observation_key, lineage_state"):
+            self.current = ((self.balance_id, self.stored_key or "1" * 64, "complete")
+                            if self.replay else None)
+            return
+        if statement.startswith("SELECT fincilia.financial_lineage_complete"):
+            self.current = (self.lineage_checks.pop(0),)
             return
         if statement.startswith("INSERT INTO fincilia.account_balance"):
             self.insert_params = params
@@ -168,6 +175,18 @@ class BalanceTests(unittest.TestCase):
                     Connection(divergent), company_id=COMPANY, subject_id=SUBJECT,
                     source_record_id=SOURCE_RECORD, balance_type="closing",
                     amount_field_index=2, as_of_field_index=0)
+
+    @patch("fincilia_api.balances.financial_lineage.materialize_balance")
+    def test_exact_replay_materializes_missing_legacy_graph(self, materialize) -> None:
+        replay = Cursor(replay=True, lineage_checks=[False, True])
+        with patch("fincilia_api.balances._load_evidence", return_value=evidence()), \
+                patch("fincilia_api.balances.digest_of", return_value="1" * 64):
+            result = create_balance(
+                Connection(replay), company_id=COMPANY, subject_id=SUBJECT,
+                source_record_id=SOURCE_RECORD, balance_type="closing",
+                amount_field_index=2, as_of_field_index=0)
+        self.assertTrue(result["replayed"])
+        materialize.assert_called_once()
 
 
 if __name__ == "__main__":

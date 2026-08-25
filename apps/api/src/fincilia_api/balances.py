@@ -289,7 +289,8 @@ def create_balance(connection: psycopg.Connection, *, company_id: str,
         cursor.execute("SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))",
                        (identity_key,))
         cursor.execute(
-            "SELECT balance_id FROM fincilia.account_balance WHERE company_id=%s "
+            "SELECT balance_id, observation_key, lineage_state "
+            "FROM fincilia.account_balance WHERE company_id=%s "
             "AND source_record_id=%s AND financial_account_id=%s "
             "AND balance_type=%s AND as_of=%s AND amount_field_index=%s "
             "AND as_of_field_index=%s",
@@ -298,6 +299,10 @@ def create_balance(connection: psycopg.Connection, *, company_id: str,
              amount_field_index, as_of_field_index))
         existing = cursor.fetchone()
         balance_id = str(existing[0]) if existing else str(uuid.uuid4())
+        if existing is not None and existing[1] != observation_key:
+            raise BalanceError(
+                "balance-observation-conflict",
+                "that evidence coordinate already carries another observation")
         try:
             if existing is None:
                 with connection.transaction():
@@ -322,6 +327,30 @@ def create_balance(connection: psycopg.Connection, *, company_id: str,
                          amount_field_index, as_of_field_index, json.dumps(field_digests),
                          observation_key, subject_id, evidence["engine_release_id"],
                          evidence["canonical_schema_version"]))
+            elif existing[2] == "complete":
+                cursor.execute(
+                    "SELECT fincilia.financial_lineage_complete("
+                    "'account_balance', %s, %s)", (company_id, balance_id))
+                if not cursor.fetchone()[0]:
+                    # Filas sinteticas creadas antes de V0031 pueden declarar
+                    # `complete` sin nodos fisicos. Un replay exacto es el unico
+                    # camino permitido para materializar la prueba faltante; no
+                    # se cambia importe, fecha, identidad ni estado financiero.
+                    with connection.transaction():
+                        financial_lineage.materialize_balance(
+                            cursor, company_id=company_id, subject_id=subject_id,
+                            balance_id=balance_id,
+                            source_record_id=evidence["source_record_id"],
+                            amount_field_index=amount_field_index,
+                            as_of_field_index=as_of_field_index,
+                            field_digests=field_digests)
+                        cursor.execute(
+                            "SELECT fincilia.financial_lineage_complete("
+                            "'account_balance', %s, %s)", (company_id, balance_id))
+                        if not cursor.fetchone()[0]:
+                            raise BalanceError(
+                                "financial-lineage-input-incomplete",
+                                "the replayed balance could not prove its evidence")
         except psycopg.errors.CheckViolation as error:
             if error.diag.constraint_name == "ck_account_balance_evidence_eligible":
                 raise BalanceError("balance-evidence-unavailable",

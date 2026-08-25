@@ -42,7 +42,7 @@ test('FNC-CLS-004 integra statements sin habilitar un cierre', async ({
   await expect(balances.getByText('Bloquea')).toBeVisible();
   await page.getByText('Ver cobertura por cuenta', { exact: false }).first().click();
   await expect(page.getByRole('columnheader', { name: 'Statement' }).first()).toBeVisible();
-  const lineage = page.getByText('Ver trazabilidad', { exact: false });
+  const lineage = page.locator('summary:visible').filter({ hasText: 'Ver trazabilidad' });
   if (await lineage.count()) {
     await lineage.first().click();
     await expect(page.getByText(/Vista solo de identidades, versiones y huellas SHA-256/)

@@ -69,6 +69,7 @@
         "apps/api/src/fincilia_api/routes.py",
         "apps/api/src/fincilia_api/schemas.py",
         "apps/api/tests/test_balances.py",
+        "apps/api/tests/test_balance_reconciliation.py",
         "apps/api/tests/test_financial_lineage.py",
         "db/tests/test_account_balances.py",
         "db/tests/test_balance_reconciliation_statements.py",

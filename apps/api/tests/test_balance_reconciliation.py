@@ -9,6 +9,7 @@ from fincilia_api.balance_reconciliation import (
     ReconciliationError,
     _bounded,
     _control_specs,
+    _eligible_statement_item_ids,
     _uuid,
     create_item,
     create_statement,
@@ -19,6 +20,18 @@ from fincilia_api.balance_reconciliation import (
 class NoDatabase:
     def cursor(self):  # pragma: no cover - usarla seria el fallo
         raise AssertionError("invalid input reached the database")
+
+
+class ItemCursor:
+    def __init__(self) -> None:
+        self.query = ""
+        self.params = ()
+
+    def execute(self, query, params) -> None:
+        self.query, self.params = query, params
+
+    def fetchall(self):
+        return [(uuid.UUID(int=7),)]
 
 
 def evidence(**overrides):
@@ -75,6 +88,18 @@ class BalanceReconciliationRulesTests(unittest.TestCase):
                     NoDatabase(), company_id=str(uuid.uuid4()),
                     subject_id=str(uuid.uuid4()), bank_balance_id=str(uuid.uuid4()),
                     books_balance_id=str(uuid.uuid4()), assessment_ids=values)
+
+    def test_statement_items_are_pinned_to_balance_release_schema_and_currency(self) -> None:
+        cursor = ItemCursor()
+        result = _eligible_statement_item_ids(
+            cursor, company_id="company", root_id="root", currency_code="COP",
+            engine_release_id="release", canonical_schema_version="0.1.0")
+        self.assertEqual([str(uuid.UUID(int=7))], result)
+        self.assertIn("i.currency_code=%s", cursor.query)
+        self.assertIn("i.engine_release_id=%s", cursor.query)
+        self.assertIn("i.canonical_schema_version=%s", cursor.query)
+        self.assertEqual(("company", "root", "COP", "release", "0.1.0"),
+                         cursor.params)
 
     def test_item_money_never_accepts_float_or_nonpositive_text(self) -> None:
         common = {

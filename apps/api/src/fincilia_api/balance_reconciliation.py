@@ -422,6 +422,56 @@ def create_assessment(connection: psycopg.Connection, *, company_id: str,
         else:
             assessment_id = str(existing[0])
             replayed = True
+            if lineage == "complete":
+                cursor.execute(
+                    "SELECT fincilia.financial_lineage_complete("
+                    "'completeness_assessment', %s, %s)",
+                    (company_id, assessment_id))
+                if not cursor.fetchone()[0]:
+                    # Replay exacto de una fila sintetica anterior a V0031. Se
+                    # agregan nodos y aristas; la evaluacion y sus controles no
+                    # se reescriben ni se reinterpretan.
+                    try:
+                        with connection.transaction():
+                            assessment_node = financial_lineage.materialize_assessment(
+                                cursor, company_id=company_id, subject_id=subject_id,
+                                assessment_id=assessment_id,
+                                dataset_version_id=evidence["dataset_version_id"],
+                                assessment_key=assessment_key, state=state,
+                                rule_version=CONTROL_RULE_VERSION)
+                            cursor.execute(
+                                "SELECT control_result_id, control_type, outcome, "
+                                "expected_value, observed_value, rule_version "
+                                "FROM fincilia.completeness_control_result "
+                                "WHERE company_id=%s AND assessment_id=%s "
+                                "AND lineage_state='complete' ORDER BY control_type",
+                                (company_id, assessment_id))
+                            stored_controls = cursor.fetchall()
+                            if len(stored_controls) != len(specs):
+                                raise ReconciliationError(
+                                    "financial-lineage-input-incomplete",
+                                    "the replayed assessment controls are incomplete")
+                            for control in stored_controls:
+                                financial_lineage.materialize_control(
+                                    cursor, company_id=company_id,
+                                    subject_id=subject_id,
+                                    control_result_id=str(control[0]),
+                                    assessment_id=assessment_id,
+                                    dataset_version_id=evidence["dataset_version_id"],
+                                    control_type=control[1], outcome=control[2],
+                                    expected=control[3], observed=control[4],
+                                    rule_version=control[5],
+                                    assessment_node_id=assessment_node)
+                            cursor.execute(
+                                "SELECT fincilia.financial_lineage_complete("
+                                "'completeness_assessment', %s, %s)",
+                                (company_id, assessment_id))
+                            if not cursor.fetchone()[0]:
+                                raise ReconciliationError(
+                                    "financial-lineage-input-incomplete",
+                                    "the replayed assessment could not prove its evidence")
+                    except financial_lineage.LineageError as error:
+                        raise ReconciliationError(error.code, error.detail) from None
         cursor.execute(ASSESSMENT_SELECT + "WHERE a.assessment_id=%s", (assessment_id,))
         row = cursor.fetchone()
         cursor.execute(
@@ -511,14 +561,11 @@ def create_statement(connection: psycopg.Connection, *, company_id: str,
                 (company_id, scope["financial_account_id"], scope["period_start"],
                  scope["period_end"], scope["currency_code"]))
             root_id = str(cursor.fetchone()[0])
-        cursor.execute(
-            "SELECT item_decision_id FROM fincilia.reconciling_item i WHERE "
-            "i.company_id=%s AND i.statement_root_id=%s AND i.state='confirmed' "
-            "AND i.lineage_state='complete' AND i.decision_version=(SELECT "
-            "max(j.decision_version) FROM fincilia.reconciling_item j WHERE "
-            "j.company_id=i.company_id AND j.item_root_id=i.item_root_id) "
-            "ORDER BY i.item_root_id", (company_id, root_id))
-        item_ids = [str(row[0]) for row in cursor.fetchall()]
+        item_ids = _eligible_statement_item_ids(
+            cursor, company_id=company_id, root_id=root_id,
+            currency_code=scope["currency_code"],
+            engine_release_id=scope["engine_release_id"],
+            canonical_schema_version=scope["canonical_schema_version"])
         statement_key = digest_of({
             "company_id": company_id, "root_id": root_id,
             "bank_id": scope["bank_id"], "books_id": scope["books_id"],
@@ -533,21 +580,26 @@ def create_statement(connection: psycopg.Connection, *, company_id: str,
         existing = cursor.fetchone()
         if existing is None:
             statement_id, replayed = str(uuid.uuid4()), False
-            cursor.execute(
-                "INSERT INTO fincilia.reconciliation_statement "
-                "(statement_id, company_id, statement_root_id, version, "
-                "financial_account_id, period_start, period_end, currency_code, "
-                "bank_closing_balance_id, books_closing_balance_id, "
-                "completeness_assessment_ids, confirmed_reconciling_item_ids, "
-                "statement_key, prepared_by, engine_release_id, "
-                "canonical_schema_version, rule_version_ids, lineage_state) "
-                "VALUES (%s, %s, %s, 1, %s, %s, %s, %s, %s, %s, %s::uuid[], "
-                "%s::uuid[], %s, %s, %s, %s, %s::jsonb, 'required_pending')",
-                (statement_id, company_id, root_id, scope["financial_account_id"],
-                 scope["period_start"], scope["period_end"], scope["currency_code"],
-                 scope["bank_id"], scope["books_id"], scope["assessment_ids"],
-                 item_ids, statement_key, subject_id, scope["engine_release_id"],
-                 scope["canonical_schema_version"], json.dumps([RULE_VERSION])))
+            try:
+                cursor.execute(
+                    "INSERT INTO fincilia.reconciliation_statement "
+                    "(statement_id, company_id, statement_root_id, version, "
+                    "financial_account_id, period_start, period_end, currency_code, "
+                    "bank_closing_balance_id, books_closing_balance_id, "
+                    "completeness_assessment_ids, confirmed_reconciling_item_ids, "
+                    "statement_key, prepared_by, engine_release_id, "
+                    "canonical_schema_version, rule_version_ids, lineage_state) "
+                    "VALUES (%s, %s, %s, 1, %s, %s, %s, %s, %s, %s, %s::uuid[], "
+                    "%s::uuid[], %s, %s, %s, %s, %s::jsonb, 'required_pending')",
+                    (statement_id, company_id, root_id, scope["financial_account_id"],
+                     scope["period_start"], scope["period_end"], scope["currency_code"],
+                     scope["bank_id"], scope["books_id"], scope["assessment_ids"],
+                     item_ids, statement_key, subject_id, scope["engine_release_id"],
+                     scope["canonical_schema_version"], json.dumps([RULE_VERSION])))
+            except psycopg.errors.CheckViolation:
+                raise ReconciliationError(
+                    "statement-input-conflict",
+                    "one or more statement inputs are no longer eligible") from None
             lineage_state = "required_pending"
         else:
             statement_id, lineage_state = str(existing[0]), existing[1]
@@ -571,6 +623,24 @@ def create_statement(connection: psycopg.Connection, *, company_id: str,
         cursor.execute(STATEMENT_SELECT + "WHERE r.statement_id=%s", (statement_id,))
         row = cursor.fetchone()
     return _statement_row(row, replayed=replayed)
+
+
+def _eligible_statement_item_ids(
+        cursor: psycopg.Cursor, *, company_id: str, root_id: str,
+        currency_code: str, engine_release_id: str,
+        canonical_schema_version: str) -> list[str]:
+    """Fija solo decisiones vigentes compatibles con los saldos del statement."""
+    cursor.execute(
+        "SELECT item_decision_id FROM fincilia.reconciling_item i WHERE "
+        "i.company_id=%s AND i.statement_root_id=%s AND i.state='confirmed' "
+        "AND i.lineage_state='complete' AND i.currency_code=%s "
+        "AND i.engine_release_id=%s AND i.canonical_schema_version=%s "
+        "AND i.decision_version=(SELECT max(j.decision_version) FROM "
+        "fincilia.reconciling_item j WHERE j.company_id=i.company_id "
+        "AND j.item_root_id=i.item_root_id) ORDER BY i.item_root_id",
+        (company_id, root_id, currency_code, engine_release_id,
+         canonical_schema_version))
+    return [str(row[0]) for row in cursor.fetchall()]
 
 
 def create_item(connection: psycopg.Connection, *, company_id: str, subject_id: str,
