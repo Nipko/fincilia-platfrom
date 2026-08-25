@@ -2,7 +2,7 @@
 id: FNC-EXP-001
 alias: FNC-P4.9
 title: Exportacion canonica segura de dataset publicado
-status: in_progress
+status: review_pending
 implementer: Codex principal dev + Integration Steward
 base_sha: c1f074d0c4775e6f2b37d55f8105fdad610d2378
 gate: S1-READY

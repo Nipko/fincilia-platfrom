@@ -54,23 +54,5 @@
       "agent_may_accept": false
     }
   ],
-  "active_reservations": [
-    {
-      "task": "FNC-EXP-001",
-      "holder": "Codex principal dev + Integration Steward",
-      "paths": [
-        "packages/contracts/python/fincilia_contracts/tenancy.py",
-        "packages/contracts/python/tests",
-        "docs/security/RBAC_ABAC_SOD.md",
-        "apps/api/src/fincilia_api/exports.py",
-        "apps/api/src/fincilia_api/routes.py",
-        "apps/api/tests",
-        "db/tests/test_dataset_exports.py",
-        "apps/web/src",
-        "apps/web/tests",
-        "docs/implementation/tasks/FNC-EXP-001.md",
-        "docs/implementation/handoffs/FNC-EXP-001.md"
-      ]
-    }
-  ]
+  "active_reservations": []
 }
