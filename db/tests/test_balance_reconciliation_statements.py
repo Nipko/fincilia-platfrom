@@ -6,6 +6,7 @@ import json
 import uuid
 import datetime as dt
 from decimal import Decimal
+from concurrent.futures import ThreadPoolExecutor
 
 import psycopg
 
@@ -15,6 +16,7 @@ from db.tests.test_p3_vertical import (
     ACCOUNT,
     ANDINOS,
     ESPIGA,
+    OWNER,
     PREPARER,
     REVIEWER,
     VerticalHarness,
@@ -308,6 +310,156 @@ class BalanceReconciliationDatabaseTests(VerticalHarness):
                         "UPDATE fincilia.reconciliation_statement SET state = 'draft' "
                         "WHERE statement_root_id = %s", (root,))
                 connection.rollback()
+
+    def test_api_materializes_assessment_statement_item_and_sod(self) -> None:
+        dataset, source_record, artifact, source, version = self._published_evidence()
+        release_id, schema = version.split("|", 1)
+        period_start = "2026-03-31"
+        period_end_date = dt.date(2026, 3, 31) + dt.timedelta(
+            days=20 + int(uuid.uuid4().hex[:5], 16) % 2400)
+        period_end = period_end_date.isoformat()
+        expectation = str(uuid.uuid4())
+        self.expectations.add(expectation)
+
+        with psycopg.connect(MIGRATOR_DSN) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT set_config('fincilia.company_id', %s, true)",
+                               (ESPIGA,))
+                cursor.execute(
+                    "INSERT INTO fincilia.source_expectation "
+                    "(expectation_id, company_id, data_source_id, financial_account_id, "
+                    "period_start, period_end, due_on, late_after, expected_controls, "
+                    "state, satisfied_by, satisfied_at) VALUES "
+                    "(%s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, "
+                    "'satisfied', %s, now())",
+                    (expectation, ESPIGA, source, ACCOUNT, period_start, period_end,
+                     (period_end_date + dt.timedelta(days=1)).isoformat(),
+                     (period_end_date + dt.timedelta(days=2)).isoformat(),
+                     json.dumps({"controls": ["provenance_integrity"]}), artifact))
+                bank = self._insert_balance(
+                    cursor, source_record=source_record, balance_type="closing",
+                    amount="2500.000000000000", release_id=release_id, schema=schema)
+                books = self._insert_balance(
+                    cursor, source_record=source_record, balance_type="ledger",
+                    amount="2500.000000000000", release_id=release_id, schema=schema)
+
+        assessment_response = self.client.post(
+            f"/api/v1/companies/{ESPIGA}/balance-reconciliation/assessments",
+            headers=self.auth(PREPARER), json={"expectation_id": expectation})
+        self.assertEqual(201, assessment_response.status_code, assessment_response.text)
+        assessment = assessment_response.json()
+        self.assessments.add(assessment["assessment_id"])
+        self.assertEqual("verified", assessment["state"])
+        self.assertEqual("complete", assessment["lineage_state"])
+
+        statement_body = {
+            "bank_balance_id": bank,
+            "books_balance_id": books,
+            "assessment_ids": [assessment["assessment_id"]],
+        }
+        statement_endpoint = (
+            f"/api/v1/companies/{ESPIGA}/balance-reconciliation/statements")
+        headers = self.auth(PREPARER)
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            statement_responses = list(executor.map(
+                lambda _: self.client.post(
+                    statement_endpoint, headers=headers, json=statement_body),
+                range(2),
+            ))
+        self.assertEqual([200, 201],
+                         sorted(item.status_code for item in statement_responses),
+                         [item.text for item in statement_responses])
+        self.assertEqual(1, len({item.json()["statement_id"]
+                                for item in statement_responses}))
+        statement = statement_responses[0].json()
+        self.reconciliation_roots.add(statement["statement_root_id"])
+        self.assertEqual("balanced", statement["state"])
+        self.assertEqual("0.000000000000", statement["unexplained_difference"])
+        self.assertFalse(statement["certifies_close"])
+
+        item_response = self.client.post(
+            f"/api/v1/companies/{ESPIGA}/balance-reconciliation/statements/"
+            f"{statement['statement_root_id']}/items",
+            headers=self.auth(PREPARER), json={
+                "amount": "5.00", "adjustment_side": "add_to_bank",
+                "reason_code": "documented_timing",
+                "evidence_source_record_ids": [source_record],
+            })
+        self.assertEqual(201, item_response.status_code, item_response.text)
+        item = item_response.json()
+        self.assertEqual("5.000000000000", item["amount"])
+
+        self_decision = self.client.post(
+            f"/api/v1/companies/{ESPIGA}/balance-reconciliation/items/"
+            f"{item['item_root_id']}/decisions",
+            headers=self.auth(PREPARER), json={"decision": "confirmed"})
+        self.assertEqual(403, self_decision.status_code, self_decision.text)
+
+        owner_item = self.client.post(
+            f"/api/v1/companies/{ESPIGA}/balance-reconciliation/statements/"
+            f"{statement['statement_root_id']}/items",
+            headers=self.auth(OWNER), json={
+                "amount": "1.00", "adjustment_side": "deduct_from_bank",
+                "reason_code": "bank_fee_pending",
+                "evidence_source_record_ids": [source_record],
+            })
+        self.assertEqual(201, owner_item.status_code, owner_item.text)
+        owner_self_decision = self.client.post(
+            f"/api/v1/companies/{ESPIGA}/balance-reconciliation/items/"
+            f"{owner_item.json()['item_root_id']}/decisions",
+            headers=self.auth(OWNER), json={"decision": "confirmed"})
+        self.assertEqual(409, owner_self_decision.status_code,
+                         owner_self_decision.text)
+        self.assertEqual("reconciling-item-sod-conflict",
+                         owner_self_decision.json()["type"].rsplit("/", 1)[-1])
+
+        decision_response = self.client.post(
+            f"/api/v1/companies/{ESPIGA}/balance-reconciliation/items/"
+            f"{item['item_root_id']}/decisions",
+            headers=self.auth(REVIEWER), json={"decision": "confirmed"})
+        self.assertEqual(201, decision_response.status_code, decision_response.text)
+        self.assertEqual("confirmed", decision_response.json()["state"])
+        self.assertEqual("complete", decision_response.json()["lineage_state"])
+
+        reevaluated_response = self.client.post(
+            f"/api/v1/companies/{ESPIGA}/balance-reconciliation/statements",
+            headers=self.auth(PREPARER), json=statement_body)
+        self.assertEqual(201, reevaluated_response.status_code, reevaluated_response.text)
+        reevaluated = reevaluated_response.json()
+        self.assertEqual(2, reevaluated["version"])
+        self.assertEqual("review_required", reevaluated["state"])
+        self.assertEqual("5.000000000000", reevaluated["unexplained_difference"])
+
+        replay = self.client.post(
+            f"/api/v1/companies/{ESPIGA}/balance-reconciliation/statements",
+            headers=self.auth(PREPARER), json=statement_body)
+        self.assertEqual(200, replay.status_code, replay.text)
+        self.assertEqual(reevaluated["statement_id"], replay.json()["statement_id"])
+        self.assertTrue(replay.json()["replayed"])
+
+        workspace = self.client.get(
+            f"/api/v1/companies/{ESPIGA}/balance-reconciliation",
+            headers=self.auth(PREPARER))
+        self.assertEqual(200, workspace.status_code, workspace.text)
+        self.assertTrue(any(row["statement_id"] == reevaluated["statement_id"]
+                            for row in workspace.json()["statements"]))
+
+        cross_company = self.client.post(
+            f"/api/v1/companies/{ANDINOS}/balance-reconciliation/statements",
+            headers=self.auth(PREPARER), json=statement_body)
+        self.assertEqual(403, cross_company.status_code, cross_company.text)
+
+        with psycopg.connect(MIGRATOR_DSN) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT set_config('fincilia.company_id', %s, true)",
+                               (ESPIGA,))
+                cursor.execute(
+                    "SELECT detail FROM fincilia.audit_event WHERE resource_ref=%s "
+                    "AND action='reconciling_item.propose' ORDER BY occurred_at DESC LIMIT 1",
+                    (item["item_root_id"],))
+                audit_detail = cursor.fetchone()[0]
+        self.assertNotIn("amount", audit_detail)
+        self.assertNotIn("evidence", audit_detail)
 
     def test_database_rejects_forged_evidence_and_false_verified_state(self) -> None:
         dataset, source_record, artifact, source, version = self._published_evidence()

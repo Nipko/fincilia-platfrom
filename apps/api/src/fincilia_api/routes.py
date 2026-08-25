@@ -27,9 +27,9 @@ from fincilia_platform.identity import AuthenticationError
 from fincilia_platform.objects import ObjectStoreError, object_key
 from fincilia_platform.tokens import issue
 
-from . import (access, audit as audit_query, balances, close_readiness, datasets, exports,
-               onboarding, operations, quality, reconciliation, reports,
-               repository)
+from . import (access, audit as audit_query, balance_reconciliation, balances,
+               close_readiness, datasets, exports, onboarding, operations, quality,
+               reconciliation, reports, repository)
 from . import company_onboarding
 from .issued_contexts import issue_context
 from .security import (Principal, ProblemError, company_context, current_principal,
@@ -2022,6 +2022,35 @@ class BalanceRequest(BaseModel):
     as_of_field_index: int = Field(ge=0, le=2047)
 
 
+class CompletenessAssessmentRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    expectation_id: str = Field(min_length=36, max_length=36)
+
+
+class ReconciliationStatementRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    bank_balance_id: str = Field(min_length=36, max_length=36)
+    books_balance_id: str = Field(min_length=36, max_length=36)
+    assessment_ids: list[str] = Field(min_length=1, max_length=1000)
+
+
+class ReconcilingItemRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    amount: object
+    adjustment_side: str = Field(min_length=3, max_length=32)
+    reason_code: str = Field(min_length=3, max_length=64)
+    evidence_source_record_ids: list[str] = Field(min_length=1, max_length=50)
+
+
+class ReconcilingItemDecisionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    decision: str = Field(min_length=7, max_length=16)
+
+
 def _balance_synthetic_only(request: Request) -> None:
     if request.app.state.settings.real_data_enabled:
         raise ProblemError(problem(
@@ -2111,6 +2140,191 @@ def create_account_balance(
                 "amount_field_index": result["amount_field_index"],
                 "as_of_field_index": result["as_of_field_index"],
                 "lineage_state": result["lineage_state"],
+                "replayed": result["replayed"],
+            })
+    if result["replayed"]:
+        response.status_code = 200
+    return result
+
+
+# --------------------------------------------------------------------------- #
+# Estados diagnosticos de conciliacion de saldos (FNC-CLS-003)
+# --------------------------------------------------------------------------- #
+
+def _balance_reconciliation_synthetic_only(request: Request) -> None:
+    if request.app.state.settings.real_data_enabled:
+        raise ProblemError(problem(
+            "balance-reconciliation-disabled", "Balance reconciliation unavailable",
+            503, "balance reconciliation is enabled only for synthetic data"))
+
+
+def _balance_reconciliation_problem(
+        error: balance_reconciliation.ReconciliationError) -> ProblemError:
+    if error.code.endswith("unavailable"):
+        return forbidden()
+    status = 409 if (error.code.endswith("conflict")
+                     or error.code == "reconciling-item-sod-conflict") else 422
+    return ProblemError(problem(
+        error.code, "The reconciliation request cannot be applied", status,
+        error.detail))
+
+
+@router.get("/companies/{company_id}/balance-reconciliation",
+            tags=["balance-reconciliation"])
+def get_balance_reconciliation_workspace(
+        request: Request, company_id: str,
+        limit: int = balance_reconciliation.DEFAULT_LIMIT,
+        principal: Principal = Depends(principal_dependency)) -> dict:
+    context = company_context(request, principal, company_id)
+    require(context, "movement.read")
+    _balance_reconciliation_synthetic_only(request)
+    with request.app.state.database.session(
+            company_id=context.company_id,
+            subject_id=principal.subject_id) as connection:
+        try:
+            result = balance_reconciliation.list_workspace(connection, limit=limit)
+        except balance_reconciliation.ReconciliationError as error:
+            raise _balance_reconciliation_problem(error) from None
+    return result
+
+
+@router.post("/companies/{company_id}/balance-reconciliation/assessments",
+             tags=["balance-reconciliation"], status_code=201)
+def create_completeness_assessment(
+        request: Request, response: Response, company_id: str,
+        body: CompletenessAssessmentRequest,
+        principal: Principal = Depends(principal_dependency)) -> dict:
+    context = company_context(request, principal, company_id)
+    require(context, "close.prepare")
+    _balance_reconciliation_synthetic_only(request)
+    with request.app.state.database.session(
+            company_id=context.company_id,
+            subject_id=principal.subject_id) as connection:
+        try:
+            result = balance_reconciliation.create_assessment(
+                connection, company_id=context.company_id,
+                subject_id=principal.subject_id,
+                expectation_id=body.expectation_id)
+        except balance_reconciliation.ReconciliationError as error:
+            raise _balance_reconciliation_problem(error) from None
+        repository.record_audit(
+            connection, subject_id=principal.subject_id,
+            company_id=context.company_id, action="completeness.assess",
+            resource_kind="completeness_assessment",
+            resource_ref=result["assessment_id"], outcome="allowed", detail={
+                "state": result["state"],
+                "lineage_state": result["lineage_state"],
+                "control_count": len(result["controls"]),
+                "replayed": result["replayed"],
+            })
+    if result["replayed"]:
+        response.status_code = 200
+    return result
+
+
+@router.post("/companies/{company_id}/balance-reconciliation/statements",
+             tags=["balance-reconciliation"], status_code=201)
+def create_balance_reconciliation_statement(
+        request: Request, response: Response, company_id: str,
+        body: ReconciliationStatementRequest,
+        principal: Principal = Depends(principal_dependency)) -> dict:
+    context = company_context(request, principal, company_id)
+    require(context, "close.prepare")
+    _balance_reconciliation_synthetic_only(request)
+    with request.app.state.database.session(
+            company_id=context.company_id,
+            subject_id=principal.subject_id) as connection:
+        try:
+            result = balance_reconciliation.create_statement(
+                connection, company_id=context.company_id,
+                subject_id=principal.subject_id,
+                bank_balance_id=body.bank_balance_id,
+                books_balance_id=body.books_balance_id,
+                assessment_ids=body.assessment_ids)
+        except balance_reconciliation.ReconciliationError as error:
+            raise _balance_reconciliation_problem(error) from None
+        repository.record_audit(
+            connection, subject_id=principal.subject_id,
+            company_id=context.company_id, action="balance_reconciliation.evaluate",
+            resource_kind="reconciliation_statement",
+            resource_ref=result["statement_id"], outcome="allowed", detail={
+                "state": result["state"], "version": result["version"],
+                "lineage_state": result["lineage_state"],
+                "assessment_count": len(result["completeness_assessment_ids"]),
+                "confirmed_item_count": len(result["confirmed_reconciling_item_ids"]),
+                "replayed": result["replayed"],
+            })
+    if result["replayed"]:
+        response.status_code = 200
+    return result
+
+
+@router.post(
+    "/companies/{company_id}/balance-reconciliation/statements/"
+    "{statement_root_id}/items", tags=["balance-reconciliation"], status_code=201)
+def create_reconciling_item(
+        request: Request, company_id: str, statement_root_id: str,
+        body: ReconcilingItemRequest,
+        principal: Principal = Depends(principal_dependency)) -> dict:
+    context = company_context(request, principal, company_id)
+    require(context, "close.prepare")
+    _balance_reconciliation_synthetic_only(request)
+    if not isinstance(body.amount, str):
+        raise _balance_reconciliation_problem(
+            balance_reconciliation.ReconciliationError(
+                "reconciling-item-invalid", "amount must be an exact decimal string"))
+    with request.app.state.database.session(
+            company_id=context.company_id,
+            subject_id=principal.subject_id) as connection:
+        try:
+            result = balance_reconciliation.create_item(
+                connection, company_id=context.company_id,
+                subject_id=principal.subject_id,
+                statement_root_id=statement_root_id, amount=body.amount,
+                adjustment_side=body.adjustment_side, reason_code=body.reason_code,
+                evidence_source_record_ids=body.evidence_source_record_ids)
+        except balance_reconciliation.ReconciliationError as error:
+            raise _balance_reconciliation_problem(error) from None
+        repository.record_audit(
+            connection, subject_id=principal.subject_id,
+            company_id=context.company_id, action="reconciling_item.propose",
+            resource_kind="reconciling_item", resource_ref=result["item_root_id"],
+            outcome="allowed", detail={
+                "adjustment_side": result["adjustment_side"],
+                "reason_code": result["reason_code"],
+                "evidence_count": len(body.evidence_source_record_ids),
+                "state": result["state"],
+            })
+    return result
+
+
+@router.post(
+    "/companies/{company_id}/balance-reconciliation/items/{item_root_id}/decisions",
+    tags=["balance-reconciliation"], status_code=201)
+def decide_reconciling_item(
+        request: Request, response: Response, company_id: str, item_root_id: str,
+        body: ReconcilingItemDecisionRequest,
+        principal: Principal = Depends(principal_dependency)) -> dict:
+    context = company_context(request, principal, company_id)
+    require(context, "close.approve")
+    _balance_reconciliation_synthetic_only(request)
+    with request.app.state.database.session(
+            company_id=context.company_id,
+            subject_id=principal.subject_id) as connection:
+        try:
+            result = balance_reconciliation.decide_item(
+                connection, company_id=context.company_id,
+                subject_id=principal.subject_id, item_root_id=item_root_id,
+                decision=body.decision)
+        except balance_reconciliation.ReconciliationError as error:
+            raise _balance_reconciliation_problem(error) from None
+        repository.record_audit(
+            connection, subject_id=principal.subject_id,
+            company_id=context.company_id, action="reconciling_item.decide",
+            resource_kind="reconciling_item", resource_ref=result["item_root_id"],
+            outcome="allowed", detail={
+                "decision": result["state"],
+                "decision_version": result["decision_version"],
                 "replayed": result["replayed"],
             })
     if result["replayed"]:
