@@ -1350,3 +1350,139 @@ ul {
   .section-heading,
   .company-onboarding__submit { align-items: stretch; display: grid; }
 }
+
+/* Preparacion diagnostica de cierre --------------------------------------- */
+.close-readiness-warning {
+  border-inline-start: 5px solid var(--danger);
+}
+
+.close-toolbar {
+  align-items: end;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(16rem, 1fr) auto;
+  margin-block: 1.25rem;
+  padding: 1rem;
+}
+
+.close-toolbar label {
+  color: var(--ink-soft);
+  display: grid;
+  font-size: 0.78rem;
+  font-weight: 700;
+  gap: 0.4rem;
+  text-transform: uppercase;
+}
+
+.close-summary {
+  display: grid;
+  gap: 0.8rem;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  margin-block: 1rem;
+}
+
+.close-summary > div {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 1rem;
+}
+
+.close-summary dt,
+.close-control dt {
+  color: var(--ink-soft);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.close-summary dd {
+  font-family: var(--mono);
+  font-size: 1.8rem;
+  font-weight: 800;
+  margin: 0.35rem 0 0;
+}
+
+.close-aggregation-note { margin-bottom: 2rem; }
+.close-company-list { display: grid; gap: 2.5rem; }
+
+.close-company {
+  border-top: 3px solid var(--danger);
+  padding-top: 1.5rem;
+}
+
+.close-company--unavailable { border-top-color: var(--warning); }
+
+.close-company__header,
+.close-period__header,
+.close-period__actions {
+  align-items: center;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.close-company__header h2,
+.close-period__header h3 { margin: 0.2rem 0 0; }
+.close-period-list { display: grid; gap: 1rem; margin-top: 1rem; }
+.close-period { border-inline-start: 4px solid var(--danger); }
+
+.close-state--blocked,
+.close-control--blocked dd:first-of-type {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.close-control-grid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-block: 1.2rem;
+}
+
+.close-control {
+  border: 1px solid var(--line);
+  border-radius: calc(var(--radius) * 0.75);
+  padding: 0.8rem;
+}
+
+.close-control--pass { border-inline-start: 4px solid var(--accent); }
+.close-control--blocked { border-inline-start: 4px solid var(--danger); }
+.close-control--unavailable { border-inline-start: 4px solid var(--warning); }
+
+.close-control dd { margin: 0.45rem 0 0; }
+.close-control dd:first-of-type {
+  border-radius: 999px;
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 800;
+  padding: 0.2rem 0.55rem;
+}
+.close-control--pass dd:first-of-type { background: var(--accent-soft); color: var(--accent); }
+.close-control--unavailable dd:first-of-type { background: var(--warning-soft); color: var(--warning); }
+.close-control .close-control__count { font-family: var(--mono); font-weight: 800; }
+
+.close-evidence {
+  border-top: 1px solid var(--line);
+  padding-top: 1rem;
+}
+.close-evidence summary { color: var(--accent); cursor: pointer; font-weight: 700; }
+.close-evidence .scroll { margin-top: 1rem; }
+.close-period__actions { border-top: 1px solid var(--line); margin-top: 1rem; padding-top: 1rem; }
+
+@media (max-width: 64rem) {
+  .close-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .close-control-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 42rem) {
+  .close-toolbar,
+  .close-summary,
+  .close-control-grid { grid-template-columns: 1fr; }
+  .close-company__header,
+  .close-period__header,
+  .close-period__actions { align-items: stretch; display: grid; }
+}

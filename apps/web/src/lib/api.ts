@@ -1492,6 +1492,75 @@ export function fetchOperationalPeriods(
   );
 }
 
+export type CloseReadinessControl = {
+  code: string;
+  state: 'pass' | 'blocked' | 'unavailable';
+  count: number;
+  detail: string;
+};
+
+export type CloseReadinessSource = {
+  expectation_id: string;
+  data_source_id: string;
+  source_name: string;
+  financial_account_id: string | null;
+  period_start: string;
+  period_end: string;
+  expectation_state: string;
+  satisfied_by_artifact_id: string | null;
+  dataset_version_id: string | null;
+  dataset_state: string | null;
+  completeness_state: string | null;
+  lineage_state: string | null;
+  rejected_count: number;
+  movement_count: number;
+  prepared_at: string | null;
+  selection_rule: string;
+};
+
+export type CloseReadinessBlocker = {
+  code: string;
+  count: number;
+  detail: string;
+};
+
+export type CloseReadinessPeriod = {
+  period_start: string;
+  period_end: string;
+  status: 'blocked';
+  close_ready: false;
+  can_execute_close: false;
+  source_count: number;
+  selected_dataset_count: number;
+  controls: CloseReadinessControl[];
+  blockers: CloseReadinessBlocker[];
+  sources: CloseReadinessSource[];
+};
+
+export type CloseReadinessResult = {
+  mode: 'diagnostic_only';
+  close_ready: false;
+  can_execute_close: false;
+  period_count: number;
+  blocked_period_count: number;
+  source_count: number;
+  limit: number;
+  items: CloseReadinessPeriod[];
+  notice: string;
+};
+
+export function fetchCloseReadiness(
+  token: string,
+  companyId: string,
+  limit = 12,
+): Promise<CloseReadinessResult> {
+  const bounded = Math.max(1, Math.min(24, limit));
+  return request<CloseReadinessResult>(
+    `/api/v1/companies/${encodeURIComponent(companyId)}/close-readiness?limit=${bounded}`,
+    { token },
+  );
+}
+
 export function continueDataset(
   token: string,
   companyId: string,
