@@ -64,6 +64,8 @@
         "db/tests/test_reconciliation_exclusivity.py",
         "apps/api/src/fincilia_api/reconciliation.py",
         "apps/api/tests/test_reconciliation.py",
+        "docs/database/migration-tooling.json",
+        "tools/migration_readiness/test_validate.py",
         "apps/web/src/app/empresas/[companyId]/conciliacion",
         "apps/web/src/app/actions.ts",
         "apps/web/src/app/__tests__/actions.test.ts",

@@ -146,6 +146,7 @@ class MigrationTest(unittest.TestCase):
   self.assertEqual(["fincilia.claim_next_run","fincilia.enqueue_processing_run",
                     "fincilia.finish_run","fincilia.hold_processing_lease",
                     "fincilia.record_overlay_application_run",
+                    "fincilia.reserve_confirmed_match_members",
                     "fincilia.send_to_dead_letter"],names)
  def test_no_definer_is_owned_by_the_schema_owner(self):
   # Si el dueno fuera el migrador, cada EXECUTE seria una escalada hasta el

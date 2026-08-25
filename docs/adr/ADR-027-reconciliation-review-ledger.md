@@ -40,6 +40,10 @@ Architecture definan supersession, grupos y saldos.
    ledger se confirman en la misma transaccion.
 7. El estado visible se deriva: sin decision es `open`; `confirmed` y `rejected`
    son terminales. Ninguno demuestra conciliacion de saldos.
+8. FNC-REC-004 propone que cada `confirmed` materialice dos miembros en una
+   proyeccion normalizada append-only. La clave `(company_id, movement_id)` hace
+   que dos confirmaciones concurrentes con un movimiento compartido tengan un
+   solo ganador. Propuestas superpuestas y rechazos siguen permitidos.
 
 ## Sin efecto financiero
 
@@ -63,8 +67,9 @@ cierre y no certifica saldos. Esta limitacion forma parte de API y UI.
 
 - Una misma pareja y version de regla tiene un expediente estable; atributos
   iguales siguen sin ser unicidad de movimientos.
-- Dos movimientos pueden participar en varios candidatos: no hay restriccion
-  uno-a-uno.
+- Un movimiento puede participar en varios candidatos, pero la propuesta de
+  FNC-REC-004 limita a una sola confirmacion terminal. La revision independiente
+  debe aceptar esta semantica antes de promover este ADR.
 - Reversal, reapertura, grupos, asignaciones parciales y efecto sobre statements
   requieren ADR/migracion posterior y aceptacion Accounting/Architecture.
 - Antes de datos reales se requiere revisar razones, retencion, exportacion,
@@ -76,4 +81,3 @@ PostgreSQL real debe probar RLS positiva/negativa, SoD en dominio y trigger,
 append-only, replay/conflicto, concurrencia, auditoria atomica, decision terminal
 y ausencia de mutacion en movimientos. API/web deben probar permisos, estados,
 neutralidad cross-company, E2E y accesibilidad.
-

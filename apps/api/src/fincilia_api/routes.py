@@ -1404,7 +1404,7 @@ def _review_problem(error: Exception) -> ProblemError:
         return forbidden()
     status = 409 if code in {
         "idempotency-conflict", "candidate-already-decided",
-        "segregation-of-duties",
+        "segregation-of-duties", "movement-already-confirmed",
     } else 422
     return ProblemError(problem(code, "Reconciliation review rejected", status, detail))
 

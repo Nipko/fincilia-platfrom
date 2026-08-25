@@ -330,6 +330,7 @@ def _review_from_row(row: tuple[Any, ...]) -> dict[str, Any]:
         "proposed_at": row[9].isoformat(),
         "left_dataset_id": str(row[16]),
         "right_dataset_id": str(row[17]),
+        "confirmation_conflict": bool(row[18]),
         "status": decision["decision"] if decision else "open",
         "decision": decision,
         "financial_effect": "none",
@@ -343,7 +344,13 @@ REVIEW_SELECT = (
     "       c.date_distance_days, c.proposed_by, proposer.display_name, "
     "       c.proposed_at, d.decision_id, d.decision, d.reason_code, "
     "       d.decided_by, decider.display_name, d.decided_at, "
-    "       lm.dataset_version_id, rm.dataset_version_id "
+    "       lm.dataset_version_id, rm.dataset_version_id, "
+    "       EXISTS (SELECT 1 FROM fincilia.match_confirmation_member member "
+    "               WHERE member.company_id = c.company_id "
+    "                 AND member.candidate_id <> c.candidate_id "
+    "                 AND member.movement_id IN "
+    "                     (c.left_movement_id, c.right_movement_id)) "
+    "         AS confirmation_conflict "
     "FROM fincilia.match_candidate c "
     "JOIN fincilia.subject proposer ON proposer.subject_id = c.proposed_by "
     "LEFT JOIN fincilia.match_decision d ON d.candidate_id = c.candidate_id "
@@ -557,28 +564,45 @@ def decide_review(connection: psycopg.Connection, *, company_id: str,
     if decision == "confirmed" and review["proposed_by"] == actor_id:
         raise ReviewCommandError(
             "segregation-of-duties", "the proposer cannot confirm this candidate")
+    if decision == "confirmed" and review["confirmation_conflict"]:
+        raise ReviewCommandError(
+            "movement-already-confirmed",
+            "one of the candidate movements already belongs to another confirmation")
 
-    audit_event_id = repository.record_audit(
-        connection, subject_id=actor_id, company_id=company_id,
-        action=f"match.{action}", resource_kind="match_candidate",
-        resource_ref=candidate_id, outcome="allowed",
-        detail={"decision": decision, "reason_code": reason_code})
     evidence_refs = [
         {"kind": "movement", "ref": review["left_movement_id"]},
         {"kind": "movement", "ref": review["right_movement_id"]},
     ]
-    with connection.cursor() as cursor:
-        cursor.execute(
-            "INSERT INTO fincilia.match_decision "
-            "(company_id, candidate_id, decision, reason_code, evidence_refs, "
-            " decided_by, audit_event_id) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING decision_id",
-            (company_id, candidate_id, decision, reason_code,
-             Jsonb(evidence_refs), actor_id, audit_event_id))
-        decision_id = str(cursor.fetchone()[0])
-    _write_receipt(
-        connection, company_id=company_id, actor_id=actor_id, action=action,
-        key=key, digest=digest, result_kind="decision", result_ref=decision_id)
+    try:
+        # Esta transaccion anidada es un savepoint cuando la sesion ya esta en
+        # una transaccion. Si la PK de miembros pierde una carrera, revierte
+        # tambien la auditoria `allowed` y deja la sesion apta para que routes
+        # confirme una auditoria `denied` separada.
+        with connection.transaction():
+            audit_event_id = repository.record_audit(
+                connection, subject_id=actor_id, company_id=company_id,
+                action=f"match.{action}", resource_kind="match_candidate",
+                resource_ref=candidate_id, outcome="allowed",
+                detail={"decision": decision, "reason_code": reason_code})
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "INSERT INTO fincilia.match_decision "
+                    "(company_id, candidate_id, decision, reason_code, evidence_refs, "
+                    " decided_by, audit_event_id) "
+                    "VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING decision_id",
+                    (company_id, candidate_id, decision, reason_code,
+                     Jsonb(evidence_refs), actor_id, audit_event_id))
+                decision_id = str(cursor.fetchone()[0])
+            _write_receipt(
+                connection, company_id=company_id, actor_id=actor_id, action=action,
+                key=key, digest=digest, result_kind="decision", result_ref=decision_id)
+    except psycopg.errors.UniqueViolation as error:
+        if error.diag.constraint_name == "pk_match_confirmation_member":
+            raise ReviewCommandError(
+                "movement-already-confirmed",
+                "one of the candidate movements already belongs to another confirmation"
+            ) from None
+        raise
     result = _load_review(connection, candidate_id=candidate_id)
     if result is None:
         raise RuntimeError("decided candidate cannot be read back")

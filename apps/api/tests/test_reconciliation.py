@@ -182,6 +182,7 @@ class CandidateQueryTests(unittest.TestCase):
             uuid.uuid4(), uuid.uuid4(), uuid.uuid4(), "fnc-rec-exact-v1",
             list(RULES), 3, 1, uuid.uuid4(), "Ada Preparadora", now,
             None, None, None, None, None, None, uuid.uuid4(), uuid.uuid4(),
+            False,
         )
         connection = FakeConnection([row, row])
         result = list_review_queue(

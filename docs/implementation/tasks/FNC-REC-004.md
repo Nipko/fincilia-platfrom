@@ -29,6 +29,8 @@ financiero, conciliacion de saldos o cierre.
 - `db/migrations/V0025__exclusive_confirmed_match_members.sql`.
 - `db/tests/test_reconciliation_exclusivity.py`.
 - `apps/api/src/fincilia_api/reconciliation.py` y pruebas relacionadas.
+- `docs/database/migration-tooling.json` y la prueba adjudicada de funciones
+  privilegiadas, solo para registrar la nueva guarda sin relajar la politica.
 - rutas y acciones web de conciliacion y sus pruebas.
 - ADR-027, ficha, handoff y registros centrales por Integration Steward.
 

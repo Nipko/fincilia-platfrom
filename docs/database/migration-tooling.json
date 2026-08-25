@@ -248,6 +248,14 @@
       "reason": "registrar el trabajo sincrono y completado de aplicacion de overlays despues de revalidar la capability, la autoridad viva y el artefacto bajo RLS, sin conceder INSERT directo sobre processing_run a la API",
       "gate": "DB-G03",
       "human_review_state": "pending"
+    },
+    {
+      "function": "fincilia.reserve_confirmed_match_members",
+      "owner_role": "fincilia_dispatch",
+      "granted_to": [],
+      "reason": "materializar desde el trigger los dos miembros exactos de una confirmacion sin conceder INSERT directo a la API; la clave primaria serializa conflictos concurrentes por movimiento bajo RLS",
+      "gate": "DB-G03",
+      "human_review_state": "pending"
     }
   ]
 }
