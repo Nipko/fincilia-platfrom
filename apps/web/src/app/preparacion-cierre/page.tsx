@@ -102,7 +102,7 @@ function PeriodCard({ period, companyId }: {
       <footer className="close-period__actions">
         <Link href={`/recordatorios?empresa=${companyId}`}>Revisar ciclos</Link>
         <Link href={`/calidad?empresa=${companyId}`}>Revisar calidad</Link>
-        <Link href={`/revisiones?empresa=${companyId}`}>Revisar conciliaciones</Link>
+        <Link href="/revisiones">Revisar conciliaciones</Link>
       </footer>
     </article>
   );
