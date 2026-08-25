@@ -10,7 +10,7 @@ api_sha: 715f3a7
 api_volume_sha: 28f40e7
 web_sha: bda61ec
 tested_head_sha: bda61ec
-integration_sha: pending
+integration_sha: ddf6f19
 data_ceiling: synthetic_only
 implemented_by: Codex principal dev + Integration Steward
 independent_reviewers: [Accounting, Security, Database/Architecture, Product, Accessibility/QA]
