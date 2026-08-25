@@ -1658,6 +1658,189 @@ export function createAccountBalance(
   );
 }
 
+export type ReconciliationExpectation = {
+  expectation_id: string;
+  data_source_id: string;
+  source_name: string;
+  financial_account_id: string | null;
+  account_name: string | null;
+  period_start: string;
+  period_end: string;
+  state: string;
+  has_artifact: boolean;
+  assessed: boolean;
+};
+
+export type CompletenessControlResult = {
+  control_result_id: string;
+  assessment_id: string;
+  control_type: string;
+  required: boolean;
+  outcome: 'match' | 'mismatch' | 'unknown' | 'not_applicable';
+  expected_value: unknown;
+  observed_value: unknown;
+  value_type: string;
+  reason: string | null;
+  lineage_state: 'required_pending' | 'complete' | 'invalidated';
+};
+
+export type CompletenessAssessment = {
+  assessment_id: string;
+  data_source_id: string;
+  source_name: string;
+  source_expectation_id: string;
+  financial_account_id: string | null;
+  account_name: string | null;
+  dataset_version_id: string;
+  period_start: string;
+  period_end: string;
+  state: 'verified' | 'mismatch' | 'unknown' | 'accepted_exception';
+  lineage_state: 'required_pending' | 'complete' | 'invalidated';
+  created_at: string;
+  replayed: boolean;
+  controls: CompletenessControlResult[];
+};
+
+export type ReconcilingItem = {
+  item_decision_id: string;
+  item_root_id: string;
+  statement_root_id: string;
+  adjustment_side: 'add_to_bank' | 'deduct_from_bank';
+  amount: string;
+  currency_code: string;
+  reason_code: string;
+  state: 'proposed' | 'confirmed' | 'rejected' | 'reversed';
+  prepared_by: string;
+  approved_by: string | null;
+  decision_version: number;
+  lineage_state: 'required_pending' | 'complete' | 'invalidated';
+  created_at: string;
+  replayed?: boolean;
+};
+
+export type BalanceReconciliationStatement = {
+  statement_id: string;
+  statement_root_id: string;
+  version: number;
+  financial_account_id: string;
+  account_name: string;
+  period_start: string;
+  period_end: string;
+  currency_code: string;
+  bank_closing_balance_id: string;
+  books_closing_balance_id: string;
+  completeness_assessment_ids: string[];
+  confirmed_reconciling_item_ids: string[];
+  bank_closing_balance: string;
+  books_closing_balance: string;
+  confirmed_additions_to_bank: string;
+  confirmed_deductions_from_bank: string;
+  adjusted_bank_balance: string;
+  unexplained_difference: string;
+  state: 'draft' | 'review_required' | 'balanced' | 'exception_accepted' | 'superseded';
+  lineage_state: 'required_pending' | 'complete' | 'invalidated';
+  created_at: string;
+  replayed: boolean;
+  certifies_close: false;
+};
+
+export type BalanceReconciliationWorkspace = {
+  limit: number;
+  truncated: boolean;
+  totals: { expectations: number; assessments: number; statements: number; items: number };
+  expectations: ReconciliationExpectation[];
+  assessments: CompletenessAssessment[];
+  statements: BalanceReconciliationStatement[];
+  items: ReconcilingItem[];
+  notice: string;
+};
+
+const reconciliationPath = (companyId: string): string =>
+  `/api/v1/companies/${encodeURIComponent(companyId)}/balance-reconciliation`;
+
+export function fetchBalanceReconciliation(
+  token: string,
+  companyId: string,
+  limit = 50,
+): Promise<BalanceReconciliationWorkspace> {
+  return request<BalanceReconciliationWorkspace>(
+    `${reconciliationPath(companyId)}?limit=${Math.max(1, Math.min(100, limit))}`,
+    { token },
+  );
+}
+
+export function createCompletenessAssessment(
+  token: string,
+  companyId: string,
+  expectationId: string,
+): Promise<CompletenessAssessment> {
+  return request<CompletenessAssessment>(
+    `${reconciliationPath(companyId)}/assessments`,
+    {
+      method: 'POST', token,
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ expectation_id: expectationId }),
+    },
+  );
+}
+
+export function createBalanceReconciliationStatement(
+  token: string,
+  companyId: string,
+  body: {
+    bank_balance_id: string;
+    books_balance_id: string;
+    assessment_ids: string[];
+  },
+): Promise<BalanceReconciliationStatement> {
+  return request<BalanceReconciliationStatement>(
+    `${reconciliationPath(companyId)}/statements`,
+    {
+      method: 'POST', token,
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    },
+  );
+}
+
+export function createReconcilingItem(
+  token: string,
+  companyId: string,
+  statementRootId: string,
+  body: {
+    amount: string;
+    adjustment_side: ReconcilingItem['adjustment_side'];
+    reason_code: string;
+    evidence_source_record_ids: string[];
+  },
+): Promise<ReconcilingItem> {
+  return request<ReconcilingItem>(
+    `${reconciliationPath(companyId)}/statements/` +
+      `${encodeURIComponent(statementRootId)}/items`,
+    {
+      method: 'POST', token,
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    },
+  );
+}
+
+export function decideReconcilingItem(
+  token: string,
+  companyId: string,
+  itemRootId: string,
+  decision: 'confirmed' | 'rejected' | 'reversed',
+): Promise<ReconcilingItem> {
+  return request<ReconcilingItem>(
+    `${reconciliationPath(companyId)}/items/${encodeURIComponent(itemRootId)}/decisions`,
+    {
+      method: 'POST', token,
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ decision }),
+    },
+  );
+}
+
 export function continueDataset(
   token: string,
   companyId: string,

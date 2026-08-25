@@ -1502,3 +1502,125 @@ ul {
   .close-period__header,
   .close-period__actions { align-items: stretch; display: grid; }
 }
+
+/* Estacion de conciliacion de saldos: la ecuacion es el centro visual. */
+.reconciliation-summary {
+  display: grid;
+  gap: .8rem;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  margin: 1.5rem 0 2.5rem;
+}
+.reconciliation-summary > div {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 1rem;
+}
+.reconciliation-summary dt {
+  color: var(--ink-soft);
+  font-size: .72rem;
+  font-weight: 800;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+.reconciliation-summary dd {
+  font-family: var(--mono);
+  font-size: 1.8rem;
+  font-weight: 850;
+  margin: .35rem 0 0;
+}
+.reconciliation-assessments,
+.reconciliation-statements,
+.reconciliation-item-list { display: grid; gap: 1rem; margin-block: 1rem 2rem; }
+.reconciliation-assessments { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.reconciliation-card-header {
+  align-items: start;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+}
+.reconciliation-card-header h3 { margin: .2rem 0; }
+.reconciliation-controls {
+  display: grid;
+  gap: .55rem;
+  list-style: none;
+  margin: 1rem 0;
+  padding: 0;
+}
+.reconciliation-control {
+  align-items: center;
+  border-inline-start: 3px solid var(--warning);
+  display: grid;
+  gap: .4rem 1rem;
+  grid-template-columns: minmax(10rem, 1fr) auto;
+  padding: .55rem .75rem;
+}
+.reconciliation-control--match { border-inline-start-color: var(--accent); }
+.reconciliation-control--mismatch { border-inline-start-color: var(--danger); }
+.reconciliation-control small { color: var(--ink-soft); grid-column: 1 / -1; }
+.reconciliation-inline-action { display: grid; gap: .4rem; min-width: 12rem; }
+.reconciliation-form { display: grid; gap: 1rem; }
+.reconciliation-form > label { display: grid; gap: .4rem; }
+.reconciliation-form fieldset { border: 1px solid var(--line); border-radius: .7rem; }
+.reconciliation-checks { display: grid; gap: .6rem; }
+.reconciliation-checks label {
+  align-items: center;
+  display: grid;
+  gap: .6rem;
+  grid-template-columns: auto 1fr auto;
+}
+.reconciliation-workbench { border-top: 4px solid var(--accent); margin-block: 2rem; }
+.reconciliation-statement { border-inline-start: 5px solid var(--danger); }
+.reconciliation-statement--balanced { border-inline-start-color: var(--accent); }
+.reconciliation-equation {
+  align-items: stretch;
+  display: grid;
+  gap: .55rem;
+  grid-template-columns: repeat(13, auto);
+  margin: 1.2rem 0;
+  overflow-x: auto;
+  padding-bottom: .4rem;
+}
+.reconciliation-equation > div {
+  background: var(--ground);
+  border: 1px solid var(--line);
+  border-radius: .6rem;
+  min-width: 7rem;
+  padding: .75rem;
+}
+.reconciliation-equation > span { align-self: center; font-size: 1.4rem; font-weight: 800; }
+.reconciliation-equation dt { color: var(--ink-soft); font-size: .72rem; font-weight: 750; }
+.reconciliation-equation dd {
+  font-family: var(--mono);
+  font-size: 1.05rem;
+  font-weight: 800;
+  margin: .4rem 0 0;
+  white-space: nowrap;
+}
+.reconciliation-equation__difference { border-color: var(--danger) !important; }
+.reconciliation-statement--balanced .reconciliation-equation__difference {
+  border-color: var(--accent) !important;
+}
+.reconciliation-two-column {
+  align-items: start;
+  display: grid;
+  gap: 1.5rem;
+  grid-template-columns: minmax(18rem, .85fr) minmax(22rem, 1.15fr);
+  margin-block: 2rem;
+}
+.reconciliation-item-amount { font-family: var(--mono); font-size: 1.35rem; font-weight: 850; }
+.reconciliation-decisions { align-items: center; display: flex; flex-wrap: wrap; gap: .6rem; }
+
+@media (max-width: 64rem) {
+  .reconciliation-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .reconciliation-equation { grid-template-columns: 1fr 1fr; }
+  .reconciliation-equation > span { display: none; }
+}
+
+@media (max-width: 48rem) {
+  .reconciliation-summary,
+  .reconciliation-assessments,
+  .reconciliation-two-column { grid-template-columns: 1fr; }
+  .reconciliation-card-header { align-items: stretch; display: grid; }
+  .reconciliation-equation { grid-template-columns: 1fr; }
+}

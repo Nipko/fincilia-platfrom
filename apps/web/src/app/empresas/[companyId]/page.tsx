@@ -198,7 +198,8 @@ export default async function CompanyPage({
           ) : null}
           {company.permissions.includes('movement.read') ? (
             <><Link href={`/empresas/${companyId}/saldos`}>Saldos</Link>{' '}
-              <Link href={`/empresas/${companyId}/conciliacion`}>Conciliacion</Link>{' '}</>
+              <Link href={`/empresas/${companyId}/conciliacion-saldos`}>Conciliar saldos</Link>{' '}
+              <Link href={`/empresas/${companyId}/conciliacion`}>Cruzar movimientos</Link>{' '}</>
           ) : null}
           <Link href={`/empresas/${companyId}/fuentes`}>Fuentes y cuentas</Link>{' '}
           <Link href="/empresas">Empresas</Link>

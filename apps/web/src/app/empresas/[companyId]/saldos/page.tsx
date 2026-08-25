@@ -81,6 +81,7 @@ export default async function BalancesPage({ params }: {
           <span className="who">{company.legal_name}</span>
         </div>
         <nav aria-label="Navegacion de saldos">
+          <Link href={`/empresas/${companyId}/conciliacion-saldos`}>Conciliar saldos</Link>{' '}
           <Link href={`/preparacion-cierre?empresa=${companyId}`}>Preparacion de cierre</Link>{' '}
           <Link href={`/empresas/${companyId}`}>Empresa</Link>
         </nav>
@@ -92,8 +93,8 @@ export default async function BalancesPage({ params }: {
       </p>
       <p className="notice close-readiness-warning" role="status">
         <strong>Estos saldos aun no son entrada de cierre.</strong>{' '}
-        El camino completo de linaje del campo permanece pendiente y el estado de
-        conciliacion todavia no esta materializado.
+        El camino completo de linaje del campo permanece pendiente; puedes
+        materializar un estado diagnostico sin ejecutar un cierre.
       </p>
 
       {canPrepare ? (

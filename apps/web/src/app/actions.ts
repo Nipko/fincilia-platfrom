@@ -18,7 +18,10 @@ import {
   fetchCorrections,
   createAccount,
   createAccountBalance,
+  createBalanceReconciliationStatement,
+  createCompletenessAssessment,
   createMapping,
+  createReconcilingItem,
   createSource,
   fetchDataset,
   fetchMapping,
@@ -30,6 +33,7 @@ import {
   setCycle,
   updateAccount,
   decideAmbiguity,
+  decideReconcilingItem,
   prepareDataset,
   publishDataset,
   provisionCompany,
@@ -138,6 +142,176 @@ export async function observeBalanceAction(
       return { error: 'Las celdas no se pueden leer con el mapeo versionado.', done: null };
     }
     return { error: 'No se pudo registrar el saldo. Intenta de nuevo.', done: null };
+  }
+}
+
+// --------------------------------------------------------------------------- //
+// Estados diagnosticos de conciliacion de saldos (FNC-CLS-003)
+// --------------------------------------------------------------------------- //
+
+export type BalanceReconciliationActionState = {
+  error: string | null;
+  done: string | null;
+};
+
+function reconciliationPath(companyId: string): string {
+  return `/empresas/${companyId}/conciliacion-saldos`;
+}
+
+function reconciliationApiError(error: unknown): BalanceReconciliationActionState {
+  if (error instanceof ApiError && error.status === 403) {
+    return { error: 'La evidencia no esta disponible, tu acceso cambio o falta otro revisor.', done: null };
+  }
+  if (error instanceof ApiError && error.status === 409) {
+    return { error: 'El estado cambio o la misma persona intento preparar y aprobar.', done: null };
+  }
+  if (error instanceof ApiError && error.status === 422) {
+    return { error: 'Las fuentes no comparten cuenta, moneda, periodo o version.', done: null };
+  }
+  return { error: 'No se pudo aplicar la operacion. Intenta de nuevo.', done: null };
+}
+
+export async function assessCompletenessAction(
+  _previous: BalanceReconciliationActionState,
+  formData: FormData,
+): Promise<BalanceReconciliationActionState> {
+  const session = await readSession();
+  if (!session) redirect('/entrar');
+  const companyId = String(formData.get('companyId') ?? '');
+  const expectationId = String(formData.get('expectationId') ?? '');
+  if (!UUID_PATTERN.test(companyId) || !UUID_PATTERN.test(expectationId)) {
+    return { error: 'La expectativa seleccionada no es valida.', done: null };
+  }
+  try {
+    const result = await createCompletenessAssessment(
+      session.token, companyId, expectationId);
+    revalidatePath(reconciliationPath(companyId));
+    return {
+      error: null,
+      done: result.replayed
+        ? 'La misma evaluacion ya existia; no se duplico.'
+        : result.state === 'verified'
+          ? 'Completitud evaluada con controles verificables.'
+          : 'Evaluacion registrada. Los controles desconocidos siguen bloqueando.',
+    };
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) redirect('/entrar');
+    return reconciliationApiError(error);
+  }
+}
+
+export async function evaluateBalanceReconciliationAction(
+  _previous: BalanceReconciliationActionState,
+  formData: FormData,
+): Promise<BalanceReconciliationActionState> {
+  const session = await readSession();
+  if (!session) redirect('/entrar');
+  const companyId = String(formData.get('companyId') ?? '');
+  const bankBalanceId = String(formData.get('bankBalanceId') ?? '');
+  const booksBalanceId = String(formData.get('booksBalanceId') ?? '');
+  const assessmentIds = formData.getAll('assessmentIds').map(String);
+  if (
+    !UUID_PATTERN.test(companyId) || !UUID_PATTERN.test(bankBalanceId) ||
+    !UUID_PATTERN.test(booksBalanceId) || assessmentIds.length === 0 ||
+    assessmentIds.length > 1000 || assessmentIds.some((value) => !UUID_PATTERN.test(value)) ||
+    new Set(assessmentIds).size !== assessmentIds.length
+  ) {
+    return { error: 'Selecciona dos saldos y al menos una evaluacion valida.', done: null };
+  }
+  try {
+    const result = await createBalanceReconciliationStatement(
+      session.token, companyId, {
+        bank_balance_id: bankBalanceId,
+        books_balance_id: booksBalanceId,
+        assessment_ids: assessmentIds,
+      });
+    revalidatePath(reconciliationPath(companyId));
+    revalidatePath('/preparacion-cierre');
+    return {
+      error: null,
+      done: result.replayed
+        ? `La version ${result.version} ya existia; no se duplico.`
+        : `Version ${result.version} calculada: ${result.state === 'balanced' ? 'diferencia explicada' : 'requiere revision'}.`,
+    };
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) redirect('/entrar');
+    return reconciliationApiError(error);
+  }
+}
+
+const ITEM_SIDES = new Set(['add_to_bank', 'deduct_from_bank']);
+const ITEM_REASONS = new Set([
+  'bank_fee_pending', 'deposit_in_transit', 'documented_timing',
+  'outstanding_payment', 'other_documented',
+]);
+const EXACT_POSITIVE_MONEY = /^(?=.*[1-9])\d{1,26}(?:\.\d{1,12})?$/;
+
+export async function proposeReconcilingItemAction(
+  _previous: BalanceReconciliationActionState,
+  formData: FormData,
+): Promise<BalanceReconciliationActionState> {
+  const session = await readSession();
+  if (!session) redirect('/entrar');
+  const companyId = String(formData.get('companyId') ?? '');
+  const statementRootId = String(formData.get('statementRootId') ?? '');
+  const amount = String(formData.get('amount') ?? '').trim();
+  const adjustmentSide = String(formData.get('adjustmentSide') ?? '');
+  const reasonCode = String(formData.get('reasonCode') ?? '');
+  const evidenceIds = formData.getAll('evidenceSourceRecordIds').map(String);
+  if (
+    !UUID_PATTERN.test(companyId) || !UUID_PATTERN.test(statementRootId) ||
+    !EXACT_POSITIVE_MONEY.test(amount) || !ITEM_SIDES.has(adjustmentSide) ||
+    !ITEM_REASONS.has(reasonCode) || evidenceIds.length === 0 ||
+    evidenceIds.length > 50 || evidenceIds.some((value) => !UUID_PATTERN.test(value)) ||
+    new Set(evidenceIds).size !== evidenceIds.length
+  ) {
+    return { error: 'Completa monto, lado, motivo y evidencia valida.', done: null };
+  }
+  try {
+    await createReconcilingItem(
+      session.token, companyId, statementRootId, {
+        amount,
+        adjustment_side: adjustmentSide as 'add_to_bank' | 'deduct_from_bank',
+        reason_code: reasonCode,
+        evidence_source_record_ids: evidenceIds,
+      });
+    revalidatePath(reconciliationPath(companyId));
+    return { error: null, done: 'Partida propuesta. Aun no entra en la ecuacion.' };
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) redirect('/entrar');
+    return reconciliationApiError(error);
+  }
+}
+
+export async function decideReconcilingItemAction(
+  _previous: BalanceReconciliationActionState,
+  formData: FormData,
+): Promise<BalanceReconciliationActionState> {
+  const session = await readSession();
+  if (!session) redirect('/entrar');
+  const companyId = String(formData.get('companyId') ?? '');
+  const itemRootId = String(formData.get('itemRootId') ?? '');
+  const decision = String(formData.get('decision') ?? '');
+  if (
+    !UUID_PATTERN.test(companyId) || !UUID_PATTERN.test(itemRootId) ||
+    !['confirmed', 'rejected', 'reversed'].includes(decision)
+  ) {
+    return { error: 'La decision seleccionada no es valida.', done: null };
+  }
+  try {
+    const result = await decideReconcilingItem(
+      session.token, companyId, itemRootId,
+      decision as 'confirmed' | 'rejected' | 'reversed');
+    revalidatePath(reconciliationPath(companyId));
+    return {
+      error: null,
+      done: result.replayed
+        ? 'La misma decision ya estaba registrada.'
+        : 'Decision append-only registrada. Recalcula el estado para incorporarla.',
+    };
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) redirect('/entrar');
+    return reconciliationApiError(error);
   }
 }
 

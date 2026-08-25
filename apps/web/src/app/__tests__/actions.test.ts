@@ -27,6 +27,10 @@ const mocks = vi.hoisted(() => {
     reviewCorrection: vi.fn(),
     createMapping: vi.fn(),
     createAccountBalance: vi.fn(),
+    createBalanceReconciliationStatement: vi.fn(),
+    createCompletenessAssessment: vi.fn(),
+    createReconcilingItem: vi.fn(),
+    decideReconcilingItem: vi.fn(),
     fetchSource: vi.fn(),
     grantMemberRole: vi.fn(),
     rejectDataset: vi.fn(),
@@ -59,11 +63,15 @@ vi.mock('@/lib/api', () => ({
   continueDataset: vi.fn(),
   createAccount: vi.fn(),
   createAccountBalance: mocks.createAccountBalance,
+  createBalanceReconciliationStatement: mocks.createBalanceReconciliationStatement,
+  createCompletenessAssessment: mocks.createCompletenessAssessment,
+  createReconcilingItem: mocks.createReconcilingItem,
   createMapping: mocks.createMapping,
   fetchMapping: mocks.fetchMapping,
   fetchOverrides: mocks.fetchOverrides,
   createSource: vi.fn(),
   decideAmbiguity: vi.fn(),
+  decideReconcilingItem: mocks.decideReconcilingItem,
   fetchSource: mocks.fetchSource,
   generateExpectations: vi.fn(),
   grantMemberRole: mocks.grantMemberRole,
@@ -103,6 +111,10 @@ import {
   triageQualityAction,
   provisionCompanyAction,
   observeBalanceAction,
+  assessCompletenessAction,
+  evaluateBalanceReconciliationAction,
+  proposeReconcilingItemAction,
+  decideReconcilingItemAction,
 } from '../actions';
 
 function mappingForm(): FormData {
@@ -967,6 +979,82 @@ describe('balance observation action', () => {
 
     expect(result.error).toContain('mapeo versionado');
     expect(result.error).not.toContain('1.234');
+  });
+});
+
+describe('balance reconciliation actions', () => {
+  const companyId = '5f0f7b18-0a7a-5c8e-9d2c-6a1f2b3c4d5e';
+  const expectationId = '6f0f7b18-0a7a-5c8e-9d2c-6a1f2b3c4d5f';
+  const bankId = '7f0f7b18-0a7a-5c8e-9d2c-6a1f2b3c4d60';
+  const booksId = '8f0f7b18-0a7a-5c8e-9d2c-6a1f2b3c4d61';
+  const assessmentId = '9f0f7b18-0a7a-5c8e-9d2c-6a1f2b3c4d62';
+  const rootId = 'af0f7b18-0a7a-5c8e-9d2c-6a1f2b3c4d63';
+  const evidenceId = 'bf0f7b18-0a7a-5c8e-9d2c-6a1f2b3c4d64';
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.readSession.mockResolvedValue({ token: 'token-sintetico', displayName: 'Ana' });
+  });
+
+  it('evalua una expectativa sin enviar empresa, cuenta o estado financiero', async () => {
+    mocks.createCompletenessAssessment.mockResolvedValue({
+      assessment_id: assessmentId, state: 'unknown', replayed: false,
+    });
+    const form = new FormData();
+    form.set('companyId', companyId);
+    form.set('expectationId', expectationId);
+    const result = await assessCompletenessAction({ error: null, done: null }, form);
+    expect(mocks.createCompletenessAssessment).toHaveBeenCalledWith(
+      'token-sintetico', companyId, expectationId);
+    expect(result.done).toContain('desconocidos siguen bloqueando');
+  });
+
+  it('fija las entradas del estado y no envia importes calculados', async () => {
+    mocks.createBalanceReconciliationStatement.mockResolvedValue({
+      version: 2, state: 'review_required', replayed: false,
+    });
+    const form = new FormData();
+    form.set('companyId', companyId);
+    form.set('bankBalanceId', bankId);
+    form.set('booksBalanceId', booksId);
+    form.append('assessmentIds', assessmentId);
+    const result = await evaluateBalanceReconciliationAction(
+      { error: null, done: null }, form);
+    expect(mocks.createBalanceReconciliationStatement).toHaveBeenCalledWith(
+      'token-sintetico', companyId, {
+        bank_balance_id: bankId, books_balance_id: booksId,
+        assessment_ids: [assessmentId],
+      });
+    expect(result.done).toContain('requiere revision');
+  });
+
+  it('rechaza float ambiguo antes de proponer una partida', async () => {
+    const form = new FormData();
+    form.set('companyId', companyId);
+    form.set('statementRootId', rootId);
+    form.set('amount', '1,23');
+    form.set('adjustmentSide', 'add_to_bank');
+    form.set('reasonCode', 'documented_timing');
+    form.append('evidenceSourceRecordIds', evidenceId);
+    const result = await proposeReconcilingItemAction(
+      { error: null, done: null }, form);
+    expect(result.error).toContain('monto');
+    expect(mocks.createReconcilingItem).not.toHaveBeenCalled();
+  });
+
+  it('registra la decision sin reflejar evidencia ni monto', async () => {
+    mocks.decideReconcilingItem.mockResolvedValue({
+      state: 'confirmed', decision_version: 2, replayed: false,
+    });
+    const form = new FormData();
+    form.set('companyId', companyId);
+    form.set('itemRootId', rootId);
+    form.set('decision', 'confirmed');
+    const result = await decideReconcilingItemAction(
+      { error: null, done: null }, form);
+    expect(mocks.decideReconcilingItem).toHaveBeenCalledWith(
+      'token-sintetico', companyId, rootId, 'confirmed');
+    expect(result.done).toContain('append-only');
   });
 });
 
