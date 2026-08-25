@@ -89,7 +89,7 @@ los identificadores son los mismos en cualquier máquina.
 
 | Usuario | Rol en Espiga | Rol en Andinos |
 |---|---|---|
-| `sofia@demo.local` | owner | owner |
+| `sofia@demo.local` | owner + firm_admin + preparer + reviewer + auditor + read_only | owner + firm_admin + preparer + reviewer + auditor + read_only |
 | `ana@demo.local` | preparer | preparer |
 | `beto@demo.local` | reviewer | — |
 | `carla@demo.local` | — | auditor |
@@ -98,9 +98,11 @@ La contraseña de todos es `fincilia-demo-only`, o lo que diga
 `FINCILIA_LOCAL_DEMO_SECRET`. **Es sintética**: no abre nada más que este stack, y
 la tabla `local_credential` sólo existe en el entorno local.
 
-Ana prepara y Beto revisa a propósito: nadie propone y confirma la misma
-conciliación. La segregación de funciones se ve en los permisos que devuelve el
-servidor, no en una nota del manual.
+Sofia es la cuenta unica del fundador para recorrer todos los puestos de la
+plataforma. No es un bypass: tiene seis concesiones reales y acumulables en cada
+empresa. La segregación de funciones sigue siendo por sujeto y objeto, por lo
+que Sofia no puede revisar su propia preparación. Ana, Beto y Carla permanecen
+como identidades auxiliares para verificar esos cruces entre sujetos.
 
 ```bash
 TOKEN=$(curl -s -X POST http://127.0.0.1:58080/api/v1/auth/session   -H 'content-type: application/json'   -d '{"username":"ana@demo.local","secret":"fincilia-demo-only"}' | jq -r .token)

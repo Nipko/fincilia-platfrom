@@ -20,6 +20,8 @@ fuente, vinculo principal y ciclo mensual, y queda con acceso owner inmediato.
 
 - Migracion forward-only V0019 y pruebas PostgreSQL.
 - Contrato de permisos de firma, dominio y rutas API de aprovisionamiento.
+- Semilla local definitiva: una cuenta fundadora con roles acumulables reales;
+  las identidades auxiliares solo sostienen pruebas de SoD entre sujetos.
 - Web `/empresas/nueva`, accion de servidor, pruebas unitarias, E2E y a11y.
 - Integracion, CI y handoff por Integration Steward.
 
@@ -32,6 +34,8 @@ fuente, vinculo principal y ciclo mensual, y queda con acceso owner inmediato.
   auditoria, error o log.
 - El propietario inicial se concede mediante la autoridad de aprovisionamiento,
   no se autoasigna un rol.
+- La cuenta fundadora local puede ejercer todos los roles con el modelo RBAC
+  productivo, sin bypass ni modo especial; la SoD por objeto permanece activa.
 - La empresa queda navegable inmediatamente y sin datos financieros reales.
 - Unitarias, PostgreSQL real, E2E, accesibilidad, quality gate y CI pasan.
 

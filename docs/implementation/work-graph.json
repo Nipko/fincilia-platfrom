@@ -61,7 +61,9 @@
       "base_sha": "f19b162",
       "paths": [
         "db/migrations/V0019__company_provisioning.sql",
+        "db/seed/local.py",
         "db/tests/test_company_onboarding.py",
+        "docs/platform/LOCAL_DEVELOPMENT.md",
         "apps/api/src/fincilia_api/company_onboarding.py",
         "apps/api/src/fincilia_api/routes.py",
         "apps/api/tests/test_company_onboarding.py",
