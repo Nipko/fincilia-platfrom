@@ -443,6 +443,9 @@ class BalanceReconciliationDatabaseTests(VerticalHarness):
         self.assertEqual(200, workspace.status_code, workspace.text)
         self.assertTrue(any(row["statement_id"] == reevaluated["statement_id"]
                             for row in workspace.json()["statements"]))
+        self.assertGreaterEqual(workspace.json()["totals"]["statements"], 2)
+        self.assertGreaterEqual(workspace.json()["totals"]["items"], 2)
+        self.assertIsInstance(workspace.json()["truncated"], bool)
 
         cross_company = self.client.post(
             f"/api/v1/companies/{ANDINOS}/balance-reconciliation/statements",

@@ -172,7 +172,8 @@ def list_workspace(connection: psycopg.Connection, *, limit: int = DEFAULT_LIMIT
             " AND s.company_id=e.company_id "
             "LEFT JOIN fincilia.financial_account a "
             " ON a.account_id=e.financial_account_id AND a.company_id=e.company_id "
-            "ORDER BY e.period_end DESC, s.display_name LIMIT %s", (bounded,))
+            "ORDER BY e.period_end DESC, s.display_name LIMIT %s", (bounded + 1,))
+        expectation_rows = cursor.fetchall()
         expectations = [{
             "expectation_id": str(row[0]), "data_source_id": str(row[1]),
             "source_name": row[2],
@@ -180,12 +181,13 @@ def list_workspace(connection: psycopg.Connection, *, limit: int = DEFAULT_LIMIT
             "account_name": row[4], "period_start": row[5].isoformat(),
             "period_end": row[6].isoformat(), "state": row[7],
             "has_artifact": row[8] is not None, "assessed": bool(row[9]),
-        } for row in cursor.fetchall()]
+        } for row in expectation_rows[:bounded]]
 
         cursor.execute(ASSESSMENT_SELECT +
                        "ORDER BY a.period_end DESC, a.created_at DESC LIMIT %s",
-                       (bounded,))
-        assessments = [_assessment_row(row) for row in cursor.fetchall()]
+                       (bounded + 1,))
+        assessment_rows = cursor.fetchall()
+        assessments = [_assessment_row(row) for row in assessment_rows[:bounded]]
         assessment_ids = [item["assessment_id"] for item in assessments]
         controls: list[dict[str, Any]] = []
         if assessment_ids:
@@ -199,14 +201,22 @@ def list_workspace(connection: psycopg.Connection, *, limit: int = DEFAULT_LIMIT
 
         cursor.execute(STATEMENT_SELECT +
                        "ORDER BY r.period_end DESC, r.created_at DESC LIMIT %s",
-                       (bounded,))
-        statements = [_statement_row(row) for row in cursor.fetchall()]
+                       (bounded + 1,))
+        statement_rows = cursor.fetchall()
+        statements = [_statement_row(row) for row in statement_rows[:bounded]]
         cursor.execute(
             ITEM_SELECT + "WHERE (company_id, item_root_id, decision_version) IN ("
             " SELECT company_id, item_root_id, max(decision_version) "
             " FROM fincilia.reconciling_item GROUP BY company_id, item_root_id) "
-            "ORDER BY created_at DESC LIMIT %s", (bounded,))
-        items = [_item_row(row) for row in cursor.fetchall()]
+            "ORDER BY created_at DESC LIMIT %s", (bounded + 1,))
+        item_rows = cursor.fetchall()
+        items = [_item_row(row) for row in item_rows[:bounded]]
+        cursor.execute(
+            "SELECT (SELECT count(*) FROM fincilia.source_expectation), "
+            "(SELECT count(*) FROM fincilia.completeness_assessment), "
+            "(SELECT count(*) FROM fincilia.reconciliation_statement), "
+            "(SELECT count(DISTINCT item_root_id) FROM fincilia.reconciling_item)")
+        total_row = cursor.fetchone()
     by_assessment: dict[str, list[dict[str, Any]]] = {}
     for control in controls:
         by_assessment.setdefault(control["assessment_id"], []).append(control)
@@ -215,6 +225,12 @@ def list_workspace(connection: psycopg.Connection, *, limit: int = DEFAULT_LIMIT
     return {
         "limit": bounded, "expectations": expectations,
         "assessments": assessments, "statements": statements, "items": items,
+        "totals": {
+            "expectations": int(total_row[0]), "assessments": int(total_row[1]),
+            "statements": int(total_row[2]), "items": int(total_row[3]),
+        },
+        "truncated": any(len(rows) > bounded for rows in (
+            expectation_rows, assessment_rows, statement_rows, item_rows)),
         "notice": "diagnostic_only; no result certifies or executes a close",
     }
 
