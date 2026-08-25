@@ -223,6 +223,27 @@ class TenancyTests(unittest.TestCase):
         self.assertFalse(reader.has("match.confirm"))
         self.assertFalse(reader.has("close.approve"))
 
+    def test_operational_reports_separate_read_from_export(self) -> None:
+        self.assertIn("report.read", PERMISSIONS)
+        self.assertIn("report.export", PERMISSIONS)
+        for role in ROLE_PERMISSIONS:
+            with self.subTest(role=role):
+                self.assertIn("report.read", ROLE_PERMISSIONS[role])
+        for role in ("owner", "preparer", "reviewer", "auditor"):
+            with self.subTest(role=role):
+                self.assertIn("report.export", ROLE_PERMISSIONS[role])
+        for role in ("firm_admin", "read_only"):
+            with self.subTest(role=role):
+                self.assertNotIn("report.export", ROLE_PERMISSIONS[role])
+
+    def test_report_permissions_do_not_grant_financial_decisions(self) -> None:
+        reader = context(roles=("read_only",))
+        self.assertTrue(reader.has("report.read"))
+        self.assertFalse(reader.has("report.export"))
+        self.assertFalse(reader.has("dataset.publish"))
+        self.assertFalse(reader.has("match.confirm"))
+        self.assertFalse(reader.has("close.approve"))
+
     def test_mapping_and_publishing_are_segregated_in_both_directions(self) -> None:
         self.assertEqual(violates_segregation("dataset.publish", {"dataset.map"}),
                          "dataset.map")

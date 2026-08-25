@@ -63,6 +63,8 @@
         "apps/api/src/fincilia_api/reports.py",
         "apps/api/src/fincilia_api/routes.py",
         "apps/api/src/fincilia_api/access.py",
+        "packages/contracts/python/fincilia_contracts/tenancy.py",
+        "packages/contracts/python/tests/test_contracts.py",
         "apps/api/tests/test_reports.py",
         "db/tests/test_reports.py",
         "apps/web/src/app/informes",

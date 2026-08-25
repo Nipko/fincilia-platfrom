@@ -45,6 +45,8 @@ PERMISSIONS: Final[tuple[str, ...]] = (
     "member.manage",
     "quality.read",
     "quality.manage",
+    "report.read",
+    "report.export",
 )
 
 # Matriz explicita. Un rol que no aparece aqui no tiene ningun permiso.
@@ -55,23 +57,27 @@ ROLE_PERMISSIONS: Final[dict[str, frozenset[str]]] = {
         "financial_account.manage", "data_source.manage",
         "movement.read", "match.propose", "match.reject", "close.prepare",
         "audit.read", "member.manage", "quality.read", "quality.manage",
+        "report.read",
     }),
     "preparer": frozenset({
         "company.read", "document.upload", "document.read", "dataset.map",
         "dataset.export", "movement.read", "match.propose", "match.reject",
-        "close.prepare", "quality.read", "quality.manage",
+        "close.prepare", "quality.read", "quality.manage", "report.read",
+        "report.export",
     }),
     "reviewer": frozenset({
         "company.read", "document.read", "dataset.publish", "dataset.export",
         "movement.read", "match.confirm", "match.reject", "close.approve",
-        "audit.read", "quality.read", "quality.manage",
+        "audit.read", "quality.read", "quality.manage", "report.read",
+        "report.export",
     }),
     "auditor": frozenset({
         "company.read", "document.read", "dataset.export", "movement.read",
-        "audit.read", "quality.read",
+        "audit.read", "quality.read", "report.read", "report.export",
     }),
     "read_only": frozenset({
         "company.read", "document.read", "movement.read", "quality.read",
+        "report.read",
     }),
 }
 

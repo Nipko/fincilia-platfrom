@@ -25,6 +25,8 @@ periodos, no confirma conciliaciones y no habilita datos reales.
 - `apps/api/src/fincilia_api/reports.py`
 - `apps/api/src/fincilia_api/routes.py`
 - `apps/api/src/fincilia_api/access.py`
+- `packages/contracts/python/fincilia_contracts/tenancy.py`
+- `packages/contracts/python/tests/test_contracts.py`
 - pruebas API y PostgreSQL de informes/autorizacion
 - `apps/web/src/app/informes/**`
 - `apps/web/src/lib/api.ts`
