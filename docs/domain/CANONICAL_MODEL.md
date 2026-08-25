@@ -84,8 +84,20 @@ No se rellenan fechas faltantes copiando otra semántica. Toda inferencia queda 
 - `movement_evidence_link`: vínculo N:M entre movimiento y observaciones, sin borrar evidencia.
 - `settlement`: ecuación bruta→fee/impuesto/retención/refund→neto y payout asociado cuando existe.
 - `ledger_entry` y `ledger_line`: asiento y líneas débito/crédito; la suma se valida por moneda.
-- `account_balance`: observación de saldo por cuenta/instante/fuente; DOM-003 añade statement y controles.
+- `account_balance`: observación de saldo por cuenta/instante/fuente.
 - `external_reference`: namespace/valor/issuer ligado a un target; una referencia blanda no crea unicidad.
+
+### 4.4 Conciliación y completitud
+
+- `completeness_assessment`: evaluación inmutable de expectativa, dataset,
+  fuente, cuenta opcional y periodo; un control requerido ausente deriva
+  `unknown`, nunca un éxito implícito.
+- `completeness_control_result`: resultado tipado, versionado y respaldado por
+  evidencia de cada control evaluado.
+- `reconciliation_statement`: versión reproducible de la ecuación banco,
+  partidas confirmadas y libros, con diferencia no explicada explícita.
+- `reconciling_item`: decisión append-only con monto positivo, lado explícito,
+  evidencia, preparador y aprobación independiente cuando se confirma.
 
 ## 5. Company scope y claves foráneas
 
@@ -145,7 +157,10 @@ Todos los componentes son decimales no negativos salvo `adjustment_amount`, cuya
 - Un saldo observado no convierte una fuente en completa.
 - Matches de movimientos no prueban conciliación de saldos.
 
-DOM-003 incorpora `completeness_assessment`, `reconciliation_statement` y el gate de diferencia no explicada.
+DOM-003 fija `completeness_assessment`, resultados de control,
+`reconciliation_statement`, partidas conciliatorias y el gate de diferencia no
+explicada. Sus inputs se versionan; una nueva evaluación o decisión agrega una
+versión y nunca reescribe el estado que sustentó un resultado anterior.
 
 ## 9. JSON, bytes y referencias
 
@@ -159,8 +174,8 @@ DOM-003 incorpora `completeness_assessment`, `reconciliation_statement` y el gat
 
 | Política | Entidades típicas | Regla |
 |---|---|---|
-| `immutable_version` | artifact_version, dataset_version, source_record, reference_dataset_version | Corregir crea nueva versión |
-| `append_only` | processing_run, movement_evidence_link, external_reference | Revocar/supersede, no reescribir historia |
+| `immutable_version` | artifact_version, dataset_version, source_record, reference_dataset_version, completeness_assessment, reconciliation_statement | Corregir crea nueva versión |
+| `append_only` | processing_run, movement_evidence_link, reconciling_item, external_reference | Revocar/supersede, no reescribir historia |
 | `controlled_state_machine` | source_artifact, document, money_movement, settlement, ledger_entry | Solo comando/transición auditada |
 | `mutable_master_versioned` | data_source, source_expectation, counterparty, financial_account | Cambios relevantes generan versión/audit |
 

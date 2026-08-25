@@ -34,6 +34,34 @@ REQUIRED_ASSESSMENT_SCOPE = {
     "company_id", "data_source_id", "source_expectation_id", "period_start", "period_end",
     "dataset_version_id", "engine_release_id",
 }
+REQUIRED_CANONICAL_ASSESSMENT_FIELDS = REQUIRED_ASSESSMENT_SCOPE | {
+    "state", "canonical_schema_version", "lineage_state",
+}
+REQUIRED_CANONICAL_CONTROL_FIELDS = {
+    "company_id", "assessment_id", "control_type", "required", "outcome",
+    "value_type", "evidence_refs", "rule_version", "engine_release_id",
+    "canonical_schema_version", "lineage_state",
+}
+REQUIRED_CANONICAL_STATEMENT_FIELDS = {
+    "company_id", "statement_root_id", "version", "financial_account_id",
+    "period_start", "period_end", "currency_code", "bank_closing_balance_id",
+    "books_closing_balance_id", "completeness_assessment_ids",
+    "confirmed_reconciling_item_ids", "confirmed_additions_to_bank",
+    "confirmed_deductions_from_bank", "adjusted_bank_balance",
+    "unexplained_difference", "state", "engine_release_id",
+    "canonical_schema_version", "rule_version_ids", "lineage_state",
+}
+REQUIRED_CANONICAL_ITEM_FIELDS = {
+    "company_id", "statement_root_id", "adjustment_side", "amount",
+    "currency_code", "reason_code", "state", "evidence_refs", "prepared_by",
+    "decision_version", "engine_release_id", "canonical_schema_version",
+    "lineage_state",
+}
+REQUIRED_ITEM_CONTRACT_FIELDS = {
+    "company_id", "statement_root_id", "adjustment_side", "amount",
+    "currency_code", "reason_code", "state", "evidence_refs", "prepared_by",
+    "decision_version",
+}
 
 
 @dataclass(frozen=True, order=True)
@@ -172,8 +200,30 @@ def validate_model(
         errors.append(CompletenessModelError("CMP-ITEM-SIDE", "reconciling_item_contract", "adjustment side must be explicit"))
     if item.get("amount_type") != "money_decimal" or item.get("amount_rule") != "positive" or item.get("only_state_counted") != "confirmed":
         errors.append(CompletenessModelError("CMP-ITEM-MONEY", "reconciling_item_contract", "item must be positive decimal and only confirmed counts"))
+    if set(item.get("required_fields", [])) != REQUIRED_ITEM_CONTRACT_FIELDS:
+        errors.append(CompletenessModelError(
+            "CMP-ITEM-FIELDS", "reconciling_item_contract.required_fields",
+            "item fields must include the stable statement root and decision evidence"))
     if set(item.get("confirmed_requires", [])) != {"approved_by", "approved_at", "sod_check", "lineage"} or item.get("reversal_creates_new_decision") is not True:
         errors.append(CompletenessModelError("CMP-ITEM-DECISION", "reconciling_item_contract", "confirmation and reversal contract is invalid"))
+
+    canonical_contracts = {
+        "completeness_assessment": REQUIRED_CANONICAL_ASSESSMENT_FIELDS,
+        "completeness_control_result": REQUIRED_CANONICAL_CONTROL_FIELDS,
+        "reconciliation_statement": REQUIRED_CANONICAL_STATEMENT_FIELDS,
+        "reconciling_item": REQUIRED_CANONICAL_ITEM_FIELDS,
+    }
+    for entity_id, required_fields in canonical_contracts.items():
+        canonical_fields = _canonical_fields(canonical, entity_id)
+        if not canonical_fields:
+            errors.append(CompletenessModelError(
+                "CMP-CANONICAL-ENTITY", f"canonical.{entity_id}",
+                "the completeness entity must exist in the canonical model"))
+        elif not required_fields.issubset(canonical_fields):
+            missing = sorted(required_fields - canonical_fields)
+            errors.append(CompletenessModelError(
+                "CMP-CANONICAL-FIELDS", f"canonical.{entity_id}",
+                f"canonical fields are missing: {missing}"))
 
     exception = model.get("accepted_exception_contract", {})
     if set(exception.get("required_fields", [])) != REQUIRED_EXCEPTION_FIELDS:

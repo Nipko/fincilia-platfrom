@@ -3,6 +3,8 @@
     "entities_requiring_lineage": [
       "account_balance",
       "artifact_version",
+      "completeness_assessment",
+      "completeness_control_result",
       "counterparty",
       "dataset_version",
       "document",
@@ -15,6 +17,8 @@
       "obligation",
       "processing_run",
       "raw_record",
+      "reconciliation_statement",
+      "reconciling_item",
       "reference_dataset_version",
       "settlement",
       "source_artifact",

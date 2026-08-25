@@ -194,6 +194,32 @@ class CanonicalModelTest(unittest.TestCase):
         self._entity(mutated, "account_balance")["lineage_required"] = False
         self.assertIn("DOM-FINANCE-LINEAGE", self._codes(mutated))
 
+    def test_reconciliation_entities_are_canonical_financial_facts(self) -> None:
+        for entity_id in (
+                "completeness_assessment", "completeness_control_result",
+                "reconciliation_statement", "reconciling_item"):
+            with self.subTest(entity=entity_id):
+                entity = self._entity(self.model, entity_id)
+                self.assertEqual("reconciliation", entity["owner_module"])
+                self.assertEqual("financial", entity["plane"])
+                self.assertTrue(entity["company_scoped"])
+                self.assertTrue(entity["authoritative_financial_state"])
+                self.assertTrue(entity["lineage_required"])
+
+    def test_reconciliation_fact_without_lineage_is_rejected(self) -> None:
+        mutated = copy.deepcopy(self.model)
+        self._entity(mutated, "reconciliation_statement")["lineage_required"] = False
+        self.assertIn("DOM-FINANCE-LINEAGE", self._codes(mutated))
+
+    def test_statement_requires_explicit_unexplained_difference(self) -> None:
+        mutated = copy.deepcopy(self.model)
+        statement = self._entity(mutated, "reconciliation_statement")
+        statement["fields"] = [
+            field for field in statement["fields"]
+            if field["name"] != "unexplained_difference"
+        ]
+        self.assertIn("DOM-REQUIRED-FIELD", self._codes(mutated))
+
 
 if __name__ == "__main__":
     unittest.main()
