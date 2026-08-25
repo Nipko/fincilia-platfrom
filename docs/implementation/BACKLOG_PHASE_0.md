@@ -123,7 +123,7 @@ dependencias de `FNC-GAT-002` ni afirmar que Sprint 1 está habilitado.
 | FNC-REC-002 | A5/A6 | REC-001, DOM-004, SEC-001 | Review pending | Propuesta y decisión humana append-only, con SoD e idempotencia; sin efecto financiero ni cierre |
 | FNC-REC-003 | A5/A6 | REC-002, WEB-003 | Review pending | Bandeja multiempresa company-by-company para priorizar revisiones sin agregar importes ni decidir fuera del expediente |
 | FNC-EXP-001 | A5/A6 | WEB-002, DOM-005, SEC-001 | Review pending | Exportacion CSV canonica determinista de dataset publicado, con permiso explicito, RLS y BFF streaming; solo sintetica y no certificada |
-| FNC-OPS-001 | A5/A6 | WEB-003, QA-006 | In progress | Centro web company-by-company de ciclos, vencimientos, recordatorios internos e historico operativo sin importes ni mensajeria externa |
+| FNC-OPS-001 | A5/A6 | WEB-003, QA-006 | Review pending | Centro web company-by-company de ciclos, vencimientos, recordatorios internos e historico operativo sin importes ni mensajeria externa; CI verde, revision humana pendiente |
 
 ## No codificar todavía
 

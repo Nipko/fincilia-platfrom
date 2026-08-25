@@ -35,7 +35,7 @@ Una celda de implementación vacía significa no implementado. No se rellena con
 | REQ-FNC-068-MIGRATION-SPIKE | §23.2 | DB-002 | `migration-spike.json`, PostgreSQL 17 descartable | `tools.migration_spike.test_validate`, carril CI PostgreSQL | ADR-002-MIGRATIONS | Review pending; 12/12 invariantes, ADR no aceptado |
 | REQ-FNC-069-DEVELOPER-CLI | §20, §52 | PLT-007 | `developer-cli.json`, CLI allowlisted | `tools.dev_cli.test_cli` | S1-READY | Review pending |
 | REQ-FNC-070-S1-READINESS | §51–§52 | GAT-003 | `s1-readiness.json`, reporte fail-closed | `tools.s1_readiness.test_validate` | S1-READY | Review pending; 10 blockers, aceptación humana pendiente |
-| REQ-FNC-071-OPERATIONS | PRD §5.2, §7, §9 y §13 | OPS-001 | `source_cycle`, `source_expectation`, proyeccion operativa API/web | unitarias API/web, PostgreSQL RLS, E2E y Axe | S1-READY | In progress; recordatorios solo dentro de plataforma y datos sinteticos |
+| REQ-FNC-071-OPERATIONS | PRD §5.2, §7, §9 y §13 | OPS-001 | `source_cycle`, `source_expectation`, proyeccion operativa API/web | 134 web, 95 API, 292 PostgreSQL, 16 Chromium y 9 Axe | S1-READY | Review pending; recordatorios solo dentro de plataforma y datos sinteticos; CI 32796949542 verde |
 
 ## Campos al implementar
 

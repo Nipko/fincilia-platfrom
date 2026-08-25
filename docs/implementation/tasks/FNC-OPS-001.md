@@ -2,7 +2,7 @@
 id: FNC-OPS-001
 alias: FNC-P4.10
 title: Centro operativo de ciclos y recordatorios web
-status: in_progress
+status: review_pending
 implementer: Codex principal dev + Integration Steward
 base_sha: d38bc299171bbd30ee82b9b6fbdf5680e0ed13a6
 gate: S1-READY
