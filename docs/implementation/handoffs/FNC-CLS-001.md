@@ -8,7 +8,7 @@ web_sha: bae2af7
 journey_sha: d1a2365
 refinement_sha: 29cee87
 tested_head_sha: 29cee87
-integration_sha: pending
+integration_sha: 3a9e133
 data_ceiling: synthetic_only
 implemented_by: Codex principal dev + Integration Steward
 independent_reviewers: [Accounting, Security, Backend/Architecture, Product, Accessibility/QA]
