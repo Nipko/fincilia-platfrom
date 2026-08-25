@@ -1,7 +1,7 @@
 ---
 id: FNC-CLS-003
 title: Estados reproducibles de conciliacion de saldos
-status: in_progress
+status: review_pending
 implementer: Codex principal dev + Integration Steward
 base_sha: 1c58b91
 gate: S1-READY

@@ -128,7 +128,7 @@ dependencias de `FNC-GAT-002` ni afirmar que Sprint 1 está habilitado.
 | FNC-REC-004 | A5/A6 | REC-002, REC-003 | Review pending | Exclusividad uno-a-uno de confirmaciones bajo concurrencia, sin efecto financiero ni cierre |
 | FNC-CLS-001 | A5/A6 | OPS-001, DQ-001, RPT-001, REC-004 | Review pending | Diagnostico company-scoped por periodo de evidencia y bloqueos; nunca ejecuta ni certifica cierre |
 | FNC-CLS-002 | A5/A6 | CLS-001, DOM-002, DOM-003, DOM-005 | Review pending | Observaciones canonicas e inmutables de saldo por cuenta con evidencia visible; linaje completo y revision independiente pendientes |
-| FNC-CLS-003 | A5/A6 | CLS-002, DOM-003, DOM-005, REC-004 | In progress | Assessments, partidas conciliatorias y statements reproducibles; sin excepcion aceptada, snapshot ni cierre productivo |
+| FNC-CLS-003 | A5/A6 | CLS-002, DOM-003, DOM-005, REC-004 | Review pending | Assessments, partidas conciliatorias y statements reproducibles verificados; sin excepcion aceptada, snapshot ni cierre productivo |
 | FNC-EXP-001 | A5/A6 | WEB-002, DOM-005, SEC-001 | Review pending | Exportacion CSV canonica determinista de dataset publicado, con permiso explicito, RLS y BFF streaming; solo sintetica y no certificada |
 | FNC-OPS-001 | A5/A6 | WEB-003, QA-006 | Review pending | Centro web company-by-company de ciclos, vencimientos, recordatorios internos e historico operativo sin importes ni mensajeria externa; CI verde, revision humana pendiente |
 | FNC-DQ-001 | A5/A6 | DOM-003, DOM-004, WEB-003, QA-006 | Review pending | Alertas deterministas company-scoped, triaje auditado y resumen visual sin IA, auto-match, cierre ni afirmacion de fraude; revision independiente pendiente |
