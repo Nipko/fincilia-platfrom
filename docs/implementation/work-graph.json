@@ -54,5 +54,28 @@
       "agent_may_accept": false
     }
   ],
-  "active_reservations": []
+  "active_reservations": [
+    {
+      "task": "FNC-QA-007",
+      "implementer": "Codex principal dev + Integration Steward",
+      "paths": [
+        ".env.example",
+        "CURRENT_PHASE.md",
+        "apps/web/src/app/entrar",
+        "apps/web/src/app/actions.ts",
+        "apps/web/src/app/__tests__/actions.test.ts",
+        "apps/web/src/app/empresas",
+        "apps/web/src/app/globals.css",
+        "apps/web/src/lib/demo-personas.ts",
+        "apps/web/tests/e2e/demo-personas.spec.ts",
+        "docs/implementation/BACKLOG_PHASE_0.md",
+        "docs/implementation/work-graph.json",
+        "docs/implementation/tasks/FNC-QA-007.md",
+        "docs/implementation/handoffs/FNC-QA-007.md",
+        "docs/platform/runtime-config.json",
+        "infra/local/compose.yaml",
+        "tools/runtime_config"
+      ]
+    }
+  ]
 }
