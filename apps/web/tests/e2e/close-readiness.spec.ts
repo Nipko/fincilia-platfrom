@@ -35,6 +35,7 @@ test('FNC-CLS-001 diagnostica por periodo sin habilitar un cierre', async ({
   await page.getByText('Ver evidencia por fuente', { exact: false }).first().click();
   await expect(page.getByRole('table').first()).toBeVisible();
   await expect(page.getByRole('columnheader', { name: 'Fuente' }).first()).toBeVisible();
-  await expect(page.getByText('Saldos por cuenta').first()).toBeVisible();
-  await expect(page.getByText('Aun no disponible').first()).toBeVisible();
+  const balances = page.locator('.close-control').filter({ hasText: 'Saldos por cuenta' }).first();
+  await expect(balances).toBeVisible();
+  await expect(balances.getByText('Bloquea')).toBeVisible();
 });
