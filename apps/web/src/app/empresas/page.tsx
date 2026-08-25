@@ -146,6 +146,7 @@ export default async function CompaniesPage() {
       </p>
 
       <nav className="portfolio-actions" aria-label="Herramientas multiempresa">
+        <Link href="/calidad">Abrir centro de calidad</Link>
         <Link href="/recordatorios">Abrir ciclos y recordatorios</Link>
         <Link href="/revisiones">Abrir bandeja de revisiones multiempresa</Link>
       </nav>

@@ -36,7 +36,9 @@ import {
   decideReconciliationReview,
   reviewCorrection,
   revokeMemberRole,
+  scanQualityIssues,
   signIn,
+  triageQualityIssue,
   validateMapping,
 } from '@/lib/api';
 import { clearSession, readSession, writeSession } from '@/lib/session';
@@ -313,6 +315,103 @@ export async function decideMatchAction(
   } catch (error) {
     if (error instanceof ApiError && error.status === 401) redirect('/entrar');
     return reviewError(error);
+  }
+}
+
+// --------------------------------------------------------------------------- //
+// Triaje de alertas deterministas de calidad (FNC-DQ-001)
+// --------------------------------------------------------------------------- //
+
+export type QualityActionState = { error: string | null; done: string | null };
+
+function qualityActionError(error: unknown): QualityActionState {
+  if (error instanceof ApiError && error.status === 403) {
+    return { error: 'La alerta o el permiso ya no estan disponibles.', done: null };
+  }
+  if (error instanceof ApiError && error.status === 409) {
+    return { error: 'La alerta ya tiene un estado terminal.', done: null };
+  }
+  if (error instanceof ApiError && error.status === 422) {
+    return { error: 'El estado, motivo o comentario no cumplen el contrato.', done: null };
+  }
+  if (error instanceof ApiError && error.status === 503) {
+    return { error: 'El centro de calidad no esta disponible.', done: null };
+  }
+  return {
+    error: error instanceof ApiError ? error.message : 'No se pudo completar la accion.',
+    done: null,
+  };
+}
+
+export async function scanQualityAction(
+  _previous: QualityActionState,
+  formData: FormData,
+): Promise<QualityActionState> {
+  const session = await readSession();
+  if (!session) redirect('/entrar');
+  const companyId = String(formData.get('companyId') ?? '');
+  if (!UUID_PATTERN.test(companyId)) {
+    return { error: 'La empresa ya no tiene un contexto valido.', done: null };
+  }
+  try {
+    const result = await scanQualityIssues(session.token, companyId);
+    revalidatePath('/calidad');
+    revalidatePath(`/empresas/${companyId}`);
+    return {
+      error: null,
+      done: result.truncated
+        ? `Se evaluo la ventana segura y se detectaron ${result.findings} senales; algunas reglas alcanzaron su limite.`
+        : `Evaluacion completa de la ventana: ${result.findings} senales, ${result.created} nuevas.`,
+    };
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) redirect('/entrar');
+    return qualityActionError(error);
+  }
+}
+
+const QUALITY_REASONS: Record<string, Set<string>> = {
+  acknowledged: new Set(['investigate']),
+  resolved: new Set(['reviewed_source', 'corrected_upstream', 'duplicate_confirmed']),
+  dismissed: new Set(['expected_pattern', 'false_positive', 'not_applicable']),
+};
+
+export async function triageQualityAction(
+  _previous: QualityActionState,
+  formData: FormData,
+): Promise<QualityActionState> {
+  const session = await readSession();
+  if (!session) redirect('/entrar');
+  const companyId = String(formData.get('companyId') ?? '');
+  const issueId = String(formData.get('issueId') ?? '');
+  const status = String(formData.get('status') ?? '');
+  const reasonCode = String(formData.get('reasonCode') ?? '');
+  const rationale = String(formData.get('rationale') ?? '').trim();
+  if (
+    !UUID_PATTERN.test(companyId) || !UUID_PATTERN.test(issueId)
+    || !QUALITY_REASONS[status]?.has(reasonCode)
+    || rationale.length < 10 || rationale.length > 500
+  ) {
+    return { error: 'La accion de calidad no tiene un contexto valido.', done: null };
+  }
+  try {
+    const result = await triageQualityIssue(
+      session.token, companyId, issueId,
+      { status, reason_code: reasonCode, rationale },
+    );
+    revalidatePath('/calidad');
+    return {
+      error: null,
+      done: result.replayed
+        ? 'La misma revision ya estaba registrada.'
+        : status === 'acknowledged'
+          ? 'Caso tomado para investigacion; no cambia ningun dato financiero.'
+          : status === 'resolved'
+            ? 'Caso resuelto con motivo y auditoria.'
+            : 'Senal descartada con motivo y auditoria.',
+    };
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) redirect('/entrar');
+    return qualityActionError(error);
   }
 }
 

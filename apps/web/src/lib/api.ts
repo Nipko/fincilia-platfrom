@@ -1394,3 +1394,113 @@ export function revokeMemberRole(
 ): Promise<RoleChangeResult> {
   return changeMemberRole('DELETE', token, companyId, subjectId, body);
 }
+
+// --------------------------------------------------------------------------- //
+// Centro de calidad y anomalias deterministas (FNC-DQ-001)
+// --------------------------------------------------------------------------- //
+
+export type QualityStatus = 'open' | 'acknowledged' | 'resolved' | 'dismissed';
+export type QualitySeverity = 'info' | 'warning' | 'high';
+export type QualityRule =
+  | 'dataset_completeness_mismatch'
+  | 'dataset_completeness_unknown'
+  | 'dataset_rejected_records'
+  | 'lineage_invalidated'
+  | 'duplicate_fingerprint'
+  | 'reference_amount_conflict'
+  | 'posting_delay_over_31_days'
+  | 'amount_outlier_10x_median';
+
+export type QualityIssue = {
+  issue_id: string;
+  rule_code: QualityRule;
+  rule_version: string;
+  scope_kind: 'dataset' | 'movement';
+  scope_ref: string;
+  severity: QualitySeverity;
+  status: QualityStatus;
+  occurrence_count: number;
+  assigned_to: string | null;
+  assigned_to_name: string | null;
+  reviewed_by: string | null;
+  reviewed_by_name: string | null;
+  resolution_reason: string | null;
+  first_seen_at: string;
+  last_seen_at: string;
+  updated_at: string;
+  financial_effect: 'none';
+  proves_fraud: false;
+};
+
+export type QualityIssuePage = {
+  filter: { status: QualityStatus | 'all'; severity: QualitySeverity | 'all'; rule: QualityRule | 'all' };
+  offset: number;
+  limit: number;
+  truncated: boolean;
+  summary: {
+    total: number;
+    open: number;
+    acknowledged: number;
+    resolved: number;
+    dismissed: number;
+    high: number;
+    warning: number;
+    info: number;
+  };
+  items: QualityIssue[];
+  notice: string;
+};
+
+export type QualityScanResult = {
+  rule_version: string;
+  datasets_examined_limit: number;
+  findings: number;
+  created: number;
+  refreshed: number;
+  truncated: boolean;
+  truncated_rules: QualityRule[];
+  financial_effect: 'none';
+};
+
+export function fetchQualityIssues(
+  token: string,
+  companyId: string,
+  filters: { status?: string; severity?: string; rule?: string; limit?: number } = {},
+): Promise<QualityIssuePage> {
+  const query = new URLSearchParams({
+    status: filters.status ?? 'open',
+    severity: filters.severity ?? 'all',
+    rule: filters.rule ?? 'all',
+    limit: String(Math.max(1, Math.min(100, filters.limit ?? 50))),
+  });
+  return request<QualityIssuePage>(
+    `/api/v1/companies/${encodeURIComponent(companyId)}/quality/issues?${query}`,
+    { token },
+  );
+}
+
+export function scanQualityIssues(
+  token: string,
+  companyId: string,
+): Promise<QualityScanResult> {
+  return request<QualityScanResult>(
+    `/api/v1/companies/${encodeURIComponent(companyId)}/quality/scan`,
+    { method: 'POST', token },
+  );
+}
+
+export function triageQualityIssue(
+  token: string,
+  companyId: string,
+  issueId: string,
+  body: { status: string; reason_code: string; rationale: string },
+): Promise<QualityIssue & { replayed: boolean }> {
+  const company = encodeURIComponent(companyId);
+  const issue = encodeURIComponent(issueId);
+  return request(`/api/v1/companies/${company}/quality/issues/${issue}`, {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+    token,
+  });
+}

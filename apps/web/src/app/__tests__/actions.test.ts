@@ -27,6 +27,8 @@ const mocks = vi.hoisted(() => {
     rejectDataset: vi.fn(),
     readSession: vi.fn(),
     revokeMemberRole: vi.fn(),
+    scanQualityIssues: vi.fn(),
+    triageQualityIssue: vi.fn(),
     redirect: vi.fn((): never => {
       throw new Error('NEXT_REDIRECT');
     }),
@@ -67,8 +69,10 @@ vi.mock('@/lib/api', () => ({
   rejectDataset: mocks.rejectDataset,
   reviewCorrection: mocks.reviewCorrection,
   revokeMemberRole: mocks.revokeMemberRole,
+  scanQualityIssues: mocks.scanQualityIssues,
   setCycle: vi.fn(),
   signIn: vi.fn(),
+  triageQualityIssue: mocks.triageQualityIssue,
   updateAccount: vi.fn(),
   validateMapping: vi.fn(),
 }));
@@ -86,6 +90,8 @@ import {
   decideMatchAction,
   grantMemberRoleAction,
   revokeMemberRoleAction,
+  scanQualityAction,
+  triageQualityAction,
 } from '../actions';
 
 function mappingForm(): FormData {
@@ -699,5 +705,63 @@ describe('company member role actions', () => {
 
     expect(result.error).toContain('ultimo owner');
     expect(result.done).toBeNull();
+  });
+});
+
+describe('quality center actions', () => {
+  const companyId = '5f0f7b18-0a7a-5c8e-9d2c-6a1f2b3c4d5e';
+  const issueId = '6f0f7b18-0a7a-5c8e-9d2c-6a1f2b3c4d5f';
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.readSession.mockResolvedValue({ token: 'token-sintetico' });
+  });
+
+  it('escanea una empresa y comunica limites sin afirmar completitud global', async () => {
+    mocks.scanQualityIssues.mockResolvedValue({
+      findings: 7, created: 4, refreshed: 3, truncated: false,
+      financial_effect: 'none',
+    });
+    const form = new FormData();
+    form.set('companyId', companyId);
+
+    const result = await scanQualityAction({ error: null, done: null }, form);
+
+    expect(result.done).toContain('7 senales');
+    expect(mocks.scanQualityIssues).toHaveBeenCalledWith('token-sintetico', companyId);
+    expect(mocks.revalidatePath).toHaveBeenCalledWith('/calidad');
+  });
+
+  it('rechaza estados y razones incompatibles antes de llamar a la API', async () => {
+    const form = new FormData();
+    form.set('companyId', companyId);
+    form.set('issueId', issueId);
+    form.set('status', 'resolved');
+    form.set('reasonCode', 'false_positive');
+    form.set('rationale', 'Comentario sintetico suficientemente largo.');
+
+    const result = await triageQualityAction({ error: null, done: null }, form);
+
+    expect(result.error).toContain('contexto valido');
+    expect(mocks.triageQualityIssue).not.toHaveBeenCalled();
+  });
+
+  it('registra una resolucion auditada sin prometer efecto financiero', async () => {
+    mocks.triageQualityIssue.mockResolvedValue({ replayed: false, status: 'resolved' });
+    const form = new FormData();
+    form.set('companyId', companyId);
+    form.set('issueId', issueId);
+    form.set('status', 'resolved');
+    form.set('reasonCode', 'reviewed_source');
+    form.set('rationale', 'La evidencia sintetica fue revisada y documentada.');
+
+    const result = await triageQualityAction({ error: null, done: null }, form);
+
+    expect(result.done).toContain('auditoria');
+    expect(mocks.triageQualityIssue).toHaveBeenCalledWith(
+      'token-sintetico', companyId, issueId,
+      { status: 'resolved', reason_code: 'reviewed_source',
+        rationale: 'La evidencia sintetica fue revisada y documentada.' },
+    );
   });
 });
