@@ -54,17 +54,5 @@
       "agent_may_accept": false
     }
   ],
-  "active_reservations": [
-    {
-      "task": "FNC-CLN-003",
-      "holder": "Codex principal dev + Integration Steward",
-      "paths": [
-        "apps/api/src/fincilia_api/corrections.py",
-        "apps/api/tests/test_correction_application.py",
-        "db/tests/test_correction_application.py",
-        "db/tests/test_field_overlays.py",
-        "apps/web/src/app/empresas/[companyId]/movimientos/[movementId]/page.tsx"
-      ]
-    }
-  ]
+  "active_reservations": []
 }

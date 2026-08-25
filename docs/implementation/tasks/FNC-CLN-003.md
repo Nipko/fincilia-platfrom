@@ -1,7 +1,7 @@
 ---
 id: FNC-CLN-003
 title: Aplicabilidad de correcciones ligada al plan de linaje
-status: in_progress
+status: review_pending
 implementer: Codex principal dev + Integration Steward
 base_sha: 4654c3b
 gate: S1-READY
