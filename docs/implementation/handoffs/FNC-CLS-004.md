@@ -6,7 +6,7 @@ reservation_sha: 3236c34
 backend_sha: fff522d
 web_sha: eeb803b
 tested_head_sha: eeb803b
-integration_sha: pending_handoff_commit
+integration_sha: 769870b
 data_ceiling: synthetic_only
 gate_effect: none
 implemented_by: Codex principal dev + Integration Steward
