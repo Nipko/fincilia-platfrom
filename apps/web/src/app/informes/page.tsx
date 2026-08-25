@@ -42,7 +42,10 @@ function ActivityChart({ points, companyName }: {
   const width = 760;
   const height = 250;
   const plotHeight = 180;
-  const groupWidth = Math.max(24, width / Math.max(points.length, 1));
+  const plotLeft = 28;
+  const plotRight = 10;
+  const plotWidth = width - plotLeft - plotRight;
+  const groupWidth = Math.max(24, plotWidth / Math.max(points.length, 1));
   const barWidth = Math.max(3, Math.min(12, groupWidth / 4));
   const colors = ['var(--report-documents)', 'var(--report-datasets)', 'var(--report-movements)'];
 
@@ -54,10 +57,12 @@ function ActivityChart({ points, companyName }: {
       </figcaption>
       <svg viewBox={`0 0 ${width} ${height}`} role="img"
         aria-label={`Actividad mensual de ${companyName}`}>
-        <line x1="28" y1={plotHeight + 20} x2={width - 10} y2={plotHeight + 20}
+        <line x1={plotLeft} y1={plotHeight + 20} x2={width - plotRight} y2={plotHeight + 20}
           className="report-chart__axis" />
         {points.map((point, index) => {
-          const x = 34 + index * groupWidth;
+          const barsWidth = barWidth * 3 + 4;
+          const groupLeft = plotLeft + index * groupWidth;
+          const x = groupLeft + (groupWidth - barsWidth) / 2;
           const values = [point.documents, point.datasets, point.movements];
           return (
             <g key={point.month}>
@@ -67,7 +72,8 @@ function ActivityChart({ points, companyName }: {
                   y={plotHeight + 20 - barHeight} width={barWidth} height={barHeight}
                   fill={colors[kind]}><title>{value}</title></rect>;
               })}
-              <text x={x} y={plotHeight + 42} className="report-chart__label">
+              <text x={groupLeft + groupWidth / 2} y={plotHeight + 42}
+                textAnchor="middle" className="report-chart__label">
                 {monthLabel(point.month)}
               </text>
             </g>
