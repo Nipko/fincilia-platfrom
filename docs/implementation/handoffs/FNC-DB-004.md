@@ -5,7 +5,7 @@ base_sha: 1daf11d
 reservation_sha: bf4e3db
 implementation_sha: a18d62e
 tested_head_sha: a18d62e
-integration_sha: pending_handoff_commit
+integration_sha: 262463c
 data_ceiling: synthetic_only
 gate_effect: none
 implemented_by: Codex principal dev + Integration Steward
