@@ -145,9 +145,10 @@ export default async function CompaniesPage() {
         expone hoy la API.
       </p>
 
-      <p>
-        <Link href="/revisiones">Abrir bandeja de revisiones multiempresa</Link>
-      </p>
+      <nav className="portfolio-actions" aria-label="Herramientas multiempresa">
+        <Link href="/recordatorios">Abrir ciclos y recordatorios</Link>
+        <Link href="/revisiones">Abrir bandeja de revisiones</Link>
+      </nav>
 
       {snapshots.length === 0 ? (
         <p className="card">

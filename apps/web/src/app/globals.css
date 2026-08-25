@@ -595,6 +595,134 @@ code.digest {
 .review-state--confirmed { background: var(--accent-soft); color: var(--accent); }
 .review-state--rejected { background: var(--danger-soft); color: var(--danger); }
 
+.portfolio-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.25rem;
+  margin-block: 1rem 1.5rem;
+}
+
+.portfolio-actions a {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.operations-toolbar {
+  margin-block: 1rem 1.5rem;
+}
+
+.operations-company-filter {
+  align-items: end;
+  display: grid;
+  gap: 0.6rem;
+  grid-template-columns: minmax(12rem, 24rem) auto;
+  max-width: 34rem;
+}
+
+.operations-company-filter label {
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+  font-weight: 700;
+  grid-column: 1 / -1;
+  text-transform: uppercase;
+}
+
+.operations-summary {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-block: 1.5rem 2rem;
+}
+
+.operations-summary > div {
+  margin: 0;
+}
+
+.operations-summary dt {
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.operations-summary dd {
+  font-size: 2rem;
+  font-weight: 800;
+  margin: 0.25rem 0 0;
+}
+
+.operations-summary__urgent {
+  border-inline-start: 4px solid var(--danger);
+}
+
+.operations-summary__warning {
+  border-inline-start: 4px solid var(--warning);
+}
+
+.operations-list {
+  display: grid;
+  gap: 1rem;
+  list-style: none;
+  padding: 0;
+}
+
+.operations-item {
+  display: grid;
+  gap: 1rem;
+}
+
+.operations-item--overdue {
+  border-inline-start: 4px solid var(--danger);
+}
+
+.operations-item--in_grace,
+.operations-item--due_today {
+  border-inline-start: 4px solid var(--warning);
+}
+
+.operations-item__header {
+  align-items: start;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.operations-item__header h3 {
+  margin: 0.45rem 0 0;
+}
+
+.operations-item__header a {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.operations-details {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0;
+}
+
+.operations-details dt {
+  color: var(--ink-soft);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.operations-details dd {
+  margin: 0.2rem 0 0;
+  overflow-wrap: anywhere;
+}
+
+.reminder-state--overdue { background: var(--danger-soft); color: var(--danger); }
+.reminder-state--in_grace,
+.reminder-state--due_today { background: var(--warning-soft); color: var(--warning); }
+.reminder-state--due_soon { background: var(--accent-soft); color: var(--accent); }
+.reminder-state--satisfied { background: var(--accent-soft); color: var(--accent); }
+.reminder-state--waived,
+.reminder-state--upcoming { background: var(--ground); color: var(--ink-soft); }
+
 @media (max-width: 44rem) {
   .reconciliation-filter,
   .candidate-pair,
@@ -609,6 +737,19 @@ code.digest {
 
   .review-inbox-details {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .operations-summary,
+  .operations-details {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .operations-company-filter {
+    grid-template-columns: 1fr;
+  }
+
+  .operations-company-filter label {
+    grid-column: auto;
   }
 }
 

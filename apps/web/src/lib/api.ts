@@ -1034,6 +1034,69 @@ export type Expectation = {
   waived_reason: string | null;
 };
 
+export type OperationalReminderState =
+  | 'overdue'
+  | 'in_grace'
+  | 'due_today'
+  | 'due_soon'
+  | 'upcoming'
+  | 'satisfied'
+  | 'waived';
+
+export type OperationalPeriod = {
+  expectation_id: string;
+  data_source_id: string;
+  source_name: string;
+  period_start: string;
+  period_end: string;
+  due_on: string;
+  late_after: string;
+  stored_state: string;
+  satisfied_at: string | null;
+  waived_reason: string | null;
+  responsible_subject_id: string | null;
+  responsible_name: string | null;
+  responsible_eligible: boolean;
+  assigned_to_me: boolean;
+  timezone: string;
+  local_as_of: string;
+  reminder_state: OperationalReminderState;
+  days_late: number;
+  days_until_due: number | null;
+};
+
+export type OperationalSummary = {
+  period_count: number;
+  source_count: number;
+  overdue: number;
+  in_grace: number;
+  due_today: number;
+  due_soon: number;
+  upcoming: number;
+  satisfied: number;
+  waived: number;
+  filtered_total: number;
+  oldest_due_on: string | null;
+  newest_due_on: string | null;
+};
+
+export type OperationalFilter =
+  | 'attention'
+  | OperationalReminderState
+  | 'all';
+
+export type OperationalPeriodPage = {
+  evaluated_at: string;
+  local_as_of_dates: string[];
+  filter: OperationalFilter;
+  limit: number;
+  has_more: boolean;
+  next_cursor: string | null;
+  summary: OperationalSummary;
+  items: OperationalPeriod[];
+  notice: string;
+};
+
 export type SourceDetail = Source & {
   links: SourceLink[];
   cycle: SourceCycle | null;
@@ -1207,6 +1270,24 @@ export function fetchExpectations(
 ): Promise<Expectation[]> {
   return request<Expectation[]>(
     `/api/v1/companies/${encodeURIComponent(companyId)}/expectations?limit=100`,
+    { token },
+  );
+}
+
+export function fetchOperationalPeriods(
+  token: string,
+  companyId: string,
+  status: OperationalFilter,
+  limit = 50,
+  cursor?: string,
+): Promise<OperationalPeriodPage> {
+  const query = new URLSearchParams({
+    status,
+    limit: String(Math.max(1, Math.min(50, limit))),
+  });
+  if (cursor) query.set('cursor', cursor);
+  return request<OperationalPeriodPage>(
+    `/api/v1/companies/${encodeURIComponent(companyId)}/operations/periods?${query}`,
     { token },
   );
 }
