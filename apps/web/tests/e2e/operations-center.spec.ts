@@ -18,9 +18,12 @@ test('FNC-OPS-001 muestra el recordatorio sintetico y conserva filtros', async (
   await expect(page.getByRole('heading', {
     level: 1, name: 'Centro de ciclos y recordatorios',
   })).toBeVisible();
-  await expect(page.getByRole('heading', { name: fixture.sourceName })).toBeVisible();
-  await expect(page.getByText('Ana Preparadora')).toBeVisible();
-  await expect(page.getByText(
+  const reminder = page.getByRole('article').filter({
+    has: page.getByRole('heading', { name: fixture.sourceName }),
+  });
+  await expect(reminder.getByRole('heading', { name: fixture.sourceName })).toBeVisible();
+  await expect(reminder.getByText('Ana Preparadora')).toBeVisible();
+  await expect(reminder.getByText(
     `Evaluado al ${fixture.localDate} en America/Bogota.`,
   )).toBeVisible();
   await expect(page.getByText(/no prueban que se envio correo/i)).toBeVisible();
@@ -31,7 +34,10 @@ test('FNC-OPS-001 muestra el recordatorio sintetico y conserva filtros', async (
   await page.getByRole('link', { name: 'Todo el historico' }).click();
   await expect(page).toHaveURL(/estado=todos/);
   await expect(page).toHaveURL(new RegExp(`empresa=${ESPIGA}`));
-  await expect(page.getByRole('link', { name: 'Abrir fuente' })).toHaveAttribute(
+  const filteredReminder = page.getByRole('article').filter({
+    has: page.getByRole('heading', { name: fixture.sourceName }),
+  });
+  await expect(filteredReminder.getByRole('link', { name: 'Abrir fuente' })).toHaveAttribute(
     'href', `/empresas/${ESPIGA}/fuentes/${fixture.sourceId}#ciclo-esperado`,
   );
 });
