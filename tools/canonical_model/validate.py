@@ -290,7 +290,7 @@ def validate_model(model: dict[str, Any], architecture: dict[str, Any]) -> list[
         _require_fields(statement, {"statement_root_id", "version", "financial_account_id", "period_start", "period_end", "currency_code", "bank_closing_balance_id", "books_closing_balance_id", "completeness_assessment_ids", "confirmed_reconciling_item_ids", "confirmed_additions_to_bank", "confirmed_deductions_from_bank", "adjusted_bank_balance", "unexplained_difference", "state", "rule_version_ids"}, errors)
     item = entity_map.get("reconciling_item")
     if item:
-        _require_fields(item, {"statement_root_id", "adjustment_side", "amount", "currency_code", "reason_code", "state", "evidence_refs", "prepared_by", "decision_version"}, errors)
+        _require_fields(item, {"item_root_id", "statement_root_id", "adjustment_side", "amount", "currency_code", "reason_code", "state", "evidence_refs", "prepared_by", "decision_version"}, errors)
     return sorted(set(errors))
 
 

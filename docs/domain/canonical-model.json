@@ -364,7 +364,8 @@
       "id": "reconciling_item", "owner_module": "reconciliation", "plane": "financial", "company_scoped": true, "authoritative_financial_state": true, "classification": "financial_sensitive", "mutation_policy": "append_only", "lineage_required": true,
       "fields": [
         {"name": "id", "type": "uuid_v7", "nullable": false, "immutable": true}, {"name": "company_id", "type": "uuid", "nullable": false, "immutable": true},
-        {"name": "statement_root_id", "type": "uuid", "nullable": false, "immutable": true}, {"name": "adjustment_side", "type": "enum", "nullable": false, "immutable": true, "enum_ref": "adjustment_side"},
+        {"name": "item_root_id", "type": "uuid", "nullable": false, "immutable": true}, {"name": "statement_root_id", "type": "uuid", "nullable": false, "immutable": true},
+        {"name": "adjustment_side", "type": "enum", "nullable": false, "immutable": true, "enum_ref": "adjustment_side"},
         {"name": "amount", "type": "money_decimal", "nullable": false, "immutable": true, "value_rule": "positive"}, {"name": "currency_code", "type": "currency_code", "nullable": false, "immutable": true},
         {"name": "reason_code", "type": "text", "nullable": false, "immutable": true}, {"name": "state", "type": "enum", "nullable": false, "immutable": true, "enum_ref": "reconciling_item_state"},
         {"name": "evidence_refs", "type": "json_document", "nullable": false, "immutable": true, "schema_ref": "fnc://evidence-reference-list/v1", "max_bytes": 16384},

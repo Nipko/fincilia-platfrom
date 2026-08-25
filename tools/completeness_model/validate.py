@@ -52,13 +52,13 @@ REQUIRED_CANONICAL_STATEMENT_FIELDS = {
     "canonical_schema_version", "rule_version_ids", "lineage_state",
 }
 REQUIRED_CANONICAL_ITEM_FIELDS = {
-    "company_id", "statement_root_id", "adjustment_side", "amount",
+    "company_id", "item_root_id", "statement_root_id", "adjustment_side", "amount",
     "currency_code", "reason_code", "state", "evidence_refs", "prepared_by",
     "decision_version", "engine_release_id", "canonical_schema_version",
     "lineage_state",
 }
 REQUIRED_ITEM_CONTRACT_FIELDS = {
-    "company_id", "statement_root_id", "adjustment_side", "amount",
+    "company_id", "item_root_id", "statement_root_id", "adjustment_side", "amount",
     "currency_code", "reason_code", "state", "evidence_refs", "prepared_by",
     "decision_version",
 }

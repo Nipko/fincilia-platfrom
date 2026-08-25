@@ -104,8 +104,9 @@ Solo `reconciling_item` confirmado, vigente, de la misma company/cuenta/periodo/
 
 Una partida declara:
 
-- `statement_root_id`, que conserva la identidad logica entre versiones
-  inmutables del statement;
+- `item_root_id`, que conserva la identidad de la partida entre decisiones
+  append-only, y `statement_root_id`, que la ata a las versiones inmutables del
+  mismo statement;
 - `add_to_bank` o `deduct_from_bank`;
 - importe positivo y moneda;
 - razón/tipo;
