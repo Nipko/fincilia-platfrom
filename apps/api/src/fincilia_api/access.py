@@ -198,6 +198,9 @@ def revoke_role(
         actor_roles=actor_roles, allow_self=True,
     )
     _lock_company(connection, company_id)
+    if not _eligible_member(connection, company_id, target_id):
+        raise AccessManagementError(
+            "member-not-eligible", "the selected member is not eligible")
 
     with connection.cursor() as cursor:
         cursor.execute(

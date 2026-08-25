@@ -13,6 +13,7 @@ import datetime as dt
 import hashlib
 import logging
 import time
+import uuid
 
 import psycopg
 
@@ -1814,6 +1815,9 @@ def _change_member_role(
     context = company_context(request, principal, company_id)
     require(context, "member.manage")
     database = request.app.state.database
+    role_error: access.AccessManagementError | None = None
+    result: dict | None = None
+    version = context.authorization_version
     with database.session(company_id=context.company_id,
                           subject_id=principal.subject_id) as connection:
         try:
@@ -1830,26 +1834,49 @@ def _change_member_role(
                     subject_id=subject_id, role=body.role,
                     reason_code=body.reason_code)
         except access.AccessManagementError as error:
-            if error.code == "protected-role":
-                raise forbidden() from None
-            raise _access_problem(error) from None
-
-        version = context.authorization_version
-        if result["changed"]:
-            version = repository.bump_authorization_version(
-                connection, context.company_id)
-        repository.record_audit(
-            connection, subject_id=principal.subject_id,
-            company_id=context.company_id,
-            action=f"member.role.{operation}", resource_kind="subject",
-            resource_ref=result["subject_id"], outcome="allowed",
-            detail={
-                "role": result["role"],
-                "reason_code": body.reason_code,
-                "changed": result["changed"],
-                "replayed": result["replayed"],
-                "authorization_version": version,
-            })
+            # No se audita dentro de esta transaccion: al devolver un problema,
+            # el rollback borraria justo la negativa que hay que conservar.
+            role_error = error
+        if role_error is None and result is not None:
+            if result["changed"]:
+                version = repository.bump_authorization_version(
+                    connection, context.company_id)
+            repository.record_audit(
+                connection, subject_id=principal.subject_id,
+                company_id=context.company_id,
+                action=f"member.role.{operation}", resource_kind="subject",
+                resource_ref=result["subject_id"], outcome="allowed",
+                detail={
+                    "role": result["role"],
+                    "reason_code": body.reason_code,
+                    "changed": result["changed"],
+                    "replayed": result["replayed"],
+                    "authorization_version": version,
+                })
+    if role_error is not None:
+        try:
+            opaque_target = str(uuid.UUID(subject_id))
+        except (ValueError, TypeError, AttributeError):
+            opaque_target = "invalid-member-reference"
+        detail = {"reason": role_error.code}
+        if body.role in access.ROLES:
+            detail["role"] = body.role
+        if body.reason_code in access.REASON_CODES:
+            detail["reason_code"] = body.reason_code
+        with database.session(company_id=context.company_id,
+                              subject_id=principal.subject_id) as connection:
+            repository.record_audit(
+                connection, subject_id=principal.subject_id,
+                company_id=context.company_id,
+                action=f"member.role.{operation}", resource_kind="subject",
+                resource_ref=opaque_target, outcome="denied", detail=detail)
+        if role_error.code == "protected-role":
+            raise forbidden() from None
+        raise _access_problem(role_error) from None
+    if result is None:  # Defensa ante una ampliacion que olvide producir resultado.
+        raise ProblemError(problem(
+            "role-change-failed", "Role change failed", 500,
+            "the role change did not produce a result"))
     refreshed_session = None
     if result["changed"]:
         settings = request.app.state.settings

@@ -192,9 +192,12 @@ class MemberRoleTests(unittest.TestCase):
             self.change("DELETE", ANA, "firm_admin", reason="access_removed")
 
     def test_member_from_another_firm_is_rejected(self) -> None:
-        response = self.change("POST", self.foreign, "read_only")
-        self.assertEqual(422, response.status_code, response.text)
-        self.assertTrue(response.json()["type"].endswith("/member-not-eligible"))
+        for method in ("POST", "DELETE"):
+            with self.subTest(method=method):
+                response = self.change(method, self.foreign, "read_only")
+                self.assertEqual(422, response.status_code, response.text)
+                self.assertTrue(
+                    response.json()["type"].endswith("/member-not-eligible"))
 
     def test_permission_change_invalidates_the_preexisting_token(self) -> None:
         stale = self.auth()
@@ -217,6 +220,23 @@ class MemberRoleTests(unittest.TestCase):
         self.assertEqual("access_required", grants[0]["detail"]["reason_code"])
         self.assertNotIn("Persona Equipo", str(grants[0]))
         self.change("DELETE", self.target, "read_only", reason="access_removed")
+
+    def test_denied_role_change_survives_its_failed_transaction(self) -> None:
+        denied = self.change("POST", SOFIA, "reviewer")
+        self.assertEqual(409, denied.status_code)
+        events = self.client.get(
+            f"/api/v1/companies/{ESPIGA}/audit?limit=100",
+            headers=self.auth("beto@demo.local"),
+        ).json()
+        attempts = [
+            event for event in events
+            if event["action"] == "member.role.grant"
+            and event["outcome"] == "denied"
+            and event["resource_ref"] == SOFIA
+        ]
+        self.assertTrue(attempts)
+        self.assertEqual("self-role-change", attempts[0]["detail"]["reason"])
+        self.assertNotIn("display_name", str(attempts[0]))
 
 
 if __name__ == "__main__":
