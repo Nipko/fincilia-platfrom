@@ -6,7 +6,7 @@ reservation_sha: 05418cf
 regression_sha: 5f43778
 accessibility_sha: 8b95642
 tested_head_sha: 8b95642
-integration_sha: pending
+integration_sha: 6377017
 data_ceiling: synthetic_only
 gate_effect: none
 implemented_by: Codex principal dev + Integration Steward
