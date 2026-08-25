@@ -4,7 +4,7 @@ title: Linaje materializado de saldos y decisiones previas al cierre
 status: review_pending
 implementer: Codex principal dev + Integration Steward
 base_sha: 891a1a0
-integration_sha: 830336dc8c1211816250cdb4f80f12e0232cc555
+integration_sha: 830336dac9e63ebe6cc6e51c1a8fa362e21f9232
 gate: S1-READY
 gate_effect: none
 data_ceiling: synthetic_only

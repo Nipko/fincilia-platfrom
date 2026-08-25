@@ -6,8 +6,8 @@ reservation_sha: a45177c
 database_api_sha: e97c193
 web_sha: ff1b313
 replay_fix_sha: afa2a72
-tested_head_sha: 830336dc8c1211816250cdb4f80f12e0232cc555
-integration_sha: 830336dc8c1211816250cdb4f80f12e0232cc555
+tested_head_sha: 830336dac9e63ebe6cc6e51c1a8fa362e21f9232
+integration_sha: 830336dac9e63ebe6cc6e51c1a8fa362e21f9232
 data_ceiling: synthetic_only
 gate_effect: none
 implemented_by: Codex principal dev + Integration Steward
