@@ -1,10 +1,10 @@
 ---
 id: FNC-CLS-004
 title: Preparacion de cierre integrada con conciliacion de saldos
-status: in_progress
+status: review_pending
 implementer: Codex principal dev + Integration Steward
 base_sha: 020a7be
-integration_sha: pending
+integration_sha: pending_handoff_commit
 gate: S1-READY
 gate_effect: none
 data_ceiling: synthetic_only
