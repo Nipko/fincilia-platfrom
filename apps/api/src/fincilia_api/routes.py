@@ -27,7 +27,8 @@ from fincilia_platform.identity import AuthenticationError
 from fincilia_platform.objects import ObjectStoreError, object_key
 from fincilia_platform.tokens import issue
 
-from . import access, datasets, exports, onboarding, operations, reconciliation, repository
+from . import (access, datasets, exports, onboarding, operations, quality,
+               reconciliation, repository)
 from .security import (Principal, ProblemError, company_context, current_principal,
                        forbidden, require, unauthorized)
 from fincilia_contracts.errors import problem
@@ -94,6 +95,13 @@ class RoleChangeRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     role: str = Field(min_length=3, max_length=40)
     reason_code: str = Field(min_length=3, max_length=40)
+
+
+class QualityTriageRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    status: str = Field(min_length=8, max_length=16)
+    reason_code: str = Field(min_length=3, max_length=40)
+    rationale: str = Field(min_length=10, max_length=500)
 
 
 class ArtifactSummary(BaseModel):
@@ -1750,6 +1758,88 @@ def operational_periods(
                 "truncated": result["has_more"],
             })
     return result
+
+
+def _quality_synthetic_only(request: Request) -> None:
+    if request.app.state.settings.real_data_enabled:
+        raise ProblemError(problem(
+            "quality-center-disabled", "Quality center unavailable", 503,
+            "quality evaluation is enabled only for synthetic data"))
+
+
+def _quality_problem(error: quality.QualityError) -> ProblemError:
+    if error.code == "quality-issue-unavailable":
+        return forbidden()
+    status = 409 if error.code == "quality-issue-terminal" else 422
+    return ProblemError(problem(
+        error.code, "Quality request rejected", status, error.detail))
+
+
+@router.post("/companies/{company_id}/quality/scan", tags=["quality"])
+def scan_quality_issues(
+        request: Request, company_id: str,
+        principal: Principal = Depends(principal_dependency)) -> dict:
+    """Ejecuta reglas exactas y acotadas; nunca afirma fraude."""
+    context = company_context(request, principal, company_id)
+    require(context, "quality.manage")
+    _quality_synthetic_only(request)
+    with request.app.state.database.session(
+            company_id=context.company_id,
+            subject_id=principal.subject_id) as connection:
+        return quality.scan(
+            connection, company_id=context.company_id,
+            actor_id=principal.subject_id)
+
+
+@router.get("/companies/{company_id}/quality/issues", tags=["quality"])
+def quality_issues(
+        request: Request, company_id: str, status: str = "open",
+        severity: str = "all", rule: str = "all", offset: int = 0,
+        limit: int = quality.DEFAULT_LIMIT,
+        principal: Principal = Depends(principal_dependency)) -> dict:
+    context = company_context(request, principal, company_id)
+    require(context, "quality.read")
+    _quality_synthetic_only(request)
+    with request.app.state.database.session(
+            company_id=context.company_id,
+            subject_id=principal.subject_id) as connection:
+        try:
+            result = quality.list_issues(
+                connection, status=status, severity=severity, rule=rule,
+                offset=offset, limit=limit)
+        except quality.QualityError as error:
+            raise _quality_problem(error) from None
+        repository.record_audit(
+            connection, subject_id=principal.subject_id,
+            company_id=context.company_id, action="quality.issues.read",
+            resource_kind="company", resource_ref=context.company_id,
+            outcome="allowed", detail={
+                "status": status, "severity": severity, "rule": rule,
+                "returned": len(result["items"]),
+                "truncated": result["truncated"],
+            })
+    return result
+
+
+@router.patch("/companies/{company_id}/quality/issues/{issue_id}", tags=["quality"])
+def triage_quality_issue(
+        request: Request, company_id: str, issue_id: str,
+        body: QualityTriageRequest,
+        principal: Principal = Depends(principal_dependency)) -> dict:
+    context = company_context(request, principal, company_id)
+    require(context, "quality.manage")
+    _quality_synthetic_only(request)
+    with request.app.state.database.session(
+            company_id=context.company_id,
+            subject_id=principal.subject_id) as connection:
+        try:
+            return quality.triage(
+                connection, company_id=context.company_id,
+                actor_id=principal.subject_id, issue_id=issue_id,
+                status=body.status, reason_code=body.reason_code,
+                rationale=body.rationale)
+        except quality.QualityError as error:
+            raise _quality_problem(error) from None
 
 
 @router.get("/companies/{company_id}/assignees", tags=["onboarding"])

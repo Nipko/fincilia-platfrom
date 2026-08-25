@@ -66,6 +66,7 @@
         "db/tests/test_quality_issues.py",
         "apps/api/src/fincilia_api/quality.py",
         "apps/api/src/fincilia_api/routes.py",
+        "apps/api/tests/test_quality.py",
         "apps/web/src/lib/api.ts",
         "apps/web/src/app/actions.ts",
         "apps/web/src/app/calidad",
