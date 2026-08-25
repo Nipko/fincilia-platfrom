@@ -1,13 +1,13 @@
 ---
 task: FNC-GOV-001
 title: Owners humanos, gobierno unipersonal provisional y paquete de decisiones
-status: in_progress
+status: review_pending
 implementer: Integration Steward
 base_sha: 94ac094
 gate: S1-READY
 data_ceiling: synthetic_only
 accountable_owner: Founder
-independent_reviewers: []
+independent_reviewers: ["Security distinct human pending", "Privacy or Legal distinct human pending", "Accounting distinct human pending", "Database distinct human pending"]
 ---
 
 # Resultado esperado

@@ -54,22 +54,5 @@
       "agent_may_accept": false
     }
   ],
-  "active_reservations": [
-    {
-      "task": "FNC-GOV-001",
-      "implementer": "Integration Steward",
-      "paths": [
-        "CURRENT_PHASE.md",
-        "docs/implementation/BACKLOG_PHASE_0.md",
-        "docs/implementation/OWNERSHIP.md",
-        "docs/implementation/DECISION_LOG.md",
-        "docs/implementation/work-graph.json",
-        "docs/implementation/founder-governance.json",
-        "docs/implementation/FOUNDER_GOVERNANCE.md",
-        "docs/implementation/tasks/FNC-GOV-001.md",
-        "docs/implementation/handoffs/FNC-GOV-001.md",
-        "tools/founder_governance"
-      ]
-    }
-  ]
+  "active_reservations": []
 }
