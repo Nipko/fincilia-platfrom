@@ -1,10 +1,10 @@
 ---
 task: FNC-DB-004
 title: Spike PostgreSQL de reclamo concurrente, outbox y lease expirado
-status: in_progress
+status: review_pending
 implementer: Codex principal dev + Integration Steward
 base_sha: 1daf11d
-integration_sha: pending
+integration_sha: pending_handoff_commit
 gate: S1-READY
 data_ceiling: synthetic_only
 independent_reviewers: [Architecture, Security, QA]
