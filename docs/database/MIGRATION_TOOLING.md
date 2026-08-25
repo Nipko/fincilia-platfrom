@@ -1,9 +1,17 @@
 # Migraciones SQL-first
 
-## Recomendación para spike
+## Decisión vigente — IMP-017
 
-Evaluar primero Flyway porque ofrece migraciones SQL versionadas, checksums y schema history.
-No queda seleccionado: faltan licencia/distribución, runtime fijado, supply chain y ocho pruebas
+`FOUNDER-01` aceptó ADR-002 y seleccionó el migrador SQL-first propio en
+`db/migrate/apply.py`. Flyway permanece como alternativa evaluada, no como dependencia.
+La aceptación permite migraciones de producto dentro del techo sintético actual; no
+supera S1-READY ni autoriza despliegues compartidos. Database y Security independientes
+deben revisar migraciones y funciones privilegiadas antes del gate correspondiente.
+
+## Recomendación histórica para spike
+
+Se recomendó evaluar primero Flyway porque ofrece migraciones SQL versionadas, checksums y schema history.
+No fue seleccionado: requería licencia/distribución, runtime fijado, supply chain y ocho pruebas
 contra PostgreSQL 17. Dbmate es más liviano, pero su tabla aplicada registra la versión y no
 el contenido; exigiría un manifiesto de checksums externo. node-pg-migrate encaja con Node y
 locking, pero debe probar que no debilita SQL-first/revisión y checksum.

@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-08-21
-- Owners: Data + Product, UNASSIGNED
+- Owners: Data + Product, accountable FOUNDER-01
 - Gate: S1-READY
 - Plan refs: §8, §18
 
@@ -21,4 +21,3 @@ Facilita auditoría y reutilización; requiere diseño de DSL, versionado y comp
 ## Verification
 
 Reejecución sobre mismo input/release produce mismo resultado; drift cambia estado a revisión.
-

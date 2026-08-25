@@ -370,31 +370,6 @@
   "unresolved_decisions": [
     {
       "blocks": [
-        "S1-READY"
-      ],
-      "id": "UD-QA-CATALOG-OWNER",
-      "owner_role": "QA",
-      "question": "Quien reconcilia TEST_CATALOG.md con los contratos y con que cadencia.",
-      "reviewer_roles": [
-        "Integration Steward",
-        "Architecture"
-      ],
-      "state": "pending_human"
-    },
-    {
-      "blocks": [
-        "S1-READY"
-      ],
-      "id": "UD-QA-CATALOG-FORMAT",
-      "owner_role": "QA",
-      "question": "Si el catalogo debe pasar a formato estructurado en vez de tabla Markdown.",
-      "reviewer_roles": [
-        "Architecture"
-      ],
-      "state": "pending_human"
-    },
-    {
-      "blocks": [
         "DRG-01"
       ],
       "id": "UD-QA-RUNTIME-BACKLOG",

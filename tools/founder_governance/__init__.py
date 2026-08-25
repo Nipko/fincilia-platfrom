@@ -1,0 +1,1 @@
+"""Executable founder governance contract."""

@@ -1071,19 +1071,6 @@
     },
     {
       "blocks": [
-        "S1-READY"
-      ],
-      "id": "UD-QA-CATALOG-DRIFT",
-      "owner_role": "QA",
-      "question": "TEST_CATALOG.md y los contratos ejecutables divergen en ambos sentidos; quien reconcilia y con que frecuencia.",
-      "reviewer_roles": [
-        "Integration Steward",
-        "Architecture"
-      ],
-      "state": "pending_human"
-    },
-    {
-      "blocks": [
         "DRG-01"
       ],
       "id": "UD-QA-INTEGRATION-ENV",
@@ -1092,19 +1079,6 @@
       "reviewer_roles": [
         "Security",
         "QA"
-      ],
-      "state": "pending_human"
-    },
-    {
-      "blocks": [
-        "S1-READY"
-      ],
-      "id": "UD-QA-MUTATION-TOOLING",
-      "owner_role": "QA",
-      "question": "Herramienta y presupuesto de mutation testing sostenido en CI.",
-      "reviewer_roles": [
-        "Platform",
-        "Architecture"
       ],
       "state": "pending_human"
     }

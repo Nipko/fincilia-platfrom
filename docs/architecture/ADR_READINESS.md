@@ -2,12 +2,18 @@
 
 Estado: Review pending · Tarea: FNC-ARC-006 · Datos: solo sintéticos.
 
+## Adjudicación del Founder — 2026-08-25
+
+IMP-017 ratifica ADR-001..010, ADR-023 y ADR-024 con `FOUNDER-01` como
+accountable provisional. ADR-002 selecciona el migrador SQL-first propio y ADR-008
+inicia sin Temporal. La ratificación retira bloqueos de decisión y asignación; no
+satisface las revisiones independientes ni la evidencia técnica enumerada en el modelo.
+
 ## Resultado
 
-Los contratos actuales permiten continuar con documentación, prototipos, entorno local y
-spikes. No autorizan todavía el código de producto con datos reales ni permiten marcar
-`S1-READY`: ADR-002 sigue Proposed, ADR-020 está bloqueada por A-02 y todos los ADR core
-conservan asignación humana pendiente.
+Los contratos actuales permiten continuar con producto local y datos sintéticos. No
+autorizan datos reales ni permiten marcar `S1-READY`: los ADR core conservan revisiones
+independientes o evidencia técnica pendiente, y ADR-020 continúa bloqueada por A-02.
 
 El registro autoritativo para esta revisión es `adr-readiness.json`. No reemplaza los ADR;
 los inventaría, vincula evidencia y hace explícito el alcance permitido y sus bloqueos.

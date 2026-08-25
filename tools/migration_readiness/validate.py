@@ -11,7 +11,7 @@ MIGRATIONS=Path("db/migrations");MIGRATOR=Path("db/migrate/apply.py")
 # que NO implica se declara explicitamente para que nadie lo reutilice como si
 # fuera la decision humana que todavia no existe.
 LOCAL_KEYS={"local_product_build_allowed","scope","compose_project","migrator","reserved_band","does_not_imply"}
-NEVER_IMPLIED={"adr_002_accepted","tool_selected","s1_approved","product_migrations_allowed","deployment_to_shared_environment"}
+NEVER_IMPLIED={"s1_approved","deployment_to_shared_environment"}
 FILENAME=re.compile(r"^V(?P<number>\d{4})__[a-z0-9_]+\.sql$")
 # El cuerpo llega hasta el `);` en columna cero: un parentesis interior de un
 # CHECK no cierra la tabla.
@@ -71,7 +71,7 @@ def validate_definers(items):
 def validate_model(m:dict[str,Any]):
  f=[];keys={"schema_version","task","status","data_ceiling","adr_002_state","selected_tool","preferred_for_spike","human_acceptance","product_migrations_allowed","criteria","candidates","spike_matrix","production_policy","gates","local_build","rls_exemptions","security_definer_functions"}
  if set(m)!=keys:return [Finding("DB-SCHEMA","model","unexpected keys")]
- if m["data_ceiling"]!="synthetic_only" or m["adr_002_state"]!="proposed" or m["selected_tool"] is not None or m["human_acceptance"]!="pending" or m["product_migrations_allowed"] is not False:f.append(Finding("DB-HUMAN","model","decision prematurely accepted"))
+ if m["data_ceiling"]!="synthetic_only" or m["adr_002_state"]!="accepted" or m["selected_tool"]!="fincilia_sql_first" or m["human_acceptance"]!="accepted_by_founder_01_imp_017" or m["product_migrations_allowed"] is not True:f.append(Finding("DB-HUMAN","model","Founder-approved migration decision drifted"))
  required={"plain_sql","versioned_order","content_checksum","transaction_by_default","concurrency_lock","strict_out_of_order","dry_run_or_plan","separate_migrator_role","postgresql_17","blank_replay_upgrade_tests","immutable_applied_migrations","forward_only_production","expand_contract"}
  if set(m["criteria"])!=required:f.append(Finding("DB-CRITERIA","criteria","criteria drift"))
  ids=[x.get("id") for x in m["candidates"]]

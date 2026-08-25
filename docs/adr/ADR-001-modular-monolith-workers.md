@@ -1,8 +1,8 @@
 # ADR-001 — Monolito modular y workers aislados
 
-- Status: Accepted architectural shape; stack recommendation ready for human review
+- Status: Accepted; ratified by FOUNDER-01 under IMP-017
 - Date: 2026-08-21
-- Owners: Architecture, UNASSIGNED
+- Owners: Architecture, accountable FOUNDER-01
 - Gate: S1-READY
 - Plan refs: §20–§21
 

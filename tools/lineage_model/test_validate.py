@@ -757,8 +757,7 @@ class LineageModelTest(unittest.TestCase):
 
     def test_unresolved_decision_cannot_be_closed(self) -> None:
         mutated = copy.deepcopy(self.model)
-        next(d for d in mutated["unresolved_decisions"]
-             if d["id"] == "UD-DR-PRV-001")["state"] = "resolved"
+        mutated["unresolved_decisions"][0]["state"] = "resolved"
         self.assertIn("LIN-DECISION-STATE", self._codes(mutated))
 
     def test_engine_release_owner_module_is_platform(self) -> None:

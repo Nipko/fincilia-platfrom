@@ -304,10 +304,10 @@ Además expone tres funciones puras probadas: `validate_graph` sobre un grafo si
 
 | ID | Pregunta | Owner |
 |---|---|---|
-| `UD-DR-PRV-001` | Taxonomía del eje de dato personal y su obligatoriedad legal | Privacy |
+| `UD-DR-PRV-001` | Resuelta por IMP-017: sensibilidad y categoría de dato personal son ejes separados; aplicabilidad Legal sigue antes de DRG-00 | Privacy |
 | `UD-DR-LEG-001` | Reloj y orden de retención de linaje frente a backups y tombstones | Legal |
-| `UD-RELEASE-APPROVAL` | Quién firma una release `approved` y con qué evidencia | Platform |
-| `UD-LOCATOR-STORAGE` | Representación física y coste de almacenar linaje por campo | Architecture |
+| `UD-RELEASE-APPROVAL` | Resuelta por IMP-017: humano Platform, evidencia reproducible y revisión independiente Security/QA | Platform |
+| `UD-LOCATOR-STORAGE` | Resuelta por IMP-017 y ADR-024: plan compartido, localizador exacto y overrides append-only | Architecture |
 | `UD-EXTERNAL-MODEL-PINNING` | Qué hacer cuando un proveedor externo no ofrece versión fijable | Architecture |
 
 Ninguna se resuelve aquí. Aprobar este documento no supera S1-READY ni DRG-00.

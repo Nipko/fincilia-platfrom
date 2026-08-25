@@ -1,9 +1,9 @@
 # ADR-024 — Representación lógica y física del linaje
 
-- Status: Proposed
+- Status: Accepted; ratified by FOUNDER-01 under IMP-017
 - Date: 2026-08-23
-- Owners: Data + Architecture, UNASSIGNED
-- Approvers: Security + QA, UNASSIGNED
+- Owners: Data + Architecture, accountable FOUNDER-01
+- Independent reviewers: Security + QA, distinct humans pending
 - Gate: S1-READY
 - Tasks: FNC-P3.5, FNC-P3.6
 - Plan refs: §18

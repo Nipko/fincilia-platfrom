@@ -1703,21 +1703,6 @@
   "unresolved_decisions": [
     {
       "blocks": [
-        "S1-READY",
-        "DRG-00"
-      ],
-      "id": "UD-DR-PRV-001",
-      "owner_role": "Privacy",
-      "question": "Taxonomia del eje de dato personal y su obligatoriedad legal.",
-      "reviewer_roles": [
-        "Legal",
-        "Architecture",
-        "Security"
-      ],
-      "state": "pending_human"
-    },
-    {
-      "blocks": [
         "DRG-00"
       ],
       "id": "UD-DR-LEG-001",
@@ -1727,33 +1712,6 @@
         "Privacy",
         "Platform",
         "Accounting"
-      ],
-      "state": "pending_human"
-    },
-    {
-      "blocks": [
-        "S1-READY"
-      ],
-      "id": "UD-RELEASE-APPROVAL",
-      "owner_role": "Platform",
-      "question": "Quien firma una engine release approved y con que evidencia.",
-      "reviewer_roles": [
-        "Architecture",
-        "Security",
-        "Data"
-      ],
-      "state": "pending_human"
-    },
-    {
-      "blocks": [
-        "S1-READY"
-      ],
-      "id": "UD-LOCATOR-STORAGE",
-      "owner_role": "Architecture",
-      "question": "Representacion fisica y coste de almacenar linaje por campo.",
-      "reviewer_roles": [
-        "Data",
-        "Platform"
       ],
       "state": "pending_human"
     },

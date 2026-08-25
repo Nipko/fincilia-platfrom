@@ -3,11 +3,11 @@
   "task": "FNC-DB-001",
   "status": "review_pending",
   "data_ceiling": "synthetic_only",
-  "adr_002_state": "proposed",
-  "selected_tool": null,
+  "adr_002_state": "accepted",
+  "selected_tool": "fincilia_sql_first",
   "preferred_for_spike": "flyway",
-  "human_acceptance": "pending",
-  "product_migrations_allowed": false,
+  "human_acceptance": "accepted_by_founder_01_imp_017",
+  "product_migrations_allowed": true,
   "criteria": [
     "plain_sql",
     "versioned_order",
@@ -166,10 +166,7 @@
     "migrator": "db/migrate/apply.py",
     "reserved_band": "V0001-V0999",
     "does_not_imply": [
-      "adr_002_accepted",
-      "tool_selected",
       "s1_approved",
-      "product_migrations_allowed",
       "deployment_to_shared_environment"
     ]
   },

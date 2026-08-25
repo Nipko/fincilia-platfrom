@@ -115,27 +115,28 @@ Security, y siguen bloqueando sus gates.
 ## 5. Estado observado
 
 ```
-requisitos: 40 · blockers: 10 · observaciones: 558 · fuentes ilegibles: 0
+requisitos: 40 · blockers: 2 · observaciones: 652 · fuentes ilegibles: 0
 gate: not_met · evaluación válida · exit 10
 ```
 
 | Categoría | Cantidad |
 |---|---:|
-| `machine_pass` | 30 |
-| `pending_human` | 9 |
+| `machine_pass` | 38 |
+| `pending_human` | 1 |
 | `machine_fail` | 1 |
 
-### Los 10 blockers, por naturaleza
+### Los 2 blockers, por naturaleza
 
 | Naturaleza | Cantidad | Detalle |
 |---|---:|---|
-| Owners humanos sin asignar | 7 | los 7 slots de `CURRENT_PHASE.md` siguen `UNASSIGNED` |
-| ADR requeridos no listos | 1 | **11 de 11**: ADR-001 a ADR-010 y ADR-023 |
-| Decisiones humanas que declaran bloquear S1 | 1 | **10 de 10** descubiertas siguen sin resolver |
+| Owners accountable sin asignar | 0 | los 7 slots usan el alias humano estable `FOUNDER-01` |
+| ADR requeridos no listos | 0 | **11 de 11** están ratificados y `ready` |
+| Revisión humana independiente | 1 | el Founder no puede contar como segunda mirada; personas distintas siguen pendientes |
 | Validador en rojo | 1 | `chk-supply-chain`: procedencia no demostrada |
 
-**Ninguna fuente del repositorio registra aceptación humana.** No hay ni un solo
-owner nominal asignado. S1-READY no está cerca, y decir otra cosa sería falso.
+IMP-017 registra la aceptación del Founder y resuelve el paquete de diez decisiones.
+S1-READY sigue `not_met`: no se puede fabricar la revisión independiente ni declarar
+SBOM, firma, procedencia o verificación de origen que aún no existen.
 
 ---
 

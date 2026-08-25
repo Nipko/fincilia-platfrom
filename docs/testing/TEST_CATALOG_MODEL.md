@@ -177,6 +177,6 @@ Y los hallazgos, separados por naturaleza:
 
 | ID | Pregunta | Owner |
 |---|---|---|
-| `UD-QA-CATALOG-OWNER` | Quién reconcilia el catálogo y con qué cadencia | QA |
-| `UD-QA-CATALOG-FORMAT` | Si el catálogo debe pasar a formato estructurado | QA |
+| `UD-QA-CATALOG-OWNER` | Resuelta por IMP-017: QA al cambiar contratos y antes de release; revisa Integration Steward | QA |
+| `UD-QA-CATALOG-FORMAT` | Resuelta por IMP-017: JSON autoritativo y Markdown como proyección humana | QA |
 | `UD-QA-RUNTIME-BACKLOG` | Qué IDs planeados pasan a requisito contractual y cuándo | QA |

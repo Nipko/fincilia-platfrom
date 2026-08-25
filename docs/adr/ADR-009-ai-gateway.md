@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-08-21
-- Owners: Security + ML + Privacy, UNASSIGNED
+- Owners: Security + ML + Privacy, accountable FOUNDER-01
 - Gates: S1-READY, DRG-01
 - Plan refs: §37–§41
 
@@ -22,4 +22,3 @@ Control central de proveedores/costo/riesgo; añade gateway, evals y latencia.
 ## Verification
 
 Antes de IA real: dataset de eval, prompt injection, redactor, shadow/canary/rollback y presupuesto.
-

@@ -6,9 +6,9 @@ M=json.loads((ROOT/"docs/database/migration-tooling.json").read_text(encoding="u
 V1=(ROOT/"db/migrations/V0001__identity_and_tenancy.sql").read_text(encoding="utf-8")
 class MigrationTest(unittest.TestCase):
  def bite(self,m,c):self.assertIn(c,{x.code for x in validate_repository(m)[1]})
- def test_valid(self):r,f=validate_repository();self.assertEqual([],f);self.assertIsNone(r["selected_tool"])
+ def test_valid(self):r,f=validate_repository();self.assertEqual([],f);self.assertEqual("fincilia_sql_first",r["selected_tool"])
  def test_select(self):m=copy.deepcopy(M);m["selected_tool"]="flyway";self.bite(m,"DB-HUMAN")
- def test_adr(self):m=copy.deepcopy(M);m["adr_002_state"]="accepted";self.bite(m,"DB-HUMAN")
+ def test_adr(self):m=copy.deepcopy(M);m["adr_002_state"]="proposed";self.bite(m,"DB-HUMAN")
  def test_criteria(self):m=copy.deepcopy(M);m["criteria"]=[];self.bite(m,"DB-CRITERIA")
  def test_candidate(self):m=copy.deepcopy(M);m["candidates"]=m["candidates"][:1];self.bite(m,"DB-CANDIDATES")
  def test_evidence(self):m=copy.deepcopy(M);m["candidates"][0]["gaps"]=[];self.bite(m,"DB-EVIDENCE")
@@ -22,9 +22,9 @@ class MigrationTest(unittest.TestCase):
  def test_local_build_is_declared_and_scoped(self):
   b=M["local_build"];self.assertIs(True,b["local_product_build_allowed"]);self.assertEqual("local_only_synthetic",b["scope"])
  def test_local_build_never_implies_the_human_decision(self):
-  self.assertIs(False,M["product_migrations_allowed"]);self.assertEqual("pending",M["human_acceptance"])
+  self.assertIs(True,M["product_migrations_allowed"]);self.assertEqual("accepted_by_founder_01_imp_017",M["human_acceptance"])
  def test_local_flag_without_its_limits_bites(self):
-  m=copy.deepcopy(M);m["local_build"]["does_not_imply"]=["adr_002_accepted"];self.bite(m,"DB-LOCAL-IMPLIES")
+  m=copy.deepcopy(M);m["local_build"]["does_not_imply"]=["s1_approved"];self.bite(m,"DB-LOCAL-IMPLIES")
  def test_dropping_one_limit_bites(self):
   for removed in list(M["local_build"]["does_not_imply"]):
    with self.subTest(removed=removed):

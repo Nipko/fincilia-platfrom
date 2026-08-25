@@ -1,7 +1,7 @@
 ---
 task: FNC-GOV-001
 title: Owners humanos, suplentes, RACI y aprobadores por gate
-status: blocked
+status: review_pending
 implementer: Integration Steward
 base_sha: 94ac094
 gate: S1-READY
@@ -12,9 +12,8 @@ independent_reviewers: ["Security distinct human pending", "Privacy or Legal dis
 
 # Resultado esperado
 
-Asignar owners humanos nominales, suplentes, RACI y aprobadores por gate. Una identidad
-de prueba multirrol dentro de la aplicación no satisface esta tarea ni reemplaza owners
-de gobierno.
+Registrar un owner humano accountable provisional, su RACI y el paquete explícito de
+decisiones técnicas y ADR aprobado, sin confundirlo con una revisión independiente.
 
 ## Corrección 2026-08-24
 
@@ -22,6 +21,13 @@ La frase «una sola persona hará varios roles» se refería al operador físico
 la aplicación mediante personas sintéticas, no a concentrar todos los owners de
 gobierno en Founder. Los commits iniciales quedan corregidos de forma append-only; sus
 conclusiones no deben consumirse como estado vigente.
+
+## Adjudicación vigente 2026-08-25
+
+El Founder aprobó expresamente la RACI provisional y el paquete recomendado. Se
+registra como `FOUNDER-01`, alias estable cuya correspondencia civil permanece fuera
+del repositorio. La decisión IMP-017 sustituye el bloqueo previo, pero no satisface
+ningún control que exija una segunda persona.
 
 ## Rutas reservadas
 
@@ -39,8 +45,8 @@ conclusiones no deben consumirse como estado vigente.
 
 ## Criterios de aceptación
 
-1. Founder asigna personas humanas nominales o aprueba explícitamente una RACI
-   provisional de gobierno.
+1. Founder asigna una persona humana nominal o aprueba explícitamente una RACI
+   provisional de gobierno. **Cumplido por `FOUNDER-01` e IMP-017.**
 2. Owner y reviewer independientes se resuelven a personas distintas cuando el gate lo
    exige.
 3. Cada rol conserva sus responsabilidades y autoridad; no se fusionan controles.
@@ -56,7 +62,8 @@ conclusiones no deben consumirse como estado vigente.
 - Cambiar contratos de dominio, migraciones o código de producto.
 - Diseñar o implementar el selector local de persona/rol sintético.
 
-## Bloqueo vigente
+## Pendiente de revisión
 
-Founder debe asignar la RACI humana de gobierno. La cuenta o persona multirrol usada
-para probar la aplicación no satisface este bloqueo.
+La asignación accountable ya no está bloqueada. Siguen vacantes personas distintas
+para las revisiones independientes de Accounting, Database, Security y Privacy/Legal;
+por diseño no se inventan ni se sustituyen con usuarios sintéticos de la aplicación.

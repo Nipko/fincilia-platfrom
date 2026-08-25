@@ -16,14 +16,14 @@ real_research_corpus_allowed: false
 real_pilot_allowed: false
 public_pricing_allowed: false
 external_ai_with_customer_data_allowed: false
-integration_owner: UNASSIGNED
-product_owner: UNASSIGNED
-accounting_owner: UNASSIGNED
-architecture_owner: UNASSIGNED
-security_owner: UNASSIGNED
-privacy_owner: UNASSIGNED
-legal_owner: UNASSIGNED
-review_date: UNASSIGNED
+integration_owner: FOUNDER-01
+product_owner: FOUNDER-01
+accounting_owner: FOUNDER-01
+architecture_owner: FOUNDER-01
+security_owner: FOUNDER-01
+privacy_owner: FOUNDER-01
+legal_owner: FOUNDER-01
+review_date: 2026-09-30
 ---
 
 # Fase vigente
@@ -66,7 +66,7 @@ Hasta S1-READY solo se admite scaffolding, automatización, pruebas, documentaci
 
 | ID | Resultado | Estado | Implementador | Rutas |
 |---|---|---|---|---|
-| FNC-GOV-001 | Owners humanos, suplentes y RACI por gate | Blocked: founder | Integration Steward | Una persona multirrol de prueba no asigna owners humanos de gobierno; corrección FNC-GOV-001-R1 |
+| FNC-GOV-001 | Owner provisional, RACI y paquete de decisiones del Founder | Review pending | Integration Steward | `FOUNDER-01` accountable provisional; revisores humanos distintos continúan pendientes; decisión IMP-017 |
 | FNC-GOV-002 | Paquete de implementación multiagente | Done | Integration Steward | raíz, docs/implementation, docs/adr |
 | FNC-PRD-001 | PRD y wedge de firma contable | Review pending | Hume | docs/product/PRD_WEDGE.md, handoff |
 | FNC-DOM-001 | Tenancy company/engagement | Review pending | Einstein | docs/domain/TENANCY_MODEL.md, handoff |
@@ -129,7 +129,7 @@ Solo el Integration Steward modifica esta tabla.
 
 | Ola | Tarea | Dependencia | Estado |
 |---:|---|---|---|
-| 0 | FNC-GOV-001 Owners humanos y RACI | Ninguna | Blocked: founder; una persona multirrol de prueba no asigna owners de gobierno |
+| 0 | FNC-GOV-001 Owners humanos y RACI | Ninguna | Review pending; `FOUNDER-01` asignado, revisores independientes distintos pendientes |
 | 0 | FNC-GOV-003 Grafo ejecutable de trabajo | FNC-GOV-002 | Review pending |
 | 0 | FNC-PRD-001 PRD general y wedge | FNC-GOV-001 para aprobación | Review pending |
 | 0 | FNC-DOM-001 Modelo tenancy | PRD provisional | Review pending |
@@ -166,7 +166,7 @@ Solo el Integration Steward modifica esta tabla.
 | 1 | FNC-QA-004 Catálogo ejecutable de pruebas | FNC-QA-002/003 | Review pending; sin drift bloqueante |
 | 1 | FNC-QA-005 Mutation harness de validadores | FNC-QA-002/003 | Review pending; 63/63 mutaciones muertas |
 | 1 | FNC-SUP-001 Baseline de supply chain | FNC-PLT-003, FNC-QA-005 | Review pending; procedencia/SBOM/firma y TM-005 siguen abiertos |
-| 1 | FNC-DB-002 Spike de invariantes de migración | FNC-DB-001, FNC-PLT-002 | Review pending; 12/12 invariantes verificadas, ADR-002 sigue proposed |
+| 1 | FNC-DB-002 Spike de invariantes de migración | FNC-DB-001, FNC-PLT-002 | Review pending; 12/12 invariantes verificadas y ADR-002 ratificada por IMP-017; revisión independiente pendiente |
 | 1 | FNC-PLT-007 CLI de desarrollo | FNC-PLT-002/003, FNC-QA-004/005 | Review pending; gap esperado de supply chain visible |
 | 1 | FNC-GAT-003 Readiness S1 ejecutable | FNC-ARC-006, FNC-QA-004/005, FNC-SUP-001, FNC-DB-002 | Review pending; gate sigue not_met y requiere aceptación humana |
 
@@ -185,7 +185,7 @@ Draftable significa que un agente puede preparar un borrador, pero no marcarlo A
 - [ ] Especificación de linaje.
 - [ ] Contrato de conectores.
 - [ ] Estados, eventos y retry ownership.
-- [ ] ADR-001 a ADR-010 y ADR de engine release.
+- [x] ADR-001 a ADR-010 y ADR de engine release ratificados por IMP-017; la revisión independiente se controla por separado.
 - [ ] Corpus sintético y golden suite inicial.
 - [ ] Design system y prototipo navegable.
 - [ ] Cero datos reales en repo, local, CI o artefactos.

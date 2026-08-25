@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-08-21
-- Owners: Architecture + Data + Security, UNASSIGNED
+- Owners: Architecture + Data + Security, accountable FOUNDER-01
 - Gate: S1-READY
 - Task: FNC-DOM-005
 - Plan refs: §18

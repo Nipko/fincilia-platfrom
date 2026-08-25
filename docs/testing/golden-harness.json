@@ -528,11 +528,11 @@
         },
         {
           "path": "docs/domain/lineage-model.json",
-          "sha256": "61ad8682dc39eaec2b86bfdde6618a922ebb88410f3ce7ce9152249acc416332"
+          "sha256": "e0044769fbac33597acef5413bff3590eb2e1393db1567e7b6a4c23e429f0429"
         },
         {
           "path": "docs/privacy/privacy-map.json",
-          "sha256": "5d927d5e6bb58ca971ae3361800664e4383fb8f63d7e56d644fba852b80d0970"
+          "sha256": "a356e83bc91e7c5b4bb367d3a01edc165e5b6923a6d991d05f280680d9259853"
         },
         {
           "path": "docs/security/threat-model.json",
@@ -595,7 +595,7 @@
         },
         {
           "path": "docs/privacy/privacy-map.json",
-          "sha256": "5d927d5e6bb58ca971ae3361800664e4383fb8f63d7e56d644fba852b80d0970"
+          "sha256": "a356e83bc91e7c5b4bb367d3a01edc165e5b6923a6d991d05f280680d9259853"
         },
         {
           "path": "docs/security/threat-model.json",
@@ -721,7 +721,7 @@
         },
         {
           "path": "docs/testing/test-strategy.json",
-          "sha256": "69d2acd5dcd90cdd9ad70e31a77f77d6042933095d3a672d1497c913e57566c8"
+          "sha256": "2384bdff0c7fe3a41856e83f5738a556a7a45c8ce4c518005166fc6b81ccd76a"
         }
       ],
       "max_output_bytes": 262144,

@@ -105,7 +105,7 @@ def validate_model(model: dict[str, Any], root: Path = ROOT) -> list[Finding]:
             findings.append(Finding("ADR-RDY-SOD", identifier, "owners/reviewers missing or overlapping"))
         if not record["evidence"]:
             findings.append(Finding("ADR-RDY-EVIDENCE", identifier, "evidence required"))
-        if record["readiness"] != "documented" and not record["blockers"]:
+        if record["readiness"] not in {"documented", "ready"} and not record["blockers"]:
             findings.append(Finding("ADR-RDY-BLOCKER", identifier, "conditional/blocked ADR needs blockers"))
 
         path = _inside(root, record["path"])
@@ -128,9 +128,9 @@ def validate_model(model: dict[str, Any], root: Path = ROOT) -> list[Finding]:
                 findings.append(Finding("ADR-RDY-EVIDENCE", identifier, evidence))
 
     for decision in model["decisions"]:
-        if set(decision) != {"id", "state", "owner", "question"}:
+        if set(decision) != {"id", "state", "owner", "question", "blocks"}:
             findings.append(Finding("ADR-RDY-DECISION", str(decision.get("id")), "decision keys must be exact"))
-        if decision.get("state") != "pending_human" or not decision.get("owner") or not decision.get("question"):
+        if decision.get("state") != "pending_human" or not decision.get("owner") or not decision.get("question") or decision.get("blocks") != ["S1-READY"]:
             findings.append(Finding("ADR-RDY-DECISION", str(decision.get("id")), "decision must remain pending_human"))
 
     return findings

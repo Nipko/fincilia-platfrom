@@ -1178,12 +1178,12 @@
     },
     {
       "path": "docs/security/supply-chain.json",
-      "sha256": "7631edf1d01daee5d5b8c11a388cd4daf22185f68e80edae42fb7678d0ecdd7b",
+      "sha256": "4f2d91b50dc24d292c2443b3b109162d2c8277172fb2c2299128393c6f575086",
       "produced_by": "FNC-SUP-001 contract review; declaration baseline, not attestation"
     },
     {
       "path": "docs/testing/mutation-harness.json",
-      "sha256": "08d3b6a09587e9493b4e3b9cebae12ba0b55d64a33997e72ef8df5c9615cdee8",
+      "sha256": "fdce2d0ff3607f38765c8571746c1222129c55c436486de4ae7e82f28e59b12c",
       "produced_by": "FNC-QA-005 registry review; declaration baseline, not runtime evidence"
     }
   ],
