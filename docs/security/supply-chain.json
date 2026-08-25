@@ -143,6 +143,7 @@
     "directory_names": [
       ".git",
       ".mypy_cache",
+      ".next",
       ".pytest_cache",
       ".ruff_cache",
       ".venv",

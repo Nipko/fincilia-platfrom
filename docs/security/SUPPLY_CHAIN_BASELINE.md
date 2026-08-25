@@ -101,37 +101,31 @@ de comprometer una cadena de suministro.
 
 ## 6. Estado medido del repositorio
 
-26 componentes en 9 ficheros escaneados:
+60 componentes en 22 ficheros escaneados:
 
 | Tipo | Cantidad | Estado |
 |---|---:|---|
-| `github_action` | 5 | **todas fijadas a sha de 40** |
-| `oci_image` | 7 | **todas fijadas por digest** |
-| `runtime` | 5 | `python-version: 3.12` exacto; 4 `runs-on: ubuntu-24.04` |
-| `package_manifest` | 2 | ambos con lockfile hermano, sin lifecycle scripts |
-| `lockfile` | 2 | `lockfileVersion 3`, un ecosistema por alcance |
-| `external_build_service` | 2 | ambos `npm ci --ignore-scripts`: acotados y sin ejecutar scripts |
-| `generated_artifact` | 3 | entradas de vigilancia de actualizaciones |
+| `github_action` | 9 | **todas fijadas a sha de 40** |
+| `oci_image` | 14 | **todas fijadas por digest** |
+| `runtime` | 9 | versiones exactas o runner versionado con gap declarado |
+| `package_manifest` | 8 | con lockfile hermano |
+| `lockfile` | 5 | un ecosistema por alcance |
+| `external_build_service` | 3 | instalaciones acotadas y sin lifecycle scripts |
+| `generated_artifact` | 12 | entradas de vigilancia de actualizaciones |
 
 **Ningún defecto de pin.** Los hallazgos que quedan son de otra naturaleza:
 
 | Hallazgo | Cantidad | Severidad | Clasificación |
 |---|---:|---|---|
 | `SUP-PROVENANCE-PENDING` | 4 | high | gap declarado |
-| `SUP-UPDATES-UNMONITORED` | 3 | medium | hueco de cobertura |
+| `SUP-UPDATES-UNMONITORED` | 0 | medium | cobertura completa |
 
-### Los tres alcances sin vigilar
+### Cobertura de actualizaciones
 
-`dependabot.yml` cubre `github-actions` en `/`, `npm` en `/spikes/FNC-PLT-001/api` y
-`docker` en `/spikes/FNC-PLT-001`. Quedan fuera:
-
-- `spikes/FNC-PLT-005/api` — npm con dependencias y lockfile propios;
-- `spikes/FNC-PLT-005` — imágenes declaradas;
-- `infra/local` — imágenes declaradas.
-
-Un digest fijado nunca se mueve solo: **por eso** hace falta que alguien avise
-cuando debería moverse. `dependabot.yml` es ruta protegida y no se tocó; el hallazgo
-va al Integration Steward y a Platform.
+`dependabot.yml` cubre todos los alcances npm, pip, Docker y GitHub Actions que el
+inventario descubre. `.next` se excluye mediante el contrato, no mediante una regla
+ad hoc: es salida generada de Next.js y sus manifests transitivos no son fuentes
+mantenidas por el repositorio.
 
 ---
 
@@ -183,11 +177,16 @@ intacta, y hay prueba de que así ocurre.
 ```bash
 python -m tools.supply_chain.cli discover
 python -m tools.supply_chain.cli validate
+python -m tools.supply_chain.cli validate --gate S1-READY
 python -m tools.supply_chain.cli report
 ```
 
 - `discover` — inventario estable y ordenado, con procedencia y digest.
-- `validate` — validez del contrato **más** reconciliación del repositorio, por separado.
+- `validate` — validez del contrato **más** reconciliación completa; continúa saliendo
+  1 mientras los cuatro gaps de DRG-00 sigan abiertos.
+- `validate --gate S1-READY` — conserva todos los hallazgos en la salida, pero solo
+  usa como exit code los bloqueantes cuyo `gate` sea S1-READY. Un gate desconocido
+  falla cerrado.
 - `report` — blockers y gaps por riesgo, owner y gate. `aggregate_score` es `null` a
   propósito: un porcentaje ocultaría justo el blocker.
 

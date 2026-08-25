@@ -486,7 +486,8 @@ def check_inventory_completeness(model: dict[str, Any], root: Path,
     watch = list((model.get("inventory_completeness") or {}).get("watch_globs", []))
     known = {item["path"] for item in inventory.get("components", [])}
     known |= {item["path"] for item in inventory.get("scanned_files", [])}
-    for relative in collect_files(root, watch):
+    excluded = frozenset((model.get("exclusions") or {}).get("directory_names") or [])
+    for relative in collect_files(root, watch, excluded):
         posix = relative.as_posix()
         if posix in known:
             continue

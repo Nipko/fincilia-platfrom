@@ -103,7 +103,7 @@ Hasta S1-READY solo se admite scaffolding, automatización, pruebas, documentaci
 | FNC-QA-003 | Golden harness adjudicado y fail-closed | Review pending | Claude + Integration Steward | docs/testing/GOLDEN_HARNESS.md, golden-harness.json, tools/golden_harness, tests/golden/harness, handoff |
 | FNC-QA-004 | Catálogo ejecutable y reconciliación dinámica | Review pending | Claude + Integration Steward | docs/testing/TEST_CATALOG_MODEL.md, test-catalog-model.json, tools/test_catalog, catálogo, CI, handoff |
 | FNC-QA-005 | Arnés determinista de mutaciones | Review pending | Claude + Integration Steward | docs/testing/MUTATION_HARNESS.md, mutation-harness.json, tools/mutation_harness, tests/golden/mutations, CI, handoff |
-| FNC-SUP-001 | Baseline ejecutable de cadena de suministro | Review pending | Claude + Integration Steward | docs/security/SUPPLY_CHAIN_BASELINE.md, supply-chain.json, tools/supply_chain, handoff |
+| FNC-SUP-001 | Baseline ejecutable de cadena de suministro | Review pending | Claude + Integration Steward | cobertura de updates completa; check acotado por gate; procedencia/SBOM/firma siguen bloqueando DRG-00 |
 | FNC-DB-002 | Spike PostgreSQL de migraciones SQL-first | Review pending | Claude + Integration Steward | docs/database/MIGRATION_SPIKE.md, migration-spike.json, spikes/FNC-DB-002, tools/migration_spike, handoff |
 | FNC-PLT-007 | CLI segura de desarrollo local | Review pending | Claude + Integration Steward | docs/platform/DEVELOPER_CLI.md, developer-cli.json, tools/dev_cli, handoff |
 | FNC-GAT-003 | Agregador ejecutable de readiness S1 | Review pending | Claude + Integration Steward | docs/implementation/S1_READINESS_REPORT.md, s1-readiness.json, tools/s1_readiness, handoff |
@@ -168,7 +168,7 @@ Solo el Integration Steward modifica esta tabla.
 | 1 | FNC-SUP-001 Baseline de supply chain | FNC-PLT-003, FNC-QA-005 | Review pending; procedencia/SBOM/firma y TM-005 siguen abiertos |
 | 1 | FNC-DB-002 Spike de invariantes de migración | FNC-DB-001, FNC-PLT-002 | Review pending; 12/12 invariantes verificadas y ADR-002 ratificada por IMP-017; revisión independiente pendiente |
 | 1 | FNC-PLT-007 CLI de desarrollo | FNC-PLT-002/003, FNC-QA-004/005 | Review pending; gap esperado de supply chain visible |
-| 1 | FNC-GAT-003 Readiness S1 ejecutable | FNC-ARC-006, FNC-QA-004/005, FNC-SUP-001, FNC-DB-002 | Review pending; gate sigue not_met y requiere aceptación humana |
+| 1 | FNC-GAT-003 Readiness S1 ejecutable | FNC-ARC-006, FNC-QA-004/005, FNC-SUP-001, FNC-DB-002 | Review pending; un único blocker: revisión independiente por personas distintas |
 
 Draftable significa que un agente puede preparar un borrador, pero no marcarlo Accepted hasta resolver la dependencia.
 

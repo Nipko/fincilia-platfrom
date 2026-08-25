@@ -115,28 +115,29 @@ Security, y siguen bloqueando sus gates.
 ## 5. Estado observado
 
 ```
-requisitos: 40 · blockers: 2 · observaciones: 652 · fuentes ilegibles: 0
+requisitos: 40 · blockers: 1 · fuentes ilegibles: 0
 gate: not_met · evaluación válida · exit 10
 ```
 
 | Categoría | Cantidad |
 |---|---:|
-| `machine_pass` | 38 |
+| `machine_pass` | 39 |
 | `pending_human` | 1 |
-| `machine_fail` | 1 |
+| `machine_fail` | 0 |
 
-### Los 2 blockers, por naturaleza
+### El blocker restante
 
 | Naturaleza | Cantidad | Detalle |
 |---|---:|---|
 | Owners accountable sin asignar | 0 | los 7 slots usan el alias humano estable `FOUNDER-01` |
 | ADR requeridos no listos | 0 | **11 de 11** están ratificados y `ready` |
 | Revisión humana independiente | 1 | el Founder no puede contar como segunda mirada; personas distintas siguen pendientes |
-| Validador en rojo | 1 | `chk-supply-chain`: procedencia no demostrada |
+| Validador en rojo para S1 | 0 | supply chain pasa S1 y conserva cuatro gaps bloqueantes de DRG-00 |
 
 IMP-017 registra la aceptación del Founder y resuelve el paquete de diez decisiones.
-S1-READY sigue `not_met`: no se puede fabricar la revisión independiente ni declarar
-SBOM, firma, procedencia o verificación de origen que aún no existen.
+S1-READY sigue `not_met` únicamente porque no se puede fabricar la revisión
+independiente. SBOM, firma, procedencia y verificación de origen siguen abiertos y
+bloquean DRG-00, no el inicio sintético de S1.
 
 ---
 
@@ -234,7 +235,8 @@ En orden de dependencia, no de esfuerzo:
    todo lo demás queda esperando.
 2. **Resolver las 10 decisiones que sus fuentes declaran bloqueantes de S1.**
 3. **Llevar los 11 ADR requeridos a `ready`**, empezando por ADR-002, hoy `blocked`.
-4. **Demostrar procedencia de la cadena de suministro** o aceptar el riesgo por escrito.
+4. Antes de DRG-00, **demostrar procedencia de la cadena de suministro**; S1 conserva
+   esos gaps visibles sin mezclarlos con su gate sintético.
 
 A-02, L-01/02, DRG-00/01, S-01 y GA-01 permanecen pendientes para sus gates
 posteriores; no habilitan datos reales, nube, IA externa, piloto ni venta general.

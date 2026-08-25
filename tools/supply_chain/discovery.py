@@ -159,8 +159,8 @@ def resolve_inside(root: Path, relative: str) -> Path | None:
     return candidate
 
 
-def is_vendored(relative: Path) -> bool:
-    return any(part in VENDORED_PARTS for part in relative.parts)
+def is_vendored(relative: Path, excluded_parts: frozenset[str] = VENDORED_PARTS) -> bool:
+    return any(part in excluded_parts for part in relative.parts)
 
 
 def sha256_file(path: Path) -> str:
@@ -171,7 +171,8 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
-def collect_files(root: Path, patterns: list[str]) -> list[Path]:
+def collect_files(root: Path, patterns: list[str],
+                  excluded_parts: frozenset[str] = VENDORED_PARTS) -> list[Path]:
     """Rutas relativas ordenadas. El orden del filesystem no altera el resultado.
 
     Un symlink se descarta: seguirlo permitiría inventariar ficheros de fuera del
@@ -183,7 +184,7 @@ def collect_files(root: Path, patterns: list[str]) -> list[Path]:
             if not candidate.is_file() or candidate.is_symlink():
                 continue
             relative = candidate.relative_to(root)
-            if is_vendored(relative):
+            if is_vendored(relative, excluded_parts):
                 continue
             seen.add(relative)
     return sorted(seen, key=lambda item: item.as_posix())
@@ -500,9 +501,11 @@ def discover(model: dict[str, Any], root: Path) -> dict[str, Any]:
     scanned: list[dict[str, str]] = []
     unscannable: list[dict[str, Any]] = []
     unsafe: list[str] = []
+    excluded_parts = frozenset((model.get("exclusions") or {}).get("directory_names") or VENDORED_PARTS)
 
     def scan(kind: str) -> list[Path]:
-        return collect_files(root, list(rules.get(kind, {}).get("include_globs", [])))
+        return collect_files(root, list(rules.get(kind, {}).get("include_globs", [])),
+                             excluded_parts)
 
     workflow_files = scan("workflows")
     compose_files = scan("compose")

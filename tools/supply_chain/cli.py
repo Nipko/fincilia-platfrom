@@ -59,7 +59,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--root", default=None, help="tree to scan")
     subparsers = parser.add_subparsers(dest="command", required=True)
     subparsers.add_parser("discover", help="stable inventory of supply-chain components")
-    subparsers.add_parser("validate", help="model validity plus repository reconciliation")
+    validate_parser = subparsers.add_parser(
+        "validate", help="model validity plus repository reconciliation")
+    validate_parser.add_argument(
+        "--gate", default=None,
+        help="evaluate blocking findings only for this declared gate; all findings remain visible")
     subparsers.add_parser("report", help="blockers and gaps by risk, owner and gate")
 
     args = parser.parse_args(argv)
@@ -86,16 +90,27 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     if args.command == "validate":
+        known_gates = {str(item.get("id")) for item in model.get("gates", [])
+                       if isinstance(item, dict) and item.get("id")}
+        if args.gate is not None and args.gate not in known_gates:
+            _emit({"ok": False, "error": f"unknown gate: {args.gate}",
+                   "known_gates": sorted(known_gates)})
+            return 2
         inventory = discover(model, root) if not model_errors else {}
         result = reconcile(model, root, inventory) if not model_errors else {}
+        all_blockers = result.get("blocking_findings", [])
+        scoped_blockers = ([item for item in all_blockers if item.get("gate") == args.gate]
+                           if args.gate else all_blockers)
         payload = {
             "model_valid": not model_errors,
             "model_errors": [item.as_dict() for item in model_errors],
+            "target_gate": args.gate,
             "repository_findings": result.get("finding_count", 0),
-            "blocking_findings": result.get("blocking_count", 0),
+            "blocking_findings": len(scoped_blockers),
+            "out_of_scope_blocking_findings": len(all_blockers) - len(scoped_blockers),
             "counts_by_code": result.get("counts_by_code", {}),
             "findings": result.get("findings", []),
-            "ok": not model_errors and not result.get("blocking_count", 0),
+            "ok": not model_errors and not scoped_blockers,
         }
         _emit(payload)
         return 0 if payload["ok"] else 1

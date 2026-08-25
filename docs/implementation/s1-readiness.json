@@ -568,7 +568,9 @@
       "argv": [
         "-m",
         "tools.supply_chain.cli",
-        "validate"
+        "validate",
+        "--gate",
+        "S1-READY"
       ],
       "cwd": ".",
       "timeout_seconds": 300,
@@ -974,7 +976,7 @@
         "Platform"
       ],
       "gate": "S1-READY",
-      "explanation": "El contrato ejecutable de supply_chain debe validar sin errores. Que valide no significa que este aprobado por un humano."
+      "explanation": "El contrato ejecutable de supply_chain debe validar sin errores aplicables a S1-READY. Los gaps de procedencia de DRG-00 permanecen visibles y bloquean ese gate posterior."
     },
     {
       "id": "REQ-CHK-TEST-CATALOG",
@@ -1178,7 +1180,7 @@
     },
     {
       "path": "docs/security/supply-chain.json",
-      "sha256": "4f2d91b50dc24d292c2443b3b109162d2c8277172fb2c2299128393c6f575086",
+      "sha256": "b786e07f7d815aa2152f1dd13a8d2b42403dfc0aa4754f3b382a1a5e937aacac",
       "produced_by": "FNC-SUP-001 contract review; declaration baseline, not attestation"
     },
     {
