@@ -67,6 +67,7 @@
         "apps/api/src/fincilia_api/main.py",
         "apps/api/tests/test_correction_application.py",
         "apps/web/src/lib/api.ts",
+        "apps/web/src/lib/corrections.ts",
         "apps/web/src/app/actions.ts",
         "apps/web/src/app/__tests__/actions.test.ts",
         "apps/web/src/app/empresas/[companyId]/documentos/[artifactId]/mapeo",

@@ -10,6 +10,7 @@ import { redirect } from 'next/navigation';
 
 import {
   ApiError,
+  applyApprovedCorrections,
   approveOverride,
   type Blocker,
   continueDataset,
@@ -970,6 +971,11 @@ export async function approveOverrideAction(
 }
 
 export type CorrectionState = { error: string | null; done: string | null };
+export type CorrectionApplicationState = {
+  error: string | null;
+  done: string | null;
+  resultDatasetVersionId: string | null;
+};
 
 /** Propone; vuelve a ligar todos los IDs y el digest a la lectura autorizada. */
 export async function proposeCorrectionAction(
@@ -1113,6 +1119,93 @@ export async function reviewCorrectionAction(
       ? 'Correccion aprobada. Sigue pendiente de aplicar en una version nueva.'
       : 'Correccion rechazada; el dataset base no fue modificado.',
   };
+}
+
+/** Aplica el conjunto aprobado completo a otra version, nunca al dataset base. */
+export async function applyApprovedCorrectionsAction(
+  _previous: CorrectionApplicationState,
+  formData: FormData,
+): Promise<CorrectionApplicationState> {
+  const session = await readSession();
+  if (!session) {
+    redirect('/entrar');
+  }
+  const companyId = String(formData.get('companyId') ?? '');
+  const artifactId = String(formData.get('artifactId') ?? '');
+  const datasetVersionId = String(formData.get('datasetVersionId') ?? '');
+  if (!companyId || !artifactId || !datasetVersionId) {
+    return {
+      error: 'El contexto del dataset esta incompleto; vuelve a cargar la pantalla.',
+      done: null,
+      resultDatasetVersionId: null,
+    };
+  }
+
+  try {
+    // Los IDs ocultos no son autoridad. Volvemos a ligar documento, estado y
+    // conjunto de revisiones a lecturas autorizadas antes de ordenar la escritura.
+    const [dataset, corrections] = await Promise.all([
+      fetchDataset(session.token, companyId, datasetVersionId),
+      fetchCorrections(session.token, companyId, datasetVersionId),
+    ]);
+    if (dataset.artifact_id !== artifactId || dataset.state !== 'validated') {
+      return {
+        error: 'La version visible ya no es un dataset validado aplicable.',
+        done: null,
+        resultDatasetVersionId: null,
+      };
+    }
+    if (corrections.some((item) => item.status === 'pending_review')) {
+      return {
+        error: 'Todavia hay correcciones pendientes de revision independiente.',
+        done: null,
+        resultDatasetVersionId: null,
+      };
+    }
+    if (!corrections.some((item) => item.status === 'approved')) {
+      return {
+        error: 'No hay correcciones aprobadas pendientes de aplicar.',
+        done: null,
+        resultDatasetVersionId: null,
+      };
+    }
+    const result = await applyApprovedCorrections(
+      session.token, companyId, datasetVersionId,
+    );
+    revalidatePath(`/empresas/${companyId}/documentos/${artifactId}/mapeo`);
+    return {
+      error: null,
+      done:
+        `${result.applied_correction_count} correccion(es) aplicada(s) en una ` +
+        'version validada nueva. La version base permanece intacta.',
+      resultDatasetVersionId: result.result_dataset_version_id,
+    };
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) {
+      redirect('/entrar');
+    }
+    if (error instanceof ApiError && error.status === 403) {
+      return {
+        error: 'Este rol no puede aplicar correcciones.',
+        done: null,
+        resultDatasetVersionId: null,
+      };
+    }
+    if (error instanceof ApiError && error.status === 409) {
+      return {
+        error:
+          'No se pudo derivar una version reproducible. Revisa el estado, el ' +
+          'linaje y que ninguna propuesta haya cambiado.',
+        done: null,
+        resultDatasetVersionId: null,
+      };
+    }
+    return {
+      error: error instanceof ApiError ? error.message : 'No se pudieron aplicar las correcciones.',
+      done: null,
+      resultDatasetVersionId: null,
+    };
+  }
 }
 
 /** Rechazar conserva el motivo; nunca transforma el dataset ni borra evidencia. */

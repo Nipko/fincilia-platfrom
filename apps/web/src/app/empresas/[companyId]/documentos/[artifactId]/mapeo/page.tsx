@@ -41,6 +41,7 @@ import { readSession } from '@/lib/session';
 
 import {
   ContinueForm,
+  ApplyCorrectionsForm,
   CorrectionReviewForm,
   DecisionForm,
   MappingForm,
@@ -824,6 +825,17 @@ export default async function MappingPage({
 
             <section aria-labelledby="revision-correcciones">
               <h3 id="revision-correcciones">Correcciones propuestas</h3>
+              {canMap && dataset.state === 'validated' &&
+              corrections.some((item) => item.status === 'approved') &&
+              !corrections.some((item) => item.status === 'pending_review') ? (
+                <ApplyCorrectionsForm
+                  companyId={companyId}
+                  artifactId={artifactId}
+                  datasetVersionId={dataset.dataset_version_id}
+                  sourceId={dataSourceId}
+                  mappingVersionId={mapping?.mapping_version_id ?? null}
+                />
+              ) : null}
               {corrections.length === 0 ? (
                 <p className="meta">
                   Esta version no tiene correcciones tipadas propuestas.
@@ -871,6 +883,21 @@ export default async function MappingPage({
                         <p className="notice warning">
                           La aprobacion no altero el dataset base. Falta aplicar en
                           una version nueva antes de publicar.
+                        </p>
+                      ) : item.status === 'applied' ? (
+                        <p className="notice ok">
+                          Aplicada sin mutar esta version.{' '}
+                          {item.result_dataset_version_id ? (
+                            <Link
+                              href={withFlowContext(flowPath, {
+                                ...flowContext,
+                                dataset: item.result_dataset_version_id,
+                                movimientosPagina: 0,
+                              })}
+                            >
+                              Abrir version resultante
+                            </Link>
+                          ) : null}
                         </p>
                       ) : (
                         <p className="meta">

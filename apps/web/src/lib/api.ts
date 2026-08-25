@@ -1043,12 +1043,25 @@ export type CorrectionProposal = {
   created_by: string;
   author_name: string;
   created_at: string;
-  status: 'pending_review' | 'approved' | 'rejected';
-  applied: false;
+  status: 'pending_review' | 'approved' | 'rejected' | 'applied';
+  applied: boolean;
   reviewer_id: string | null;
   reviewer_name: string | null;
   review_rationale: string | null;
   reviewed_at: string | null;
+  result_dataset_version_id: string | null;
+};
+
+export type CorrectionApplicationResult = {
+  application_id: string;
+  base_dataset_version_id: string;
+  result_dataset_version_id: string;
+  overlay_set_digest: string;
+  applied_at: string;
+  state: 'validated';
+  movement_count: number;
+  applied_correction_count: number;
+  idempotent_replay: boolean;
 };
 
 export function fetchCorrectionTargets(
@@ -1121,6 +1134,19 @@ export function reviewCorrection(
     body: JSON.stringify({ decision, rationale }),
     token,
   });
+}
+
+export function applyApprovedCorrections(
+  token: string,
+  companyId: string,
+  datasetVersionId: string,
+): Promise<CorrectionApplicationResult> {
+  const company = encodeURIComponent(companyId);
+  const dataset = encodeURIComponent(datasetVersionId);
+  return request<CorrectionApplicationResult>(
+    `/api/v1/companies/${company}/datasets/${dataset}/corrections/apply`,
+    { method: 'POST', token },
+  );
 }
 
 

@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => {
   }
   return {
     ApiError,
+    applyApprovedCorrections: vi.fn(),
     approveOverride: vi.fn(),
     fetchCorrectionTargets: vi.fn(),
     fetchCorrections: vi.fn(),
@@ -47,6 +48,7 @@ vi.mock('@/lib/session', () => ({
 }));
 vi.mock('@/lib/api', () => ({
   ApiError: mocks.ApiError,
+  applyApprovedCorrections: mocks.applyApprovedCorrections,
   approveOverride: mocks.approveOverride,
   fetchCorrectionTargets: mocks.fetchCorrectionTargets,
   fetchCorrections: mocks.fetchCorrections,
@@ -81,6 +83,7 @@ vi.mock('@/lib/api', () => ({
 
 import {
   approveOverrideAction,
+  applyApprovedCorrectionsAction,
   createMappingAction,
   prepareDatasetAction,
   publishDatasetAction,
@@ -470,6 +473,73 @@ describe('typed correction actions', () => {
 
     expect(result.done).toContain('pendiente de aplicar');
     expect(mocks.reviewCorrection).toHaveBeenCalledOnce();
+  });
+
+  it('no aplica mientras otra correccion siga pendiente de revision', async () => {
+    mocks.fetchCorrections.mockResolvedValue([
+      { overlay_id: 'aprobada', status: 'approved' },
+      { overlay_id: 'pendiente', status: 'pending_review' },
+    ]);
+
+    const result = await applyApprovedCorrectionsAction(
+      { error: null, done: null, resultDatasetVersionId: null }, datasetForm(),
+    );
+
+    expect(result.error).toContain('pendientes de revision');
+    expect(mocks.applyApprovedCorrections).not.toHaveBeenCalled();
+  });
+
+  it('vuelve a ligar el documento antes de aplicar', async () => {
+    mocks.fetchDataset.mockResolvedValue({
+      ...matchingDataset(), artifact_id: 'documento-ajeno',
+    });
+    mocks.fetchCorrections.mockResolvedValue([
+      { overlay_id: 'aprobada', status: 'approved' },
+    ]);
+
+    const result = await applyApprovedCorrectionsAction(
+      { error: null, done: null, resultDatasetVersionId: null }, datasetForm(),
+    );
+
+    expect(result.error).toContain('ya no es');
+    expect(mocks.applyApprovedCorrections).not.toHaveBeenCalled();
+  });
+
+  it('devuelve la version derivada sin afirmar que esta publicada', async () => {
+    mocks.fetchCorrections.mockResolvedValue([
+      { overlay_id: 'aprobada', status: 'approved' },
+    ]);
+    mocks.applyApprovedCorrections.mockResolvedValue({
+      result_dataset_version_id: 'dataset-corregido',
+      applied_correction_count: 2,
+      state: 'validated',
+      idempotent_replay: false,
+    });
+
+    const result = await applyApprovedCorrectionsAction(
+      { error: null, done: null, resultDatasetVersionId: null }, datasetForm(),
+    );
+
+    expect(result.resultDatasetVersionId).toBe('dataset-corregido');
+    expect(result.done).toContain('version validada nueva');
+    expect(result.done).not.toContain('publicada');
+    expect(mocks.revalidatePath).toHaveBeenCalledOnce();
+  });
+
+  it('explica un conflicto de reproducibilidad sin filtrar detalle interno', async () => {
+    mocks.fetchCorrections.mockResolvedValue([
+      { overlay_id: 'aprobada', status: 'approved' },
+    ]);
+    mocks.applyApprovedCorrections.mockRejectedValue(
+      new mocks.ApiError(409, 'internal lineage detail'),
+    );
+
+    const result = await applyApprovedCorrectionsAction(
+      { error: null, done: null, resultDatasetVersionId: null }, datasetForm(),
+    );
+
+    expect(result.error).toContain('version reproducible');
+    expect(result.error).not.toContain('internal lineage detail');
   });
 });
 
