@@ -1,7 +1,7 @@
 ---
 task: FNC-QA-007
-title: Selector local de personas sinteticas multirrol
-status: in_progress
+title: Administracion final de usuarios y roles por empresa
+status: review_pending
 implementer: Codex principal dev + Integration Steward
 base_sha: 34cdb64
 gate: S1-READY
@@ -12,39 +12,40 @@ independent_reviewers: [Security, QA, Web/UX]
 
 # Resultado esperado
 
-Una sola persona fisica puede recorrer en local las capacidades de owner, preparer,
-reviewer y auditor seleccionando identidades sinteticas. El cambio de persona crea una
-sesion normal contra la API y nunca fusiona actores, permisos ni auditoria.
+Un owner o firm_admin administra roles de miembros existentes en cada empresa. La
+identidad se aprovisiona mediante el IdP —y mediante la semilla solo en local—; Fincilia
+asigna y revoca concesiones company-scoped sin crear contrasenas propias.
 
 ## Rutas reservadas
 
-- `apps/web/src/app/entrar/**`
+- `apps/api/src/fincilia_api/access.py`
+- `apps/api/src/fincilia_api/routes.py`
+- `apps/api/tests/**` solo si aplica al contrato HTTP
+- `db/tests/test_member_roles.py`
 - `apps/web/src/app/actions.ts`
 - `apps/web/src/app/__tests__/actions.test.ts`
-- `apps/web/src/app/empresas/**` solo para el acceso al selector
-- `apps/web/src/lib/demo-personas.ts`
+- `apps/web/src/app/empresas/**`
+- `apps/web/src/lib/api.ts`
 - `apps/web/src/app/globals.css`
-- `apps/web/tests/e2e/demo-personas.spec.ts`
-- `infra/local/compose.yaml`
-- `.env.example`
-- `docs/platform/runtime-config.json`
-- `tools/runtime_config/**` solo si la nueva configuracion exige cobertura
+- `apps/web/tests/e2e/member-roles.spec.ts`
 - ficha, handoff y archivos centrales de integración.
 
 ## Criterios de aceptación
 
-1. El selector solo aparece con `FINCILIA_ENV=local`, datos reales deshabilitados y
-   un feature gate local explícito.
-2. El navegador nunca recibe ni envía la contraseña común de demo desde el selector.
-3. La server action acepta únicamente cuatro claves de persona en allowlist.
-4. Cada selección obtiene un token normal de la API y sobrescribe la cookie httpOnly.
-5. Owner, preparer, reviewer y auditor conservan `subject_id` distintos.
-6. El portafolio muestra acceso para cambiar de persona y la identidad activa.
-7. Una configuración no local o de datos reales falla cerrada aunque el feature gate
-   esté activo.
-8. Unitarias y E2E cubren selección, cambio de persona, rol visible y no exposición del
-   secreto.
-9. No cambia RLS, RBAC, SoD, migraciones ni permisos productivos.
+1. `member.manage` es obligatorio y se resuelve server-side para listar y mutar roles.
+2. La lista solo contiene miembros activos de la firma delegada y sus roles en la
+   empresa actual; no expone email, credenciales ni membresias de otras firmas.
+3. Owner puede conceder/revocar todos los roles; firm_admin no puede conceder ni
+   revocar owner o firm_admin.
+4. Nadie puede concederse un rol a si mismo.
+5. Revocar el ultimo owner activo se rechaza bajo bloqueo transaccional.
+6. Conceder y revocar son idempotentes, auditados y elevan authorization_version.
+7. Una misma persona puede acumular roles; SoD por objeto sigue impidiendo revisar su
+   propia preparacion.
+8. La web permite asignar y revocar con motivo y explica los limites.
+9. PostgreSQL real, unitarias web y E2E prueban permisos, tenancy, revocacion de sesion,
+   ultimo owner y ausencia de PII.
+10. No se crean contrasenas ni autenticacion productiva propia.
 
 ## Verificación
 
@@ -52,8 +53,14 @@ sesion normal contra la API y nunca fusiona actores, permisos ni auditoria.
 npm run typecheck
 npm run lint
 npm run test:unit
-npm run test:e2e -- demo-personas.spec.ts
-python -m tools.runtime_config.validate
+python -m unittest db.tests.test_member_roles -v
+npm run test:e2e -- member-roles.spec.ts
 python -m tools.work_graph.validate
 python -m tools.quality_gate.cli
 ```
+
+## Evidencia de entrega
+
+La implementacion y los resultados reproducibles se consolidan en
+`docs/implementation/handoffs/FNC-QA-007.md`. Security, QA y Web/UX permanecen
+como revisores independientes; esta tarea no modifica S1-READY ni los data gates.
