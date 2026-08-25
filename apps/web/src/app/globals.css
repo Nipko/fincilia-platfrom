@@ -633,6 +633,56 @@ code.digest {
   padding-top: 1rem;
 }
 
+.export-panel {
+  align-items: center;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  display: flex;
+  gap: 1.25rem;
+  justify-content: space-between;
+  margin-top: 1rem;
+  padding: 1rem;
+}
+
+.export-panel h3,
+.export-panel p {
+  margin: 0;
+}
+
+.export-panel p {
+  color: var(--ink-soft);
+  margin-top: 0.35rem;
+  max-width: 46rem;
+}
+
+.button-link {
+  background: var(--accent);
+  border-radius: var(--radius);
+  color: var(--ground);
+  display: inline-block;
+  flex: 0 0 auto;
+  font-weight: 700;
+  padding: 0.7rem 1rem;
+  text-decoration: none;
+}
+
+.button-link:focus-visible,
+.button-link:hover {
+  filter: brightness(0.88);
+}
+
+@media (max-width: 44rem) {
+  .export-panel {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .button-link {
+    text-align: center;
+  }
+}
+
 ul {
   margin: 0.25rem 0;
   padding-left: 1.2rem;

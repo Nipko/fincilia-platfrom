@@ -29,6 +29,7 @@ import {
   CORRECTION_FIELD_LABELS,
   CORRECTION_STATUS_LABELS,
 } from '@/lib/corrections';
+import { isDatasetExportEligible } from '@/lib/export-policy';
 import {
   pageFromQuery,
   selectDatasetVersion,
@@ -197,6 +198,7 @@ export default async function MappingPage({
 
   const canMap = company.permissions.includes('dataset.map');
   const canPublish = company.permissions.includes('dataset.publish');
+  const canExport = company.permissions.includes('dataset.export');
 
   // La vista previa lleva valores del fichero: si este rol no puede mapear, no
   // se pide siquiera. Pedirla y esconder el 403 seria pedir lo que no toca.
@@ -906,10 +908,34 @@ export default async function MappingPage({
                 />
               </>
             ) : dataset.state === 'published' ? (
-              <p className="notice ok" role="status">
-                Publicado. Reprocesar creara otra version y esta se conserva: lo
-                publicado no se reescribe.
-              </p>
+              <>
+                <p className="notice ok" role="status">
+                  Publicado. Reprocesar creara otra version y esta se conserva: lo
+                  publicado no se reescribe.
+                </p>
+                {isDatasetExportEligible(canExport, dataset) ? (
+                  <aside className="export-panel" aria-labelledby="salida-limpia">
+                    <div>
+                      <h3 id="salida-limpia">Salida limpia</h3>
+                      <p>
+                        CSV canonico con fechas ISO e importes decimales exactos.
+                        Es una exportacion operativa no certificada: no demuestra
+                        conciliacion de saldos ni cierre contable.
+                      </p>
+                    </div>
+                    <a
+                      className="button-link"
+                      download
+                      href={
+                        `/api/companies/${encodeURIComponent(companyId)}/datasets/` +
+                        `${encodeURIComponent(dataset.dataset_version_id)}/export`
+                      }
+                    >
+                      Descargar CSV canonico
+                    </a>
+                  </aside>
+                ) : null}
+              </>
             ) : dataset.state === 'rejected' ? (
               <p className="notice error" role="status">
                 Version rechazada y conservada solo para consulta.

@@ -18,6 +18,27 @@ export type ExportMetadata = {
   canonicalSchema: string;
 };
 
+export type ExportEligibility = {
+  state: string;
+  completeness_state: string;
+  lineage_state: string;
+  manifest: { reproducible: boolean } | null;
+};
+
+/** La UI solo ofrece lo mismo que la API aceptara; la API sigue siendo autoridad. */
+export function isDatasetExportEligible(
+  canExport: boolean,
+  dataset: ExportEligibility,
+): boolean {
+  return (
+    canExport &&
+    dataset.state === 'published' &&
+    dataset.completeness_state === 'verified' &&
+    dataset.lineage_state === 'complete' &&
+    dataset.manifest?.reproducible === true
+  );
+}
+
 /**
  * Convierte las cabeceras del API en una lista cerrada. Un nombre de fichero,
  * perfil o conteo inesperado invalida toda la descarga: nunca se refleja una

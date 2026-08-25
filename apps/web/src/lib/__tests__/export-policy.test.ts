@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   ExportLimitError,
   boundedExportStream,
+  isDatasetExportEligible,
   parseExportMetadata,
 } from '../export-policy';
 
@@ -19,6 +20,36 @@ function headers(overrides: Record<string, string> = {}): Headers {
 }
 
 describe('export policy', () => {
+  const eligibleDataset = {
+    state: 'published',
+    completeness_state: 'verified',
+    lineage_state: 'complete',
+    manifest: { reproducible: true },
+  };
+
+  it('solo ofrece descarga con permiso y los cuatro sellos de elegibilidad', () => {
+    expect(isDatasetExportEligible(true, eligibleDataset)).toBe(true);
+    expect(isDatasetExportEligible(false, eligibleDataset)).toBe(false);
+    expect(
+      isDatasetExportEligible(true, { ...eligibleDataset, state: 'validated' }),
+    ).toBe(false);
+    expect(
+      isDatasetExportEligible(true, {
+        ...eligibleDataset,
+        completeness_state: 'partial',
+      }),
+    ).toBe(false);
+    expect(
+      isDatasetExportEligible(true, { ...eligibleDataset, lineage_state: 'partial' }),
+    ).toBe(false);
+    expect(
+      isDatasetExportEligible(true, {
+        ...eligibleDataset,
+        manifest: { reproducible: false },
+      }),
+    ).toBe(false);
+  });
+
   it('acepta solo el contrato cerrado de cabeceras', () => {
     expect(parseExportMetadata(headers())).toEqual({
       contentType: 'text/csv; charset=utf-8',
