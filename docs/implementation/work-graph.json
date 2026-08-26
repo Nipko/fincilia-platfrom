@@ -54,5 +54,23 @@
       "agent_may_accept": false
     }
   ],
-  "active_reservations": []
+  "active_reservations": [
+    {
+      "task": "FNC-CLS-005",
+      "implementer": "Codex principal dev + Integration Steward",
+      "paths": [
+        "db/migrations/V0034__close_review_packet.sql",
+        "db/tests/test_close_review_packets.py",
+        "apps/api/src/fincilia_api/close_review.py",
+        "apps/api/src/fincilia_api/routes.py",
+        "apps/web/src/lib/close-review.ts",
+        "apps/web/src/lib/api.ts",
+        "apps/web/src/app/preparacion-cierre",
+        "apps/web/tests/e2e/close-review.spec.ts",
+        "apps/web/tests/e2e/close-review.a11y.spec.ts",
+        "docs/implementation/tasks/FNC-CLS-005.md",
+        "docs/implementation/handoffs/FNC-CLS-005.md"
+      ]
+    }
+  ]
 }
