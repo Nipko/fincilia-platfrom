@@ -1493,6 +1493,65 @@ ul {
 }
 .close-evidence summary { color: var(--accent); cursor: pointer; font-weight: 700; }
 .close-evidence .scroll { margin-top: 1rem; }
+.close-review-panel {
+  background: color-mix(in srgb, var(--surface) 88%, var(--accent-soft));
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  margin-top: 1rem;
+  padding: 1rem;
+}
+.close-review-panel > header,
+.close-review-list > li > header {
+  align-items: center;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+}
+.close-review-panel h4 { margin: .15rem 0 0; }
+.close-review-form,
+.close-review-decision { display: grid; gap: .65rem; margin-top: .8rem; }
+.close-review-form { align-items: end; grid-template-columns: minmax(14rem, 1fr) auto; }
+.close-review-form label,
+.close-review-decision label { display: grid; gap: .35rem; }
+.close-review-form .notice,
+.close-review-decision .notice { grid-column: 1 / -1; margin: 0; }
+.close-review-list {
+  display: grid;
+  gap: .8rem;
+  list-style: none;
+  margin: 1rem 0 0;
+  padding: 0;
+}
+.close-review-list > li {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: .65rem;
+  padding: .9rem;
+}
+.close-review-list > li > header > div { align-items: center; display: flex; gap: .6rem; }
+.close-review-state--pending_review { background: var(--warning-soft); color: var(--warning); }
+.close-review-state--evidence_reviewed { background: var(--accent-soft); color: var(--accent); }
+.close-review-state--changes_requested { background: var(--danger-soft); color: var(--danger); }
+.close-review-details {
+  display: grid;
+  gap: .6rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-block: .8rem;
+}
+.close-review-details > div { min-width: 0; }
+.close-review-details dt { color: var(--ink-soft); font-size: .72rem; font-weight: 800; }
+.close-review-details dd { margin: .2rem 0 0; }
+.close-review-details__digest { grid-column: 1 / -1; }
+.close-review-details code { overflow-wrap: anywhere; white-space: normal; }
+.close-review-actions {
+  align-items: end;
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: .8rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: .8rem;
+  padding-top: .8rem;
+}
 .close-period__actions { border-top: 1px solid var(--line); margin-top: 1rem; padding-top: 1rem; }
 
 .statement-lineage { margin-top: .55rem; min-width: 18rem; }
@@ -1538,7 +1597,12 @@ ul {
   .close-control-grid { grid-template-columns: 1fr; }
   .close-company__header,
   .close-period__header,
-  .close-period__actions { align-items: stretch; display: grid; }
+  .close-period__actions,
+  .close-review-panel > header,
+  .close-review-list > li > header { align-items: stretch; display: grid; }
+  .close-review-form,
+  .close-review-details,
+  .close-review-actions { grid-template-columns: 1fr; }
 }
 
 /* Estacion de conciliacion de saldos: la ecuacion es el centro visual. */

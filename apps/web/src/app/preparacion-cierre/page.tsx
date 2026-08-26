@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
@@ -8,6 +10,11 @@ import {
   type CloseReadinessControl,
   type CloseReadinessPeriod,
 } from '@/lib/api';
+import {
+  packetsForPeriod,
+  loadCloseReviewCenter,
+  type CloseReviewSnapshot,
+} from '@/lib/close-review';
 import {
   aggregateCloseReadinessCounts,
   availableClosePeriods,
@@ -20,6 +27,11 @@ import {
   type StatementLineageSnapshot,
 } from '@/lib/close-readiness';
 import { readSession } from '@/lib/session';
+
+import {
+  CloseReviewDecisionControls,
+  PrepareCloseReviewForm,
+} from './review-controls';
 
 export const dynamic = 'force-dynamic';
 
@@ -105,10 +117,137 @@ function StatementLineageDrilldown({ lineage }: {
   );
 }
 
-function PeriodCard({ period, companyId, statementLineages }: {
+const REVIEW_STATUS_LABELS: Record<string, string> = {
+  pending_review: 'Pendiente de revision',
+  evidence_reviewed: 'Evidencia revisada',
+  changes_requested: 'Cambios solicitados',
+};
+
+const REVIEW_REASON_LABELS: Record<string, string> = {
+  controls_reviewed: 'Controles revisados',
+  missing_evidence: 'Falta evidencia',
+  inconsistent_scope: 'Alcance inconsistente',
+  quality_blocker: 'Bloqueo de calidad',
+  lineage_gap: 'Falta trazabilidad',
+  reconciliation_gap: 'Falta completar conciliacion',
+};
+
+function formatReviewTimestamp(value: string): string {
+  return `${new Date(value).toISOString().slice(0, 16).replace('T', ' ')} UTC`;
+}
+
+function CloseReviewPanel({
+  companyId,
+  period,
+  actorId,
+  snapshot,
+}: {
+  companyId: string;
+  period: CloseReadinessPeriod;
+  actorId: string;
+  snapshot: CloseReviewSnapshot | undefined;
+}) {
+  if (!snapshot || snapshot.access !== 'available') {
+    return (
+      <section className="close-review-panel" aria-label="Expediente de revision">
+        <h4>Expediente de revision de evidencia</h4>
+        <p className="meta" role="status">
+          Los expedientes no estan disponibles. No se presume que el periodo fue revisado.
+        </p>
+      </section>
+    );
+  }
+  const packets = packetsForPeriod(snapshot, period.period_start, period.period_end);
+  const reviewers = snapshot.reviewers.filter((reviewer) => reviewer.subject_id !== actorId);
+  const canPrepare = snapshot.permissions.includes('close.prepare');
+  const canApprove = snapshot.permissions.includes('close.approve');
+  return (
+    <section className="close-review-panel" aria-label="Expediente de revision">
+      <header>
+        <div>
+          <p className="eyebrow">Control previo sin efecto financiero</p>
+          <h4>Expediente de revision de evidencia</h4>
+        </div>
+        <span className="tag">{packets.length} version(es)</span>
+      </header>
+      <p className="meta">
+        Fija estados, conteos, identificadores y huellas SHA-256. No contiene
+        importes ni habilita, ejecuta o certifica un cierre.
+      </p>
+      {canPrepare ? (
+        <PrepareCloseReviewForm companyId={companyId}
+          periodStart={period.period_start} periodEnd={period.period_end}
+          reviewers={reviewers} commandKey={`cls005-prepare-${randomUUID()}`} />
+      ) : null}
+
+      {packets.length ? (
+        <ol className="close-review-list">
+          {packets.map((packet) => {
+            const assignedHere = packet.assigned_reviewer_id === actorId;
+            const canDecide = canApprove && assignedHere && packet.reviewer_eligible
+              && packet.status === 'pending_review';
+            return (
+              <li key={packet.packet_id} id={`expediente-${packet.packet_id}`}>
+                <header>
+                  <div>
+                    <strong>Version {packet.version}</strong>
+                    <span className={`tag close-review-state--${packet.status}`}>
+                      {REVIEW_STATUS_LABELS[packet.status] ?? packet.status}
+                    </span>
+                  </div>
+                  <span className="meta">{formatReviewTimestamp(packet.prepared_at)}</span>
+                </header>
+                <dl className="close-review-details">
+                  <div><dt>Preparador</dt><dd>{packet.preparer_name}</dd></div>
+                  <div><dt>Revisor asignado</dt><dd>{packet.reviewer_name}</dd></div>
+                  <div><dt>Diagnostico fijado</dt><dd>
+                    {packet.diagnostic_status === 'ready_for_review'
+                      ? 'Listo para revision' : 'Bloqueado'}
+                  </dd></div>
+                  <div><dt>Contenido</dt><dd>
+                    {packet.manifest.sources.length} fuente(s),{' '}
+                    {packet.manifest.accounts.length} cuenta(s),{' '}
+                    {packet.manifest.controls.length} control(es)
+                  </dd></div>
+                  <div className="close-review-details__digest"><dt>Huella</dt>
+                    <dd><code className="digest">{packet.manifest_digest}</code></dd></div>
+                </dl>
+                {packet.decision ? (
+                  <p className="notice ok" role="status">
+                    <strong>{REVIEW_STATUS_LABELS[packet.decision]}</strong>{' '}
+                    por {packet.decider_name}.{' '}
+                    {packet.reason_code
+                      ? REVIEW_REASON_LABELS[packet.reason_code] ?? packet.reason_code
+                      : null}.
+                  </p>
+                ) : canDecide ? (
+                  <CloseReviewDecisionControls companyId={companyId} packet={packet}
+                    reviewCommandKey={`cls005-reviewed-${randomUUID()}`}
+                    changesCommandKey={`cls005-changes-${randomUUID()}`} />
+                ) : (
+                  <p className="meta">
+                    {assignedHere && !packet.reviewer_eligible
+                      ? 'La asignacion ya no es elegible; se requiere una version nueva.'
+                      : 'Solo el revisor asignado y vigente puede decidir este expediente.'}
+                  </p>
+                )}
+              </li>
+            );
+          })}
+        </ol>
+      ) : (
+        <p className="meta" role="status">Aun no hay un expediente fijado para este periodo.</p>
+      )}
+    </section>
+  );
+}
+
+function PeriodCard({ period, companyId, actorId, statementLineages, review }: {
   period: CloseReadinessPeriod;
   companyId: string;
+  actorId: string;
   statementLineages: Record<string, StatementLineageSnapshot>;
+  review: CloseReviewSnapshot | undefined;
 }) {
   return (
     <article className="card close-period">
@@ -202,6 +341,9 @@ function PeriodCard({ period, companyId, statementLineages }: {
         )}
       </details>
 
+      <CloseReviewPanel companyId={companyId} period={period}
+        actorId={actorId} snapshot={review} />
+
       <footer className="close-period__actions">
         <Link href={`/recordatorios?empresa=${companyId}`}>Revisar ciclos</Link>
         <Link href={`/calidad?empresa=${companyId}`}>Revisar calidad</Link>
@@ -211,7 +353,11 @@ function PeriodCard({ period, companyId, statementLineages }: {
   );
 }
 
-function CompanyReadiness({ snapshot }: { snapshot: CloseReadinessSnapshot }) {
+function CompanyReadiness({ snapshot, actorId, review }: {
+  snapshot: CloseReadinessSnapshot;
+  actorId: string;
+  review: CloseReviewSnapshot | undefined;
+}) {
   const { company, result, statementLineages } = snapshot;
   if (!result) {
     return (
@@ -239,6 +385,7 @@ function CompanyReadiness({ snapshot }: { snapshot: CloseReadinessSnapshot }) {
           {result.items.map((period) => (
             <PeriodCard key={`${period.period_start}:${period.period_end}`}
               period={period} companyId={company.company_id}
+              actorId={actorId} review={review}
               statementLineages={statementLineages} />
           ))}
         </div>
@@ -269,8 +416,12 @@ export default async function CloseReadinessPage({ searchParams }: {
   const companies = selectCloseReadinessCompanies(me.companies, query.empresa);
   const selected = companies.length === 1 ? companies[0]?.company_id : 'todas';
   let snapshots;
+  let reviewSnapshots;
   try {
-    snapshots = await loadCloseReadinessCenter(session.token, companies);
+    [snapshots, reviewSnapshots] = await Promise.all([
+      loadCloseReadinessCenter(session.token, companies),
+      loadCloseReviewCenter(session.token, companies),
+    ]);
   } catch (error) {
     if (error instanceof ApiError && error.status === 401) redirect('/entrar');
     throw error;
@@ -278,6 +429,9 @@ export default async function CloseReadinessPage({ searchParams }: {
   const availablePeriods = availableClosePeriods(snapshots);
   const selectedPeriod = selectClosePeriod(availablePeriods, query.periodo);
   const displayedSnapshots = filterCloseReadinessPeriod(snapshots, selectedPeriod);
+  const reviewsByCompany = new Map(
+    reviewSnapshots.map((snapshot) => [snapshot.company.company_id, snapshot]),
+  );
   const totals = aggregateCloseReadinessCounts(displayedSnapshots);
   const partial = snapshots.filter((snapshot) => snapshot.access !== 'available');
 
@@ -343,7 +497,9 @@ export default async function CloseReadinessPage({ searchParams }: {
 
       <div className="close-company-list">
         {displayedSnapshots.map((snapshot) => (
-          <CompanyReadiness key={snapshot.company.company_id} snapshot={snapshot} />
+          <CompanyReadiness key={snapshot.company.company_id} snapshot={snapshot}
+            actorId={me.subject_id}
+            review={reviewsByCompany.get(snapshot.company.company_id)} />
         ))}
       </div>
     </main>

@@ -1616,6 +1616,148 @@ export function fetchStatementLineage(
   );
 }
 
+export type CloseReviewManifest = {
+  schema_version: 'close-evidence-v1';
+  diagnostic_status: 'blocked' | 'ready_for_review';
+  controls: Array<{ code: string; state: string; count: number }>;
+  sources: Array<{
+    expectation_id: string;
+    data_source_id: string;
+    financial_account_id: string | null;
+    expectation_state: string;
+    dataset_version_id: string | null;
+    dataset_state: string | null;
+    completeness_state: string | null;
+    lineage_state: string | null;
+    rejected_count: number;
+    movement_count: number;
+  }>;
+  accounts: Array<{
+    financial_account_id: string;
+    source_count: number;
+    assessment_count: number;
+    statement_root_id: string | null;
+    statement_id: string | null;
+    statement_version: number | null;
+    statement_state: string | null;
+    statement_lineage_state: string | null;
+    coverage_state: string;
+  }>;
+};
+
+export type CloseReviewReviewer = {
+  subject_id: string;
+  display_name: string;
+  company_roles: string[];
+};
+
+export type CloseReviewPacket = {
+  packet_id: string;
+  period_start: string;
+  period_end: string;
+  version: number;
+  manifest_schema_version: 'close-evidence-v1';
+  manifest: CloseReviewManifest;
+  manifest_digest: string;
+  diagnostic_status: 'blocked' | 'ready_for_review';
+  prepared_by: string;
+  preparer_name: string;
+  assigned_reviewer_id: string;
+  reviewer_name: string;
+  prepared_at: string;
+  decision_id: string | null;
+  decision: 'evidence_reviewed' | 'changes_requested' | null;
+  reason_code: string | null;
+  decided_by: string | null;
+  decider_name: string | null;
+  decided_at: string | null;
+  reviewer_eligible: boolean;
+  status: 'pending_review' | 'evidence_reviewed' | 'changes_requested';
+  replayed: boolean;
+  financial_effect: 'none';
+  certifies_close: false;
+  can_execute_close: false;
+};
+
+export type CloseReviewPage = {
+  items: CloseReviewPacket[];
+  has_more: boolean;
+  limit: number;
+  financial_effect: 'none';
+  certifies_close: false;
+  can_execute_close: false;
+};
+
+export function fetchCloseReviewers(
+  token: string,
+  companyId: string,
+): Promise<CloseReviewReviewer[]> {
+  return request<CloseReviewReviewer[]>(
+    `/api/v1/companies/${encodeURIComponent(companyId)}/close-review/reviewers`,
+    { token },
+  );
+}
+
+export function fetchCloseReviewPackets(
+  token: string,
+  companyId: string,
+  limit = 100,
+): Promise<CloseReviewPage> {
+  const bounded = Math.max(1, Math.min(100, limit));
+  return request<CloseReviewPage>(
+    `/api/v1/companies/${encodeURIComponent(companyId)}/close-review/packets?limit=${bounded}`,
+    { token },
+  );
+}
+
+export function prepareCloseReviewPacket(
+  token: string,
+  companyId: string,
+  idempotencyKey: string,
+  input: {
+    period_start: string;
+    period_end: string;
+    assigned_reviewer_id: string;
+  },
+): Promise<CloseReviewPacket> {
+  return request<CloseReviewPacket>(
+    `/api/v1/companies/${encodeURIComponent(companyId)}/close-review/packets`,
+    {
+      method: 'POST', token,
+      headers: {
+        'content-type': 'application/json',
+        'idempotency-key': idempotencyKey,
+      },
+      body: JSON.stringify(input),
+    },
+  );
+}
+
+export function decideCloseReviewPacket(
+  token: string,
+  companyId: string,
+  packetId: string,
+  idempotencyKey: string,
+  input: {
+    decision: 'evidence_reviewed' | 'changes_requested';
+    reason_code: string;
+  },
+): Promise<CloseReviewPacket> {
+  const company = encodeURIComponent(companyId);
+  const packet = encodeURIComponent(packetId);
+  return request<CloseReviewPacket>(
+    `/api/v1/companies/${company}/close-review/packets/${packet}/decision`,
+    {
+      method: 'POST', token,
+      headers: {
+        'content-type': 'application/json',
+        'idempotency-key': idempotencyKey,
+      },
+      body: JSON.stringify(input),
+    },
+  );
+}
+
 export type AccountBalance = {
   balance_id: string;
   financial_account_id: string;

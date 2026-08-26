@@ -4,7 +4,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('server-only', () => ({}));
 
 const mocks = vi.hoisted(() => ({
-  fetchMe: vi.fn(), loadCloseReadinessCenter: vi.fn(), readSession: vi.fn(),
+  fetchMe: vi.fn(), loadCloseReadinessCenter: vi.fn(),
+  loadCloseReviewCenter: vi.fn(), readSession: vi.fn(),
   redirect: vi.fn((): never => { throw new Error('NEXT_REDIRECT'); }),
 }));
 
@@ -18,6 +19,10 @@ vi.mock('@/lib/api', async (importOriginal) => ({
 vi.mock('@/lib/close-readiness', async (importOriginal) => ({
   ...await importOriginal<typeof import('@/lib/close-readiness')>(),
   loadCloseReadinessCenter: mocks.loadCloseReadinessCenter,
+}));
+vi.mock('@/lib/close-review', async (importOriginal) => ({
+  ...await importOriginal<typeof import('@/lib/close-review')>(),
+  loadCloseReviewCenter: mocks.loadCloseReviewCenter,
 }));
 
 import CloseReadinessPage from '../page';
@@ -38,6 +43,10 @@ describe('CloseReadinessPage lineage drill-down', () => {
       subject_id: 'subject-synthetic', display_name: 'Fundador',
       session_expires_at: 2_000_000_000, companies: [company],
     });
+    mocks.loadCloseReviewCenter.mockResolvedValue([{
+      company, access: 'available', permissions: ['report.read'],
+      reviewers: [], packets: [],
+    }]);
     mocks.loadCloseReadinessCenter.mockResolvedValue([{
       company, access: 'available',
       statementLineages: {
@@ -84,6 +93,39 @@ describe('CloseReadinessPage lineage drill-down', () => {
       .toBeInTheDocument();
     expect(within(disclosure as HTMLElement).getByText(DIGEST)).toBeInTheDocument();
     expect(within(disclosure as HTMLElement).getByText(/no contiene importes/i))
+      .toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /cerrar|certificar/i }))
+      .not.toBeInTheDocument();
+  });
+
+  it('presenta el expediente digest-only sin confundirlo con un cierre', async () => {
+    const company = (await mocks.fetchMe()).companies[0];
+    mocks.loadCloseReviewCenter.mockResolvedValue([{
+      company, access: 'available', permissions: ['report.read', 'close.approve'],
+      reviewers: [], packets: [{
+        packet_id: '91111111-1111-4111-8111-111111111111',
+        period_start: '2026-07-01', period_end: '2026-07-31', version: 2,
+        manifest_schema_version: 'close-evidence-v1',
+        manifest: {
+          schema_version: 'close-evidence-v1', diagnostic_status: 'ready_for_review',
+          controls: [{ code: 'complete_lineage', state: 'pass', count: 0 }],
+          sources: [], accounts: [],
+        },
+        manifest_digest: DIGEST, diagnostic_status: 'ready_for_review',
+        prepared_by: '21111111-1111-4111-8111-111111111111',
+        preparer_name: 'Ana Preparadora',
+        assigned_reviewer_id: 'subject-synthetic', reviewer_name: 'Fundador',
+        prepared_at: '2026-08-26T12:00:00+00:00', decision_id: null,
+        decision: null, reason_code: null, decided_by: null, decider_name: null,
+        decided_at: null, reviewer_eligible: true, status: 'pending_review',
+        replayed: false, financial_effect: 'none', certifies_close: false,
+        can_execute_close: false,
+      }],
+    }]);
+    render(await CloseReadinessPage({ searchParams: Promise.resolve({ empresa: COMPANY }) }));
+    expect(screen.getByText('Version 2')).toBeInTheDocument();
+    expect(screen.getAllByText(DIGEST)).toHaveLength(2);
+    expect(screen.getByRole('button', { name: 'Marcar evidencia revisada' }))
       .toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /cerrar|certificar/i }))
       .not.toBeInTheDocument();
