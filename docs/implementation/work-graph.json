@@ -54,5 +54,20 @@
       "agent_may_accept": false
     }
   ],
-  "active_reservations": []
+  "active_reservations": [
+    {
+      "task": "FNC-QA-009",
+      "implementer": "Codex principal dev + Integration Steward",
+      "paths": [
+        "infra/local/compose.yaml",
+        "infra/local/fincilia-local.ps1",
+        "infra/local/test-web-isolated.sh",
+        "infra/local/README.md",
+        "docs/platform/isolated-web-runtime.json",
+        "tools/isolated_web_runtime",
+        "docs/implementation/tasks/FNC-QA-009.md",
+        "docs/implementation/handoffs/FNC-QA-009.md"
+      ]
+    }
+  ]
 }
