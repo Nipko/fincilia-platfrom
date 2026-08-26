@@ -77,4 +77,8 @@ describe('formatExactMoney', () => {
   it('deja visible un valor inesperado en vez de inventar un importe', () => {
     expect(formatExactMoney('1e3', 'COP')).toBe('1e3 COP');
   });
+
+  it('presenta diferencias negativas sin convertirlas a Number', () => {
+    expect(formatExactMoney('-1234.500000000000', 'COP')).toBe('-1.234,5 COP');
+  });
 });

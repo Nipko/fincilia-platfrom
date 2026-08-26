@@ -5,6 +5,8 @@ const mocks = vi.hoisted(() => ({
   fetchCompany: vi.fn(),
   fetchDatasets: vi.fn(),
   fetchCandidates: vi.fn(),
+  fetchGroups: vi.fn(),
+  fetchMovements: vi.fn(),
   fetchReviews: vi.fn(),
   readSession: vi.fn(),
   redirect: vi.fn(),
@@ -14,6 +16,7 @@ vi.mock('next/navigation', () => ({ redirect: mocks.redirect }));
 vi.mock('@/lib/session', () => ({ readSession: mocks.readSession }));
 vi.mock('@/app/actions', () => ({
   proposeMatchAction: vi.fn(),
+  proposeMatchGroupAction: vi.fn(),
   decideMatchAction: vi.fn(),
 }));
 vi.mock('@/lib/api', () => ({
@@ -27,6 +30,8 @@ vi.mock('@/lib/api', () => ({
   fetchCompany: mocks.fetchCompany,
   fetchDatasets: mocks.fetchDatasets,
   fetchReconciliationCandidates: mocks.fetchCandidates,
+  fetchReconciliationGroups: mocks.fetchGroups,
+  fetchMovements: mocks.fetchMovements,
   fetchReconciliationReviews: mocks.fetchReviews,
 }));
 
@@ -59,6 +64,8 @@ describe('ReconciliationPage', () => {
       permissions: ['movement.read'],
     });
     mocks.fetchDatasets.mockResolvedValue([dataset(LEFT), dataset(RIGHT)]);
+    mocks.fetchGroups.mockResolvedValue([]);
+    mocks.fetchMovements.mockResolvedValue([]);
     mocks.fetchReviews.mockResolvedValue([]);
   });
 
@@ -213,6 +220,72 @@ describe('ReconciliationPage', () => {
     expect(screen.getByRole('button', { name: 'Rechazar candidato' }))
       .toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Enviar a revision humana' }))
+      .not.toBeInTheDocument();
+  });
+
+  it('presenta composicion 1:N y N:1 e historial sin boton de confirmar', async () => {
+    mocks.fetchCompany.mockResolvedValue({
+      legal_name: 'Servicios Espiga SAS',
+      permissions: ['movement.read', 'match.propose'],
+    });
+    mocks.fetchCandidates.mockResolvedValue({
+      candidates: [], truncated: false, mode: 'candidate_only',
+      proves_balance_reconciliation: false,
+    });
+    const leftMovements = [
+      { movement_id: LEFT_MOVEMENT, amount: '300.000000000000', currency: 'COP',
+        direction: 'outflow', description: 'Pago total', reference: null,
+        occurred_on: '2026-02-13', state: 'proposed', record_ordinal: 2 },
+      { movement_id: crypto.randomUUID(), amount: '25.000000000000', currency: 'COP',
+        direction: 'outflow', description: 'Otro pago', reference: null,
+        occurred_on: '2026-02-14', state: 'proposed', record_ordinal: 3 },
+    ];
+    const related = [
+      { movement_id: RIGHT_MOVEMENT, amount: '100.000000000000', currency: 'COP',
+        direction: 'inflow', description: 'Abono uno', reference: null,
+        occurred_on: '2026-02-14', state: 'proposed', record_ordinal: 4 },
+      { movement_id: crypto.randomUUID(), amount: '200.000000000000', currency: 'COP',
+        direction: 'inflow', description: 'Abono dos', reference: null,
+        occurred_on: '2026-02-15', state: 'proposed', record_ordinal: 5 },
+    ];
+    mocks.fetchMovements.mockImplementation(
+      async (_token: string, _company: string, datasetId: string) => (
+        datasetId === LEFT ? leftMovements : related));
+    mocks.fetchGroups.mockResolvedValue([{
+      group_candidate_id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+      anchor_dataset_id: LEFT,
+      related_dataset_id: RIGHT,
+      anchor: leftMovements[0],
+      related,
+      related_movement_count: 2,
+      related_total: '300.000000000000',
+      difference: '0.000000000000',
+      currency: 'COP',
+      rule_version: 'fnc-rec-group-whole-v1',
+      proposed_by: crypto.randomUUID(),
+      proposed_by_name: 'Ana Preparadora',
+      proposed_at: '2026-08-26T12:00:00+00:00',
+      view_relation: 'one_to_many',
+      status: 'draft',
+      financial_effect: 'none',
+      proves_balance_reconciliation: false,
+      can_confirm: false,
+    }]);
+
+    render(await ReconciliationPage({
+      params: Promise.resolve({ companyId: COMPANY }),
+      searchParams: Promise.resolve({ izquierda: LEFT, derecha: RIGHT }),
+    }));
+
+    expect(screen.getByRole('heading', { name: 'Propuestas agrupadas 1:N y N:1' }))
+      .toBeInTheDocument();
+    expect(screen.getByRole('form', { name: 'Crear propuesta 1:N' }))
+      .toBeInTheDocument();
+    expect(screen.getByRole('form', { name: 'Crear propuesta N:1' }))
+      .toBeInTheDocument();
+    expect(screen.getAllByText('300 COP').length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByText(/Estado draft: no hay asignaciones/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /confirmar grupo/i }))
       .not.toBeInTheDocument();
   });
 

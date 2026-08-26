@@ -7,11 +7,15 @@ import {
   ApiError,
   fetchCompany,
   fetchDatasets,
+  fetchMovements,
   fetchReconciliationCandidates,
+  fetchReconciliationGroups,
   fetchReconciliationReviews,
   type CandidatePage,
   type DatasetSummary,
   type MatchReview,
+  type MatchGroupProposal,
+  type Movement,
 } from '@/lib/api';
 import {
   CANDIDATE_PAGE_SIZE,
@@ -22,6 +26,7 @@ import {
 import { readSession } from '@/lib/session';
 import { PageState } from '@/components/page-state';
 import { MatchReviewPanel, ProposeMatchForm } from './review-controls';
+import { GroupProposalForm } from './group-controls';
 
 export const dynamic = 'force-dynamic';
 
@@ -87,8 +92,15 @@ export default async function ReconciliationPage({
   );
   let result: CandidatePage | null = null;
   let reviews: MatchReview[] = [];
+  let groups: MatchGroupProposal[] = [];
+  let leftMovements: Movement[] = [];
+  let rightMovements: Movement[] = [];
   let failure: 'scope' | 'invalid' | 'degraded' | null = null;
   let reviewFailure = false;
+  let groupFailure = false;
+  const canPropose = company.permissions.includes('match.propose');
+  const canConfirm = company.permissions.includes('match.confirm');
+  const canReject = company.permissions.includes('match.reject');
   if (selection.valid) {
     try {
       result = await fetchReconciliationCandidates(
@@ -108,19 +120,37 @@ export default async function ReconciliationPage({
       else throw error;
     }
     if (result) {
-      try {
-        reviews = await fetchReconciliationReviews(
-          session.token,
-          companyId,
-          selection.leftDatasetId,
-          selection.rightDatasetId,
-        );
-      } catch (error) {
-        if (error instanceof ApiError && error.status === 401) redirect('/entrar');
-        if (error instanceof ApiError && [403, 422, 503].includes(error.status)) {
-          reviewFailure = true;
-        } else {
-          throw error;
+      const loaded = await Promise.allSettled([
+        fetchReconciliationReviews(
+          session.token, companyId, selection.leftDatasetId,
+          selection.rightDatasetId),
+        fetchReconciliationGroups(
+          session.token, companyId, selection.leftDatasetId,
+          selection.rightDatasetId),
+        canPropose
+          ? fetchMovements(
+              session.token, companyId, selection.leftDatasetId, 0, 50)
+          : Promise.resolve([] as Movement[]),
+        canPropose
+          ? fetchMovements(
+              session.token, companyId, selection.rightDatasetId, 0, 50)
+          : Promise.resolve([] as Movement[]),
+      ]);
+      if (loaded[0].status === 'fulfilled') reviews = loaded[0].value;
+      else reviewFailure = true;
+      if (loaded[1].status === 'fulfilled') groups = loaded[1].value;
+      else groupFailure = true;
+      if (loaded[2].status === 'fulfilled') leftMovements = loaded[2].value;
+      else groupFailure = true;
+      if (loaded[3].status === 'fulfilled') rightMovements = loaded[3].value;
+      else groupFailure = true;
+      for (const resource of loaded) {
+        if (resource.status === 'rejected') {
+          const error = resource.reason;
+          if (error instanceof ApiError && error.status === 401) redirect('/entrar');
+          if (!(error instanceof ApiError && [403, 422, 503].includes(error.status))) {
+            throw error;
+          }
         }
       }
     }
@@ -132,10 +162,6 @@ export default async function ReconciliationPage({
       review,
     ]),
   );
-  const canPropose = company.permissions.includes('match.propose');
-  const canConfirm = company.permissions.includes('match.confirm');
-  const canReject = company.permissions.includes('match.reject');
-
   const previous = selection.page > 0
     ? reconciliationUrl(companyId, { ...selection, page: selection.page - 1 })
     : null;
@@ -199,6 +225,137 @@ export default async function ReconciliationPage({
         </label>
         <button type="submit">Buscar candidatos</button>
       </form>
+
+      {selection.valid && result ? (
+        <section className="group-proposal-workbench"
+          aria-labelledby="group-proposals-title">
+          <div className="candidate-heading">
+            <div>
+              <h2 id="group-proposals-title">Propuestas agrupadas 1:N y N:1</h2>
+              <p className="meta">
+                Composiciones manuales de movimientos completos. La suma y la
+                diferencia son ayudas de revision: no asignan importes, no
+                confirman una conciliacion y no afectan el cierre.
+              </p>
+            </div>
+            <span className="tag">sin efecto financiero</span>
+          </div>
+
+          {groupFailure ? (
+            <div className="notice reconciliation-warning" role="alert">
+              Los pares siguen disponibles, pero los borradores agrupados no se
+              pudieron cargar. No se ofrece una composicion parcial.
+            </div>
+          ) : (
+            <>
+              {canPropose ? (
+                <div className="group-proposal-composers">
+                  <p className="meta group-proposal-limit">
+                    Se muestran hasta 50 movimientos por dataset; cada borrador
+                    admite entre 2 y 49 relacionados.
+                  </p>
+                  <GroupProposalForm
+                    companyId={companyId}
+                    anchorDatasetId={selection.leftDatasetId}
+                    relatedDatasetId={selection.rightDatasetId}
+                    anchorSide="izquierdo"
+                    anchors={leftMovements}
+                    related={rightMovements}
+                    commandKey={`rec005-left-${randomUUID()}`}
+                  />
+                  <GroupProposalForm
+                    companyId={companyId}
+                    anchorDatasetId={selection.rightDatasetId}
+                    relatedDatasetId={selection.leftDatasetId}
+                    anchorSide="derecho"
+                    anchors={rightMovements}
+                    related={leftMovements}
+                    commandKey={`rec005-right-${randomUUID()}`}
+                  />
+                </div>
+              ) : (
+                <p className="meta">
+                  Tu rol puede consultar borradores agrupados, pero no crearlos.
+                </p>
+              )}
+
+              <div className="group-proposal-history">
+                <h3>Borradores guardados</h3>
+                {groups.length === 0 ? (
+                  <PageState
+                    kind="empty"
+                    title="Todavia no hay propuestas agrupadas"
+                    description="Crear un borrador no confirma movimientos ni demuestra un saldo conciliado."
+                  />
+                ) : (
+                  <div className="group-proposal-list" aria-label="Borradores agrupados">
+                    {groups.map((group) => (
+                      <article className="card group-proposal-card"
+                        id={`grupo-${group.group_candidate_id}`}
+                        key={group.group_candidate_id}>
+                        <header className="group-proposal-card__header">
+                          <div>
+                            <strong>
+                              {group.view_relation === 'one_to_many' ? '1:N' : 'N:1'} · borrador
+                            </strong>
+                            <span className="meta">
+                              {group.proposed_by_name} · {group.related_movement_count} relacionados
+                            </span>
+                          </div>
+                          <span className="tag">sin confirmar</span>
+                        </header>
+                        <div className="group-proposal-equation"
+                          aria-label="Comparacion exacta del borrador">
+                          <div>
+                            <span>Ancla</span>
+                            <strong>{formatExactMoney(
+                              group.anchor.amount, group.currency)}</strong>
+                          </div>
+                          <span aria-hidden="true">−</span>
+                          <div>
+                            <span>Suma relacionada</span>
+                            <strong>{formatExactMoney(
+                              group.related_total, group.currency)}</strong>
+                          </div>
+                          <span aria-hidden="true">=</span>
+                          <div>
+                            <span>Diferencia</span>
+                            <strong>{formatExactMoney(
+                              group.difference, group.currency)}</strong>
+                          </div>
+                        </div>
+                        <div className="group-proposal-members">
+                          <div>
+                            <span className="candidate-side">Movimiento ancla</span>
+                            <strong>Fila {group.anchor.record_ordinal} · {group.anchor.description}</strong>
+                            <Link href={`/empresas/${companyId}/movimientos/${group.anchor.movement_id}`}>
+                              Ver evidencia del ancla
+                            </Link>
+                          </div>
+                          <ul aria-label="Movimientos relacionados">
+                            {group.related.map((movement) => (
+                              <li key={movement.movement_id}>
+                                <span>Fila {movement.record_ordinal} · {movement.description}</span>
+                                <Link href={`/empresas/${companyId}/movimientos/${movement.movement_id}`}>
+                                  Ver evidencia
+                                </Link>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                        <p className="meta group-proposal-disclaimer">
+                          Estado draft: no hay asignaciones, decision, reserva de
+                          miembros, efecto financiero ni habilitacion de cierre.
+                        </p>
+                      </article>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </section>
+      ) : null}
 
       <section aria-labelledby="candidate-results-title">
         <div className="candidate-heading">

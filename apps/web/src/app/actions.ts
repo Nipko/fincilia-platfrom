@@ -37,6 +37,7 @@ import {
   prepareDataset,
   publishDataset,
   provisionCompany,
+  proposeReconciliationGroup,
   proposeReconciliationReview,
   proposeCorrection,
   rejectDataset,
@@ -667,6 +668,78 @@ export async function decideMatchAction(
   } catch (error) {
     if (error instanceof ApiError && error.status === 401) redirect('/entrar');
     return reviewError(error);
+  }
+}
+
+export async function proposeMatchGroupAction(
+  _previous: MatchReviewState,
+  formData: FormData,
+): Promise<MatchReviewState> {
+  const session = await readSession();
+  if (!session) redirect('/entrar');
+  const companyId = String(formData.get('companyId') ?? '');
+  const anchorDatasetId = String(formData.get('anchorDatasetId') ?? '');
+  const relatedDatasetId = String(formData.get('relatedDatasetId') ?? '');
+  const anchorMovementId = String(formData.get('anchorMovementId') ?? '');
+  const relatedMovementIds = formData.getAll('relatedMovementIds').map(String);
+  const idempotencyKey = String(formData.get('idempotencyKey') ?? '');
+  if (
+    ![companyId, anchorDatasetId, relatedDatasetId, anchorMovementId]
+      .every((value) => UUID_PATTERN.test(value)) ||
+    anchorDatasetId === relatedDatasetId ||
+    !IDEMPOTENCY_PATTERN.test(idempotencyKey) ||
+    relatedMovementIds.length < 2 || relatedMovementIds.length > 49 ||
+    relatedMovementIds.some((value) => !UUID_PATTERN.test(value)) ||
+    new Set(relatedMovementIds).size !== relatedMovementIds.length ||
+    relatedMovementIds.includes(anchorMovementId)
+  ) {
+    return {
+      error: 'El grupo visible ya no tiene una composicion valida de 2 a 49 movimientos.',
+      done: null,
+    };
+  }
+  try {
+    const result = await proposeReconciliationGroup(
+      session.token,
+      companyId,
+      idempotencyKey,
+      {
+        anchor_dataset_id: anchorDatasetId,
+        related_dataset_id: relatedDatasetId,
+        anchor_movement_id: anchorMovementId,
+        related_movement_ids: relatedMovementIds,
+      },
+    );
+    revalidatePath(`/empresas/${companyId}/conciliacion`);
+    return {
+      error: null,
+      done: result.replayed
+        ? 'El mismo borrador agrupado ya estaba registrado.'
+        : result.created
+          ? 'Borrador agrupado registrado, sin asignaciones ni efecto financiero.'
+          : 'La composicion ya existia; el comando se vinculo sin duplicarla.',
+    };
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) redirect('/entrar');
+    if (error instanceof ApiError && error.status === 403) {
+      return { error: 'Los movimientos o el permiso ya no estan disponibles.', done: null };
+    }
+    if (error instanceof ApiError && error.status === 409) {
+      return { error: 'La clave ya fue usada para otra composicion.', done: null };
+    }
+    if (error instanceof ApiError && error.status === 422) {
+      return {
+        error: 'El servidor rechazo el grupo: revisa datasets, moneda, direccion y miembros.',
+        done: null,
+      };
+    }
+    if (error instanceof ApiError && error.status === 503) {
+      return { error: 'Los borradores agrupados no estan habilitados aqui.', done: null };
+    }
+    return {
+      error: error instanceof ApiError ? error.message : 'No se pudo registrar el grupo.',
+      done: null,
+    };
   }
 }
 

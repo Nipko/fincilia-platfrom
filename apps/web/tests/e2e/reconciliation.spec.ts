@@ -1,6 +1,12 @@
 import { expect, test, type Page } from '@playwright/test';
 
-import { findReviewPair, reviewUrl, signInReviewer } from './reconciliation-helpers';
+import {
+  findGroupComposition,
+  findReviewPair,
+  groupUrl,
+  reviewUrl,
+  signInReviewer,
+} from './reconciliation-helpers';
 
 async function openReconciliation(page: Page): Promise<void> {
   await page.goto('/entrar');
@@ -117,4 +123,30 @@ test('FNC-REC-003 prioriza revisiones multiempresa y abre el expediente exacto',
   await expect(page).toHaveURL(/\/conciliacion\?izquierda=.+&derecha=.+#revision-/);
   await expect(page.getByLabel('Estado de revision').first()).toBeVisible();
   await expect(page.getByText(/sin efecto financiero/i).first()).toBeVisible();
+});
+
+test('FNC-REC-005 compone un borrador 1:N o N:1 sin ofrecer confirmacion', async ({
+  page,
+  request,
+}) => {
+  const composition = await findGroupComposition(request);
+  await openReconciliation(page);
+  await page.goto(groupUrl(composition));
+
+  const relation = composition.anchorSide === 'left' ? '1:N' : 'N:1';
+  const form = page.getByRole('form', { name: `Crear propuesta ${relation}` });
+  await expect(form).toBeVisible();
+  await form.locator('select[name="anchorMovementId"]')
+    .selectOption(composition.anchorMovementId);
+  for (const movementId of composition.relatedMovementIds) {
+    await form.locator(`input[name="relatedMovementIds"][value="${movementId}"]`)
+      .check();
+  }
+  await form.getByRole('button', { name: `Guardar propuesta ${relation}` }).click();
+  await expect(form.getByRole('status')).toContainText(/Borrador|composicion/i);
+
+  const saved = page.getByLabel('Borradores agrupados').locator('article').first();
+  await expect(saved).toBeVisible();
+  await expect(saved.getByText(/Estado draft: no hay asignaciones/)).toBeVisible();
+  await expect(saved.getByRole('button', { name: /confirmar|cerrar/i })).toHaveCount(0);
 });

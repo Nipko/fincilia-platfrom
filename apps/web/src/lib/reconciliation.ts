@@ -68,9 +68,9 @@ export function reconciliationUrl(
 }
 
 export function formatExactMoney(amount: string, currency: string): string {
-  const match = /^(\d+)(?:\.(\d+))?$/.exec(amount);
+  const match = /^(-?)(\d+)(?:\.(\d+))?$/.exec(amount);
   if (!match) return `${amount} ${currency}`;
-  const whole = (match[1] ?? '').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-  const fraction = (match[2] ?? '').replace(/0+$/, '');
-  return `${whole}${fraction ? `,${fraction}` : ''} ${currency}`;
+  const whole = (match[2] ?? '').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  const fraction = (match[3] ?? '').replace(/0+$/, '');
+  return `${match[1]}${whole}${fraction ? `,${fraction}` : ''} ${currency}`;
 }

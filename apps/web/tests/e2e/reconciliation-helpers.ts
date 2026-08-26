@@ -18,6 +18,14 @@ export type ReviewPair = {
   confirmationConflict: boolean;
 };
 
+export type GroupComposition = {
+  left: string;
+  right: string;
+  anchorSide: 'left' | 'right';
+  anchorMovementId: string;
+  relatedMovementIds: string[];
+};
+
 type ReviewSummary = {
   candidate_id: string;
   left_movement_id: string;
@@ -97,6 +105,69 @@ export async function findReviewPair(
     if (located) return located;
   }
   throw new Error(`No synthetic ${preferredStatus ?? 'any'} review pair was found`);
+}
+
+export async function findGroupComposition(
+  request: APIRequestContext,
+): Promise<GroupComposition> {
+  const pair = await findReviewPair(request);
+  const signed = await request.post(`${API_URL}/api/v1/auth/session`, {
+    data: { username: 'ana@demo.local', secret: 'fincilia-demo-only' },
+  });
+  expect(signed.ok()).toBeTruthy();
+  const token = (await signed.json()).token as string;
+  const headers = { authorization: `Bearer ${token}` };
+  const [leftResponse, rightResponse] = await Promise.all([
+    request.get(
+      `${API_URL}/api/v1/companies/${ESPIGA}/datasets/${pair.left}/movements`,
+      { headers, params: { offset: 0, limit: 50 } },
+    ),
+    request.get(
+      `${API_URL}/api/v1/companies/${ESPIGA}/datasets/${pair.right}/movements`,
+      { headers, params: { offset: 0, limit: 50 } },
+    ),
+  ]);
+  expect(leftResponse.ok()).toBeTruthy();
+  expect(rightResponse.ok()).toBeTruthy();
+  type Movement = {
+    movement_id: string;
+    currency: string;
+    direction: string;
+  };
+  const left = await leftResponse.json() as Movement[];
+  const right = await rightResponse.json() as Movement[];
+
+  for (const anchor of left) {
+    const related = right.filter((movement) => (
+      movement.currency === anchor.currency &&
+      movement.direction !== anchor.direction
+    ));
+    if (related.length >= 2) {
+      return {
+        left: pair.left,
+        right: pair.right,
+        anchorSide: 'left',
+        anchorMovementId: anchor.movement_id,
+        relatedMovementIds: related.slice(0, 2).map((item) => item.movement_id),
+      };
+    }
+  }
+  for (const anchor of right) {
+    const related = left.filter((movement) => (
+      movement.currency === anchor.currency &&
+      movement.direction !== anchor.direction
+    ));
+    if (related.length >= 2) {
+      return {
+        left: pair.left,
+        right: pair.right,
+        anchorSide: 'right',
+        anchorMovementId: anchor.movement_id,
+        relatedMovementIds: related.slice(0, 2).map((item) => item.movement_id),
+      };
+    }
+  }
+  throw new Error('No synthetic 1:N or N:1 composition was found');
 }
 
 function movementPair(left: string, right: string): string {
@@ -213,4 +284,14 @@ export function reviewUrl(pair: ReviewPair): string {
     pagina: String(pair.page),
   });
   return `/empresas/${ESPIGA}/conciliacion?${query.toString()}#revision-${pair.candidateId}`;
+}
+
+export function groupUrl(group: Pick<GroupComposition, 'left' | 'right'>): string {
+  const query = new URLSearchParams({
+    izquierda: group.left,
+    derecha: group.right,
+    ventana: '3',
+    pagina: '0',
+  });
+  return `/empresas/${ESPIGA}/conciliacion?${query.toString()}#group-proposals-title`;
 }

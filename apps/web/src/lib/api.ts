@@ -504,6 +504,29 @@ export type MatchReview = {
   created?: boolean;
 };
 
+export type MatchGroupProposal = {
+  group_candidate_id: string;
+  anchor_dataset_id: string;
+  related_dataset_id: string;
+  anchor: CandidateMovement;
+  related: CandidateMovement[];
+  related_movement_count: number;
+  related_total: string;
+  difference: string;
+  currency: string;
+  rule_version: string;
+  proposed_by: string;
+  proposed_by_name: string;
+  proposed_at: string;
+  view_relation: 'one_to_many' | 'many_to_one';
+  status: 'draft';
+  financial_effect: 'none';
+  proves_balance_reconciliation: false;
+  can_confirm: false;
+  replayed?: boolean;
+  created?: boolean;
+};
+
 export type ReviewQueueStatus = 'open' | 'confirmed' | 'rejected' | 'all';
 
 export type ReviewQueuePage = {
@@ -1025,6 +1048,50 @@ export function decideReconciliationReview(
         'idempotency-key': idempotencyKey,
       },
       body: JSON.stringify({ decision, reason_code: reasonCode }),
+      token,
+    },
+  );
+}
+
+export function fetchReconciliationGroups(
+  token: string,
+  companyId: string,
+  leftDatasetId: string,
+  rightDatasetId: string,
+): Promise<MatchGroupProposal[]> {
+  const company = encodeURIComponent(companyId);
+  const query = new URLSearchParams({
+    left_dataset_id: leftDatasetId,
+    right_dataset_id: rightDatasetId,
+    limit: '100',
+  });
+  return request<MatchGroupProposal[]>(
+    `/api/v1/companies/${company}/reconciliation/group-proposals?${query.toString()}`,
+    { token },
+  );
+}
+
+export function proposeReconciliationGroup(
+  token: string,
+  companyId: string,
+  idempotencyKey: string,
+  body: {
+    anchor_dataset_id: string;
+    related_dataset_id: string;
+    anchor_movement_id: string;
+    related_movement_ids: string[];
+  },
+): Promise<MatchGroupProposal> {
+  const company = encodeURIComponent(companyId);
+  return request<MatchGroupProposal>(
+    `/api/v1/companies/${company}/reconciliation/group-proposals`,
+    {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'idempotency-key': idempotencyKey,
+      },
+      body: JSON.stringify(body),
       token,
     },
   );

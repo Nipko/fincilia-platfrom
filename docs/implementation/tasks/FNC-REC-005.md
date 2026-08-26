@@ -39,6 +39,7 @@ movimientos, acredita saldos ni habilita cierres.
 - `db/tests/test_reconciliation_group_proposals.py`.
 - `apps/api/src/fincilia_api/reconciliation.py`, `routes.py` y pruebas focales.
 - `apps/web/src/lib/api.ts`, acciones y estación web de conciliación.
+- `apps/web/src/app/globals.css` solo para la presentación agrupada.
 - pruebas web unitarias, E2E y Axe de conciliación agrupada.
 - esta ficha, handoff y registros centrales por Integration Steward.
 
