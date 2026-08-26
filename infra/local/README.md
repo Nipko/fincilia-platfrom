@@ -50,3 +50,24 @@ código 255. El wrapper PowerShell evita depender de una terminal interactiva.
 La eliminación deliberada de volúmenes es una operación distinta y no forma
 parte del wrapper. No utilice documentos financieros reales mientras DRG-00 siga
 cerrado.
+
+## Regresión web sin contaminar la demo
+
+Desde PowerShell, la regresión Chromium + Axe completa se ejecuta sobre el
+proyecto desechable `fincilia-e2e`:
+
+```powershell
+.\infra\local\test-web-isolated.ps1
+```
+
+El runner usa web/API/MinIO en 53100/58180/59100/59101, redes y volúmenes
+exclusivos, y una base sintética nueva. En un bloque `finally` elimina únicamente
+los recursos `fincilia-e2e` y verifica que no quede ninguno, tanto si las pruebas
+pasan como si fallan. No acepta nombres de proyecto, puertos, volúmenes, redes ni
+archivos proporcionados por el invocador, y nunca conecta los contenedores E2E a
+los recursos persistentes de `fincilia-local`.
+
+El helper `test-web-isolated.sh` es interno al orquestador: no contiene Node ni
+ejecuta Playwright, porque esas dependencias viven en Windows. Para probar la
+plataforma manualmente use el runtime persistente; el desechable existe solo
+durante la corrida automatizada.

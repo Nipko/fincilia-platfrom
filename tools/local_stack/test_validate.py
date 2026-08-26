@@ -271,6 +271,19 @@ class LocalStackContractTests(unittest.TestCase):
                 mutated = COMPOSE.replace(original, replacement, 1)
                 self.assertIn("LOCAL-NAMED-VOLUME", codes(validate_compose(mutated)))
 
+    def test_acceptance_network_overrides_keep_safe_defaults(self) -> None:
+        mutations = (
+            ("${FINCILIA_LOCAL_PRIVATE_NETWORK:-fincilia_local_private}",
+             "fincilia_qa_only_private"),
+            ("${FINCILIA_LOCAL_EDGE_NETWORK:-fincilia_local_edge}",
+             "fincilia_qa_only_edge"),
+        )
+        for original, replacement in mutations:
+            with self.subTest(original=original):
+                self.assertIn(original, COMPOSE)
+                mutated = COMPOSE.replace(original, replacement, 1)
+                self.assertIn("LOCAL-NAMED-NETWORK", codes(validate_compose(mutated)))
+
 
 if __name__ == "__main__":
     unittest.main()

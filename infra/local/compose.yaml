@@ -309,8 +309,8 @@ volumes:
 
 networks:
   fincilia_local_private:
-    name: fincilia_local_private
+    name: ${FINCILIA_LOCAL_PRIVATE_NETWORK:-fincilia_local_private}
     internal: true
   fincilia_local_edge:
     # Solo api y objectstore. El worker, la base y la cache nunca la tocan.
-    name: fincilia_local_edge
+    name: ${FINCILIA_LOCAL_EDGE_NETWORK:-fincilia_local_edge}

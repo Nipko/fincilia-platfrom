@@ -159,6 +159,11 @@ def validate_compose(text: str) -> list[Finding]:
         findings.append(Finding("LOCAL-NAMED-VOLUME",
                                 "the object volume needs an explicit safe default and "
                                 "an override for isolated synthetic acceptance"))
+    if "name: ${FINCILIA_LOCAL_PRIVATE_NETWORK:-fincilia_local_private}" not in text \
+            or "name: ${FINCILIA_LOCAL_EDGE_NETWORK:-fincilia_local_edge}" not in text:
+        findings.append(Finding("LOCAL-NAMED-NETWORK",
+                                "local networks need safe defaults and explicit "
+                                "overrides for isolated synthetic acceptance"))
     if "./db/init:/docker-entrypoint-initdb.d:ro" not in text \
             or "./scripts:/checks:ro" not in text:
         findings.append(Finding("LOCAL-READONLY-MOUNTS",
