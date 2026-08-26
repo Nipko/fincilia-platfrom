@@ -30,6 +30,7 @@ fallo, de modo que la regresion automatizada no contamine la demo persistente.
 - `infra/local/compose.yaml`.
 - `infra/local/fincilia-local.ps1`.
 - `infra/local/test-web-isolated.sh`.
+- `infra/local/test-web-isolated.ps1`.
 - `infra/local/README.md`.
 - `docs/platform/isolated-web-runtime.json`.
 - `tools/isolated_web_runtime/**`.
