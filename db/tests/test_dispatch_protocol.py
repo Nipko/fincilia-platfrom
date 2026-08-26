@@ -14,8 +14,10 @@ un trabajo no queda invisible para siempre, que es exactamente lo que pasaba.
 from __future__ import annotations
 
 import os
+import re
 import unittest
 import uuid
+from pathlib import Path
 
 import psycopg
 
@@ -29,6 +31,36 @@ SANDBOX_B = str(uuid.uuid5(NAMESPACE, "company:sandbox_b"))
 ANA = str(uuid.uuid5(NAMESPACE, "subject:ana"))
 
 LEASE = 60
+
+
+FUNCTION_DECLARATION = re.compile(
+    r"CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\s+fincilia\."
+    r"(?P<created>[a-z_][a-z0-9_]*)\s*\("
+    r"|ALTER\s+FUNCTION\s+fincilia\."
+    r"(?P<source>[a-z_][a-z0-9_]*)\s*\([^;]*?\)\s*"
+    r"RENAME\s+TO\s+(?P<target>[a-z_][a-z0-9_]*)\s*;",
+    re.IGNORECASE | re.DOTALL,
+)
+
+
+def declared_function_names(paths: list[Path]) -> set[str]:
+    """Reproduce el namespace final que dejan CREATE y RENAME en orden."""
+    names: set[str] = set()
+    for path in sorted(paths):
+        body = path.read_text(encoding="utf-8")
+        code = "\n".join(line for line in body.splitlines()
+                         if not line.lstrip().startswith("--"))
+        for match in FUNCTION_DECLARATION.finditer(code):
+            created = match.group("created")
+            if created:
+                names.add(created.lower())
+                continue
+            source = match.group("source")
+            target = match.group("target")
+            if source and target:
+                names.discard(source.lower())
+                names.add(target.lower())
+    return names
 
 
 def connect(dsn: str, company: str | None = None) -> psycopg.Connection:
@@ -289,17 +321,8 @@ class DispatchProtocolTests(unittest.TestCase):
         # El validador estatico exige un `REVOKE ... FROM PUBLIC` por cada
         # `CREATE FUNCTION`. Esto comprueba la otra mitad: que lo que las
         # migraciones dicen crear es lo que la base tiene.
-        import re
-        from pathlib import Path
-
-        declared = set()
-        for path in sorted(Path("/app/db/migrations").glob("*.sql")):
-            body = path.read_text(encoding="utf-8")
-            code = "\n".join(line for line in body.splitlines()
-                             if not line.lstrip().startswith("--"))
-            declared |= {match.group(1) for match in
-                         re.finditer(r"CREATE (?:OR REPLACE )?FUNCTION "
-                                     r"fincilia\.([a-z_][a-z0-9_]*)\s*\(", code)}
+        declared = declared_function_names(
+            list(Path("/app/db/migrations").glob("*.sql")))
         with connect(MIGRATOR_DSN) as connection, connection.cursor() as cursor:
             cursor.execute(
                 "SELECT p.proname FROM pg_proc p "

@@ -87,12 +87,52 @@ class ApiAuthorizationTests(unittest.TestCase):
         if not MIGRATOR_DSN or not RUNTIME_DSN:
             raise unittest.SkipTest("migrator and runtime DSNs are required")
         seed(MIGRATOR_DSN, secret=DEFAULT_SECRET)
+        cls.created_uploads: set[tuple[str, str, str]] = set()
         cls.client = TestClient(create_app(build_settings()))
         cls.client.__enter__()
 
     @classmethod
     def tearDownClass(cls) -> None:
         cls.client.__exit__(None, None, None)
+        if not cls.created_uploads:
+            return
+        with psycopg.connect(MIGRATOR_DSN, autocommit=False) as connection:
+            for company_id, artifact_id, context_id in sorted(cls.created_uploads):
+                with connection.transaction(), connection.cursor() as cursor:
+                    cursor.execute(
+                        "SELECT set_config('fincilia.company_id', %s, true)",
+                        (company_id,))
+                    cursor.execute(
+                        "DELETE FROM fincilia.dispatch_pointer WHERE run_id IN ("
+                        "SELECT run_id FROM fincilia.processing_run "
+                        "WHERE company_id = %s AND artifact_id = %s)",
+                        (company_id, artifact_id))
+                    cursor.execute(
+                        "DELETE FROM fincilia.run_attempt WHERE run_id IN ("
+                        "SELECT run_id FROM fincilia.processing_run "
+                        "WHERE company_id = %s AND artifact_id = %s)",
+                        (company_id, artifact_id))
+                    cursor.execute(
+                        "DELETE FROM fincilia.dead_letter_item WHERE work_id IN ("
+                        "SELECT run_id FROM fincilia.processing_run "
+                        "WHERE company_id = %s AND artifact_id = %s)",
+                        (company_id, artifact_id))
+                    cursor.execute(
+                        "DELETE FROM fincilia.processing_run "
+                        "WHERE company_id = %s AND artifact_id = %s",
+                        (company_id, artifact_id))
+                    cursor.execute(
+                        "DELETE FROM fincilia.issued_authorization_revocation "
+                        "WHERE company_id = %s AND context_id = %s",
+                        (company_id, context_id))
+                    cursor.execute(
+                        "DELETE FROM fincilia.issued_authorization_context "
+                        "WHERE company_id = %s AND context_id = %s",
+                        (company_id, context_id))
+                    cursor.execute(
+                        "DELETE FROM fincilia.source_artifact "
+                        "WHERE company_id = %s AND artifact_id = %s",
+                        (company_id, artifact_id))
 
     # ---------------------------------------------------------------- helpers #
 
@@ -267,6 +307,7 @@ class ApiAuthorizationTests(unittest.TestCase):
         self.assertEqual("processing_job", row[1])
         self.assertEqual("source_artifact", row[2])
         self.assertEqual(stable_id("subject", "ana"), row[3])
+        type(self).created_uploads.add((ESPIGA, artifact_id, row[0]))
 
     def test_segregation_of_duties_holds_across_the_two_demo_users(self) -> None:
         # Nadie propone y confirma: la separacion no es una nota del manual, se ve

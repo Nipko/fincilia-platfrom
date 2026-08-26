@@ -159,7 +159,10 @@ class AssigneeTests(unittest.TestCase):
         listed = [event for event in events if event["action"] == "assignee.list"]
         self.assertTrue(listed, "listing candidates left no trail")
         self.assertGreaterEqual(listed[0]["detail"]["candidates"], 3)
-        rendered = str(listed[0])
+        # El actor que consulta si es un dato legitimo del evento. La propiedad
+        # de privacidad es que el payload no copie la lista de candidatos.
+        self.assertEqual("Sofia Owner", listed[0]["actor_name"])
+        rendered = str(listed[0]["detail"])
         for name in ("Ana", "Beto", "Sofia"):
             self.assertNotIn(name, rendered)
 
@@ -185,7 +188,10 @@ class AssigneeTests(unittest.TestCase):
         assigned = [event for event in events if event["action"] == "source.cycle"]
         self.assertTrue(assigned, "naming a responsible left no trail")
         self.assertEqual(ANA, assigned[0]["detail"]["responsible"])
-        rendered = str(assigned[0])
+        # Sofia ejecuta la asignacion y debe seguir visible como actor. Lo que no
+        # puede duplicar nombres/contactos es el detalle financiero-operativo.
+        self.assertEqual("Sofia Owner", assigned[0]["actor_name"])
+        rendered = str(assigned[0]["detail"])
         for name in ("Ana", "Beto", "Sofia", "@demo.local"):
             self.assertNotIn(name, rendered)
 

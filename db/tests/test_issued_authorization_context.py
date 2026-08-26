@@ -55,20 +55,23 @@ class IssuedAuthorizationContextTests(unittest.TestCase):
         if not MIGRATOR_DSN or not RUNTIME_DSN:
             raise unittest.SkipTest("migrator and runtime DSNs are required")
         seed(MIGRATOR_DSN, secret=DEFAULT_SECRET)
+        cls.created_contexts: set[tuple[str, str]] = set()
 
     @classmethod
     def tearDownClass(cls) -> None:
         with psycopg.connect(MIGRATOR_DSN, autocommit=False) as connection:
-            for company_id in (ESPIGA, ANDINOS):
+            for company_id, context_id in sorted(cls.created_contexts):
                 with connection.transaction():
                     _set_context(connection, company_id)
                     with connection.cursor() as cursor:
                         cursor.execute(
                             "DELETE FROM fincilia.issued_authorization_revocation "
-                            "WHERE company_id = %s", (company_id,))
+                            "WHERE company_id = %s AND context_id = %s",
+                            (company_id, context_id))
                         cursor.execute(
                             "DELETE FROM fincilia.issued_authorization_context "
-                            "WHERE company_id = %s", (company_id,))
+                            "WHERE company_id = %s AND context_id = %s",
+                            (company_id, context_id))
 
     @contextmanager
     def session(self, company_id: str = ESPIGA):
@@ -80,13 +83,15 @@ class IssuedAuthorizationContextTests(unittest.TestCase):
     def issue(self, connection: psycopg.Connection, tenant: TenantContext, *,
               key: str | None = None, resource: str | None = None,
               expires_at: datetime | None = None):
-        return issue_context(
+        issued = issue_context(
             connection, tenant=tenant, purpose_code="processing_job",
             resource_kind="source_artifact",
             resource_ref=resource or f"artifact:{uuid.uuid4()}",
             idempotency_key=key or f"issued-context-{uuid.uuid4()}",
             expires_at=expires_at or datetime.now(timezone.utc) + timedelta(hours=1),
             hmac_key=HMAC_KEY)
+        type(self).created_contexts.add((tenant.company_id, issued.context_id))
+        return issued
 
     def test_issue_use_and_revoke_are_audited_without_raw_reference(self) -> None:
         raw_reference = f"synthetic-artifact:{uuid.uuid4()}"
