@@ -431,10 +431,24 @@ def check_update_monitoring(model: dict[str, Any], inventory: dict[str, Any]) ->
     findings: list[Finding] = []
     owner, gate, risks = _owner_of(model, "generated_artifact")
     monitors = component_dicts(inventory, "generated_artifact")
+    dockerfile_scopes = {
+        "" if Path(image["path"]).parent.as_posix() == "."
+        else Path(image["path"]).parent.as_posix().strip("/")
+        for image in component_dicts(inventory, "oci_image")
+        if image["attributes"].get("form") == "dockerfile_from"
+    }
     monitored: dict[str, set[str]] = {}
     for monitor in monitors:
         ecosystem = monitor["attributes"].get("ecosystem", "")
         directory = monitor["attributes"].get("directory", "/").strip("/")
+        if ecosystem == "docker" and directory not in dockerfile_scopes:
+            findings.append(Finding(
+                "SUP-UPDATE-MONITOR-INVALID",
+                f"{monitor['path']}:{monitor['line']}",
+                f"docker monitor scope {directory!r} has no discovered Dockerfile; "
+                "Dependabot will report dependency_file_not_found and monitor nothing",
+                "medium", owner, gate, risks, "defect"))
+            continue
         monitored.setdefault(ecosystem, set()).add(directory)
     if not monitors:
         return findings

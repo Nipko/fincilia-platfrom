@@ -40,23 +40,3 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
-  - package-ecosystem: docker
-    directory: /infra/local
-    schedule:
-      interval: weekly
-    open-pull-requests-limit: 5
-  - package-ecosystem: docker
-    directory: /spikes/FNC-DB-002
-    schedule:
-      interval: weekly
-    open-pull-requests-limit: 5
-  - package-ecosystem: docker
-    directory: /spikes/FNC-PLT-001
-    schedule:
-      interval: weekly
-    open-pull-requests-limit: 5
-  - package-ecosystem: docker
-    directory: /spikes/FNC-PLT-005
-    schedule:
-      interval: weekly
-    open-pull-requests-limit: 5

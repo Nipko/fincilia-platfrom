@@ -37,6 +37,7 @@ SOURCE_DIR = ROOT / "tools/supply_chain"
 
 WORKFLOW = ".github/workflows/ci.yml"
 COMPOSE = "infra/synthetic/compose.yaml"
+DOCKERFILE = "infra/synthetic/Dockerfile"
 MANIFEST = "spikes/SYN-001/api/package.json"
 LOCKFILE = "spikes/SYN-001/api/package-lock.json"
 MONITOR = ".github/dependabot.yml"
@@ -122,6 +123,8 @@ class SyntheticTreeMixin:
     def tree(self, directory: Path, **overrides) -> Path:
         write(directory / WORKFLOW, overrides.get("workflow", workflow_yaml()))
         write(directory / COMPOSE, overrides.get("compose", compose_yaml()))
+        write(directory / DOCKERFILE,
+              "FROM postgres@sha256:" + GOOD_DIGEST + '\nCMD ["true"]\n')
         write(directory / MANIFEST, overrides.get("manifest", manifest_json()))
         if overrides.get("lockfile", True):
             write(directory / LOCKFILE, lockfile_json())
@@ -576,6 +579,20 @@ class NegativeInvariantTests(SyntheticTreeMixin, unittest.TestCase):
             self.assertEqual(len(findings), 2)
             self.assertEqual({item["location"] for item in findings},
                              {"spikes/SYN-001/api", "infra/synthetic"})
+
+    def test_neg_19b_a_compose_directory_is_not_a_valid_docker_monitor(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            tree = self.tree(Path(directory))
+            (tree / DOCKERFILE).unlink()
+            result = self.scan(tree)
+            invalid = [item for item in result["findings"]
+                       if item["code"] == "SUP-UPDATE-MONITOR-INVALID"]
+            self.assertEqual(len(invalid), 1)
+            self.assertIn("dependency_file_not_found", invalid[0]["message"])
+            self.assertIn("infra/synthetic", {
+                item["location"] for item in result["findings"]
+                if item["code"] == "SUP-UPDATES-UNMONITORED"
+            })
 
 
 # --------------------------------------------------------------------------- #

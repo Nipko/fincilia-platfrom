@@ -111,6 +111,7 @@
       "include_globs": [
         "Dockerfile",
         "apps/*/Dockerfile",
+        "infra/*/Dockerfile",
         "workers/*/Dockerfile",
         "packages/*/Dockerfile",
         "spikes/*/Dockerfile",
@@ -474,6 +475,13 @@
       "owner_role": "Platform",
       "gate": "DRG-00",
       "blocks_gate": true
+    },
+    {
+      "id": "GAP-SUP-COMPOSE-UPDATES",
+      "reason": "Dependabot no interpreta las referencias OCI declaradas dentro de Docker Compose. Las imagenes estan fijadas por digest, pero los cinco alcances Compose requieren un monitor compatible o una revision operativa demostrable para recibir avisos de actualizacion.",
+      "owner_role": "Platform",
+      "gate": "DRG-00",
+      "blocks_gate": true
     }
   ],
   "gates": [
@@ -508,7 +516,7 @@
     },
     {
       "id": "UD-SUP-UPDATE-CADENCE",
-      "question": "Quien revisa y aprueba las actualizaciones de pins y con que cadencia",
+      "question": "Que mecanismo compatible vigila las imagenes OCI de Compose, quien revisa y aprueba sus pins y con que cadencia",
       "owner_role": "Platform"
     }
   ],

@@ -101,31 +101,35 @@ de comprometer una cadena de suministro.
 
 ## 6. Estado medido del repositorio
 
-60 componentes en 22 ficheros escaneados:
+57 componentes en 23 ficheros escaneados:
 
 | Tipo | Cantidad | Estado |
 |---|---:|---|
 | `github_action` | 9 | **todas fijadas a sha de 40** |
-| `oci_image` | 14 | **todas fijadas por digest** |
+| `oci_image` | 15 | **todas fijadas por digest** |
 | `runtime` | 9 | versiones exactas o runner versionado con gap declarado |
 | `package_manifest` | 8 | con lockfile hermano |
 | `lockfile` | 5 | un ecosistema por alcance |
 | `external_build_service` | 3 | instalaciones acotadas y sin lifecycle scripts |
-| `generated_artifact` | 12 | entradas de vigilancia de actualizaciones |
+| `generated_artifact` | 8 | entradas válidas de vigilancia de actualizaciones |
 
 **Ningún defecto de pin.** Los hallazgos que quedan son de otra naturaleza:
 
 | Hallazgo | Cantidad | Severidad | Clasificación |
 |---|---:|---|---|
 | `SUP-PROVENANCE-PENDING` | 4 | high | gap declarado |
-| `SUP-UPDATES-UNMONITORED` | 0 | medium | cobertura completa |
+| `SUP-UPDATES-UNMONITORED` | 5 | medium | gap declarado para alcances Compose |
 
 ### Cobertura de actualizaciones
 
-`dependabot.yml` cubre todos los alcances npm, pip, Docker y GitHub Actions que el
-inventario descubre. `.next` se excluye mediante el contrato, no mediante una regla
-ad hoc: es salida generada de Next.js y sus manifests transitivos no son fuentes
-mantenidas por el repositorio.
+`dependabot.yml` cubre los alcances npm, pip y GitHub Actions que el inventario
+descubre. GitHub Dependabot no interpreta referencias de imágenes dentro de
+Docker Compose: declarar esos directorios como ecosistema `docker` produce
+`dependency_file_not_found`, no vigilancia. Por eso los cinco alcances Compose
+permanecen fijados por digest pero se reportan como `SUP-UPDATES-UNMONITORED` hasta
+adoptar un monitor compatible o una revisión operativa demostrable. `.next` se
+excluye mediante el contrato, no mediante una regla ad hoc: es salida generada de
+Next.js y sus manifests transitivos no son fuentes mantenidas por el repositorio.
 
 ---
 
