@@ -364,6 +364,30 @@ def validate_ci_workflow(text: str, root: Path | None = None) -> list[Finding]:
         if expected not in joined:
             findings.append(Finding(
                 "LOCAL-CI-COVERAGE", f"no CI step exercises {expected!r}"))
+
+    # Una suite PostgreSQL aislada deja la base tan limpia como la encontro. El
+    # E2E del navegador necesita, por tanto, una fixture propia y explicita. Si
+    # se prepara antes de las pruebas de base, su cleanup la elimina; si se omite,
+    # el navegador solo pasa cuando otra suite deja residuos por accidente.
+    ordered_needles = (
+        ("PostgreSQL schema suite", "/app/db/tests"),
+        ("synthetic browser fixture", "/checks/e2e_fixture.py"),
+        ("browser journey", "npm run test:e2e"),
+    )
+    positions = {
+        label: next((index for index, (_, command) in enumerate(steps)
+                     if needle in command), None)
+        for label, needle in ordered_needles
+    }
+    if (any(position is None for position in positions.values())
+            or not (positions["PostgreSQL schema suite"]
+                    < positions["synthetic browser fixture"]
+                    < positions["browser journey"])):
+        findings.append(Finding(
+            "LOCAL-CI-E2E-FIXTURE",
+            "the synthetic browser fixture must run after the PostgreSQL schema "
+            "suite and before the browser journey; E2E cannot consume another "
+            "suite's residual rows"))
     return sorted(set(findings))
 
 

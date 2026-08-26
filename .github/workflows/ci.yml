@@ -279,6 +279,14 @@ jobs:
           docker compose --profile migrate run --rm migrate
           python -m unittest discover -s /app/db/tests -t /app -v
 
+      # Las suites son dueñas de sus fixtures y las retiran. El navegador no
+      # puede depender de residuos accidentales: prepara su estado sintetico una
+      # vez terminada la suite PostgreSQL y antes de arrancar las aplicaciones.
+      - name: Prepare the synthetic browser acceptance fixture
+        run: >-
+          docker compose --profile migrate run --rm migrate
+          python /checks/e2e_fixture.py
+
       # El camino documentado, tal cual lo ejecuta quien clona el repositorio. Es
       # idempotente: migrar y sembrar otra vez no cambian nada.
       - name: Start the full local stack with the documented command

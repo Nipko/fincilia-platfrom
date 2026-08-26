@@ -152,6 +152,19 @@ class LocalStackContractTests(unittest.TestCase):
                 self.assertIn("LOCAL-CI-COVERAGE",
                               codes(validate_ci_workflow(mutated, ROOT)))
 
+    def test_browser_fixture_cannot_be_omitted_or_run_before_database_tests(self) -> None:
+        omitted = WORKFLOW.replace("/checks/e2e_fixture.py", "/checks/removed.py")
+        self.assertIn("LOCAL-CI-E2E-FIXTURE",
+                      codes(validate_ci_workflow(omitted, ROOT)))
+
+        schema = "python -m unittest discover -s /app/db/tests -t /app -v"
+        fixture = "python /checks/e2e_fixture.py"
+        reordered = (WORKFLOW.replace(schema, "__FNC_SCHEMA_COMMAND__", 1)
+                     .replace(fixture, schema, 1)
+                     .replace("__FNC_SCHEMA_COMMAND__", fixture, 1))
+        self.assertIn("LOCAL-CI-E2E-FIXTURE",
+                      codes(validate_ci_workflow(reordered, ROOT)))
+
     def test_a_workflow_without_the_job_bites(self) -> None:
         self.assertIn("LOCAL-CI-JOB", codes(validate_ci_workflow("jobs:", ROOT)))
 
