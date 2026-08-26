@@ -119,6 +119,7 @@ Hasta S1-READY solo se admite scaffolding, automatización, pruebas, documentaci
 | FNC-QA-007 | Administracion final de usuarios y roles por empresa | Review pending | Codex + Integration Steward | API member.manage, revocacion/versionado, web equipo y pruebas PostgreSQL/E2E |
 | FNC-QA-008 | Regresion web repetible sobre runtime persistente | Review pending | Codex + Integration Steward | 26 Chromium dos veces y 15 Axe verdes; fixtures compartidos seriales y expedientes append-only localizados por pagina exacta |
 | FNC-QA-009 | Regresion web aislada de la demo persistente | Review pending | Codex + Integration Steward | 26 Chromium + 15 Axe verdes dos veces sobre proyecto desechable; cleanup y no interferencia con la demo verificados |
+| FNC-QA-010 | Estabilizacion de CI y monitoreo de dependencias | In progress | Codex + Integration Steward | aislamiento de suites PostgreSQL, inventario ACL sensible a renames y Dependabot sin alcances ficticios |
 | FNC-REC-001 | Explorador read-only de candidatos de conciliacion | Review pending | Codex + Integration Steward | motor/endpoint sintetico, estacion web y pruebas |
 | FNC-REC-002 | Propuesta y decision humana de conciliacion sin efecto financiero | Review pending | Codex + Integration Steward | ledger append-only, SoD, idempotencia, API/web y pruebas; revisiones independientes pendientes |
 | FNC-REC-003 | Bandeja multiempresa de revision de conciliaciones | Review pending | Codex + Integration Steward | proyeccion company-scoped, agregacion web acotada y pruebas; sin efecto financiero |

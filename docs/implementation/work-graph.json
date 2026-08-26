@@ -54,5 +54,22 @@
       "agent_may_accept": false
     }
   ],
-  "active_reservations": []
+  "active_reservations": [
+    {
+      "task": "FNC-QA-010",
+      "implementer": "Codex principal dev + Integration Steward",
+      "paths": [
+        "db/tests/test_api_authorization.py",
+        "db/tests/test_assignees.py",
+        "db/tests/test_issued_authorization_context.py",
+        "db/tests/test_dispatch_protocol.py",
+        ".github/dependabot.yml",
+        "docs/security/SUPPLY_CHAIN_BASELINE.md",
+        "docs/security/supply-chain.json",
+        "tools/supply_chain",
+        "docs/implementation/tasks/FNC-QA-010.md",
+        "docs/implementation/handoffs/FNC-QA-010.md"
+      ]
+    }
+  ]
 }
