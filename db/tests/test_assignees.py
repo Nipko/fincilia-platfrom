@@ -252,33 +252,45 @@ class AssigneeTests(unittest.TestCase):
     def test_transferring_the_engagement_changes_who_is_eligible_TST_P36_015(self) -> None:
         # La membresia se une a la firma **del engagement**. Si la empresa cambia
         # de firma, los miembros de la anterior dejan de valer el mismo dia, sin
-        # que nadie tenga que acordarse de limpiar nada.
+        # que nadie tenga que acordarse de limpiar nada. Una transferencia no
+        # reescribe la delegacion historica: los contextos emitidos la referencian
+        # de forma inmutable. Se revoca la anterior y nace otra.
         other_firm = str(uuid.uuid4())
-        with psycopg.connect(MIGRATOR_DSN, autocommit=True) as connection:
-            with connection.cursor() as cursor:
+        transferred_engagement = str(uuid.uuid4())
+        with psycopg.connect(MIGRATOR_DSN, autocommit=False) as connection:
+            with connection.transaction(), connection.cursor() as cursor:
                 cursor.execute(
                     "INSERT INTO fincilia.firm (firm_id, legal_name) "
                     "VALUES (%s, %s)", (other_firm, f"Otra Firma {RUN}"))
                 cursor.execute(
-                    "SELECT set_config('fincilia.company_id', %s, false)", (ESPIGA,))
+                    "SELECT set_config('fincilia.company_id', %s, true)", (ESPIGA,))
                 cursor.execute(
-                    "UPDATE fincilia.engagement SET firm_id = %s "
-                    "WHERE company_id = %s", (other_firm, ESPIGA))
+                    "UPDATE fincilia.engagement SET status = 'revoked' "
+                    "WHERE company_id = %s AND status = 'active'", (ESPIGA,))
+                cursor.execute(
+                    "INSERT INTO fincilia.engagement (engagement_id, firm_id, "
+                    "company_id, status, valid_from) "
+                    "VALUES (%s, %s, %s, 'active', CURRENT_DATE)",
+                    (transferred_engagement, other_firm, ESPIGA))
         try:
             # Nadie de la firma anterior sigue siendo elegible: su membresia es
             # de otra firma.
             self.assertEqual(self.assignees(user=OWNER).status_code, 403,
                              "the owner lost access with the engagement, as it should")
         finally:
-            with psycopg.connect(MIGRATOR_DSN, autocommit=True) as connection:
-                with connection.cursor() as cursor:
+            with psycopg.connect(MIGRATOR_DSN, autocommit=False) as connection:
+                with connection.transaction(), connection.cursor() as cursor:
                     cursor.execute(
-                        "SELECT set_config('fincilia.company_id', %s, false)",
+                        "SELECT set_config('fincilia.company_id', %s, true)",
                         (ESPIGA,))
                     cursor.execute(
-                        "UPDATE fincilia.engagement SET firm_id = %s "
-                        "WHERE company_id = %s",
-                        (stable_id("firm", "andes"), ESPIGA))
+                        "DELETE FROM fincilia.engagement "
+                        "WHERE company_id = %s AND engagement_id = %s",
+                        (ESPIGA, transferred_engagement))
+                    cursor.execute(
+                        "UPDATE fincilia.engagement SET status = 'active' "
+                        "WHERE company_id = %s AND firm_id = %s",
+                        (ESPIGA, stable_id("firm", "andes")))
                     cursor.execute("DELETE FROM fincilia.firm WHERE firm_id = %s",
                                    (other_firm,))
 
