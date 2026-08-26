@@ -1,7 +1,7 @@
 ---
 id: FNC-QA-010
 title: Estabilizacion de CI y monitoreo ejecutable de dependencias
-status: in_progress
+status: review_pending
 implementer: Codex principal dev + Integration Steward
 base_sha: 6937f6e
 gate: S1-READY

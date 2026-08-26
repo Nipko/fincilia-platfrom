@@ -103,7 +103,7 @@ Hasta S1-READY solo se admite scaffolding, automatización, pruebas, documentaci
 | FNC-QA-003 | Golden harness adjudicado y fail-closed | Review pending | Claude + Integration Steward | docs/testing/GOLDEN_HARNESS.md, golden-harness.json, tools/golden_harness, tests/golden/harness, handoff |
 | FNC-QA-004 | Catálogo ejecutable y reconciliación dinámica | Review pending | Claude + Integration Steward | docs/testing/TEST_CATALOG_MODEL.md, test-catalog-model.json, tools/test_catalog, catálogo, CI, handoff |
 | FNC-QA-005 | Arnés determinista de mutaciones | Review pending | Claude + Integration Steward | docs/testing/MUTATION_HARNESS.md, mutation-harness.json, tools/mutation_harness, tests/golden/mutations, CI, handoff |
-| FNC-SUP-001 | Baseline ejecutable de cadena de suministro | Review pending | Claude + Integration Steward | cobertura de updates completa; check acotado por gate; procedencia/SBOM/firma siguen bloqueando DRG-00 |
+| FNC-SUP-001 | Baseline ejecutable de cadena de suministro | Review pending | Claude + Integration Steward | npm, pip y actions cubiertos; cinco alcances Compose sin monitor automatico; procedencia/SBOM/firma siguen bloqueando DRG-00 |
 | FNC-DB-002 | Spike PostgreSQL de migraciones SQL-first | Review pending | Claude + Integration Steward | docs/database/MIGRATION_SPIKE.md, migration-spike.json, spikes/FNC-DB-002, tools/migration_spike, handoff |
 | FNC-DB-004 | Spike PostgreSQL de claim, outbox y fencing | Review pending | Codex + Integration Steward | TST-IDEM-001/004/005 demostrados dos veces contra PostgreSQL 17; laboratorio aislado y revisión Architecture/Security/QA pendiente |
 | FNC-PLT-007 | CLI segura de desarrollo local | Review pending | Claude + Integration Steward | docs/platform/DEVELOPER_CLI.md, developer-cli.json, tools/dev_cli, handoff |
@@ -119,7 +119,7 @@ Hasta S1-READY solo se admite scaffolding, automatización, pruebas, documentaci
 | FNC-QA-007 | Administracion final de usuarios y roles por empresa | Review pending | Codex + Integration Steward | API member.manage, revocacion/versionado, web equipo y pruebas PostgreSQL/E2E |
 | FNC-QA-008 | Regresion web repetible sobre runtime persistente | Review pending | Codex + Integration Steward | 26 Chromium dos veces y 15 Axe verdes; fixtures compartidos seriales y expedientes append-only localizados por pagina exacta |
 | FNC-QA-009 | Regresion web aislada de la demo persistente | Review pending | Codex + Integration Steward | 26 Chromium + 15 Axe verdes dos veces sobre proyecto desechable; cleanup y no interferencia con la demo verificados |
-| FNC-QA-010 | Estabilizacion de CI y monitoreo de dependencias | In progress | Codex + Integration Steward | aislamiento de suites PostgreSQL, inventario ACL sensible a renames y Dependabot sin alcances ficticios |
+| FNC-QA-010 | Estabilizacion de CI y monitoreo de dependencias | Review pending | Codex + Integration Steward | `main` verde: 358 PostgreSQL, 149 API, 18 worker, 27 Chromium y 16 Axe; 13 PR automaticas obsoletas cerradas sin fusionar |
 | FNC-REC-001 | Explorador read-only de candidatos de conciliacion | Review pending | Codex + Integration Steward | motor/endpoint sintetico, estacion web y pruebas |
 | FNC-REC-002 | Propuesta y decision humana de conciliacion sin efecto financiero | Review pending | Codex + Integration Steward | ledger append-only, SoD, idempotencia, API/web y pruebas; revisiones independientes pendientes |
 | FNC-REC-003 | Bandeja multiempresa de revision de conciliaciones | Review pending | Codex + Integration Steward | proyeccion company-scoped, agregacion web acotada y pruebas; sin efecto financiero |
@@ -182,7 +182,7 @@ Solo el Integration Steward modifica esta tabla.
 | 1 | FNC-QA-003 Golden harness determinista | FNC-DAT-002, FNC-DOM-002..005 | Review pending |
 | 1 | FNC-QA-004 Catálogo ejecutable de pruebas | FNC-QA-002/003 | Review pending; sin drift bloqueante |
 | 1 | FNC-QA-005 Mutation harness de validadores | FNC-QA-002/003 | Review pending; 63/63 mutaciones muertas |
-| 1 | FNC-SUP-001 Baseline de supply chain | FNC-PLT-003, FNC-QA-005 | Review pending; procedencia/SBOM/firma y TM-005 siguen abiertos |
+| 1 | FNC-SUP-001 Baseline de supply chain | FNC-PLT-003, FNC-QA-005 | Review pending; cinco alcances Compose sin monitor y procedencia/SBOM/firma siguen abiertos |
 | 1 | FNC-DB-002 Spike de invariantes de migración | FNC-DB-001, FNC-PLT-002 | Review pending; 12/12 invariantes verificadas y ADR-002 ratificada por IMP-017; revisión independiente pendiente |
 | 1 | FNC-PLT-007 CLI de desarrollo | FNC-PLT-002/003, FNC-QA-004/005 | Review pending; gap esperado de supply chain visible |
 | 1 | FNC-GAT-003 Readiness S1 ejecutable | FNC-ARC-006, FNC-QA-004/005, FNC-SUP-001, FNC-DB-002 | Review pending; un único blocker: revisión independiente por personas distintas |
