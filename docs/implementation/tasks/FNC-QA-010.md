@@ -34,9 +34,12 @@ alcances que GitHub puede procesar realmente.
 # Rutas y limites
 
 Se reservan las cuatro suites DB afectadas, `.github/dependabot.yml`, baseline y
-herramientas de supply chain, esta ficha, handoff y registros centrales. No se
-editaran V0001-V0034, codigo financiero productivo, permisos, RLS, auditoria,
-datos reales, gates, mobile, IA ni dependencias de aplicacion.
+herramientas de supply chain, contrato del lifecycle local, esta ficha, handoff
+y registros centrales. La ampliacion al contrato local cubre un hallazgo de la
+ejecucion: el E2E de cierre dependia de residuos de las suites PostgreSQL y debe
+preparar su fixture sintetica de forma explicita despues de ellas. No se editaran
+V0001-V0034, codigo financiero productivo, permisos, RLS, auditoria, datos
+reales, gates, mobile, IA ni dependencias de aplicacion.
 
 # Criterios de aceptacion
 
@@ -53,6 +56,9 @@ datos reales, gates, mobile, IA ni dependencias de aplicacion.
   gate y `fincilia-ci` sobre `main` quedan verdes.
 - **AC-06.** Las PR automaticas anteriores se reconcilian solo despues de CI
   verde; ninguna actualizacion mayor se fusiona sin prueba propia.
+- **AC-07.** El E2E de cierre prepara su fixture sintetica despues de la suite
+  PostgreSQL y antes del navegador; el contrato del workflow falla si se omite o
+  se reordena esa preparacion.
 
 # Rollback
 

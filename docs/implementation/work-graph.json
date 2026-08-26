@@ -67,6 +67,9 @@
         "docs/security/SUPPLY_CHAIN_BASELINE.md",
         "docs/security/supply-chain.json",
         "tools/supply_chain",
+        ".github/workflows/ci.yml",
+        "tools/local_stack/model.py",
+        "tools/local_stack/test_validate.py",
         "docs/implementation/tasks/FNC-QA-010.md",
         "docs/implementation/handoffs/FNC-QA-010.md"
       ]
