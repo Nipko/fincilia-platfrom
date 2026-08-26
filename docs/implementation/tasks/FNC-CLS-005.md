@@ -1,7 +1,7 @@
 ---
 id: FNC-CLS-005
 title: Expediente inmutable de revision previa al cierre
-status: in_progress
+status: review_pending
 implementer: Codex principal dev + Integration Steward
 base_sha: 90997d4
 gate: S1-READY
