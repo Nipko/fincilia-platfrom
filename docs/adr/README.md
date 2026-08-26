@@ -35,6 +35,7 @@ owners nominales, revisión independiente ni el gate S1-READY.
 | 025 | Propiedad/portabilidad de recetas | Planned |
 | [026](ADR-026-staged-field-overlay.md) | Overlay tipado por etapas | Proposed; revisión Accounting/Security/Database pendiente |
 | [027](ADR-027-reconciliation-review-ledger.md) | Ledger de propuesta y decision humana de conciliacion | Proposed; revisión Accounting/Security/Database/Architecture pendiente |
+| [028](ADR-028-reconciliation-group-proposals.md) | Propuestas manuales agrupadas sin asignaciones | Proposed; revisión Accounting/Security/Database/Architecture/Product pendiente |
 
 ## Estados
 

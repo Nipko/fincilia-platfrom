@@ -54,5 +54,22 @@
       "agent_may_accept": false
     }
   ],
-  "active_reservations": []
+  "active_reservations": [
+    {
+      "task": "FNC-REC-005",
+      "holder": "Codex principal dev + Integration Steward",
+      "paths": [
+        "docs/adr/ADR-028-reconciliation-group-proposals.md",
+        "db/migrations/V0035__reconciliation_group_proposals.sql",
+        "db/tests/test_reconciliation_group_proposals.py",
+        "apps/api/src/fincilia_api/reconciliation.py",
+        "apps/api/src/fincilia_api/routes.py",
+        "apps/api/tests/test_reconciliation.py",
+        "apps/web/src/lib/api.ts",
+        "apps/web/src/app/actions.ts",
+        "apps/web/src/app/empresas/[companyId]/conciliacion",
+        "apps/web/tests"
+      ]
+    }
+  ]
 }
