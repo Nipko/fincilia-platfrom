@@ -1,53 +1,73 @@
 # Entorno local Fincilia
 
-Este Compose ejecuta la base mínima de E0: PostgreSQL autoritativo y un runner efímero de
-verificación. Solo admite datos sintéticos. No es despliegue productivo ni contiene el
-esquema financiero del producto.
+Stack completo de desarrollo con PostgreSQL 17, Valkey, MinIO, API, worker y
+plataforma web. Solo admite datos sintéticos y todos los puertos publicados se
+ligan a `127.0.0.1`.
 
-## Requisitos
+## Windows con Docker Engine dentro de WSL
 
-- Docker Engine y Compose dentro de Ubuntu/WSL.
-- Git y edición permanecen en Windows.
+Desde PowerShell, en la raíz del repositorio:
 
-## Arranque y comprobación
-
-Desde WSL, en este directorio:
-
-```bash
-docker compose config --quiet
-docker compose up -d --wait postgres
-docker compose --profile test run --rm lifecycle-test initial
-docker compose restart postgres
-docker compose up -d --wait postgres
-FINCILIA_LOCAL_LIFECYCLE_MODE=persisted docker compose --profile test run --rm lifecycle-test
-docker compose stop postgres
-docker compose start postgres
-docker compose --profile test run --rm -e FINCILIA_LOCAL_LIFECYCLE_MODE=persisted lifecycle-test
+```powershell
+.\infra\local\fincilia-local.ps1 doctor
+.\infra\local\fincilia-local.ps1 up
+.\infra\local\fincilia-local.ps1 status
+.\infra\local\fincilia-local.ps1 down
 ```
 
-La base escucha únicamente en `127.0.0.1:55430`. Los valores por defecto son credenciales
-locales públicas y desechables; no deben reutilizarse fuera de este Compose.
+`up` abre un proceso `wsl.exe` oculto que mantiene Ubuntu activo, espera Docker,
+construye las imágenes, aplica migraciones verificadas, actualiza la semilla
+sintética y espera la salud de los seis servicios. Al cerrar PowerShell el stack
+continúa activo.
 
-## Parada y purga
+`down` ejecuta únicamente `docker compose down` sobre `fincilia-local`, conserva
+los volúmenes y detiene solo el keepalive registrado por Fincilia. No apaga WSL
+globalmente ni toca otras distribuciones o proyectos.
 
-Conservar el volumen:
+La web queda en <http://127.0.0.1:53000> y la documentación local de la API en
+<http://127.0.0.1:58080/docs>. Usuarios y credenciales exclusivamente sintéticos
+están documentados en `docs/platform/LOCAL_DEVELOPMENT.md`.
 
-```bash
-docker compose down --remove-orphans
+## Linux o una terminal WSL que permanecerá abierta
+
+```sh
+sh infra/local/up.sh
 ```
 
-Eliminar exclusivamente el volumen local nombrado y volver a bootstrap limpio:
+Cuando Docker está instalado dentro de WSL y no existe Docker Desktop, cerrar el
+último proceso WSL puede apagar la distribución y terminar los contenedores con
+código 255. El wrapper PowerShell evita depender de una terminal interactiva.
 
-```bash
-docker compose --profile test down --volumes --remove-orphans
+## Datos y recuperación
+
+- PostgreSQL y MinIO usan volúmenes nombrados; `down` no los borra.
+- Valkey es efímero y nunca fuente de verdad financiera.
+- Un estado de keepalive obsoleto se valida contra PID, ejecutable y línea de
+  comando antes de reutilizarse; `up` lo reemplaza de forma segura.
+- Para un diagnóstico estructurado use `status`; no expone etiquetas, entorno ni
+  configuración completa de los contenedores.
+
+La eliminación deliberada de volúmenes es una operación distinta y no forma
+parte del wrapper. No utilice documentos financieros reales mientras DRG-00 siga
+cerrado.
+
+## Regresión web sin contaminar la demo
+
+Desde PowerShell, la regresión Chromium + Axe completa se ejecuta sobre el
+proyecto desechable `fincilia-e2e`:
+
+```powershell
+.\infra\local\test-web-isolated.ps1
 ```
 
-La purga elimina solo `fincilia_local_pgdata`. Nunca apunta a directorios del workspace.
+El runner usa web/API/MinIO en 53100/58180/59100/59101, redes y volúmenes
+exclusivos, y una base sintética nueva. En un bloque `finally` elimina únicamente
+los recursos `fincilia-e2e` y verifica que no quede ninguno, tanto si las pruebas
+pasan como si fallan. No acepta nombres de proyecto, puertos, volúmenes, redes ni
+archivos proporcionados por el invocador, y nunca conecta los contenedores E2E a
+los recursos persistentes de `fincilia-local`.
 
-## Servicios diferidos
-
-- Object storage: requiere motor, regiones y contrato de retención/versionado.
-- Temporal: se agrega cuando existan esperas humanas durables reales.
-- Valkey: se agrega únicamente tras una necesidad medida de cache/progreso.
-- Analytics: seguirá siendo proyección reconstruible, nunca autoridad financiera.
-
+El helper `test-web-isolated.sh` es interno al orquestador: no contiene Node ni
+ejecuta Playwright, porque esas dependencias viven en Windows. Para probar la
+plataforma manualmente use el runtime persistente; el desechable existe solo
+durante la corrida automatizada.

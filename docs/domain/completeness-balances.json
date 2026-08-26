@@ -99,7 +99,7 @@
     "amount_type": "money_decimal",
     "amount_rule": "positive",
     "currency_required": true,
-    "required_fields": ["company_id", "statement_id", "adjustment_side", "amount", "currency_code", "reason_code", "state", "evidence_refs", "prepared_by", "decision_version"],
+    "required_fields": ["company_id", "item_root_id", "statement_root_id", "adjustment_side", "amount", "currency_code", "reason_code", "state", "evidence_refs", "prepared_by", "decision_version"],
     "confirmed_requires": ["approved_by", "approved_at", "sod_check", "lineage"],
     "reversal_creates_new_decision": true,
     "only_state_counted": "confirmed",

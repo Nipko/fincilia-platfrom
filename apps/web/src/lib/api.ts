@@ -38,6 +38,23 @@ export type AuditEvent = {
   outcome: string;
   occurred_at: string;
   detail: Record<string, unknown>;
+  subject_id: string | null;
+  actor_name: string;
+};
+
+export type AuditPage = {
+  items: AuditEvent[];
+  has_more: boolean;
+  next_cursor: string | null;
+  limit: number;
+};
+
+export type AuditFilters = {
+  action?: string;
+  outcome?: 'allowed' | 'denied' | 'error';
+  resourceKind?: string;
+  cursor?: string;
+  limit?: number;
 };
 
 export type Me = {
@@ -54,14 +71,54 @@ export type Session = {
   display_name: string;
 };
 
+export type ManagedFirm = {
+  firm_id: string;
+  legal_name: string;
+  firm_role: string;
+};
+
+export type InitialCompanySetup = {
+  account_family: string;
+  account_name: string;
+  account_identifier: string;
+  currency_code: string;
+  source_family: string;
+  source_name: string;
+  purpose_code: string;
+  timezone: string;
+  anchor_date: string;
+  due_day_offset: number;
+  grace_days: number;
+};
+
+export type CompanyProvisionInput = {
+  firm_id: string;
+  legal_name: string;
+  country_code: string;
+  tax_identifier: string;
+  setup: InitialCompanySetup | null;
+};
+
+export type CompanyProvisionResult = CompanyDetail & {
+  account_id: string | null;
+  source_id: string | null;
+  link_id: string | null;
+  cycle_id: string | null;
+  expectations_created: number;
+  replayed: boolean;
+  refreshed_session: Session;
+};
+
 /** Fallo con el codigo que devolvio la API, para poder distinguir 401 de 403. */
 export class ApiError extends Error {
   readonly status: number;
+  readonly code: string | null;
 
-  constructor(status: number, message: string) {
+  constructor(status: number, message: string, code: string | null = null) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
+    this.code = code;
   }
 }
 
@@ -91,15 +148,19 @@ async function request<T>(
       // El detalle de la API ya esta escrito para no filtrar datos; se pasa tal
       // cual y no se enriquece con nada que el servidor haya decidido callar.
       let detail = 'la peticion no se pudo completar';
+      let code: string | null = null;
       try {
-        const problem = (await response.json()) as { detail?: unknown };
+        const problem = (await response.json()) as { detail?: unknown; type?: unknown };
         if (typeof problem.detail === 'string') {
           detail = problem.detail;
+        }
+        if (typeof problem.type === 'string') {
+          code = problem.type.split('/').filter(Boolean).at(-1) ?? null;
         }
       } catch {
         /* un cuerpo ilegible no cambia el codigo de estado */
       }
-      throw new ApiError(response.status, detail);
+      throw new ApiError(response.status, detail, code);
     }
     // El deadline cubre tambien el cuerpo. Recibir headers no basta: un servidor
     // que entregue JSON gota a gota no puede colgar una pantalla indefinidamente.
@@ -370,6 +431,91 @@ export type Movement = {
   record_ordinal: number;
 };
 
+export type CandidateMovement = Pick<
+  Movement,
+  | 'movement_id'
+  | 'amount'
+  | 'currency'
+  | 'direction'
+  | 'description'
+  | 'reference'
+  | 'occurred_on'
+  | 'state'
+  | 'record_ordinal'
+>;
+
+export type ReconciliationCandidate = {
+  left: CandidateMovement;
+  right: CandidateMovement;
+  date_distance_days: number;
+  signals: string[];
+};
+
+export type CandidateDataset = {
+  dataset_version_id: string;
+  state: string;
+  completeness_state: string;
+  lineage_state: string;
+  movement_count: number;
+};
+
+export type CandidatePage = {
+  mode: 'candidate_only';
+  proves_balance_reconciliation: false;
+  rules: string[];
+  reference_role: 'explanatory_order_only';
+  max_days: number;
+  offset: number;
+  limit: number;
+  truncated: boolean;
+  left_dataset: CandidateDataset;
+  right_dataset: CandidateDataset;
+  candidates: ReconciliationCandidate[];
+};
+
+export type MatchDecision = {
+  decision_id: string;
+  decision: 'confirmed' | 'rejected';
+  reason_code: string;
+  decided_by: string;
+  decided_by_name: string;
+  decided_at: string;
+};
+
+export type MatchReview = {
+  candidate_id: string;
+  left_movement_id: string;
+  right_movement_id: string;
+  left_dataset_id: string;
+  right_dataset_id: string;
+  confirmation_conflict: boolean;
+  rule_version: string;
+  signals: string[];
+  date_window_days: number;
+  date_distance_days: number;
+  proposed_by: string;
+  proposed_by_name: string;
+  proposed_at: string;
+  status: 'open' | 'confirmed' | 'rejected';
+  decision: MatchDecision | null;
+  financial_effect: 'none';
+  proves_balance_reconciliation: false;
+  replayed?: boolean;
+  created?: boolean;
+};
+
+export type ReviewQueueStatus = 'open' | 'confirmed' | 'rejected' | 'all';
+
+export type ReviewQueuePage = {
+  status: ReviewQueueStatus;
+  offset: number;
+  limit: number;
+  truncated: boolean;
+  items: MatchReview[];
+  financial_effect: 'none';
+  proves_balance_reconciliation: false;
+};
+
 /** Una etapa logica del camino de un campo publicado. */
 export type LineageStage = {
   canonical_field: string;
@@ -548,6 +694,118 @@ export function fetchDatasets(
   );
 }
 
+export function fetchAuditPage(
+  token: string,
+  companyId: string,
+  filters: AuditFilters = {},
+): Promise<AuditPage> {
+  const query = new URLSearchParams();
+  query.set('limit', String(Math.max(1, Math.min(filters.limit ?? 25, 100))));
+  if (filters.action) query.set('action', filters.action);
+  if (filters.outcome) query.set('outcome', filters.outcome);
+  if (filters.resourceKind) query.set('resource_kind', filters.resourceKind);
+  if (filters.cursor) query.set('cursor', filters.cursor);
+  return request<AuditPage>(
+    `/api/v1/companies/${encodeURIComponent(companyId)}/audit/events?${query}`,
+    { token },
+  );
+}
+
+export function fetchManageableFirms(token: string): Promise<ManagedFirm[]> {
+  return request<ManagedFirm[]>('/api/v1/firms/manageable', { token });
+}
+
+export function provisionCompany(
+  token: string,
+  input: CompanyProvisionInput,
+  idempotencyKey: string,
+): Promise<CompanyProvisionResult> {
+  return request<CompanyProvisionResult>('/api/v1/companies', {
+    token,
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'idempotency-key': idempotencyKey,
+    },
+    body: JSON.stringify(input),
+  });
+}
+
+export type ReportRange = {
+  days: 30 | 90 | 180 | 365;
+  start: string;
+  end: string;
+  timezone: 'UTC';
+};
+
+export type ReportActivityPoint = {
+  month: string;
+  documents: number;
+  datasets: number;
+  movements: number;
+};
+
+export type ReportMoneyPoint = {
+  month: string;
+  currency: string;
+  movement_count: number;
+  inflow_amount: string;
+  outflow_amount: string;
+};
+
+export type ReportMoneyTotal = Omit<ReportMoneyPoint, 'month'>;
+
+export type ReportDataset = {
+  dataset_version_id: string;
+  artifact_id: string;
+  state: string;
+  completeness_state: string;
+  lineage_state: string;
+  record_count: number;
+  movement_count: number;
+  rejected_count: number;
+  prepared_at: string;
+};
+
+export type OperationalReport = {
+  range: ReportRange;
+  summary: {
+    documents: { total: number; accepted: number; quarantined: number; bytes: number };
+    datasets: {
+      total: number; draft: number; validated: number; published: number;
+      rejected: number; records: number; movements: number; rejected_records: number;
+      completeness_mismatch: number; completeness_unknown: number;
+      lineage_invalidated: number;
+    };
+    reconciliation: {
+      candidates: number; pending: number; confirmed: number; rejected: number;
+    };
+    quality: {
+      signals: number; open: number; acknowledged: number; closed: number;
+      active_high: number;
+    };
+  };
+  activity_series: ReportActivityPoint[];
+  money_totals: ReportMoneyTotal[];
+  money_series: ReportMoneyPoint[];
+  recent_datasets: ReportDataset[];
+  notice: string;
+};
+
+export function fetchOperationalReport(
+  token: string,
+  companyId: string,
+  days: 30 | 90 | 180 | 365,
+  asOf?: string,
+): Promise<OperationalReport> {
+  const query = new URLSearchParams({ days: String(days) });
+  if (asOf) query.set('as_of', asOf);
+  return request<OperationalReport>(
+    `/api/v1/companies/${encodeURIComponent(companyId)}/reports/operational?${query}`,
+    { token },
+  );
+}
+
 export function fetchDataset(
   token: string,
   companyId: string,
@@ -662,6 +920,116 @@ export function fetchMovement(
   );
 }
 
+export function fetchReconciliationCandidates(
+  token: string,
+  companyId: string,
+  leftDatasetId: string,
+  rightDatasetId: string,
+  maxDays: number,
+  offset: number,
+  limit: number,
+): Promise<CandidatePage> {
+  const company = encodeURIComponent(companyId);
+  const query = new URLSearchParams({
+    left_dataset_id: leftDatasetId,
+    right_dataset_id: rightDatasetId,
+    max_days: String(maxDays),
+    offset: String(offset),
+    limit: String(limit),
+  });
+  return request<CandidatePage>(
+    `/api/v1/companies/${company}/reconciliation/candidates?${query.toString()}`,
+    { token },
+  );
+}
+
+export function fetchReconciliationReviews(
+  token: string,
+  companyId: string,
+  leftDatasetId: string,
+  rightDatasetId: string,
+): Promise<MatchReview[]> {
+  const company = encodeURIComponent(companyId);
+  const query = new URLSearchParams({
+    left_dataset_id: leftDatasetId,
+    right_dataset_id: rightDatasetId,
+  });
+  return request<MatchReview[]>(
+    `/api/v1/companies/${company}/reconciliation/reviews?${query.toString()}`,
+    { token },
+  );
+}
+
+export function fetchReviewQueue(
+  token: string,
+  companyId: string,
+  status: ReviewQueueStatus = 'open',
+  offset = 0,
+  limit = 50,
+): Promise<ReviewQueuePage> {
+  const company = encodeURIComponent(companyId);
+  const query = new URLSearchParams({
+    status,
+    offset: String(Math.max(0, offset)),
+    limit: String(Math.max(1, Math.min(100, limit))),
+  });
+  return request<ReviewQueuePage>(
+    `/api/v1/companies/${company}/reconciliation/review-queue?${query.toString()}`,
+    { token },
+  );
+}
+
+export function proposeReconciliationReview(
+  token: string,
+  companyId: string,
+  idempotencyKey: string,
+  body: {
+    left_dataset_id: string;
+    right_dataset_id: string;
+    left_movement_id: string;
+    right_movement_id: string;
+    max_days: number;
+  },
+): Promise<MatchReview> {
+  const company = encodeURIComponent(companyId);
+  return request<MatchReview>(
+    `/api/v1/companies/${company}/reconciliation/reviews`,
+    {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'idempotency-key': idempotencyKey,
+      },
+      body: JSON.stringify(body),
+      token,
+    },
+  );
+}
+
+export function decideReconciliationReview(
+  token: string,
+  companyId: string,
+  candidateId: string,
+  idempotencyKey: string,
+  decision: 'confirmed' | 'rejected',
+  reasonCode: string,
+): Promise<MatchReview> {
+  const company = encodeURIComponent(companyId);
+  const candidate = encodeURIComponent(candidateId);
+  return request<MatchReview>(
+    `/api/v1/companies/${company}/reconciliation/reviews/${candidate}/decision`,
+    {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'idempotency-key': idempotencyKey,
+      },
+      body: JSON.stringify({ decision, reason_code: reasonCode }),
+      token,
+    },
+  );
+}
+
 export type CorrectionTarget = {
   field: string;
   value_type: string;
@@ -682,12 +1050,25 @@ export type CorrectionProposal = {
   created_by: string;
   author_name: string;
   created_at: string;
-  status: 'pending_review' | 'approved' | 'rejected';
-  applied: false;
+  status: 'pending_review' | 'approved' | 'rejected' | 'applied';
+  applied: boolean;
   reviewer_id: string | null;
   reviewer_name: string | null;
   review_rationale: string | null;
   reviewed_at: string | null;
+  result_dataset_version_id: string | null;
+};
+
+export type CorrectionApplicationResult = {
+  application_id: string;
+  base_dataset_version_id: string;
+  result_dataset_version_id: string;
+  overlay_set_digest: string;
+  applied_at: string;
+  state: 'validated';
+  movement_count: number;
+  applied_correction_count: number;
+  idempotent_replay: boolean;
 };
 
 export function fetchCorrectionTargets(
@@ -760,6 +1141,19 @@ export function reviewCorrection(
     body: JSON.stringify({ decision, rationale }),
     token,
   });
+}
+
+export function applyApprovedCorrections(
+  token: string,
+  companyId: string,
+  datasetVersionId: string,
+): Promise<CorrectionApplicationResult> {
+  const company = encodeURIComponent(companyId);
+  const dataset = encodeURIComponent(datasetVersionId);
+  return request<CorrectionApplicationResult>(
+    `/api/v1/companies/${company}/datasets/${dataset}/corrections/apply`,
+    { method: 'POST', token },
+  );
 }
 
 
@@ -838,6 +1232,69 @@ export type Expectation = {
   days_late: number;
   source_name: string;
   waived_reason: string | null;
+};
+
+export type OperationalReminderState =
+  | 'overdue'
+  | 'in_grace'
+  | 'due_today'
+  | 'due_soon'
+  | 'upcoming'
+  | 'satisfied'
+  | 'waived';
+
+export type OperationalPeriod = {
+  expectation_id: string;
+  data_source_id: string;
+  source_name: string;
+  period_start: string;
+  period_end: string;
+  due_on: string;
+  late_after: string;
+  stored_state: string;
+  satisfied_at: string | null;
+  waived_reason: string | null;
+  responsible_subject_id: string | null;
+  responsible_name: string | null;
+  responsible_eligible: boolean;
+  assigned_to_me: boolean;
+  timezone: string;
+  local_as_of: string;
+  reminder_state: OperationalReminderState;
+  days_late: number;
+  days_until_due: number | null;
+};
+
+export type OperationalSummary = {
+  period_count: number;
+  source_count: number;
+  overdue: number;
+  in_grace: number;
+  due_today: number;
+  due_soon: number;
+  upcoming: number;
+  satisfied: number;
+  waived: number;
+  filtered_total: number;
+  oldest_due_on: string | null;
+  newest_due_on: string | null;
+};
+
+export type OperationalFilter =
+  | 'attention'
+  | OperationalReminderState
+  | 'all';
+
+export type OperationalPeriodPage = {
+  evaluated_at: string;
+  local_as_of_dates: string[];
+  filter: OperationalFilter;
+  limit: number;
+  has_more: boolean;
+  next_cursor: string | null;
+  summary: OperationalSummary;
+  items: OperationalPeriod[];
+  notice: string;
 };
 
 export type SourceDetail = Source & {
@@ -1017,6 +1474,570 @@ export function fetchExpectations(
   );
 }
 
+export function fetchOperationalPeriods(
+  token: string,
+  companyId: string,
+  status: OperationalFilter,
+  limit = 50,
+  cursor?: string,
+): Promise<OperationalPeriodPage> {
+  const query = new URLSearchParams({
+    status,
+    limit: String(Math.max(1, Math.min(50, limit))),
+  });
+  if (cursor) query.set('cursor', cursor);
+  return request<OperationalPeriodPage>(
+    `/api/v1/companies/${encodeURIComponent(companyId)}/operations/periods?${query}`,
+    { token },
+  );
+}
+
+export type CloseReadinessControl = {
+  code: string;
+  state: 'pass' | 'blocked' | 'unavailable';
+  count: number;
+  detail: string;
+};
+
+export type CloseReadinessSource = {
+  expectation_id: string;
+  data_source_id: string;
+  source_name: string;
+  financial_account_id: string | null;
+  period_start: string;
+  period_end: string;
+  expectation_state: string;
+  satisfied_by_artifact_id: string | null;
+  dataset_version_id: string | null;
+  dataset_state: string | null;
+  completeness_state: string | null;
+  lineage_state: string | null;
+  rejected_count: number;
+  movement_count: number;
+  prepared_at: string | null;
+  account_name: string | null;
+  selection_rule: string;
+};
+
+export type CloseReadinessBlocker = {
+  code: string;
+  count: number;
+  detail: string;
+};
+
+export type CloseReadinessAccountReconciliation = {
+  financial_account_id: string;
+  account_name: string | null;
+  source_count: number;
+  assessment_count: number;
+  statement_root_id: string | null;
+  statement_id: string | null;
+  statement_version: number | null;
+  statement_state: string | null;
+  statement_lineage_state: string | null;
+  coverage_state:
+    | 'covered'
+    | 'missing_assessment'
+    | 'missing_statement'
+    | 'stale_inputs'
+    | 'review_required';
+};
+
+export type CloseReadinessPeriod = {
+  period_start: string;
+  period_end: string;
+  status: 'blocked' | 'ready_for_review';
+  close_ready: false;
+  can_execute_close: false;
+  source_count: number;
+  selected_dataset_count: number;
+  expected_account_count: number;
+  missing_account_assignment_count: number;
+  controls: CloseReadinessControl[];
+  blockers: CloseReadinessBlocker[];
+  sources: CloseReadinessSource[];
+  account_reconciliations: CloseReadinessAccountReconciliation[];
+};
+
+export type CloseReadinessResult = {
+  mode: 'diagnostic_only';
+  close_ready: false;
+  can_execute_close: false;
+  period_count: number;
+  blocked_period_count: number;
+  review_ready_period_count: number;
+  source_count: number;
+  limit: number;
+  items: CloseReadinessPeriod[];
+  notice: string;
+};
+
+export type StatementLineageInput = {
+  node_type: 'financial_fact_field' | 'decision';
+  entity_ref: string;
+  field_name: string;
+  value_digest: string;
+  operation: 'decided_using';
+  processing_run_id: string;
+  engine_release_id: string;
+  canonical_schema_version: string;
+};
+
+export type StatementLineage = {
+  statement_id: string;
+  lineage_state: 'required_pending' | 'complete' | 'invalidated';
+  complete: boolean;
+  inputs: StatementLineageInput[];
+  notice: 'digest_only_lineage; no values or close authority';
+};
+
+export function fetchCloseReadiness(
+  token: string,
+  companyId: string,
+  limit = 12,
+): Promise<CloseReadinessResult> {
+  const bounded = Math.max(1, Math.min(24, limit));
+  return request<CloseReadinessResult>(
+    `/api/v1/companies/${encodeURIComponent(companyId)}/close-readiness?limit=${bounded}`,
+    { token },
+  );
+}
+
+export function fetchStatementLineage(
+  token: string,
+  companyId: string,
+  statementId: string,
+): Promise<StatementLineage> {
+  const company = encodeURIComponent(companyId);
+  const statement = encodeURIComponent(statementId);
+  return request<StatementLineage>(
+    `/api/v1/companies/${company}/balance-reconciliation/statements/${statement}/lineage`,
+    { token },
+  );
+}
+
+export type CloseReviewManifest = {
+  schema_version: 'close-evidence-v1';
+  diagnostic_status: 'blocked' | 'ready_for_review';
+  controls: Array<{ code: string; state: string; count: number }>;
+  sources: Array<{
+    expectation_id: string;
+    data_source_id: string;
+    financial_account_id: string | null;
+    expectation_state: string;
+    dataset_version_id: string | null;
+    dataset_state: string | null;
+    completeness_state: string | null;
+    lineage_state: string | null;
+    rejected_count: number;
+    movement_count: number;
+  }>;
+  accounts: Array<{
+    financial_account_id: string;
+    source_count: number;
+    assessment_count: number;
+    statement_root_id: string | null;
+    statement_id: string | null;
+    statement_version: number | null;
+    statement_state: string | null;
+    statement_lineage_state: string | null;
+    coverage_state: string;
+  }>;
+};
+
+export type CloseReviewReviewer = {
+  subject_id: string;
+  display_name: string;
+  company_roles: string[];
+};
+
+export type CloseReviewPacket = {
+  packet_id: string;
+  period_start: string;
+  period_end: string;
+  version: number;
+  manifest_schema_version: 'close-evidence-v1';
+  manifest: CloseReviewManifest;
+  manifest_digest: string;
+  diagnostic_status: 'blocked' | 'ready_for_review';
+  prepared_by: string;
+  preparer_name: string;
+  assigned_reviewer_id: string;
+  reviewer_name: string;
+  prepared_at: string;
+  decision_id: string | null;
+  decision: 'evidence_reviewed' | 'changes_requested' | null;
+  reason_code: string | null;
+  decided_by: string | null;
+  decider_name: string | null;
+  decided_at: string | null;
+  reviewer_eligible: boolean;
+  status: 'pending_review' | 'evidence_reviewed' | 'changes_requested';
+  replayed: boolean;
+  financial_effect: 'none';
+  certifies_close: false;
+  can_execute_close: false;
+};
+
+export type CloseReviewPage = {
+  items: CloseReviewPacket[];
+  has_more: boolean;
+  limit: number;
+  financial_effect: 'none';
+  certifies_close: false;
+  can_execute_close: false;
+};
+
+export function fetchCloseReviewers(
+  token: string,
+  companyId: string,
+): Promise<CloseReviewReviewer[]> {
+  return request<CloseReviewReviewer[]>(
+    `/api/v1/companies/${encodeURIComponent(companyId)}/close-review/reviewers`,
+    { token },
+  );
+}
+
+export function fetchCloseReviewPackets(
+  token: string,
+  companyId: string,
+  limit = 100,
+): Promise<CloseReviewPage> {
+  const bounded = Math.max(1, Math.min(100, limit));
+  return request<CloseReviewPage>(
+    `/api/v1/companies/${encodeURIComponent(companyId)}/close-review/packets?limit=${bounded}`,
+    { token },
+  );
+}
+
+export function prepareCloseReviewPacket(
+  token: string,
+  companyId: string,
+  idempotencyKey: string,
+  input: {
+    period_start: string;
+    period_end: string;
+    assigned_reviewer_id: string;
+  },
+): Promise<CloseReviewPacket> {
+  return request<CloseReviewPacket>(
+    `/api/v1/companies/${encodeURIComponent(companyId)}/close-review/packets`,
+    {
+      method: 'POST', token,
+      headers: {
+        'content-type': 'application/json',
+        'idempotency-key': idempotencyKey,
+      },
+      body: JSON.stringify(input),
+    },
+  );
+}
+
+export function decideCloseReviewPacket(
+  token: string,
+  companyId: string,
+  packetId: string,
+  idempotencyKey: string,
+  input: {
+    decision: 'evidence_reviewed' | 'changes_requested';
+    reason_code: string;
+  },
+): Promise<CloseReviewPacket> {
+  const company = encodeURIComponent(companyId);
+  const packet = encodeURIComponent(packetId);
+  return request<CloseReviewPacket>(
+    `/api/v1/companies/${company}/close-review/packets/${packet}/decision`,
+    {
+      method: 'POST', token,
+      headers: {
+        'content-type': 'application/json',
+        'idempotency-key': idempotencyKey,
+      },
+      body: JSON.stringify(input),
+    },
+  );
+}
+
+export type AccountBalance = {
+  balance_id: string;
+  financial_account_id: string;
+  account_name: string;
+  source_record_id: string;
+  source_name: string;
+  record_ordinal: number;
+  balance_type: 'opening' | 'closing' | 'running' | 'available' | 'ledger';
+  amount: string;
+  currency_code: string;
+  as_of: string;
+  source_timezone: string;
+  amount_field_index: number;
+  as_of_field_index: number;
+  lineage_state: 'required_pending' | 'complete' | 'invalidated';
+  created_at: string;
+  replayed: boolean;
+  proves_completeness: false;
+  proves_reconciliation: false;
+};
+
+export type AccountBalancePage = {
+  limit: number;
+  truncated: boolean;
+  items: AccountBalance[];
+  notice: string;
+};
+
+export type BalanceEvidenceField = {
+  index: number;
+  label: string;
+  value: string;
+};
+
+export type BalanceEvidence = {
+  source_record_id: string;
+  dataset_version_id: string;
+  source_name: string;
+  financial_account_id: string;
+  account_name: string;
+  currency_code: string;
+  record_ordinal: number;
+  source_timezone: string;
+  fields: BalanceEvidenceField[];
+};
+
+export type BalanceEvidencePage = {
+  limit: number;
+  truncated: boolean;
+  items: BalanceEvidence[];
+};
+
+export function fetchAccountBalances(
+  token: string,
+  companyId: string,
+  limit = 100,
+): Promise<AccountBalancePage> {
+  return request<AccountBalancePage>(
+    `/api/v1/companies/${encodeURIComponent(companyId)}/balances` +
+      `?limit=${Math.max(1, Math.min(200, limit))}`,
+    { token },
+  );
+}
+
+export function fetchBalanceEvidence(
+  token: string,
+  companyId: string,
+  limit = 20,
+): Promise<BalanceEvidencePage> {
+  return request<BalanceEvidencePage>(
+    `/api/v1/companies/${encodeURIComponent(companyId)}/balances/evidence` +
+      `?limit=${Math.max(1, Math.min(50, limit))}`,
+    { token },
+  );
+}
+
+export function createAccountBalance(
+  token: string,
+  companyId: string,
+  body: {
+    source_record_id: string;
+    balance_type: AccountBalance['balance_type'];
+    amount_field_index: number;
+    as_of_field_index: number;
+  },
+): Promise<AccountBalance> {
+  return request<AccountBalance>(
+    `/api/v1/companies/${encodeURIComponent(companyId)}/balances`,
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+      token,
+    },
+  );
+}
+
+export type ReconciliationExpectation = {
+  expectation_id: string;
+  data_source_id: string;
+  source_name: string;
+  financial_account_id: string | null;
+  account_name: string | null;
+  period_start: string;
+  period_end: string;
+  state: string;
+  has_artifact: boolean;
+  assessed: boolean;
+};
+
+export type CompletenessControlResult = {
+  control_result_id: string;
+  assessment_id: string;
+  control_type: string;
+  required: boolean;
+  outcome: 'match' | 'mismatch' | 'unknown' | 'not_applicable';
+  expected_value: unknown;
+  observed_value: unknown;
+  value_type: string;
+  reason: string | null;
+  lineage_state: 'required_pending' | 'complete' | 'invalidated';
+};
+
+export type CompletenessAssessment = {
+  assessment_id: string;
+  data_source_id: string;
+  source_name: string;
+  source_expectation_id: string;
+  financial_account_id: string | null;
+  account_name: string | null;
+  dataset_version_id: string;
+  period_start: string;
+  period_end: string;
+  state: 'verified' | 'mismatch' | 'unknown' | 'accepted_exception';
+  lineage_state: 'required_pending' | 'complete' | 'invalidated';
+  created_at: string;
+  replayed: boolean;
+  controls: CompletenessControlResult[];
+};
+
+export type ReconcilingItem = {
+  item_decision_id: string;
+  item_root_id: string;
+  statement_root_id: string;
+  adjustment_side: 'add_to_bank' | 'deduct_from_bank';
+  amount: string;
+  currency_code: string;
+  reason_code: string;
+  state: 'proposed' | 'confirmed' | 'rejected' | 'reversed';
+  prepared_by: string;
+  approved_by: string | null;
+  decision_version: number;
+  lineage_state: 'required_pending' | 'complete' | 'invalidated';
+  created_at: string;
+  replayed?: boolean;
+};
+
+export type BalanceReconciliationStatement = {
+  statement_id: string;
+  statement_root_id: string;
+  version: number;
+  financial_account_id: string;
+  account_name: string;
+  period_start: string;
+  period_end: string;
+  currency_code: string;
+  bank_closing_balance_id: string;
+  books_closing_balance_id: string;
+  completeness_assessment_ids: string[];
+  confirmed_reconciling_item_ids: string[];
+  bank_closing_balance: string;
+  books_closing_balance: string;
+  confirmed_additions_to_bank: string;
+  confirmed_deductions_from_bank: string;
+  adjusted_bank_balance: string;
+  unexplained_difference: string;
+  state: 'draft' | 'review_required' | 'balanced' | 'exception_accepted' | 'superseded';
+  lineage_state: 'required_pending' | 'complete' | 'invalidated';
+  created_at: string;
+  replayed: boolean;
+  certifies_close: false;
+};
+
+export type BalanceReconciliationWorkspace = {
+  limit: number;
+  truncated: boolean;
+  totals: { expectations: number; assessments: number; statements: number; items: number };
+  expectations: ReconciliationExpectation[];
+  assessments: CompletenessAssessment[];
+  statements: BalanceReconciliationStatement[];
+  items: ReconcilingItem[];
+  notice: string;
+};
+
+const reconciliationPath = (companyId: string): string =>
+  `/api/v1/companies/${encodeURIComponent(companyId)}/balance-reconciliation`;
+
+export function fetchBalanceReconciliation(
+  token: string,
+  companyId: string,
+  limit = 50,
+): Promise<BalanceReconciliationWorkspace> {
+  return request<BalanceReconciliationWorkspace>(
+    `${reconciliationPath(companyId)}?limit=${Math.max(1, Math.min(100, limit))}`,
+    { token },
+  );
+}
+
+export function createCompletenessAssessment(
+  token: string,
+  companyId: string,
+  expectationId: string,
+): Promise<CompletenessAssessment> {
+  return request<CompletenessAssessment>(
+    `${reconciliationPath(companyId)}/assessments`,
+    {
+      method: 'POST', token,
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ expectation_id: expectationId }),
+    },
+  );
+}
+
+export function createBalanceReconciliationStatement(
+  token: string,
+  companyId: string,
+  body: {
+    bank_balance_id: string;
+    books_balance_id: string;
+    assessment_ids: string[];
+  },
+): Promise<BalanceReconciliationStatement> {
+  return request<BalanceReconciliationStatement>(
+    `${reconciliationPath(companyId)}/statements`,
+    {
+      method: 'POST', token,
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    },
+  );
+}
+
+export function createReconcilingItem(
+  token: string,
+  companyId: string,
+  statementRootId: string,
+  body: {
+    amount: string;
+    adjustment_side: ReconcilingItem['adjustment_side'];
+    reason_code: string;
+    evidence_source_record_ids: string[];
+  },
+): Promise<ReconcilingItem> {
+  return request<ReconcilingItem>(
+    `${reconciliationPath(companyId)}/statements/` +
+      `${encodeURIComponent(statementRootId)}/items`,
+    {
+      method: 'POST', token,
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    },
+  );
+}
+
+export function decideReconcilingItem(
+  token: string,
+  companyId: string,
+  itemRootId: string,
+  decision: 'confirmed' | 'rejected' | 'reversed',
+): Promise<ReconcilingItem> {
+  return request<ReconcilingItem>(
+    `${reconciliationPath(companyId)}/items/${encodeURIComponent(itemRootId)}/decisions`,
+    {
+      method: 'POST', token,
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ decision }),
+    },
+  );
+}
+
 export function continueDataset(
   token: string,
   companyId: string,
@@ -1045,4 +2066,187 @@ export function fetchAssignees(
     `/api/v1/companies/${encodeURIComponent(companyId)}/assignees`,
     { token },
   );
+}
+
+// --------------------------------------------------------------------------- //
+// Equipo y roles company-scoped (FNC-QA-007)
+// --------------------------------------------------------------------------- //
+
+/** Miembro activo de la firma delegada. No contiene correo ni identidad externa. */
+export type CompanyMember = {
+  subject_id: string;
+  display_name: string;
+  firm_role: string;
+  company_roles: string[];
+};
+
+export type RoleChangeResult = {
+  subject_id: string;
+  role: string;
+  changed: boolean;
+  replayed: boolean;
+  authorization_version: number;
+  refreshed_session: null | {
+    token: string;
+    expires_at: number;
+    display_name: string;
+  };
+};
+
+export function fetchMembers(
+  token: string,
+  companyId: string,
+): Promise<CompanyMember[]> {
+  return request<CompanyMember[]>(
+    `/api/v1/companies/${encodeURIComponent(companyId)}/members`,
+    { token },
+  );
+}
+
+function changeMemberRole(
+  method: 'POST' | 'DELETE',
+  token: string,
+  companyId: string,
+  subjectId: string,
+  body: { role: string; reason_code: string },
+): Promise<RoleChangeResult> {
+  const company = encodeURIComponent(companyId);
+  const subject = encodeURIComponent(subjectId);
+  return request<RoleChangeResult>(
+    `/api/v1/companies/${company}/members/${subject}/roles`,
+    {
+      method,
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+      token,
+    },
+  );
+}
+
+export function grantMemberRole(
+  token: string,
+  companyId: string,
+  subjectId: string,
+  body: { role: string; reason_code: string },
+): Promise<RoleChangeResult> {
+  return changeMemberRole('POST', token, companyId, subjectId, body);
+}
+
+export function revokeMemberRole(
+  token: string,
+  companyId: string,
+  subjectId: string,
+  body: { role: string; reason_code: string },
+): Promise<RoleChangeResult> {
+  return changeMemberRole('DELETE', token, companyId, subjectId, body);
+}
+
+// --------------------------------------------------------------------------- //
+// Centro de calidad y anomalias deterministas (FNC-DQ-001)
+// --------------------------------------------------------------------------- //
+
+export type QualityStatus = 'open' | 'acknowledged' | 'resolved' | 'dismissed';
+export type QualitySeverity = 'info' | 'warning' | 'high';
+export type QualityRule =
+  | 'dataset_completeness_mismatch'
+  | 'dataset_completeness_unknown'
+  | 'dataset_rejected_records'
+  | 'lineage_invalidated'
+  | 'duplicate_fingerprint'
+  | 'reference_amount_conflict'
+  | 'posting_delay_over_31_days'
+  | 'amount_outlier_10x_median';
+
+export type QualityIssue = {
+  issue_id: string;
+  rule_code: QualityRule;
+  rule_version: string;
+  scope_kind: 'dataset' | 'movement';
+  scope_ref: string;
+  severity: QualitySeverity;
+  status: QualityStatus;
+  occurrence_count: number;
+  assigned_to: string | null;
+  assigned_to_name: string | null;
+  reviewed_by: string | null;
+  reviewed_by_name: string | null;
+  resolution_reason: string | null;
+  first_seen_at: string;
+  last_seen_at: string;
+  updated_at: string;
+  financial_effect: 'none';
+  proves_fraud: false;
+};
+
+export type QualityIssuePage = {
+  filter: { status: QualityStatus | 'all'; severity: QualitySeverity | 'all'; rule: QualityRule | 'all' };
+  offset: number;
+  limit: number;
+  truncated: boolean;
+  summary: {
+    total: number;
+    open: number;
+    acknowledged: number;
+    resolved: number;
+    dismissed: number;
+    high: number;
+    warning: number;
+    info: number;
+  };
+  items: QualityIssue[];
+  notice: string;
+};
+
+export type QualityScanResult = {
+  rule_version: string;
+  datasets_examined_limit: number;
+  findings: number;
+  created: number;
+  refreshed: number;
+  truncated: boolean;
+  truncated_rules: QualityRule[];
+  financial_effect: 'none';
+};
+
+export function fetchQualityIssues(
+  token: string,
+  companyId: string,
+  filters: { status?: string; severity?: string; rule?: string; limit?: number } = {},
+): Promise<QualityIssuePage> {
+  const query = new URLSearchParams({
+    status: filters.status ?? 'open',
+    severity: filters.severity ?? 'all',
+    rule: filters.rule ?? 'all',
+    limit: String(Math.max(1, Math.min(100, filters.limit ?? 50))),
+  });
+  return request<QualityIssuePage>(
+    `/api/v1/companies/${encodeURIComponent(companyId)}/quality/issues?${query}`,
+    { token },
+  );
+}
+
+export function scanQualityIssues(
+  token: string,
+  companyId: string,
+): Promise<QualityScanResult> {
+  return request<QualityScanResult>(
+    `/api/v1/companies/${encodeURIComponent(companyId)}/quality/scan`,
+    { method: 'POST', token },
+  );
+}
+
+export function triageQualityIssue(
+  token: string,
+  companyId: string,
+  issueId: string,
+  body: { status: string; reason_code: string; rationale: string },
+): Promise<QualityIssue & { replayed: boolean }> {
+  const company = encodeURIComponent(companyId);
+  const issue = encodeURIComponent(issueId);
+  return request(`/api/v1/companies/${company}/quality/issues/${issue}`, {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+    token,
+  });
 }

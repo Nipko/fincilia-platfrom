@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-08-21
-- Owners: Data + Accounting, UNASSIGNED
+- Owners: Data + Accounting, accountable FOUNDER-01
 - Gate: S1-READY
 - Tasks: FNC-DOM-005
 - Plan refs: §18
@@ -20,4 +20,3 @@ Mayor almacenamiento y complejidad, pero evidencia reproducible y explicación v
 ## Verification
 
 TST-LIN-001 exige camino completo para 100% de campos publicados y decisiones financieras.
-

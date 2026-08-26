@@ -2,7 +2,7 @@
 
 - Status: Accepted; retention pending L-01
 - Date: 2026-08-21
-- Owners: Architecture + Security + Privacy, UNASSIGNED
+- Owners: Architecture + Security + Privacy, accountable FOUNDER-01
 - Gates: S1-READY, DRG-00
 - Plan refs: §23.1
 
@@ -34,4 +34,3 @@ Reproducibilidad y aislamiento claros a cambio de lifecycle, inventario y costos
 ## Verification
 
 Promoción controlada quarantine→raw, URLs cortas, inventario de versiones y rechazo cross-company.
-

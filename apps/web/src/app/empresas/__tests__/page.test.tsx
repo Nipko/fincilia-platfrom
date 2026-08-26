@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => {
   }
   return {
     ApiError,
+    fetchManageableFirms: vi.fn(),
     fetchMe: vi.fn(),
     loadPortfolioSnapshots: vi.fn(),
     readSession: vi.fn(),
@@ -24,6 +25,7 @@ vi.mock('next/navigation', () => ({ redirect: mocks.redirect }));
 vi.mock('@/lib/session', () => ({ readSession: mocks.readSession }));
 vi.mock('@/lib/api', () => ({
   ApiError: mocks.ApiError,
+  fetchManageableFirms: mocks.fetchManageableFirms,
   fetchMe: mocks.fetchMe,
 }));
 vi.mock('@/lib/portfolio', () => ({
@@ -51,6 +53,46 @@ describe('CompaniesPage portfolio', () => {
       display_name: 'Ada',
       companies: [company],
     });
+    mocks.fetchManageableFirms.mockResolvedValue([]);
+  });
+
+  it('ofrece alta solo cuando la API devuelve una firma administrable', async () => {
+    mocks.fetchManageableFirms.mockResolvedValue([{
+      firm_id: 'firm-synthetic-a',
+      legal_name: 'Firma Sintetica',
+      firm_role: 'owner',
+    }]);
+    mocks.loadPortfolioSnapshots.mockResolvedValue([]);
+
+    render(await CompaniesPage());
+
+    expect(screen.getByRole('link', { name: 'Crear una empresa' }))
+      .toHaveAttribute('href', '/empresas/nueva');
+  });
+
+  it('mantiene el portafolio si la capacidad secundaria de alta no responde', async () => {
+    mocks.fetchManageableFirms.mockRejectedValue(
+      new mocks.ApiError(503, 'unavailable'),
+    );
+    mocks.loadPortfolioSnapshots.mockResolvedValue([{
+      company,
+      access: 'available',
+      documents: { state: 'available', value: { visible: 1, quarantine: 0 } },
+      datasets: {
+        state: 'available',
+        value: { visible: 0, pendingReview: 0, partial: 0, published: 0 },
+      },
+      expectations: {
+        state: 'available', value: { overdue: 0, dueSoon: 0, pending: 0 },
+      },
+    }]);
+
+    render(await CompaniesPage());
+
+    expect(screen.getByRole('link', { name: `Abrir ${company.legal_name}` }))
+      .toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Crear una empresa' }))
+      .not.toBeInTheDocument();
   });
 
   it('distingue falta de acceso de un conteo cero', async () => {
@@ -96,5 +138,7 @@ describe('CompaniesPage portfolio', () => {
     expect(screen.getByText('2 por revisar · 1 parciales')).toBeInTheDocument();
     expect(screen.getByText('3 vencidos · 1 proximos')).toBeInTheDocument();
     expect(screen.getByText(/no saldos/i)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /bandeja de revisiones/i }))
+      .toHaveAttribute('href', '/revisiones');
   });
 });

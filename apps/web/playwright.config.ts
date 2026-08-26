@@ -8,7 +8,10 @@ export default defineConfig({
   fullyParallel: false,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 1 : 0,
-  ...(process.env.CI ? { workers: 1 } : {}),
+  // Los recorridos usan el mismo tenant sintetico y prueban revocacion real.
+  // Versionar su autorizacion invalida correctamente las demas sesiones; por eso
+  // este proyecto compartido es serial tanto localmente como en CI.
+  workers: 1,
   reporter: process.env.CI ? 'line' : 'list',
   outputDir: './tmp/playwright-results',
   expect: {

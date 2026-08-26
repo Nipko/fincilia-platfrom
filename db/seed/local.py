@@ -54,13 +54,24 @@ PROVISIONER = {"key": "provisioner", "display_name": "Aprovisionador local",
                "kind": "service_principal"}
 PEOPLE = (
     {"key": "sofia", "username": "sofia@demo.local", "display_name": "Sofia Owner",
-     "firm_role": "owner", "grants": {"espiga": "owner", "andinos": "owner"}},
+     # Una sola cuenta puede operar todos los perfiles de la aplicacion. Son
+     # grants reales y acumulables, no una excepcion del entorno local. La SoD
+     # se sigue comprobando por sujeto y objeto: disponer de ambos permisos no
+     # permite revisar ni publicar el trabajo propio.
+     "firm_role": "owner",
+     "grants": {
+         "espiga": ("owner", "firm_admin", "preparer", "reviewer", "auditor",
+                    "read_only"),
+         "andinos": ("owner", "firm_admin", "preparer", "reviewer", "auditor",
+                     "read_only"),
+     }},
     {"key": "ana", "username": "ana@demo.local", "display_name": "Ana Preparadora",
-     "firm_role": "member", "grants": {"espiga": "preparer", "andinos": "preparer"}},
+     "firm_role": "member",
+     "grants": {"espiga": ("preparer",), "andinos": ("preparer",)}},
     {"key": "beto", "username": "beto@demo.local", "display_name": "Beto Revisor",
-     "firm_role": "member", "grants": {"espiga": "reviewer"}},
+     "firm_role": "member", "grants": {"espiga": ("reviewer",)}},
     {"key": "carla", "username": "carla@demo.local", "display_name": "Carla Auditora",
-     "firm_role": "member", "grants": {"andinos": "auditor"}},
+     "firm_role": "member", "grants": {"andinos": ("auditor",)}},
 )
 
 
@@ -208,22 +219,40 @@ def seed(dsn: str, *, secret: str) -> dict[str, object]:
                 if cursor.rowcount:
                     created.append(f"source_account:{company['key']}")
 
+                grants_changed = False
                 for person in PEOPLE:
-                    role = person["grants"].get(company["key"])
-                    if role is None:
-                        continue
-                    # El dueno recibe su rol del aprovisionador; el resto, del
-                    # dueno. Nadie se concede nada a si mismo.
-                    granter = PROVISIONER["key"] if person["key"] == "sofia" else "sofia"
+                    roles = person["grants"].get(company["key"], ())
+                    for role in roles:
+                        # Todos los roles iniciales del fundador proceden de la
+                        # autoridad de aprovisionamiento. El resto los concede
+                        # el owner. Nadie se concede un rol a si mismo.
+                        granter = (PROVISIONER["key"]
+                                   if person["key"] == "sofia" else "sofia")
+                        cursor.execute(
+                            "INSERT INTO fincilia.company_grant (grant_id, company_id, "
+                            "subject_id, company_role, granted_by) "
+                            "VALUES (%s, %s, %s, %s, %s) "
+                            "ON CONFLICT (company_id, subject_id, company_role) DO NOTHING",
+                            (stable_id(
+                                "grant",
+                                f"{company['key']}:{person['key']}:{role}",
+                            ),
+                             company_id, stable_id("subject", person["key"]), role,
+                             stable_id("subject", granter)))
+                        if cursor.rowcount:
+                            grants_changed = True
+                            created.append(
+                                f"grant:{company['key']}:{person['key']}:{role}")
+                if grants_changed:
+                    # La semilla usa las mismas reglas de invalidacion que la
+                    # administracion final: una sesion anterior no conserva una
+                    # fotografia de autorizacion previa a los nuevos grants.
                     cursor.execute(
-                        "INSERT INTO fincilia.company_grant (grant_id, company_id, "
-                        "subject_id, company_role, granted_by) VALUES (%s, %s, %s, %s, %s) "
-                        "ON CONFLICT (company_id, subject_id, company_role) DO NOTHING",
-                        (stable_id("grant", f"{company['key']}:{person['key']}"),
-                         company_id, stable_id("subject", person["key"]), role,
-                         stable_id("subject", granter)))
-                    if cursor.rowcount:
-                        created.append(f"grant:{company['key']}:{person['key']}")
+                        "UPDATE fincilia.authorization_version "
+                        "SET version = version + 1, updated_at = now() "
+                        "WHERE company_id = %s",
+                        (company_id,),
+                    )
             set_company_context(cursor, None)
         connection.commit()
 

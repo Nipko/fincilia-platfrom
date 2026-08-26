@@ -3,11 +3,11 @@
   "task": "FNC-DB-001",
   "status": "review_pending",
   "data_ceiling": "synthetic_only",
-  "adr_002_state": "proposed",
-  "selected_tool": null,
+  "adr_002_state": "accepted",
+  "selected_tool": "fincilia_sql_first",
   "preferred_for_spike": "flyway",
-  "human_acceptance": "pending",
-  "product_migrations_allowed": false,
+  "human_acceptance": "accepted_by_founder_01_imp_017",
+  "product_migrations_allowed": true,
   "criteria": [
     "plain_sql",
     "versioned_order",
@@ -166,10 +166,7 @@
     "migrator": "db/migrate/apply.py",
     "reserved_band": "V0001-V0999",
     "does_not_imply": [
-      "adr_002_accepted",
-      "tool_selected",
       "s1_approved",
-      "product_migrations_allowed",
       "deployment_to_shared_environment"
     ]
   },
@@ -200,7 +197,7 @@
         "fincilia_worker",
         "fincilia_migrator"
       ],
-      "reason": "encolar sin dar a la API ningun privilegio sobre la tabla global de despacho; los parametros se validan contra el contexto autorizado",
+      "reason": "encolar sin dar a la API ningun privilegio sobre la tabla global de despacho; V0022 agrega la firma de cuatro argumentos que exige una capability processing_job viva y conserva temporalmente la firma legacy durante expand-contract",
       "gate": "DB-G03",
       "human_review_state": "pending"
     },
@@ -210,7 +207,7 @@
       "granted_to": [
         "fincilia_worker"
       ],
-      "reason": "reclamar trabajo sin dar al worker UPDATE sobre la cola; fija y restaura el contexto de empresa porque SECURITY DEFINER no levanta FORCE ROW LEVEL SECURITY",
+      "reason": "reclamar trabajo sin dar al worker UPDATE sobre la cola; fija y restaura el contexto de empresa y V0022 revalida expiracion, tombstone, version y autoridad viva antes de entregar",
       "gate": "DB-G03",
       "human_review_state": "pending"
     },
@@ -220,7 +217,7 @@
       "granted_to": [
         "fincilia_worker"
       ],
-      "reason": "cerrar un trabajo solo con el testigo de arriendo vigente, en una sola transaccion con el borrado del puntero",
+      "reason": "cerrar un trabajo solo con el testigo y la capability vigentes, en una sola transaccion con el borrado del puntero; una revocacion tardia impide declarar exito",
       "gate": "DB-G03",
       "human_review_state": "pending"
     },
@@ -238,7 +235,25 @@
       "granted_to": [
         "fincilia_worker"
       ],
-      "reason": "vallar cada lote de extraccion con el token vigente sin conceder UPDATE directo al worker; el bloqueo vive hasta el commit de la tanda",
+      "reason": "vallar cada lote con el token y la capability vigentes sin conceder UPDATE directo al worker; el bloqueo vive hasta el commit de la tanda",
+      "gate": "DB-G03",
+      "human_review_state": "pending"
+    },
+    {
+      "function": "fincilia.record_overlay_application_run",
+      "owner_role": "fincilia_dispatch",
+      "granted_to": [
+        "fincilia_app"
+      ],
+      "reason": "registrar el trabajo sincrono y completado de aplicacion de overlays despues de revalidar la capability, la autoridad viva y el artefacto bajo RLS, sin conceder INSERT directo sobre processing_run a la API",
+      "gate": "DB-G03",
+      "human_review_state": "pending"
+    },
+    {
+      "function": "fincilia.reserve_confirmed_match_members",
+      "owner_role": "fincilia_dispatch",
+      "granted_to": [],
+      "reason": "materializar desde el trigger los dos miembros exactos de una confirmacion sin conceder INSERT directo a la API; la clave primaria serializa conflictos concurrentes por movimiento bajo RLS",
       "gate": "DB-G03",
       "human_review_state": "pending"
     }

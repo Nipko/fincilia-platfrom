@@ -54,6 +54,7 @@ ALLOWED_MODULES = frozenset({
     "tools.ux_contract.validate",
     "tools.work_graph.validate",
     "tools.workspace_contract.validate",
+    "tools.wsl_runtime.validate",
     "unittest",
 })
 

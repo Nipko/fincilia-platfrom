@@ -59,14 +59,17 @@ function settledValue<T>(result: PromiseSettledResult<T>): T {
 
 export default async function SourcesPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ companyId: string }>;
+  searchParams: Promise<{ alta?: string }>;
 }) {
   const session = await readSession();
   if (!session) {
     redirect('/entrar');
   }
   const { companyId } = await params;
+  const query = await searchParams;
 
   let company;
   try {
@@ -148,6 +151,13 @@ export default async function SourcesPage({
           <Link href="/empresas">Empresas</Link>
         </nav>
       </header>
+
+      {query.alta === 'creada' ? (
+        <p className="notice success" role="status">
+          Empresa creada. Tu acceso owner, la delegacion y la configuracion
+          seleccionada quedaron guardados en una sola transaccion.
+        </p>
+      ) : null}
 
       {accounts.length === 0 && sources.length === 0 ? (
         <p className="notice" role="status">

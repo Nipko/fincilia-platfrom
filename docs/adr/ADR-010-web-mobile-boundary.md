@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-08-21
-- Owners: Product + UX + Mobile + Security, UNASSIGNED
+- Owners: Product + UX + Mobile + Security, accountable FOUNDER-01
 - Gate: S1-READY
 - Plan refs: §12, §20
 
@@ -25,4 +25,3 @@ App sencilla y segura; algunas tareas requieren volver a web.
 ## Verification
 
 Prototipo demuestra límites, step-up y estados degradados antes del scaffold móvil.
-

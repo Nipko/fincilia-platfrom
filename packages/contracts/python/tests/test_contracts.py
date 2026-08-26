@@ -36,12 +36,17 @@ from fincilia_contracts.money import (  # noqa: E402
     subtract,
 )
 from fincilia_contracts.tenancy import (  # noqa: E402
+    FIRM_PERMISSIONS,
+    FIRM_ROLE_PERMISSIONS,
+    FIRM_ROLES,
     PERMISSIONS,
     ROLE_PERMISSIONS,
     ROLES,
     AuthorizationError,
     TenantContext,
+    derive_firm_permissions,
     derive_permissions,
+    require_firm_permission,
     violates_segregation,
 )
 
@@ -115,6 +120,26 @@ class MoneyTests(unittest.TestCase):
 
 
 class TenancyTests(unittest.TestCase):
+    def test_only_firm_managers_can_provision_a_company(self) -> None:
+        for role in FIRM_ROLES:
+            with self.subTest(role=role):
+                expected = role in ("owner", "firm_admin")
+                self.assertEqual(
+                    expected,
+                    "company.provision" in derive_firm_permissions(role),
+                )
+                if expected:
+                    require_firm_permission(role, "company.provision")
+                else:
+                    with self.assertRaises(AuthorizationError):
+                        require_firm_permission(role, "company.provision")
+
+    def test_firm_permissions_are_a_closed_vocabulary(self) -> None:
+        self.assertEqual(("company.provision",), FIRM_PERMISSIONS)
+        self.assertEqual(set(FIRM_ROLES), set(FIRM_ROLE_PERMISSIONS))
+        with self.assertRaises(AuthorizationError):
+            require_firm_permission("owner", "company.delete")
+
     def test_a_context_always_names_subject_firm_and_company(self) -> None:
         for missing in ("subject_id", "firm_id", "company_id"):
             with self.subTest(missing=missing), self.assertRaises(AuthorizationError):
@@ -186,6 +211,63 @@ class TenancyTests(unittest.TestCase):
         self.assertIn("dataset.publish", ROLE_PERMISSIONS["reviewer"])
         self.assertIn("dataset.map", ROLE_PERMISSIONS["preparer"])
         self.assertNotIn("dataset.map", ROLE_PERMISSIONS["reviewer"])
+
+    def test_operational_export_is_explicit_and_not_plain_read_access(self) -> None:
+        self.assertIn("dataset.export", PERMISSIONS)
+        for role in ("owner", "preparer", "reviewer", "auditor"):
+            with self.subTest(role=role):
+                self.assertIn("dataset.export", ROLE_PERMISSIONS[role])
+                self.assertIn("movement.read", ROLE_PERMISSIONS[role])
+        for role in ("firm_admin", "read_only"):
+            with self.subTest(role=role):
+                self.assertNotIn("dataset.export", ROLE_PERMISSIONS[role])
+
+    def test_export_does_not_grant_publish_or_portability(self) -> None:
+        preparer = context(roles=("preparer",))
+        self.assertTrue(preparer.has("dataset.export"))
+        self.assertFalse(preparer.has("dataset.publish"))
+        self.assertNotIn("portability.export", PERMISSIONS)
+
+    def test_quality_signals_are_readable_without_granting_triage(self) -> None:
+        self.assertIn("quality.read", PERMISSIONS)
+        self.assertIn("quality.manage", PERMISSIONS)
+        for role in ("owner", "firm_admin", "preparer", "reviewer"):
+            with self.subTest(role=role):
+                self.assertIn("quality.read", ROLE_PERMISSIONS[role])
+                self.assertIn("quality.manage", ROLE_PERMISSIONS[role])
+        for role in ("auditor", "read_only"):
+            with self.subTest(role=role):
+                self.assertIn("quality.read", ROLE_PERMISSIONS[role])
+                self.assertNotIn("quality.manage", ROLE_PERMISSIONS[role])
+
+    def test_quality_permissions_do_not_change_financial_state_permissions(self) -> None:
+        reader = context(roles=("read_only",))
+        self.assertTrue(reader.has("quality.read"))
+        self.assertFalse(reader.has("quality.manage"))
+        self.assertFalse(reader.has("dataset.publish"))
+        self.assertFalse(reader.has("match.confirm"))
+        self.assertFalse(reader.has("close.approve"))
+
+    def test_operational_reports_separate_read_from_export(self) -> None:
+        self.assertIn("report.read", PERMISSIONS)
+        self.assertIn("report.export", PERMISSIONS)
+        for role in ROLE_PERMISSIONS:
+            with self.subTest(role=role):
+                self.assertIn("report.read", ROLE_PERMISSIONS[role])
+        for role in ("owner", "preparer", "reviewer", "auditor"):
+            with self.subTest(role=role):
+                self.assertIn("report.export", ROLE_PERMISSIONS[role])
+        for role in ("firm_admin", "read_only"):
+            with self.subTest(role=role):
+                self.assertNotIn("report.export", ROLE_PERMISSIONS[role])
+
+    def test_report_permissions_do_not_grant_financial_decisions(self) -> None:
+        reader = context(roles=("read_only",))
+        self.assertTrue(reader.has("report.read"))
+        self.assertFalse(reader.has("report.export"))
+        self.assertFalse(reader.has("dataset.publish"))
+        self.assertFalse(reader.has("match.confirm"))
+        self.assertFalse(reader.has("close.approve"))
 
     def test_mapping_and_publishing_are_segregated_in_both_directions(self) -> None:
         self.assertEqual(violates_segregation("dataset.publish", {"dataset.map"}),

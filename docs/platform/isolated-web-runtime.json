@@ -1,0 +1,93 @@
+{
+  "schema_version": 1,
+  "task_id": "FNC-QA-009",
+  "status": "review_pending",
+  "human_acceptance": "pending",
+  "data_ceiling": "synthetic_only",
+  "purpose": "Ejecutar la regresion web completa sobre recursos locales desechables sin conectar ni modificar la demo persistente.",
+  "entrypoints": {
+    "windows_orchestrator": "infra/local/test-web-isolated.ps1",
+    "wsl_lifecycle": "infra/local/test-web-isolated.sh",
+    "compose_file": "infra/local/compose.yaml"
+  },
+  "persistent_runtime": {
+    "project": "fincilia-local",
+    "volumes": [
+      "fincilia_local_pgdata",
+      "fincilia_local_objectdata"
+    ],
+    "networks": [
+      "fincilia_local_private",
+      "fincilia_local_edge"
+    ],
+    "published_ports": [53000, 58080, 59000, 59001]
+  },
+  "disposable_runtime": {
+    "project": "fincilia-e2e",
+    "volumes": [
+      "fincilia_e2e_pgdata",
+      "fincilia_e2e_objectdata"
+    ],
+    "networks": [
+      "fincilia_e2e_private",
+      "fincilia_e2e_edge"
+    ],
+    "published_ports": {
+      "web": 53100,
+      "api": 58180,
+      "object": 59100,
+      "object_console": 59101
+    },
+    "bind_address": "127.0.0.1",
+    "accepts_resource_name_input": false,
+    "precleans_exact_project": true,
+    "removes_volumes_on_cleanup": true,
+    "removes_orphans_on_cleanup": true
+  },
+  "execution": {
+    "phases": [
+      "validate_constants",
+      "preclean",
+      "build",
+      "dependencies",
+      "migrate",
+      "synthetic_seed",
+      "acceptance_fixture",
+      "applications",
+      "readiness",
+      "isolation_probe",
+      "chromium",
+      "axe",
+      "cleanup",
+      "absence_probe"
+    ],
+    "browser_base_url": "http://127.0.0.1:53100",
+    "api_base_url": "http://127.0.0.1:58180",
+    "npm_scripts": ["test:e2e", "test:a11y"],
+    "playwright_workers": 1,
+    "cleanup_in_finally": true,
+    "cleanup_after_success": true,
+    "cleanup_after_failure": true,
+    "repeatable_runs_required": 2
+  },
+  "isolation_invariants": [
+    "El proyecto, los volumenes, las redes y los puertos desechables son constantes cerradas y disjuntas de la demo persistente.",
+    "Todo puerto publicado se liga a loopback y PostgreSQL y Valkey nunca se publican.",
+    "Antes de probar se inspeccionan los mounts y redes reales de todos los contenedores desechables.",
+    "La limpieza usa down --volumes --remove-orphans solo despues de validar el proyecto exacto fincilia-e2e.",
+    "El orquestador siempre intenta limpiar y demostrar ausencia desde un bloque finally.",
+    "La semilla local y las etiquetas de Compose mantienen el techo synthetic_only.",
+    "No se aceptan documentos, nombres de recurso, puertos ni comandos proporcionados por el usuario."
+  ],
+  "exit_codes": {
+    "ok": 0,
+    "test_or_lifecycle_failed": 1,
+    "dependency_missing": 3
+  },
+  "gate": {
+    "id": "S1-READY",
+    "status": "not_met",
+    "effect": "none"
+  },
+  "reviewers_pending": ["QA", "Platform/SRE", "Security"]
+}

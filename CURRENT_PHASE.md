@@ -16,14 +16,14 @@ real_research_corpus_allowed: false
 real_pilot_allowed: false
 public_pricing_allowed: false
 external_ai_with_customer_data_allowed: false
-integration_owner: UNASSIGNED
-product_owner: UNASSIGNED
-accounting_owner: UNASSIGNED
-architecture_owner: UNASSIGNED
-security_owner: UNASSIGNED
-privacy_owner: UNASSIGNED
-legal_owner: UNASSIGNED
-review_date: UNASSIGNED
+integration_owner: FOUNDER-01
+product_owner: FOUNDER-01
+accounting_owner: FOUNDER-01
+architecture_owner: FOUNDER-01
+security_owner: FOUNDER-01
+privacy_owner: FOUNDER-01
+legal_owner: FOUNDER-01
+review_date: 2026-09-30
 ---
 
 # Fase vigente
@@ -66,6 +66,7 @@ Hasta S1-READY solo se admite scaffolding, automatización, pruebas, documentaci
 
 | ID | Resultado | Estado | Implementador | Rutas |
 |---|---|---|---|---|
+| FNC-GOV-001 | Owner provisional, RACI y paquete de decisiones del Founder | Review pending | Integration Steward | `FOUNDER-01` accountable provisional; revisores humanos distintos continúan pendientes; decisión IMP-017 |
 | FNC-GOV-002 | Paquete de implementación multiagente | Done | Integration Steward | raíz, docs/implementation, docs/adr |
 | FNC-PRD-001 | PRD y wedge de firma contable | Review pending | Hume | docs/product/PRD_WEDGE.md, handoff |
 | FNC-DOM-001 | Tenancy company/engagement | Review pending | Einstein | docs/domain/TENANCY_MODEL.md, handoff |
@@ -102,8 +103,9 @@ Hasta S1-READY solo se admite scaffolding, automatización, pruebas, documentaci
 | FNC-QA-003 | Golden harness adjudicado y fail-closed | Review pending | Claude + Integration Steward | docs/testing/GOLDEN_HARNESS.md, golden-harness.json, tools/golden_harness, tests/golden/harness, handoff |
 | FNC-QA-004 | Catálogo ejecutable y reconciliación dinámica | Review pending | Claude + Integration Steward | docs/testing/TEST_CATALOG_MODEL.md, test-catalog-model.json, tools/test_catalog, catálogo, CI, handoff |
 | FNC-QA-005 | Arnés determinista de mutaciones | Review pending | Claude + Integration Steward | docs/testing/MUTATION_HARNESS.md, mutation-harness.json, tools/mutation_harness, tests/golden/mutations, CI, handoff |
-| FNC-SUP-001 | Baseline ejecutable de cadena de suministro | Review pending | Claude + Integration Steward | docs/security/SUPPLY_CHAIN_BASELINE.md, supply-chain.json, tools/supply_chain, handoff |
+| FNC-SUP-001 | Baseline ejecutable de cadena de suministro | Review pending | Claude + Integration Steward | cobertura de updates completa; check acotado por gate; procedencia/SBOM/firma siguen bloqueando DRG-00 |
 | FNC-DB-002 | Spike PostgreSQL de migraciones SQL-first | Review pending | Claude + Integration Steward | docs/database/MIGRATION_SPIKE.md, migration-spike.json, spikes/FNC-DB-002, tools/migration_spike, handoff |
+| FNC-DB-004 | Spike PostgreSQL de claim, outbox y fencing | Review pending | Codex + Integration Steward | TST-IDEM-001/004/005 demostrados dos veces contra PostgreSQL 17; laboratorio aislado y revisión Architecture/Security/QA pendiente |
 | FNC-PLT-007 | CLI segura de desarrollo local | Review pending | Claude + Integration Steward | docs/platform/DEVELOPER_CLI.md, developer-cli.json, tools/dev_cli, handoff |
 | FNC-GAT-003 | Agregador ejecutable de readiness S1 | Review pending | Claude + Integration Steward | docs/implementation/S1_READINESS_REPORT.md, s1-readiness.json, tools/s1_readiness, handoff |
 | FNC-WEB-001 | Endurecimiento verificable del recorrido web P3 | Review pending | Codex + Integration Steward | apps/web, pruebas web, CI, ficha y handoff |
@@ -111,6 +113,31 @@ Hasta S1-READY solo se admite scaffolding, automatización, pruebas, documentaci
 | FNC-WEB-002 | Puesto web de revision y excepciones de dataset | Review pending | Codex + Integration Steward | readiness API, overrides/rechazo web, pruebas PostgreSQL y web |
 | FNC-WEB-003 | Portafolio multiempresa e historico operativo web | Review pending | Codex + Integration Steward | portafolio, vencimientos, volumenes e historico de datasets web |
 | FNC-CLN-001 | Propuestas tipadas de correccion por fila | Review pending | Codex + Integration Steward | overlay tipado, revision SoD, blockers, PostgreSQL y web |
+| FNC-CLN-002 | Aplicacion reproducible de correcciones aprobadas | Review pending | Codex + Integration Steward | V0023/V0024, version derivada, manifest, linaje digest-only, API/web, PostgreSQL y recorrido visual sintetico |
+| FNC-CLN-003 | Aplicabilidad de correcciones ligada al plan de linaje | Review pending | Codex + Integration Steward | targets dinámicos, rechazo fail-closed, 117 API, 10 PostgreSQL y recorrido visual sintético |
+| FNC-QA-006 | Aceptacion web integral y arranque local coherente | Review pending | Codex + Integration Steward | bootstrap local, contrato ejecutable y E2E de roles/tenancy |
+| FNC-QA-007 | Administracion final de usuarios y roles por empresa | Review pending | Codex + Integration Steward | API member.manage, revocacion/versionado, web equipo y pruebas PostgreSQL/E2E |
+| FNC-QA-008 | Regresion web repetible sobre runtime persistente | Review pending | Codex + Integration Steward | 26 Chromium dos veces y 15 Axe verdes; fixtures compartidos seriales y expedientes append-only localizados por pagina exacta |
+| FNC-QA-009 | Regresion web aislada de la demo persistente | Review pending | Codex + Integration Steward | 26 Chromium + 15 Axe verdes dos veces sobre proyecto desechable; cleanup y no interferencia con la demo verificados |
+| FNC-REC-001 | Explorador read-only de candidatos de conciliacion | Review pending | Codex + Integration Steward | motor/endpoint sintetico, estacion web y pruebas |
+| FNC-REC-002 | Propuesta y decision humana de conciliacion sin efecto financiero | Review pending | Codex + Integration Steward | ledger append-only, SoD, idempotencia, API/web y pruebas; revisiones independientes pendientes |
+| FNC-REC-003 | Bandeja multiempresa de revision de conciliaciones | Review pending | Codex + Integration Steward | proyeccion company-scoped, agregacion web acotada y pruebas; sin efecto financiero |
+| FNC-REC-004 | Exclusividad uno-a-uno de confirmaciones | Review pending | Codex + Integration Steward | V0025 aplicada, conflicto concurrente, API/web y recorrido visual; revision independiente pendiente |
+| FNC-CLS-001 | Centro diagnostico de preparacion de cierre | Review pending | Codex + Integration Steward | API/web company-scoped por empresa y periodo, limites cerrados y pruebas reales; revision independiente pendiente |
+| FNC-CLS-002 | Observaciones canonicas de saldo por cuenta | Review pending | Codex + Integration Steward | V0026/V0027, API/web company-scoped, decimal exacto, evidencia visible y pruebas reales; revision independiente pendiente |
+| FNC-CLS-003 | Estados reproducibles de conciliacion de saldos | Review pending | Codex + Integration Steward | V0028-V0030, API/web company-scoped, ecuacion Decimal, SoD, PostgreSQL real y E2E/Axe verdes; revision independiente pendiente |
+| FNC-CLS-004 | Preparacion de cierre integrada | Review pending | Codex + Integration Steward | Statements vigentes por cuenta/periodo, evidencia lista para revision separada de cierre y regresion completa verde; revision independiente pendiente |
+| FNC-CLS-005 | Expediente de revision previa al cierre | Review pending | Codex + Integration Steward | V0034, expediente digest-only, asignacion y decision append-only con SoD; PostgreSQL y E2E/Axe verdes; revision independiente pendiente |
+| FNC-LIN-001 | Linaje materializado previo al cierre | Review pending | Codex + Integration Steward | V0031-V0033, decisiones financieras digest-only, guards PostgreSQL exactos y drill-down web verdes; revisión independiente pendiente |
+| FNC-EXP-001 | Exportacion canonica segura de dataset publicado | Review pending | Codex + Integration Steward | permiso explicito, CSV determinista, BFF streaming y pruebas; solo sintetico y no certificado |
+| FNC-OPS-001 | Centro operativo de ciclos y recordatorios web | Review pending | Codex + Integration Steward | API y web company-by-company verificadas; revision humana Product/Accounting, Security/Privacy, Backend/Architecture y Accessibility/QA pendiente |
+| FNC-DQ-001 | Centro de alertas de calidad y anomalias deterministas | Review pending | Codex + Integration Steward | backend, V0018, web multiempresa, PostgreSQL, E2E y a11y verdes; revision humana independiente pendiente |
+| FNC-RPT-001 | Centro web de informes operativos e historicos | Review pending | Codex + Integration Steward | API, PostgreSQL, web, CSV, E2E y a11y verdes en a18afcf; revision humana independiente pendiente |
+| FNC-ONB-001 | Alta transaccional de empresa y espacio operativo | Review pending | Codex + Integration Steward | Company, engagement, owner y maestros iniciales sin depender de la semilla; V0020 aplicada y recorridos PostgreSQL/E2E/a11y verdes |
+| FNC-SEC-004 | Contexto durable de autorizacion | Review pending | Codex + Integration Steward | V0021, kernel de emision/revalidacion/revocacion, PostgreSQL real y auditoria; revision Security + Database/Architecture pendiente |
+| FNC-SEC-005 | Trabajos durables vinculados a autorizacion emitida | Review pending | Codex + Integration Steward | V0022, productor API, despacho y vallado por lote; compatibilidad expand-only y revision independiente pendientes |
+| FNC-AUD-001 | Centro web company-scoped de accesos y auditoria | Review pending | Codex + Integration Steward | API keyset, actor, filtros cerrados, portafolio company-by-company y estados parciales; revision independiente pendiente |
+| FNC-PLT-009 | Runtime local persistente de Docker Engine en Windows/WSL | Review pending | Codex + Integration Steward | wrapper oculto y reversible, lifecycle completo, contrato ejecutable y persistencia de datos verificada; revision independiente pendiente |
 
 Solo el Integration Steward modifica esta tabla.
 
@@ -118,7 +145,7 @@ Solo el Integration Steward modifica esta tabla.
 
 | Ola | Tarea | Dependencia | Estado |
 |---:|---|---|---|
-| 0 | FNC-GOV-001 Owners humanos y RACI | Ninguna | Blocked: founder |
+| 0 | FNC-GOV-001 Owners humanos y RACI | Ninguna | Review pending; `FOUNDER-01` asignado, revisores independientes distintos pendientes |
 | 0 | FNC-GOV-003 Grafo ejecutable de trabajo | FNC-GOV-002 | Review pending |
 | 0 | FNC-PRD-001 PRD general y wedge | FNC-GOV-001 para aprobación | Review pending |
 | 0 | FNC-DOM-001 Modelo tenancy | PRD provisional | Review pending |
@@ -155,9 +182,9 @@ Solo el Integration Steward modifica esta tabla.
 | 1 | FNC-QA-004 Catálogo ejecutable de pruebas | FNC-QA-002/003 | Review pending; sin drift bloqueante |
 | 1 | FNC-QA-005 Mutation harness de validadores | FNC-QA-002/003 | Review pending; 63/63 mutaciones muertas |
 | 1 | FNC-SUP-001 Baseline de supply chain | FNC-PLT-003, FNC-QA-005 | Review pending; procedencia/SBOM/firma y TM-005 siguen abiertos |
-| 1 | FNC-DB-002 Spike de invariantes de migración | FNC-DB-001, FNC-PLT-002 | Review pending; 12/12 invariantes verificadas, ADR-002 sigue proposed |
+| 1 | FNC-DB-002 Spike de invariantes de migración | FNC-DB-001, FNC-PLT-002 | Review pending; 12/12 invariantes verificadas y ADR-002 ratificada por IMP-017; revisión independiente pendiente |
 | 1 | FNC-PLT-007 CLI de desarrollo | FNC-PLT-002/003, FNC-QA-004/005 | Review pending; gap esperado de supply chain visible |
-| 1 | FNC-GAT-003 Readiness S1 ejecutable | FNC-ARC-006, FNC-QA-004/005, FNC-SUP-001, FNC-DB-002 | Review pending; gate sigue not_met y requiere aceptación humana |
+| 1 | FNC-GAT-003 Readiness S1 ejecutable | FNC-ARC-006, FNC-QA-004/005, FNC-SUP-001, FNC-DB-002 | Review pending; un único blocker: revisión independiente por personas distintas |
 
 Draftable significa que un agente puede preparar un borrador, pero no marcarlo Accepted hasta resolver la dependencia.
 
@@ -174,7 +201,7 @@ Draftable significa que un agente puede preparar un borrador, pero no marcarlo A
 - [ ] Especificación de linaje.
 - [ ] Contrato de conectores.
 - [ ] Estados, eventos y retry ownership.
-- [ ] ADR-001 a ADR-010 y ADR de engine release.
+- [x] ADR-001 a ADR-010 y ADR de engine release ratificados por IMP-017; la revisión independiente se controla por separado.
 - [ ] Corpus sintético y golden suite inicial.
 - [ ] Design system y prototipo navegable.
 - [ ] Cero datos reales en repo, local, CI o artefactos.

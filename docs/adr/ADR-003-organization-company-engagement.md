@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-08-21
-- Owners: Architecture + Product + Legal, UNASSIGNED
+- Owners: Architecture + Product + Legal, accountable FOUNDER-01
 - Gate: S1-READY
 - Task: FNC-DOM-001
 - Plan refs: §6, §14
@@ -24,4 +24,3 @@ Facilita portabilidad y evita secuestro de datos por una firma. Añade autorizac
 ## Verification
 
 TST-TEN-001 y pruebas cross-company; revocar engagement conserva datos y elimina acceso.
-

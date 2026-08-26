@@ -14,6 +14,7 @@ export const CORRECTION_STATUS_LABELS: Record<string, string> = {
   pending_review: 'Pendiente de revision',
   approved: 'Aprobada, pendiente de aplicar',
   rejected: 'Rechazada',
+  applied: 'Aplicada en una version nueva',
 };
 
 export function correctionInput(target: CorrectionTarget): {

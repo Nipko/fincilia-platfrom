@@ -857,14 +857,19 @@ class NegativeInvariantTests(unittest.TestCase):
         serialised = json.dumps(contract, ensure_ascii=False)
         self.assertNotIn("TM-005", serialised.replace("TM-005 sigue abierto", ""))
 
-    def test_neg_18_a_green_db_spike_does_not_accept_adr_002(self) -> None:
+    def test_neg_18_only_the_founder_decision_accepts_adr_002(self) -> None:
         spike = json.loads(
             (ROOT / "docs/database/migration-spike.json").read_text(encoding="utf-8"))
         self.assertEqual(spike["tooling_decision"]["adr_state"], "proposed")
         self.assertIsNone(spike["tooling_decision"]["selected_tool"])
+        governance = json.loads(
+            (ROOT / "docs/implementation/founder-governance.json").read_text(encoding="utf-8"))
+        self.assertEqual("IMP-017", governance["decision_id"])
+        self.assertIn("ADR-002", governance["approved_adrs"])
+        self.assertIn("ADR-002", governance["adr_decisions"])
         _, payload = run_cli(["evaluate"])
         adr = next(row for row in payload["requirements"] if row["kind"] == "adr_set")
-        self.assertNotEqual(adr["category"], "machine_pass")
+        self.assertEqual(adr["category"], "machine_pass")
 
 
 # --------------------------------------------------------------------------- #

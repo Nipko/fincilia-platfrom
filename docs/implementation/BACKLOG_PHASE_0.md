@@ -24,7 +24,7 @@
 
 | ID | Carril | Dependencias | Estado inicial | Resultado verificable |
 |---|---|---|---|---|
-| FNC-GOV-001 | A0/Founder | — | Blocked: human | Owners nominales, suplentes, RACI y aprobador por gate |
+| FNC-GOV-001 | A0/Founder | — | Review | `FOUNDER-01` accountable provisional y paquete IMP-017 registrado; revisores independientes distintos pendientes |
 | FNC-GOV-002 | A0 | — | Done | Gobierno, templates, ownership y protocolo multiagente |
 | FNC-GOV-003 | A0 | GOV-002 | Review | Backlog, dependencias, decisiones y trazabilidad validados |
 | FNC-PRD-001 | A1 | GOV-001 para aceptar | Draftable | PRD del wedge factura→pago→liquidación→banco→ERP |
@@ -118,6 +118,31 @@ dependencias de `FNC-GAT-002` ni afirmar que Sprint 1 está habilitado.
 | FNC-WEB-002 | A5/A6 | WEB-001, API-001, P3.6 | Review pending | Readiness server-side, cola de overrides, aprobacion SoD y rechazo motivado en web |
 | FNC-WEB-003 | A6 | WEB-002, API-001, PLT-008 | Review pending | Portafolio multiempresa, vencimientos y navegacion historica sin agregar importes |
 | FNC-CLN-001 | A5/A6 | DOM-005, WEB-002, P3.6 | Review pending | Propuesta tipada y revisión SoD de correcciones por fila, sin mutar el dataset base |
+| FNC-CLN-002 | A5/A6 | CLN-001, DOM-005, P3.6 | Review pending | Aplicacion reproducible de overlays aprobados a una version nueva, con manifest y linaje digest-only |
+| FNC-CLN-003 | A5/A6 | CLN-002, DOM-005 | Review pending | Solo propone campos materializables por el plan real de linaje; petición manipulada falla cerrada |
+| FNC-QA-006 | A6 | PLT-008, WEB-001, WEB-003, CLN-001 | Review pending | Arranque local coherente y aceptación web automatizada de roles y frontera multiempresa |
+| FNC-QA-007 | A5/A6 | QA-006, SEC-001 | Review pending | Administracion final de miembros y multiples roles company-scoped, sin autenticacion propia ni debilitamiento de SoD |
+| FNC-QA-008 | A6 | QA-006, QA-007, REC-004, CLS-003 | Review pending | Regresion Chromium/Axe repetible sobre el runtime local persistente sin revertir ledgers ni debilitar revocacion |
+| FNC-QA-009 | A6 | QA-008, PLT-009 | Review pending | Regresion Chromium/Axe sobre proyecto Compose desechable sin contaminar ni borrar la demo persistente |
+| FNC-REC-001 | A5/A6 | DOM-003, DOM-004, WEB-003, QA-006 | Review pending | Exploración sintética read-only de candidatos explicados; sin decisión, auto-match ni cierre |
+| FNC-REC-002 | A5/A6 | REC-001, DOM-004, SEC-001 | Review pending | Propuesta y decisión humana append-only, con SoD e idempotencia; sin efecto financiero ni cierre |
+| FNC-REC-003 | A5/A6 | REC-002, WEB-003 | Review pending | Bandeja multiempresa company-by-company para priorizar revisiones sin agregar importes ni decidir fuera del expediente |
+| FNC-REC-004 | A5/A6 | REC-002, REC-003 | Review pending | Exclusividad uno-a-uno de confirmaciones bajo concurrencia, sin efecto financiero ni cierre |
+| FNC-CLS-001 | A5/A6 | OPS-001, DQ-001, RPT-001, REC-004 | Review pending | Diagnostico company-scoped por periodo de evidencia y bloqueos; nunca ejecuta ni certifica cierre |
+| FNC-CLS-002 | A5/A6 | CLS-001, DOM-002, DOM-003, DOM-005 | Review pending | Observaciones canonicas e inmutables de saldo por cuenta con evidencia visible; linaje completo y revision independiente pendientes |
+| FNC-CLS-003 | A5/A6 | CLS-002, DOM-003, DOM-005, REC-004 | Review pending | Assessments, partidas conciliatorias y statements reproducibles verificados; sin excepcion aceptada, snapshot ni cierre productivo |
+| FNC-CLS-004 | A5/A6 | CLS-001, CLS-002, CLS-003 | Review pending | Preparacion de cierre integra cobertura de statements por cuenta/periodo y distingue evidencia lista para revision, sin ejecutar ni certificar cierre |
+| FNC-CLS-005 | A5/A6 | CLS-004, LIN-001, SEC-001 | Review pending | Expediente digest-only, versionado y append-only para revision previa con asignacion, SoD y drift; PostgreSQL y web verificados, sin snapshot, certificacion ni cierre |
+| FNC-LIN-001 | A5/A6 | DOM-005, CLS-002, CLS-003, CLS-004 | Review pending | Linaje digest-only materializado de saldos, assessments, controles, partidas y statements; guards exactos, PostgreSQL y web verdes, sin ejecutar cierre |
+| FNC-EXP-001 | A5/A6 | WEB-002, DOM-005, SEC-001 | Review pending | Exportacion CSV canonica determinista de dataset publicado, con permiso explicito, RLS y BFF streaming; solo sintetica y no certificada |
+| FNC-OPS-001 | A5/A6 | WEB-003, QA-006 | Review pending | Centro web company-by-company de ciclos, vencimientos, recordatorios internos e historico operativo sin importes ni mensajeria externa; CI verde, revision humana pendiente |
+| FNC-DQ-001 | A5/A6 | DOM-003, DOM-004, WEB-003, QA-006 | Review pending | Alertas deterministas company-scoped, triaje auditado y resumen visual sin IA, auto-match, cierre ni afirmacion de fraude; revision independiente pendiente |
+| FNC-RPT-001 | A5/A6 | WEB-003, REC-003, DQ-001, EXP-001 | Review pending | Informes operativos e historicos company-scoped, importes exactos por moneda, CSV determinista y web verificada; revision humana pendiente |
+| FNC-ONB-001 | A5/A6 | PLT-008, QA-007, P3.5 | Review pending | Alta atomica de empresa, engagement y configuracion inicial desde la web; solo sintetico mientras DRG-00 siga cerrado |
+| FNC-SEC-004 | A3/A5 | SEC-001, PLT-005, DB-002 | Review pending | Contexto durable company-scoped con emision idempotente, revalidacion online, revocacion append-only, HMAC y V0021; sin consumidor artificial ni datos reales |
+| FNC-SEC-005 | A3/A5 | SEC-004, DB-002, P3.6 | Review pending | Trabajos nuevos ligados a issued context y revalidados al reclamar, escribir y cerrar; fase expand compatible con filas legacy |
+| FNC-PLT-009 | A2/A6 | PLT-002, PLT-007, QA-006 | Review pending | Runtime local persistente de Windows/WSL con keepalive oculto, PID verificado, salida minima y lifecycle que conserva volumenes |
+| FNC-AUD-001 | A5/A6 | SEC-001, QA-007, WEB-003 | Review pending | Centro de auditoria company-scoped con actor, filtros exactos, cursor estable y vista multiempresa sin exponer payload ni convertir fallos en cero |
 
 ## No codificar todavía
 

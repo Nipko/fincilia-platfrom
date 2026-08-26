@@ -98,6 +98,12 @@ class CompletenessModelTest(unittest.TestCase):
         mutated["reconciling_item_contract"]["confirmed_requires"].remove("sod_check")
         self.assertIn("CMP-ITEM-DECISION", self._codes(mutated))
 
+    def test_item_requires_stable_statement_root(self) -> None:
+        mutated = copy.deepcopy(self.model)
+        fields = mutated["reconciling_item_contract"]["required_fields"]
+        fields[fields.index("statement_root_id")] = "statement_id"
+        self.assertIn("CMP-ITEM-FIELDS", self._codes(mutated))
+
     def test_exception_requires_expiry(self) -> None:
         mutated = copy.deepcopy(self.model)
         mutated["accepted_exception_contract"]["expiry_required"] = False
@@ -133,6 +139,32 @@ class CompletenessModelTest(unittest.TestCase):
         mutated = copy.deepcopy(self.model)
         mutated["reviewer_roles"].append("Accounting")
         self.assertIn("CMP-INDEPENDENT-REVIEW", self._codes(mutated))
+
+    def test_every_completeness_entity_must_exist_in_canonical_model(self) -> None:
+        for entity_id in (
+                "completeness_assessment", "completeness_control_result",
+                "reconciliation_statement", "reconciling_item"):
+            with self.subTest(entity=entity_id):
+                canonical = copy.deepcopy(self.canonical)
+                canonical["entities"] = [
+                    entity for entity in canonical["entities"]
+                    if entity["id"] != entity_id
+                ]
+                self.assertIn("CMP-CANONICAL-ENTITY",
+                              self._codes(self.model, canonical=canonical))
+
+    def test_statement_canonical_money_fields_are_not_optional(self) -> None:
+        canonical = copy.deepcopy(self.canonical)
+        statement = next(
+            entity for entity in canonical["entities"]
+            if entity["id"] == "reconciliation_statement"
+        )
+        statement["fields"] = [
+            field for field in statement["fields"]
+            if field["name"] != "adjusted_bank_balance"
+        ]
+        self.assertIn("CMP-CANONICAL-FIELDS",
+                      self._codes(self.model, canonical=canonical))
 
 
 if __name__ == "__main__":

@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
-import { ApiError, fetchMe } from '@/lib/api';
+import { ApiError, fetchManageableFirms, fetchMe } from '@/lib/api';
 import {
   loadPortfolioSnapshots,
   type Metric,
@@ -115,6 +115,18 @@ export default async function CompaniesPage() {
     throw error;
   }
 
+  // El permiso de alta es una capacidad secundaria: una indisponibilidad
+  // momentanea no puede derribar el portafolio que la persona ya puede leer.
+  // Se falla cerrado ocultando el boton, nunca suponiendo que tiene permiso.
+  let manageableFirms: Awaited<ReturnType<typeof fetchManageableFirms>> = [];
+  try {
+    manageableFirms = await fetchManageableFirms(session.token);
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) {
+      redirect('/entrar');
+    }
+  }
+
   let snapshots;
   try {
     snapshots = await loadPortfolioSnapshots(
@@ -144,6 +156,18 @@ export default async function CompaniesPage() {
         evaluacion de salud financiera. Cada conteo usa la ventana acotada que
         expone hoy la API.
       </p>
+
+      <nav className="portfolio-actions" aria-label="Herramientas multiempresa">
+        {manageableFirms.length > 0 ? (
+          <Link className="button-link" href="/empresas/nueva">Crear una empresa</Link>
+        ) : null}
+        <Link href="/informes">Abrir informes e historicos</Link>
+        <Link href="/calidad">Abrir centro de calidad</Link>
+        <Link href="/recordatorios">Abrir ciclos y recordatorios</Link>
+        <Link href="/revisiones">Abrir bandeja de revisiones multiempresa</Link>
+        <Link href="/preparacion-cierre">Abrir preparacion de cierre</Link>
+        <Link href="/auditoria">Abrir accesos y auditoria</Link>
+      </nav>
 
       {snapshots.length === 0 ? (
         <p className="card">

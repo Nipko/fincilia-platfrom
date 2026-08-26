@@ -568,7 +568,9 @@
       "argv": [
         "-m",
         "tools.supply_chain.cli",
-        "validate"
+        "validate",
+        "--gate",
+        "S1-READY"
       ],
       "cwd": ".",
       "timeout_seconds": 300,
@@ -974,7 +976,7 @@
         "Platform"
       ],
       "gate": "S1-READY",
-      "explanation": "El contrato ejecutable de supply_chain debe validar sin errores. Que valide no significa que este aprobado por un humano."
+      "explanation": "El contrato ejecutable de supply_chain debe validar sin errores aplicables a S1-READY. Los gaps de procedencia de DRG-00 permanecen visibles y bloquean ese gate posterior."
     },
     {
       "id": "REQ-CHK-TEST-CATALOG",
@@ -1178,13 +1180,13 @@
     },
     {
       "path": "docs/security/supply-chain.json",
-      "sha256": "7631edf1d01daee5d5b8c11a388cd4daf22185f68e80edae42fb7678d0ecdd7b",
+      "sha256": "b786e07f7d815aa2152f1dd13a8d2b42403dfc0aa4754f3b382a1a5e937aacac",
       "produced_by": "FNC-SUP-001 contract review; declaration baseline, not attestation"
     },
     {
       "path": "docs/testing/mutation-harness.json",
-      "sha256": "08d3b6a09587e9493b4e3b9cebae12ba0b55d64a33997e72ef8df5c9615cdee8",
-      "produced_by": "FNC-QA-005 registry review; declaration baseline, not runtime evidence"
+      "sha256": "833a6b8392bcfd97a430f0a12138ef0152864a2a8913fee03459cd34bc9c584f",
+      "produced_by": "FNC-LIN-001 contract adjudication plus deterministic 68/68 mutation run; declaration baseline remains distinct from runtime evidence"
     }
   ],
   "heavy_checks_not_run_here": [

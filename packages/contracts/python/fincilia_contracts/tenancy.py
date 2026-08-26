@@ -25,6 +25,17 @@ ROLES: Final[tuple[str, ...]] = (
     "read_only",
 )
 
+# La firma es un alcance distinto de una company. Estos permisos existen antes
+# de que haya una empresa que pueda formar un TenantContext, por eso no se
+# mezclan con la matriz financiera company-scoped.
+FIRM_ROLES: Final[tuple[str, ...]] = ("owner", "firm_admin", "member")
+FIRM_PERMISSIONS: Final[tuple[str, ...]] = ("company.provision",)
+FIRM_ROLE_PERMISSIONS: Final[dict[str, frozenset[str]]] = {
+    "owner": frozenset(FIRM_PERMISSIONS),
+    "firm_admin": frozenset(FIRM_PERMISSIONS),
+    "member": frozenset(),
+}
+
 # Permisos atomicos. Un permiso ausente es denegacion; no hay comodines.
 PERMISSIONS: Final[tuple[str, ...]] = (
     "company.read",
@@ -32,6 +43,7 @@ PERMISSIONS: Final[tuple[str, ...]] = (
     "document.read",
     "dataset.map",
     "dataset.publish",
+    "dataset.export",
     "financial_account.manage",
     "data_source.manage",
     "movement.read",
@@ -42,6 +54,10 @@ PERMISSIONS: Final[tuple[str, ...]] = (
     "close.approve",
     "audit.read",
     "member.manage",
+    "quality.read",
+    "quality.manage",
+    "report.read",
+    "report.export",
 )
 
 # Matriz explicita. Un rol que no aparece aqui no tiene ningun permiso.
@@ -51,20 +67,29 @@ ROLE_PERMISSIONS: Final[dict[str, frozenset[str]]] = {
         "company.read", "document.upload", "document.read", "dataset.map",
         "financial_account.manage", "data_source.manage",
         "movement.read", "match.propose", "match.reject", "close.prepare",
-        "audit.read", "member.manage",
+        "audit.read", "member.manage", "quality.read", "quality.manage",
+        "report.read",
     }),
     "preparer": frozenset({
         "company.read", "document.upload", "document.read", "dataset.map",
-        "movement.read", "match.propose", "match.reject", "close.prepare",
+        "dataset.export", "movement.read", "match.propose", "match.reject",
+        "close.prepare", "quality.read", "quality.manage", "report.read",
+        "report.export",
     }),
     "reviewer": frozenset({
-        "company.read", "document.read", "dataset.publish", "movement.read",
-        "match.confirm", "match.reject", "close.approve", "audit.read",
+        "company.read", "document.read", "dataset.publish", "dataset.export",
+        "movement.read", "match.confirm", "match.reject", "close.approve",
+        "audit.read", "quality.read", "quality.manage", "report.read",
+        "report.export",
     }),
     "auditor": frozenset({
-        "company.read", "document.read", "movement.read", "audit.read",
+        "company.read", "document.read", "dataset.export", "movement.read",
+        "audit.read", "quality.read", "report.read", "report.export",
     }),
-    "read_only": frozenset({"company.read", "document.read", "movement.read"}),
+    "read_only": frozenset({
+        "company.read", "document.read", "movement.read", "quality.read",
+        "report.read",
+    }),
 }
 
 # Segregacion de funciones: quien puede proponer no puede confirmar lo suyo.
@@ -131,6 +156,18 @@ def derive_permissions(roles: tuple[str, ...] | list[str]) -> frozenset[str]:
     for role in roles:
         granted |= ROLE_PERMISSIONS.get(role, frozenset())
     return frozenset(granted)
+
+
+def derive_firm_permissions(role: str) -> frozenset[str]:
+    """Permisos previos a company. Un rol desconocido no concede nada."""
+    return FIRM_ROLE_PERMISSIONS.get(role, frozenset())
+
+
+def require_firm_permission(role: str, permission: str) -> None:
+    if permission not in FIRM_PERMISSIONS:
+        raise AuthorizationError(f"unknown firm permission {permission!r}")
+    if permission not in derive_firm_permissions(role):
+        raise AuthorizationError(f"firm role lacks {permission}")
 
 
 def violates_segregation(permission: str, already_exercised: set[str]) -> str | None:

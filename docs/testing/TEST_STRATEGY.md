@@ -197,8 +197,8 @@ python -m unittest tools.quality_strategy.test_validate -v
 |---|---|---|
 | `UD-QA-PERF-BUDGET` | Presupuesto de rendimiento y umbrales por operación | Platform |
 | `UD-QA-A11Y-HUMAN` | Alcance y proveedor de pruebas de accesibilidad con personas | Web/UX |
-| `UD-QA-CATALOG-DRIFT` | Quién reconcilia `TEST_CATALOG.md` con los contratos, y cada cuánto | QA |
+| `UD-QA-CATALOG-DRIFT` | Resuelta por IMP-017: ausencia contractual es drift; runtime planeado es backlog separado | QA |
 | `UD-QA-INTEGRATION-ENV` | Entorno de integración para RLS, pool, worker sandbox y restore | Platform |
-| `UD-QA-MUTATION-TOOLING` | Herramienta y presupuesto de mutation testing sostenido en CI | QA |
+| `UD-QA-MUTATION-TOOLING` | Resuelta por IMP-017: arnés determinista actual en CI y supervivientes con adjudicación humana | QA |
 
 Ninguna se resuelve aquí. Aprobar este documento no supera S1-READY.

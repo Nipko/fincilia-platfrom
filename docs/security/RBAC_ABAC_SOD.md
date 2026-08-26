@@ -41,6 +41,7 @@ convierte un error de escritura en un `ALLOW` silencioso.
 |---|---|
 | Lectura financiera | `financial.read`, `movement.list`, `audit.read` |
 | Escritura financiera | `financial.write`, `adjustment.prepare`, `adjustment.approve` |
+| Salida operativa acotada | `dataset.export` |
 | Ciclo de cierre | `close.prepare`, `close.approve`, `close.reopen.request`, `close.reopen.approve` |
 | Reglas | `rule.author`, `rule.release.approve` |
 | Portabilidad | `portability.read`, `portability.export` |
@@ -55,7 +56,7 @@ convierte un error de escritura en un `ALLOW` silencioso.
 
 ### 2.3 Recursos
 
-`movement` · `close_period` · `adjustment` · `rule` · `evidence_document` ·
+`movement` · `dataset` · `close_period` · `adjustment` · `rule` · `evidence_document` ·
 `portability_package` · `engagement` · `grant` · `audit_log` · `org_settings`
 
 ### 2.4 Niveles de assurance
@@ -68,7 +69,7 @@ del grant, el override de política del tenant y cualquier elevación por señal
 | Acción | Mínimo por defecto |
 |---|---|
 | `job.execute`, `job.publish` | `AAL1` |
-| Lectura financiera, `financial.write`, `adjustment.*`, `close.prepare`, `close.reopen.request`, `rule.author`, `portability.read`, `org.billing.manage` | `AAL2` |
+| Lectura financiera, `dataset.export`, `financial.write`, `adjustment.*`, `close.prepare`, `close.reopen.request`, `rule.author`, `portability.read`, `org.billing.manage` | `AAL2` |
 | `close.approve`, `close.reopen.approve`, `rule.release.approve`, `portability.export`, `grant.issue`, `engagement.*`, `break_glass.*`, `org.member.manage` | `AAL3` |
 
 ---
@@ -99,24 +100,31 @@ intenta una acción financiera sin grant propio.
 `✔` el rol puede recibir un grant para esa acción · `SoD` puede, salvo conflicto de
 segregación (§6) · `✘` la política deniega aunque exista un grant mal emitido.
 
-| Rol | `financial.read` / `movement.list` | `financial.write` | `close.prepare` | `close.approve` | `close.reopen.request` | `close.reopen.approve` | `rule.author` | `rule.release.approve` | `portability.export` | `grant.issue` | `audit.read` | `org.*.manage` |
-|---|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|
-| Organization Owner | ✘ | ✘ | ✘ | ✘ | ✘ | ✘ | ✘ | ✘ | ✘ | ✔ | ✘ | ✔ |
-| Firm Admin | ✘ | ✘ | ✘ | ✘ | ✘ | ✘ | ✘ | ✘ | ✘ | ✔ | ✘ | ✔ |
-| Billing Admin | ✘ | ✘ | ✘ | ✘ | ✘ | ✘ | ✘ | ✘ | ✘ | ✘ | ✘ | ✔ |
-| Company Admin | ✔ | ✘ | ✘ | ✘ | ✔ | ✘ | ✘ | ✘ | ✔ | ✔ | ✔ | ✔ |
-| Preparer | ✔ | ✔ | ✔ | ✘ | ✔ | ✘ | ✔ | ✘ | ✘ | ✘ | ✘ | ✘ |
-| Reviewer | ✔ | ✘ | ✘ | SoD | ✔ | SoD | ✘ | SoD | ✘ | ✘ | ✔ | ✘ |
-| Close Approver | ✔ | ✘ | ✘ | SoD | ✔ | SoD | ✘ | SoD | ✘ | ✘ | ✔ | ✘ |
-| Auditor | ✔ | ✘ | ✘ | ✘ | ✘ | ✘ | ✘ | ✘ | ✘ | ✘ | ✔ | ✘ |
-| Viewer | ✔ | ✘ | ✘ | ✘ | ✘ | ✘ | ✘ | ✘ | ✘ | ✘ | ✘ | ✘ |
-| Client Collaborator | ✘ | ✘ | ✘ | ✘ | ✘ | ✘ | ✘ | ✘ | ✘ | ✘ | ✘ | ✘ |
+| Rol | `financial.read` / `movement.list` | `dataset.export` | `financial.write` | `close.prepare` | `close.approve` | `close.reopen.request` | `close.reopen.approve` | `rule.author` | `rule.release.approve` | `portability.export` | `grant.issue` | `audit.read` | `org.*.manage` |
+|---|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|
+| Organization Owner | ✘ | ✘ | ✘ | ✘ | ✘ | ✘ | ✘ | ✘ | ✘ | ✘ | ✔ | ✘ | ✔ |
+| Firm Admin | ✘ | ✘ | ✘ | ✘ | ✘ | ✘ | ✘ | ✘ | ✘ | ✘ | ✔ | ✘ | ✔ |
+| Billing Admin | ✘ | ✘ | ✘ | ✘ | ✘ | ✘ | ✘ | ✘ | ✘ | ✘ | ✘ | ✘ | ✔ |
+| Company Admin | ✔ | ✔ | ✘ | ✘ | ✘ | ✔ | ✘ | ✘ | ✘ | ✔ | ✔ | ✔ | ✔ |
+| Preparer | ✔ | ✔ | ✔ | ✔ | ✘ | ✔ | ✘ | ✔ | ✘ | ✘ | ✘ | ✘ | ✘ |
+| Reviewer | ✔ | ✔ | ✘ | ✘ | SoD | ✔ | SoD | ✘ | SoD | ✘ | ✘ | ✔ | ✘ |
+| Close Approver | ✔ | ✘ | ✘ | ✘ | SoD | ✔ | SoD | ✘ | SoD | ✘ | ✘ | ✔ | ✘ |
+| Auditor | ✔ | ✔ | ✘ | ✘ | ✘ | ✘ | ✘ | ✘ | ✘ | ✘ | ✘ | ✔ | ✘ |
+| Viewer | ✔ | ✘ | ✘ | ✘ | ✘ | ✘ | ✘ | ✘ | ✘ | ✘ | ✘ | ✘ | ✘ |
+| Client Collaborator | ✘ | ✘ | ✘ | ✘ | ✘ | ✘ | ✘ | ✘ | ✘ | ✘ | ✘ | ✘ | ✘ |
 
 Restricción adicional e independiente del rol: `financial.write`, `close.prepare`,
 `close.approve` y `close.reopen.approve` **solo** se conceden por vía delegada al
 engagement designado `primary_accounting_operator`
 (`TENANCY_MODEL.md` §5.3.2 → `DENY_NOT_PRIMARY_OPERATOR`). Los miembros directos de la
 company no están sujetos a esa exclusividad, pero sí a SoD.
+
+`dataset.export` es una salida operativa de **un** dataset canónico ya publicado;
+no crea un paquete de portabilidad, no incluye evidencia original ni sustituye
+`portability.export`. Sigue siendo egress financiero: exige grant propio, AAL2,
+auditoría sin valores y no se deriva de `financial.read`. FNC-EXP-001 sólo la
+materializa sobre datos sintéticos; Security debe revisar esta ampliación antes
+de habilitar datos reales.
 
 ---
 

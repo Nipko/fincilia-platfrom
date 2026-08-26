@@ -35,6 +35,7 @@ BASE_ENV: dict[str, str] = {
     # Distinta de la de firma a proposito: la propia clase lo exige, y una
     # prueba que las hiciera iguales dejaria de comprobar nada.
     "identifier_tokenization_key": "y" * 40,
+    "authorization_context_hmac_key": "z" * 40,
 }
 
 
@@ -79,7 +80,8 @@ class SettingsTests(unittest.TestCase):
     def test_a_missing_credential_stops_the_process(self) -> None:
         for required in ("database_url", "cache_url", "object_store_endpoint",
                          "object_access_key", "object_secret_key", "auth_signing_key",
-                         "identifier_tokenization_key"):
+                         "identifier_tokenization_key",
+                         "authorization_context_hmac_key"):
             with self.subTest(required=required):
                 payload = {key: value for key, value in BASE_ENV.items()
                            if key != required}
@@ -95,6 +97,11 @@ class SettingsTests(unittest.TestCase):
     def test_a_short_tokenization_key_is_refused(self) -> None:
         with self.assertRaises(ValidationError):
             api_settings(identifier_tokenization_key="corta")
+
+    def test_the_context_key_is_dedicated_and_bounded(self) -> None:
+        for value in ("corta", "x" * 40, "y" * 40):
+            with self.subTest(value=value[:5]), self.assertRaises(ValidationError):
+                api_settings(authorization_context_hmac_key=value)
 
     def test_a_floating_engine_release_is_refused(self) -> None:
         # Publicar contra `latest` es publicar contra lo que haya manana.
@@ -141,13 +148,15 @@ class SettingsTests(unittest.TestCase):
         # El worker no emite tokens y no da de alta cuentas. Recibir cualquiera
         # de los dos secretos ampliaria su radio de explosion sin ninguna
         # ganancia, asi que se rechazan en vez de ignorarse.
-        forbidden = ("auth_signing_key", "identifier_tokenization_key")
+        forbidden = ("auth_signing_key", "identifier_tokenization_key",
+                     "authorization_context_hmac_key")
         payload = {key: value for key, value in BASE_ENV.items()
                    if key not in forbidden}
         with isolated_env():
             worker = WorkerSettings(**payload)  # type: ignore[arg-type]
             self.assertIsNone(worker.auth_signing_key)
             self.assertIsNone(worker.identifier_tokenization_key)
+            self.assertIsNone(worker.authorization_context_hmac_key)
             for secret in forbidden:
                 with self.subTest(secret=secret):
                     with self.assertRaises(ValidationError):
@@ -236,6 +245,25 @@ class HealthTests(unittest.TestCase):
         body = client(self.all_up()).get("/openapi.json").json()
         self.assertEqual(body["info"]["title"], "Fincilia API")
         self.assertIn("/health/ready", body["paths"])
+
+    def test_company_provisioning_response_cannot_expose_protected_identifiers(
+            self) -> None:
+        body = client(self.all_up()).get("/openapi.json").json()
+        schema = body["components"]["schemas"]["CompanyProvisionResponse"]
+        properties = set(schema["properties"])
+
+        self.assertIn("refreshed_session", properties)
+        self.assertIn("permissions", properties)
+        self.assertIn("account_id", properties)
+        self.assertNotIn("tax_identifier", properties)
+        self.assertNotIn("account_identifier", properties)
+        post = body["paths"]["/api/v1/companies"]["post"]
+        response_schema = post["responses"]["200"]["content"][
+            "application/json"]["schema"]
+        self.assertEqual(
+            "#/components/schemas/CompanyProvisionResponse",
+            response_schema["$ref"],
+        )
 
 
 if __name__ == "__main__":

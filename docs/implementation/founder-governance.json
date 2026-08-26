@@ -1,0 +1,103 @@
+{
+  "schema_version": "1.0.0",
+  "task": "FNC-GOV-001",
+  "decision_id": "IMP-017",
+  "approved_at": "2026-08-25",
+  "founder": {
+    "id": "FOUNDER-01",
+    "kind": "stable_pseudonymous_human_alias",
+    "identity_mapping": "offline_only"
+  },
+  "accountable_roles": [
+    "Accounting",
+    "Architecture",
+    "Integration",
+    "Legal",
+    "Privacy",
+    "Product",
+    "Security"
+  ],
+  "independent_review": {
+    "founder_counts_as_independent_reviewer": false,
+    "state": "pending_distinct_humans",
+    "required_roles": [
+      "Accounting",
+      "Database",
+      "Privacy_or_Legal",
+      "Security"
+    ]
+  },
+  "approved_decisions": [
+    {
+      "id": "UD-PRIMARY-OPERATOR",
+      "decision": "PostgreSQL enforces at most one active primary operator per company with the partial unique index delivered in V0019."
+    },
+    {
+      "id": "UD-PORTFOLIO-CANDIDATES",
+      "decision": "PostgreSQL company_grant is authoritative; portfolio access is revalidated company by company and cache enumeration is forbidden."
+    },
+    {
+      "id": "UD-LOCATOR-STORAGE",
+      "decision": "Use ADR-024 hybrid lineage: shared column plans, exact row locators and append-only row overrides."
+    },
+    {
+      "id": "UD-RELEASE-APPROVAL",
+      "decision": "A Platform human approves engine releases after independent Security and QA review and complete reproducibility evidence; API and workers cannot approve."
+    },
+    {
+      "id": "UD-DR-PRV-001",
+      "decision": "Operational or financial sensitivity and personal-data category are separate mandatory classification axes. Legal applicability remains required before DRG-00."
+    },
+    {
+      "id": "UD-ISSUED-CONTEXT",
+      "decision": "Interactive sessions are short-lived and revalidated online; durable jobs, exports, links and capabilities use a persistent issued authorization context."
+    },
+    {
+      "id": "UD-QA-CATALOG-DRIFT",
+      "decision": "Missing contractual test identifiers are drift; planned runtime identifiers remain a separately classified backlog."
+    },
+    {
+      "id": "UD-QA-CATALOG-FORMAT",
+      "decision": "Structured JSON is authoritative and Markdown is the human-readable projection."
+    },
+    {
+      "id": "UD-QA-CATALOG-OWNER",
+      "decision": "QA reconciles the catalog on contract changes and before releases; Integration Steward reviews the reconciliation."
+    },
+    {
+      "id": "UD-QA-MUTATION-TOOLING",
+      "decision": "Keep the deterministic mutation harness in CI with human adjudication of survivors and no automatic equivalence."
+    }
+  ],
+  "approved_adrs": [
+    "ADR-001",
+    "ADR-002",
+    "ADR-003",
+    "ADR-004",
+    "ADR-005",
+    "ADR-006",
+    "ADR-007",
+    "ADR-008",
+    "ADR-009",
+    "ADR-010",
+    "ADR-023",
+    "ADR-024"
+  ],
+  "adr_decisions": {
+    "ADR-002": "Select the Fincilia SQL-first migrator with checksums, concurrency control, replay tests and PostgreSQL 17 support; do not adopt Flyway now.",
+    "ADR-008": "Start without Temporal; use PostgreSQL dispatch pointers, leases and workers and reconsider only on a measured scale or operating-cost trigger.",
+    "ADR-024": "Accept the hybrid logical and physical lineage representation."
+  },
+  "excluded_adrs_pending_independent_review": [
+    "ADR-026",
+    "ADR-027"
+  ],
+  "limits": {
+    "data_ceiling": "synthetic_only",
+    "s1_ready_automatically_met": false,
+    "drg_00_automatically_met": false,
+    "drg_01_automatically_met": false,
+    "production_authorized": false,
+    "real_financial_data_authorized": false
+  }
+}

@@ -2,8 +2,7 @@
   "adrs": [
     {
       "blockers": [
-        "human_stack_ratification",
-        "named_owner_assignment"
+        "independent_platform_security_review"
       ],
       "evidence": [
         "docs/implementation/evidence/FNC-PLT-001/README.md"
@@ -13,7 +12,7 @@
         "Architecture"
       ],
       "path": "docs/adr/ADR-001-modular-monolith-workers.md",
-      "readiness": "conditional",
+      "readiness": "ready",
       "reviewers": [
         "Platform",
         "Security"
@@ -22,9 +21,8 @@
     },
     {
       "blockers": [
-        "migration_tool_decision",
         "transaction_wrapper_contract",
-        "named_owner_assignment"
+        "independent_database_security_review"
       ],
       "evidence": [
         "docs/implementation/evidence/FNC-PLT-001/README.md"
@@ -35,7 +33,7 @@
         "Security"
       ],
       "path": "docs/adr/ADR-002-postgresql-rls.md",
-      "readiness": "blocked",
+      "readiness": "ready",
       "reviewers": [
         "Platform"
       ],
@@ -43,7 +41,6 @@
     },
     {
       "blockers": [
-        "named_owner_assignment",
         "independent_review"
       ],
       "evidence": [
@@ -56,7 +53,7 @@
         "Legal"
       ],
       "path": "docs/adr/ADR-003-organization-company-engagement.md",
-      "readiness": "conditional",
+      "readiness": "ready",
       "reviewers": [
         "Security",
         "Privacy"
@@ -67,7 +64,7 @@
       "blockers": [
         "L-01",
         "cloud_region_A-02",
-        "named_owner_assignment"
+        "independent_legal_platform_review"
       ],
       "evidence": [
         "docs/architecture/cross-contract-vocabulary.json"
@@ -79,7 +76,7 @@
         "Privacy"
       ],
       "path": "docs/adr/ADR-004-object-storage-evidence-zones.md",
-      "readiness": "conditional",
+      "readiness": "ready",
       "reviewers": [
         "Legal",
         "Platform"
@@ -88,8 +85,7 @@
     },
     {
       "blockers": [
-        "named_owner_assignment",
-        "locator_storage_decision"
+        "independent_architecture_privacy_review"
       ],
       "evidence": [
         "docs/domain/lineage-model.json"
@@ -100,7 +96,7 @@
         "Accounting"
       ],
       "path": "docs/adr/ADR-005-field-lineage.md",
-      "readiness": "conditional",
+      "readiness": "ready",
       "reviewers": [
         "Architecture",
         "Privacy"
@@ -109,8 +105,7 @@
     },
     {
       "blockers": [
-        "named_owner_assignment",
-        "overlay_sod_review"
+        "independent_overlay_sod_review"
       ],
       "evidence": [
         "docs/domain/lineage-model.json"
@@ -121,7 +116,7 @@
         "Product"
       ],
       "path": "docs/adr/ADR-006-recipes-overlays.md",
-      "readiness": "conditional",
+      "readiness": "ready",
       "reviewers": [
         "Accounting",
         "Security"
@@ -130,8 +125,7 @@
     },
     {
       "blockers": [
-        "queue_selection",
-        "named_owner_assignment"
+        "independent_security_data_review"
       ],
       "evidence": [
         "docs/architecture/events-retries.json",
@@ -143,7 +137,7 @@
         "Platform"
       ],
       "path": "docs/adr/ADR-007-outbox-retry.md",
-      "readiness": "conditional",
+      "readiness": "ready",
       "reviewers": [
         "Security",
         "Data"
@@ -152,8 +146,7 @@
     },
     {
       "blockers": [
-        "provider_and_cost_decision",
-        "named_owner_assignment"
+        "independent_security_finance_review"
       ],
       "evidence": [
         "docs/architecture/events-retries.json"
@@ -164,7 +157,7 @@
         "Platform"
       ],
       "path": "docs/adr/ADR-008-temporal-execution.md",
-      "readiness": "conditional",
+      "readiness": "ready",
       "reviewers": [
         "Security",
         "Finance"
@@ -175,7 +168,7 @@
       "blockers": [
         "DRG-01",
         "eval_dataset",
-        "named_owner_assignment"
+        "independent_legal_accounting_review"
       ],
       "evidence": [
         "docs/security/threat-model.json"
@@ -187,7 +180,7 @@
         "Privacy"
       ],
       "path": "docs/adr/ADR-009-ai-gateway.md",
-      "readiness": "conditional",
+      "readiness": "ready",
       "reviewers": [
         "Legal",
         "Accounting"
@@ -197,7 +190,7 @@
     {
       "blockers": [
         "human_usability_review",
-        "named_owner_assignment"
+        "independent_accounting_accessibility_review"
       ],
       "evidence": [
         "docs/ux/INFORMATION_ARCHITECTURE.md",
@@ -211,7 +204,7 @@
         "Security"
       ],
       "path": "docs/adr/ADR-010-web-mobile-boundary.md",
-      "readiness": "conditional",
+      "readiness": "ready",
       "reviewers": [
         "Accounting",
         "Accessibility"
@@ -286,9 +279,8 @@
     },
     {
       "blockers": [
-        "platform_security_ratification",
         "build_pipeline",
-        "named_owner_assignment"
+        "independent_platform_qa_review"
       ],
       "evidence": [
         "docs/domain/lineage-model.json",
@@ -301,7 +293,7 @@
         "Security"
       ],
       "path": "docs/adr/ADR-023-engine-release.md",
-      "readiness": "conditional",
+      "readiness": "ready",
       "reviewers": [
         "Platform",
         "QA"
@@ -310,9 +302,7 @@
     },
     {
       "blockers": [
-        "named_owner_assignment",
-        "data_architecture_ratification",
-        "lineage_contract_amendment"
+        "independent_security_qa_review"
       ],
       "evidence": [
         "docs/domain/lineage-model.json",
@@ -327,7 +317,7 @@
         "Architecture"
       ],
       "path": "docs/adr/ADR-024-lineage-logical-vs-physical.md",
-      "readiness": "blocked",
+      "readiness": "ready",
       "reviewers": [
         "Security",
         "QA"
@@ -359,10 +349,37 @@
         "Database"
       ],
       "scope": "staged_field_overlay"
+    },
+    {
+      "blockers": [
+        "accounting_architecture_ratification",
+        "security_database_ratification",
+        "reversal_and_match_group_semantics"
+      ],
+      "evidence": [
+        "docs/adr/ADR-027-reconciliation-review-ledger.md",
+        "docs/implementation/tasks/FNC-REC-002.md",
+        "db/migrations/V0017__reconciliation_review_ledger.sql",
+        "docs/implementation/handoffs/FNC-REC-002.md"
+      ],
+      "id": "ADR-027",
+      "owners": [
+        "Accounting",
+        "Architecture"
+      ],
+      "path": "docs/adr/ADR-027-reconciliation-review-ledger.md",
+      "readiness": "blocked",
+      "reviewers": [
+        "Security",
+        "Database",
+        "QA"
+      ],
+      "scope": "reconciliation_review_ledger"
     }
   ],
   "agent_may_accept": false,
   "allowed_readiness": [
+    "ready",
     "documented",
     "conditional",
     "blocked"
@@ -370,15 +387,12 @@
   "data_ceiling": "synthetic_only",
   "decisions": [
     {
-      "id": "ADR-RDY-001",
-      "owner": "Architecture",
-      "question": "Ratificar el stack y asignar owners nominales para ADR-001..010 y ADR-023",
-      "state": "pending_human"
-    },
-    {
-      "id": "ADR-RDY-002",
-      "owner": "Architecture + Security + Platform",
-      "question": "Cerrar herramienta de migración y wrapper transaccional de ADR-002",
+      "blocks": [
+        "S1-READY"
+      ],
+      "id": "ADR-RDY-INDEPENDENT-REVIEWS",
+      "owner": "Security + Platform + Accounting + Database",
+      "question": "Revisores humanos distintos deben firmar los ADR y controles sensibles ratificados por FOUNDER-01.",
       "state": "pending_human"
     }
   ],

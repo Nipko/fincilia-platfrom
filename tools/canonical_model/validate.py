@@ -18,7 +18,8 @@ REQUIRED_ENTITIES = {
     "raw_record", "dataset_version", "source_record",
     "counterparty", "financial_account", "obligation", "money_movement",
     "movement_evidence_link", "settlement", "ledger_entry", "ledger_line",
-    "account_balance", "external_reference",
+    "account_balance", "completeness_assessment", "completeness_control_result",
+    "reconciliation_statement", "reconciling_item", "external_reference",
 }
 
 # Y lo que tiene prohibido entrar, con el contrato al que pertenece cada una.
@@ -53,6 +54,8 @@ RISKY_UNIQUE_FIELDS = {
 CORE_VERSIONED_FACTS = {
     "source_record", "obligation", "money_movement", "movement_evidence_link",
     "settlement", "ledger_entry", "ledger_line", "account_balance", "external_reference",
+    "completeness_assessment", "completeness_control_result",
+    "reconciliation_statement", "reconciling_item",
 }
 
 
@@ -170,7 +173,7 @@ def validate_model(model: dict[str, Any], architecture: dict[str, Any]) -> list[
             errors.append(CanonicalModelError("DOM-ENTITY-CLASS", location, "classification is unknown or prohibited"))
         if entity.get("mutation_policy") not in MUTATION_POLICIES:
             errors.append(CanonicalModelError("DOM-MUTATION-POLICY", location, "mutation policy is invalid"))
-        if entity.get("owner_module") == "finance":
+        if entity.get("owner_module") in {"finance", "reconciliation"}:
             if entity.get("company_scoped") is not True or entity.get("authoritative_financial_state") is not True:
                 errors.append(CanonicalModelError("DOM-FINANCE-SCOPE", location, "finance entities must be company-scoped and authoritative"))
             if entity.get("lineage_required") is not True:
@@ -276,6 +279,18 @@ def validate_model(model: dict[str, Any], architecture: dict[str, Any]) -> list[
         identifier = _field_map(account).get("identifier_token", {})
         if identifier.get("type") != "tokenized_identifier":
             errors.append(CanonicalModelError("DOM-ACCOUNT-TOKEN", "entities.financial_account.fields.identifier_token", "account identifier must be tokenized"))
+    assessment = entity_map.get("completeness_assessment")
+    if assessment:
+        _require_fields(assessment, {"data_source_id", "source_expectation_id", "dataset_version_id", "period_start", "period_end", "state"}, errors)
+    control = entity_map.get("completeness_control_result")
+    if control:
+        _require_fields(control, {"assessment_id", "control_type", "required", "outcome", "value_type", "evidence_refs", "rule_version"}, errors)
+    statement = entity_map.get("reconciliation_statement")
+    if statement:
+        _require_fields(statement, {"statement_root_id", "version", "financial_account_id", "period_start", "period_end", "currency_code", "bank_closing_balance_id", "books_closing_balance_id", "completeness_assessment_ids", "confirmed_reconciling_item_ids", "confirmed_additions_to_bank", "confirmed_deductions_from_bank", "adjusted_bank_balance", "unexplained_difference", "state", "rule_version_ids"}, errors)
+    item = entity_map.get("reconciling_item")
+    if item:
+        _require_fields(item, {"item_root_id", "statement_root_id", "adjustment_side", "amount", "currency_code", "reason_code", "state", "evidence_refs", "prepared_by", "decision_version"}, errors)
     return sorted(set(errors))
 
 

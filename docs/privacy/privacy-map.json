@@ -2255,7 +2255,7 @@
         "no_data_rewrite_on_revocation"
       ],
       "name": "engagement_revocation_and_invalidation",
-      "notes": "Revocar no reescribe datos. Depende de la entidad issued_authorization_context aun inexistente.",
+      "notes": "Revocar no reescribe datos. V0021 materializa issued_authorization_context y un tombstone append-only; cada uso revalida autoridad vigente y solo persiste huellas HMAC company-scoped del recurso y de idempotencia.",
       "owner_role": "Security",
       "provisional_role": "joint_or_context_dependent",
       "purpose_id": "company_administration",
@@ -4528,47 +4528,6 @@
       "reviewer_roles": [
         "Privacy",
         "Product"
-      ],
-      "state": "pending_human"
-    },
-    {
-      "blocks": [
-        "S1-READY"
-      ],
-      "id": "UD-PRIMARY-OPERATOR",
-      "owner_role": "Architecture",
-      "question": "Atomicidad de primary_accounting_operator mediante constraint en base de datos (hallazgo A de FNC-SEC-001). Una comprobacion en memoria no es garantia.",
-      "reviewer_roles": [
-        "Security",
-        "Privacy"
-      ],
-      "state": "pending_human"
-    },
-    {
-      "blocks": [
-        "S1-READY"
-      ],
-      "id": "UD-ISSUED-CONTEXT",
-      "owner_role": "Architecture",
-      "question": "Entidad canonica issued_authorization_context con authorization_version, company scope, purpose, principal, issued_at y expires_at (hallazgo B de FNC-SEC-001).",
-      "reviewer_roles": [
-        "Security",
-        "Privacy",
-        "Backend"
-      ],
-      "state": "pending_human"
-    },
-    {
-      "blocks": [
-        "S1-READY"
-      ],
-      "id": "UD-PORTFOLIO-CANDIDATES",
-      "owner_role": "Backend",
-      "question": "Origen autoritativo de la lista de companies candidatas del portafolio (hallazgo C de FNC-SEC-001).",
-      "reviewer_roles": [
-        "Security",
-        "Privacy",
-        "Architecture"
       ],
       "state": "pending_human"
     },

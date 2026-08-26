@@ -36,6 +36,14 @@ SUPPORTED_FIELDS = {
     "value_date": "local_date",
     "accounting_date": "local_date",
 }
+REQUIRED_LINEAGE_STAGES = (
+    "artifact_version",
+    "raw_locator",
+    "extracted_field",
+    "transformed_value",
+    "source_record_field",
+    "financial_fact_field",
+)
 REASON_CODES = frozenset({
     "source_correction", "bank_clarification", "accounting_adjustment",
     "date_correction", "classification_correction", "other_reviewed",
@@ -144,14 +152,51 @@ def _target(connection: psycopg.Connection, *, dataset_id: str,
     }
 
 
+def complete_lineage_fields(
+        rows: list[tuple[str, int, str]]) -> frozenset[str]:
+    """Acepta solamente caminos completos, únicos y ordenados."""
+    grouped: dict[str, list[tuple[int, str]]] = {}
+    for field, ordinal, stage in rows:
+        grouped.setdefault(field, []).append((int(ordinal), stage))
+    complete: set[str] = set()
+    expected = list(enumerate(REQUIRED_LINEAGE_STAGES, start=1))
+    for field, steps in grouped.items():
+        if field in SUPPORTED_FIELDS and sorted(steps) == expected:
+            complete.add(field)
+    return frozenset(complete)
+
+
+def _applicable_fields(connection: psycopg.Connection, dataset_id: str) -> frozenset[str]:
+    with connection.cursor() as cursor:
+        # El plan sale del dataset bajo RLS. El cliente no puede elegir otro plan
+        # ni afirmar que un campo tiene linaje mediante un hidden input.
+        cursor.execute(
+            "SELECT s.canonical_field, s.step_ordinal, s.stage "
+            "FROM fincilia.dataset_version d "
+            "JOIN fincilia.lineage_transform_step s "
+            "ON s.plan_id = d.lineage_plan_id AND s.company_id = d.company_id "
+            "WHERE d.dataset_version_id = %s ORDER BY s.canonical_field, "
+            "s.step_ordinal", (dataset_id,))
+        return complete_lineage_fields(cursor.fetchall())
+
+
 def correction_targets(connection: psycopg.Connection, *, dataset_id: str,
-                       movement_id: str) -> list[dict[str, Any]]:
+                       movement_id: str) -> list[dict[str, Any]] | None:
+    # Separa movimiento invisible (None) de movimiento visible sin campo
+    # aplicable ([]). Confundirlos convertiría una limitación de linaje en 403.
+    probe = _target(connection, dataset_id=dataset_id,
+                    movement_id=movement_id, field="amount")
+    if probe is None:
+        return None
+    applicable = _applicable_fields(connection, dataset_id)
     result: list[dict[str, Any]] = []
     for field, value_type in SUPPORTED_FIELDS.items():
-        target = _target(connection, dataset_id=dataset_id,
-                         movement_id=movement_id, field=field)
-        if target is None:
-            return []
+        if field not in applicable:
+            continue
+        target = probe if field == "amount" else _target(
+            connection, dataset_id=dataset_id, movement_id=movement_id, field=field)
+        if target is None:  # Defensa ante una lectura incoherente dentro del caller.
+            return None
         result.append({"field": field, "value_type": value_type,
                        "current_value": target["current"],
                        "expected_base_digest": target["current_digest"]})
@@ -171,6 +216,10 @@ def propose(connection: psycopg.Connection, *, company_id: str, dataset_id: str,
     if target["state"] != "validated":
         raise CorrectionError("correction-dataset-state",
                               "only a validated dataset accepts correction proposals")
+    if field not in _applicable_fields(connection, dataset_id):
+        raise CorrectionError(
+            "correction-field-not-applicable",
+            "the dataset transform plan has no complete lineage path for this field")
     if not re.fullmatch(r"[0-9a-f]{64}", expected_base_digest or ""):
         raise CorrectionError("correction-base-invalid", "base digest is invalid")
     if not hmac.compare_digest(target["current_digest"], expected_base_digest):
@@ -223,11 +272,16 @@ def list_proposals(connection: psycopg.Connection, *, dataset_id: str) -> list[d
             "SELECT o.overlay_id, o.movement_id, o.target_field, o.value_type, "
             "o.proposed_value, o.reason_code, o.reason_comment, o.sequence, "
             "o.created_by, a.display_name, o.created_at, r.decision, r.reviewer_id, "
-            "rv.display_name, r.rationale, r.reviewed_at "
+            "rv.display_name, r.rationale, r.reviewed_at, "
+            "ai.application_item_id, app.result_dataset_version_id "
             "FROM fincilia.field_overlay o "
             "JOIN fincilia.subject a ON a.subject_id = o.created_by "
             "LEFT JOIN fincilia.field_overlay_review r ON r.overlay_id = o.overlay_id "
             "LEFT JOIN fincilia.subject rv ON rv.subject_id = r.reviewer_id "
+            "LEFT JOIN fincilia.field_overlay_application_item ai "
+            "ON ai.overlay_id = o.overlay_id "
+            "LEFT JOIN fincilia.field_overlay_application app "
+            "ON app.application_id = ai.application_id "
             "WHERE o.dataset_version_id = %s ORDER BY o.created_at, o.overlay_id",
             (dataset_id,))
         rows = cursor.fetchall()
@@ -237,10 +291,12 @@ def list_proposals(connection: psycopg.Connection, *, dataset_id: str) -> list[d
              "reason_comment": row[6], "sequence": row[7],
              "created_by": str(row[8]), "author_name": row[9],
              "created_at": row[10].isoformat(),
-             "status": row[11] or "pending_review", "applied": False,
+             "status": "applied" if row[16] else (row[11] or "pending_review"),
+             "applied": row[16] is not None,
              "reviewer_id": str(row[12]) if row[12] else None,
              "reviewer_name": row[13], "review_rationale": row[14],
-             "reviewed_at": row[15].isoformat() if row[15] else None}
+             "reviewed_at": row[15].isoformat() if row[15] else None,
+             "result_dataset_version_id": str(row[17]) if row[17] else None}
             for row in rows]
 
 
@@ -306,7 +362,8 @@ def _problem(error: CorrectionError, title: str) -> ProblemError:
         return forbidden()
     conflict = {"correction-base-stale", "correction-no-op",
                 "correction-already-active", "segregation-of-duties",
-                "correction-already-reviewed", "correction-dataset-state"}
+                "correction-already-reviewed", "correction-dataset-state",
+                "correction-field-not-applicable"}
     return ProblemError(problem(error.code, title, 409 if error.code in conflict else 422,
                                 error.detail))
 
@@ -341,7 +398,7 @@ def get_correction_targets(
                                             subject_id=principal.subject_id) as connection:
         targets = correction_targets(connection, dataset_id=dataset_id,
                                      movement_id=movement_id)
-        if not targets:
+        if targets is None:
             raise forbidden()
         return targets
 
@@ -423,3 +480,64 @@ def review_correction(request: Request, company_id: str, overlay_id: str,
     if reviewed is None:
         raise RuntimeError("correction review completed without a result")
     return reviewed
+
+
+@router.post(
+    "/companies/{company_id}/datasets/{dataset_id}/corrections/apply",
+    tags=["corrections"], status_code=201,
+)
+def apply_corrections(request: Request, company_id: str, dataset_id: str,
+                      principal: Principal = Depends(principal_dependency)) -> dict:
+    """Deriva otra version validada; no publica ni muta la version base."""
+    from .correction_application import ApplicationError, apply_approved
+
+    context = company_context(request, principal, company_id)
+    require(context, "dataset.map")
+    refusal: ApplicationError | None = None
+    result: dict[str, Any] | None = None
+    with request.app.state.database.session(
+            company_id=context.company_id,
+            subject_id=principal.subject_id) as connection:
+        try:
+            # El dominio usa un savepoint propio. Asi una negativa revierte cada
+            # fila funcional ya escrita y el evento de auditoria puede vivir en
+            # la transaccion exterior que se confirma despues.
+            with connection.transaction():
+                result = apply_approved(
+                    connection, tenant=context, dataset_id=dataset_id,
+                    hmac_key=request.app.state.settings.authorization_context_hmac_key)
+        except ApplicationError as error:
+            refusal = error
+        if refusal is None and result is not None:
+            repository.record_audit(
+                connection, subject_id=principal.subject_id,
+                company_id=context.company_id, action="field_overlay.apply",
+                resource_kind="dataset",
+                resource_ref=result["result_dataset_version_id"],
+                outcome="allowed", detail={
+                    "base_dataset_version_id": dataset_id,
+                    "application_id": result["application_id"],
+                    "applied_count": result.get("applied_correction_count", 0),
+                    "idempotent_replay": result["idempotent_replay"],
+                })
+        elif refusal is not None:
+            repository.record_audit(
+                connection, subject_id=principal.subject_id,
+                company_id=context.company_id, action="field_overlay.apply",
+                resource_kind="dataset", resource_ref=dataset_id,
+                outcome="denied", detail={"reason": refusal.code})
+    if refusal is not None:
+        if refusal.code == "correction-dataset-unknown":
+            raise forbidden()
+        conflict = {
+            "correction-dataset-state", "correction-pending-review",
+            "correction-none-approved", "correction-base-stale",
+            "correction-target-drift", "correction-proposal-drift",
+            "correction-date-order", "correction-lineage-step-missing",
+        }
+        raise ProblemError(problem(
+            refusal.code, "The corrections cannot be applied",
+            409 if refusal.code in conflict else 422, refusal.detail))
+    if result is None:
+        raise RuntimeError("correction application completed without a result")
+    return result

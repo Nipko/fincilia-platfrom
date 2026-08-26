@@ -493,6 +493,12 @@ class LineageModelTest(unittest.TestCase):
                                      if p["id"] != "PATH-DECISION"]
         self.assertIn("LIN-PATH-COVERAGE", self._codes(mutated))
 
+    def test_reconciliation_statement_cannot_drop_decision_lineage(self) -> None:
+        mutated = copy.deepcopy(self.model)
+        decision = self._node(mutated, "decision")
+        decision["produces_lineage_for"].remove("reconciliation_statement")
+        self.assertIn("LIN-DECISION-COVERAGE", self._codes(mutated))
+
     def test_edge_operations_must_stay_distinct(self) -> None:
         mutated = copy.deepcopy(self.model)
         mutated["edge_operations"] = [o for o in mutated["edge_operations"]
@@ -757,8 +763,7 @@ class LineageModelTest(unittest.TestCase):
 
     def test_unresolved_decision_cannot_be_closed(self) -> None:
         mutated = copy.deepcopy(self.model)
-        next(d for d in mutated["unresolved_decisions"]
-             if d["id"] == "UD-DR-PRV-001")["state"] = "resolved"
+        mutated["unresolved_decisions"][0]["state"] = "resolved"
         self.assertIn("LIN-DECISION-STATE", self._codes(mutated))
 
     def test_engine_release_owner_module_is_platform(self) -> None:

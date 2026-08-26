@@ -27,9 +27,9 @@ Aprobar este documento no supera S1-READY ni DRG-00 ni autoriza datos reales.
 
 | ID | Hallazgo previo | Por qué afecta a privacidad | Owner |
 |---|---|---|---|
-| `UD-PRIMARY-OPERATOR` | `TST-TEN-001-N09` exige un único `primary_accounting_operator` y un kernel de política no garantiza concurrencia. | Ninguna garantía de segregación de datos puede apoyarse solo en una comprobación en memoria. Requiere constraint o índice único parcial en PostgreSQL y un Database Migration Owner. | Architecture |
-| `UD-ISSUED-CONTEXT` | No existe la entidad canónica `issued_authorization_context`. | Revocación, export, portabilidad y borrado dependen de poder revalidar un contexto emitido. Debe portar `authorization_version`, company scope, purpose, subject o service principal, `issued_at` y `expires_at`. | Architecture |
-| `UD-PORTFOLIO-CANDIDATES` | `resolvePortfolio` solo es seguro si la lista de companies candidatas viene de almacenamiento autoritativo. | Una enumeración desde caché consolidada reintroduce exposición cruzada después de revocar. | Backend |
+| `UD-PRIMARY-OPERATOR` | Resuelta por IMP-017: V0019 y su índice único parcial son la garantía atómica. | Revisión independiente Security/Database pendiente. | Architecture |
+| `UD-ISSUED-CONTEXT` | Resuelta por IMP-017: sesión interactiva corta con revalidación online; contexto persistente para capacidades que sobreviven una petición. | La entidad productiva sigue como trabajo de implementación. | Architecture |
+| `UD-PORTFOLIO-CANDIDATES` | Resuelta por IMP-017: `company_grant` en PostgreSQL es autoritativo y se revalida empresa por empresa. | Una caché nunca enumera el portafolio. | Backend |
 
 Este mapa declara las tres como dependencias con owner y gate. **No las implementa ni
 las corrige**: tenancy, autorización y migraciones están fuera de las rutas de esta tarea.
@@ -287,8 +287,12 @@ Reglas no negociables:
 - El paquete **no incluye companies vecinas**. El portafolio se calcula desde la lista autoritativa, empresa por empresa.
 - **Acceso histórico no equivale a propiedad.** Que una firma haya operado una company no le concede titularidad sobre su información.
 
-Este apartado depende directamente de `UD-ISSUED-CONTEXT`: sin una entidad canónica de
-contexto emitido, la revalidación online de enlaces y exports no tiene dónde apoyarse.
+IMP-017 resolvió `UD-ISSUED-CONTEXT` y FNC-SEC-004/V0021 materializa el contexto
+emitido con alcance inmutable, expiración, huellas HMAC y revocación append-only.
+FNC-SEC-005/V0022 integra el primer consumidor: los trabajos de documentos se
+comprueban al reclamar, en cada lote y antes de cerrar. Exports, enlaces y
+schedules aún deben integrar la misma doble comprobación antes de leer y antes
+de publicar o entregar.
 
 ---
 

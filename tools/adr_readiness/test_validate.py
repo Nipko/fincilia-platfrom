@@ -23,11 +23,12 @@ class AdrReadinessTest(unittest.TestCase):
         report, findings = validate_repository()
         self.assertEqual([], findings)
         self.assertEqual("not_met", report["gate"])
-        # ADR-024 y ADR-026 siguen en `Proposed`. Una ADR propuesta tiene que
+        # ADR-020, ADR-026 y ADR-027 siguen en `Proposed`. Una ADR propuesta tiene que
         # registrarse `blocked`: el validador lo exige, y es lo que impide que
         # una propuesta cuente como decision tomada.
         self.assertEqual(
-            ["ADR-002", "ADR-020", "ADR-024", "ADR-026"], report["blocked"]
+            ["ADR-020", "ADR-026", "ADR-027"],
+            report["blocked"],
         )
 
     def test_agent_acceptance_bites(self) -> None:
@@ -76,11 +77,13 @@ class AdrReadinessTest(unittest.TestCase):
 
     def test_proposed_cannot_be_conditional(self) -> None:
         model = self.mutate()
-        next(item for item in model["adrs"] if item["id"] == "ADR-002")["readiness"] = "conditional"
+        next(item for item in model["adrs"] if item["id"] == "ADR-020")["readiness"] = "conditional"
         self.assert_bites(model, "ADR-RDY-PROPOSED")
 
     def test_unassigned_owner_needs_blocker(self) -> None:
-        model = self.mutate(); model["adrs"][0]["blockers"].remove("named_owner_assignment")
+        model = self.mutate()
+        record = next(item for item in model["adrs"] if item["id"] == "ADR-026")
+        record["blockers"].remove("named_owner_assignment")
         self.assert_bites(model, "ADR-RDY-OWNER")
 
     def test_missing_evidence_bites(self) -> None:
@@ -96,11 +99,14 @@ class AdrReadinessTest(unittest.TestCase):
         self.assert_bites(model, "ADR-RDY-SOD")
 
     def test_conditional_without_blocker_bites(self) -> None:
-        model = self.mutate(); model["adrs"][0]["blockers"] = []
+        model = self.mutate()
+        record = next(item for item in model["adrs"] if item["id"] == "ADR-014")
+        record["blockers"] = []
         self.assert_bites(model, "ADR-RDY-BLOCKER")
 
     def test_decision_cannot_be_agent_closed(self) -> None:
-        model = self.mutate(); model["decisions"][0]["state"] = "accepted"
+        model = self.mutate()
+        model["decisions"][0]["state"] = "accepted"
         self.assert_bites(model, "ADR-RDY-DECISION")
 
     def test_unknown_top_level_key_bites(self) -> None:

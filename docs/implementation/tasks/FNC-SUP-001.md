@@ -22,3 +22,11 @@ demostradas. El artefacto no firma builds ni declara cerrado TM-005.
 - `docs/security/supply-chain.json`
 - `tools/supply_chain/**`
 - `docs/implementation/handoffs/FNC-SUP-001.md`
+
+## Integración correctiva 2026-08-25
+
+El Integration Steward amplió las rutas a `.github/dependabot.yml`,
+`docs/implementation/s1-readiness.json`, `CURRENT_PHASE.md` y el handoff R1. Se
+eliminó el falso alcance `.next`, se completó la vigilancia de updates y se añadió
+evaluación explícita por gate. Los cuatro gaps de procedencia conservan gate DRG-00;
+no se rebajaron ni se marcaron satisfechos.

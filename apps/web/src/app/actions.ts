@@ -10,29 +10,42 @@ import { redirect } from 'next/navigation';
 
 import {
   ApiError,
+  applyApprovedCorrections,
   approveOverride,
   type Blocker,
   continueDataset,
   fetchCorrectionTargets,
   fetchCorrections,
   createAccount,
+  createAccountBalance,
+  createBalanceReconciliationStatement,
+  createCompletenessAssessment,
   createMapping,
+  createReconcilingItem,
   createSource,
   fetchDataset,
   fetchMapping,
   fetchOverrides,
   fetchSource,
+  grantMemberRole,
   generateExpectations,
   linkAccount,
   setCycle,
   updateAccount,
   decideAmbiguity,
+  decideReconcilingItem,
   prepareDataset,
   publishDataset,
+  provisionCompany,
+  proposeReconciliationReview,
   proposeCorrection,
   rejectDataset,
+  decideReconciliationReview,
   reviewCorrection,
+  revokeMemberRole,
+  scanQualityIssues,
   signIn,
+  triageQualityIssue,
   validateMapping,
 } from '@/lib/api';
 import { clearSession, readSession, writeSession } from '@/lib/session';
@@ -71,6 +84,687 @@ export async function signInAction(
 export async function signOutAction(): Promise<void> {
   await clearSession();
   redirect('/entrar');
+}
+
+// --------------------------------------------------------------------------- //
+// Observaciones canonicas de saldo (FNC-CLS-002)
+// --------------------------------------------------------------------------- //
+
+export type BalanceObservationState = { error: string | null; done: string | null };
+
+const BALANCE_TYPES = new Set(['opening', 'closing', 'running', 'available', 'ledger']);
+
+export async function observeBalanceAction(
+  _previous: BalanceObservationState,
+  formData: FormData,
+): Promise<BalanceObservationState> {
+  const session = await readSession();
+  if (!session) redirect('/entrar');
+  const companyId = String(formData.get('companyId') ?? '');
+  const sourceRecordId = String(formData.get('sourceRecordId') ?? '');
+  const balanceType = String(formData.get('balanceType') ?? '');
+  const amountFieldIndex = Number.parseInt(
+    String(formData.get('amountFieldIndex') ?? ''), 10);
+  const asOfFieldIndex = Number.parseInt(
+    String(formData.get('asOfFieldIndex') ?? ''), 10);
+  if (
+    !UUID_PATTERN.test(companyId) || !UUID_PATTERN.test(sourceRecordId) ||
+    !BALANCE_TYPES.has(balanceType) ||
+    !Number.isInteger(amountFieldIndex) || amountFieldIndex < 0 || amountFieldIndex > 2047 ||
+    !Number.isInteger(asOfFieldIndex) || asOfFieldIndex < 0 || asOfFieldIndex > 2047
+  ) {
+    return { error: 'Selecciona una fila, un tipo y dos columnas validas.', done: null };
+  }
+  try {
+    const result = await createAccountBalance(session.token, companyId, {
+      source_record_id: sourceRecordId,
+      balance_type: balanceType as 'opening' | 'closing' | 'running' | 'available' | 'ledger',
+      amount_field_index: amountFieldIndex,
+      as_of_field_index: asOfFieldIndex,
+    });
+    revalidatePath(`/empresas/${companyId}/saldos`);
+    revalidatePath('/preparacion-cierre');
+    return {
+      error: null,
+      done: result.replayed
+        ? 'La misma observacion ya estaba registrada; no se duplico.'
+        : 'Saldo observado. Sigue pendiente completar el linaje antes de usarlo en cierre.',
+    };
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) redirect('/entrar');
+    if (error instanceof ApiError && error.status === 403) {
+      return { error: 'La evidencia ya no esta publicada o tu acceso cambio.', done: null };
+    }
+    if (error instanceof ApiError && error.status === 409) {
+      return { error: 'Esa coordenada ya tiene otra observacion. Revisa el historico.', done: null };
+    }
+    if (error instanceof ApiError && error.status === 422) {
+      return { error: 'Las celdas no se pueden leer con el mapeo versionado.', done: null };
+    }
+    return { error: 'No se pudo registrar el saldo. Intenta de nuevo.', done: null };
+  }
+}
+
+// --------------------------------------------------------------------------- //
+// Estados diagnosticos de conciliacion de saldos (FNC-CLS-003)
+// --------------------------------------------------------------------------- //
+
+export type BalanceReconciliationActionState = {
+  error: string | null;
+  done: string | null;
+};
+
+function reconciliationPath(companyId: string): string {
+  return `/empresas/${companyId}/conciliacion-saldos`;
+}
+
+function reconciliationApiError(error: unknown): BalanceReconciliationActionState {
+  if (error instanceof ApiError && error.status === 403) {
+    return { error: 'La evidencia no esta disponible, tu acceso cambio o falta otro revisor.', done: null };
+  }
+  if (error instanceof ApiError && error.status === 409) {
+    return { error: 'El estado cambio o la misma persona intento preparar y aprobar.', done: null };
+  }
+  if (error instanceof ApiError && error.status === 422) {
+    return { error: 'Las fuentes no comparten cuenta, moneda, periodo o version.', done: null };
+  }
+  return { error: 'No se pudo aplicar la operacion. Intenta de nuevo.', done: null };
+}
+
+export async function assessCompletenessAction(
+  _previous: BalanceReconciliationActionState,
+  formData: FormData,
+): Promise<BalanceReconciliationActionState> {
+  const session = await readSession();
+  if (!session) redirect('/entrar');
+  const companyId = String(formData.get('companyId') ?? '');
+  const expectationId = String(formData.get('expectationId') ?? '');
+  if (!UUID_PATTERN.test(companyId) || !UUID_PATTERN.test(expectationId)) {
+    return { error: 'La expectativa seleccionada no es valida.', done: null };
+  }
+  try {
+    const result = await createCompletenessAssessment(
+      session.token, companyId, expectationId);
+    revalidatePath(reconciliationPath(companyId));
+    return {
+      error: null,
+      done: result.replayed
+        ? 'La misma evaluacion ya existia; no se duplico.'
+        : result.state === 'verified'
+          ? 'Completitud evaluada con controles verificables.'
+          : 'Evaluacion registrada. Los controles desconocidos siguen bloqueando.',
+    };
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) redirect('/entrar');
+    return reconciliationApiError(error);
+  }
+}
+
+export async function evaluateBalanceReconciliationAction(
+  _previous: BalanceReconciliationActionState,
+  formData: FormData,
+): Promise<BalanceReconciliationActionState> {
+  const session = await readSession();
+  if (!session) redirect('/entrar');
+  const companyId = String(formData.get('companyId') ?? '');
+  const bankBalanceId = String(formData.get('bankBalanceId') ?? '');
+  const booksBalanceId = String(formData.get('booksBalanceId') ?? '');
+  const assessmentIds = formData.getAll('assessmentIds').map(String);
+  if (
+    !UUID_PATTERN.test(companyId) || !UUID_PATTERN.test(bankBalanceId) ||
+    !UUID_PATTERN.test(booksBalanceId) || assessmentIds.length === 0 ||
+    assessmentIds.length > 1000 || assessmentIds.some((value) => !UUID_PATTERN.test(value)) ||
+    new Set(assessmentIds).size !== assessmentIds.length
+  ) {
+    return { error: 'Selecciona dos saldos y al menos una evaluacion valida.', done: null };
+  }
+  try {
+    const result = await createBalanceReconciliationStatement(
+      session.token, companyId, {
+        bank_balance_id: bankBalanceId,
+        books_balance_id: booksBalanceId,
+        assessment_ids: assessmentIds,
+      });
+    revalidatePath(reconciliationPath(companyId));
+    revalidatePath('/preparacion-cierre');
+    return {
+      error: null,
+      done: result.replayed
+        ? `La version ${result.version} ya existia; no se duplico.`
+        : `Version ${result.version} calculada: ${result.state === 'balanced' ? 'diferencia explicada' : 'requiere revision'}.`,
+    };
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) redirect('/entrar');
+    return reconciliationApiError(error);
+  }
+}
+
+const ITEM_SIDES = new Set(['add_to_bank', 'deduct_from_bank']);
+const ITEM_REASONS = new Set([
+  'bank_fee_pending', 'deposit_in_transit', 'documented_timing',
+  'outstanding_payment', 'other_documented',
+]);
+const EXACT_POSITIVE_MONEY = /^(?=.*[1-9])\d{1,26}(?:\.\d{1,12})?$/;
+
+export async function proposeReconcilingItemAction(
+  _previous: BalanceReconciliationActionState,
+  formData: FormData,
+): Promise<BalanceReconciliationActionState> {
+  const session = await readSession();
+  if (!session) redirect('/entrar');
+  const companyId = String(formData.get('companyId') ?? '');
+  const statementRootId = String(formData.get('statementRootId') ?? '');
+  const amount = String(formData.get('amount') ?? '').trim();
+  const adjustmentSide = String(formData.get('adjustmentSide') ?? '');
+  const reasonCode = String(formData.get('reasonCode') ?? '');
+  const evidenceIds = formData.getAll('evidenceSourceRecordIds').map(String);
+  if (
+    !UUID_PATTERN.test(companyId) || !UUID_PATTERN.test(statementRootId) ||
+    !EXACT_POSITIVE_MONEY.test(amount) || !ITEM_SIDES.has(adjustmentSide) ||
+    !ITEM_REASONS.has(reasonCode) || evidenceIds.length === 0 ||
+    evidenceIds.length > 50 || evidenceIds.some((value) => !UUID_PATTERN.test(value)) ||
+    new Set(evidenceIds).size !== evidenceIds.length
+  ) {
+    return { error: 'Completa monto, lado, motivo y evidencia valida.', done: null };
+  }
+  try {
+    await createReconcilingItem(
+      session.token, companyId, statementRootId, {
+        amount,
+        adjustment_side: adjustmentSide as 'add_to_bank' | 'deduct_from_bank',
+        reason_code: reasonCode,
+        evidence_source_record_ids: evidenceIds,
+      });
+    revalidatePath(reconciliationPath(companyId));
+    return { error: null, done: 'Partida propuesta. Aun no entra en la ecuacion.' };
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) redirect('/entrar');
+    return reconciliationApiError(error);
+  }
+}
+
+export async function decideReconcilingItemAction(
+  _previous: BalanceReconciliationActionState,
+  formData: FormData,
+): Promise<BalanceReconciliationActionState> {
+  const session = await readSession();
+  if (!session) redirect('/entrar');
+  const companyId = String(formData.get('companyId') ?? '');
+  const itemRootId = String(formData.get('itemRootId') ?? '');
+  const decision = String(formData.get('decision') ?? '');
+  if (
+    !UUID_PATTERN.test(companyId) || !UUID_PATTERN.test(itemRootId) ||
+    !['confirmed', 'rejected', 'reversed'].includes(decision)
+  ) {
+    return { error: 'La decision seleccionada no es valida.', done: null };
+  }
+  try {
+    const result = await decideReconcilingItem(
+      session.token, companyId, itemRootId,
+      decision as 'confirmed' | 'rejected' | 'reversed');
+    revalidatePath(reconciliationPath(companyId));
+    return {
+      error: null,
+      done: result.replayed
+        ? 'La misma decision ya estaba registrada.'
+        : 'Decision append-only registrada. Recalcula el estado para incorporarla.',
+    };
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) redirect('/entrar');
+    return reconciliationApiError(error);
+  }
+}
+
+// --------------------------------------------------------------------------- //
+// Alta transaccional de empresa (FNC-ONB-001)
+// --------------------------------------------------------------------------- //
+
+export type CompanyProvisionState = { error: string | null };
+
+const COUNTRY_CODES = new Set(['AR', 'CL', 'CO', 'MX', 'PE']);
+const ACCOUNT_FAMILIES = new Set([
+  'bank_account', 'payment_gateway', 'merchant_acquirer', 'marketplace',
+  'digital_wallet', 'billing_erp', 'accounting_ledger',
+]);
+const SOURCE_FAMILIES = new Set([
+  'bank_account', 'payment_gateway', 'merchant_acquirer', 'marketplace',
+  'digital_wallet', 'billing_erp', 'accounting_ledger',
+  'tax_documents_received', 'supporting_evidence', 'reference_data',
+]);
+const COMPANY_IDEMPOTENCY_PATTERN = /^[A-Za-z0-9._:-]{16,128}$/;
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+export async function provisionCompanyAction(
+  _previous: CompanyProvisionState,
+  formData: FormData,
+): Promise<CompanyProvisionState> {
+  const session = await readSession();
+  if (!session) redirect('/entrar');
+
+  const firmId = String(formData.get('firmId') ?? '');
+  const legalName = String(formData.get('legalName') ?? '').trim();
+  const countryCode = String(formData.get('countryCode') ?? '').toUpperCase();
+  const taxIdentifier = String(formData.get('taxIdentifier') ?? '').trim();
+  const idempotencyKey = String(formData.get('idempotencyKey') ?? '');
+  const includeSetup = formData.get('includeSetup') === 'on';
+  if (
+    !UUID_PATTERN.test(firmId) || legalName.length < 2 || legalName.length > 300 ||
+    !COUNTRY_CODES.has(countryCode) || taxIdentifier.length < 4 ||
+    taxIdentifier.length > 64 || !COMPANY_IDEMPOTENCY_PATTERN.test(idempotencyKey)
+  ) {
+    return { error: 'Revisa la firma, nombre, pais e identificacion protegida.' };
+  }
+
+  let setup = null;
+  if (includeSetup) {
+    const accountFamily = String(formData.get('accountFamily') ?? '');
+    const sourceFamily = String(formData.get('sourceFamily') ?? '');
+    const accountName = String(formData.get('accountName') ?? '').trim();
+    const accountIdentifier = String(formData.get('accountIdentifier') ?? '').trim();
+    const sourceName = String(formData.get('sourceName') ?? '').trim();
+    const currencyCode = String(formData.get('currencyCode') ?? '').toUpperCase();
+    const timezone = String(formData.get('timezone') ?? 'America/Bogota');
+    const anchorDate = String(formData.get('anchorDate') ?? '');
+    const dueDayOffset = Number.parseInt(
+      String(formData.get('dueDayOffset') ?? '0'), 10);
+    const graceDays = Number.parseInt(String(formData.get('graceDays') ?? '3'), 10);
+    if (
+      !ACCOUNT_FAMILIES.has(accountFamily) || !SOURCE_FAMILIES.has(sourceFamily) ||
+      accountName.length < 1 || accountName.length > 160 ||
+      accountIdentifier.length < 4 || accountIdentifier.length > 64 ||
+      sourceName.length < 1 || sourceName.length > 160 ||
+      !/^[A-Z]{3}$/.test(currencyCode) || !/^\d{4}-\d{2}-\d{2}$/.test(anchorDate) ||
+      !Number.isInteger(dueDayOffset) || dueDayOffset < 0 || dueDayOffset > 120 ||
+      !Number.isInteger(graceDays) || graceDays < 0 || graceDays > 120
+    ) {
+      return { error: 'Revisa la cuenta, fuente y ciclo inicial.' };
+    }
+    setup = {
+      account_family: accountFamily,
+      account_name: accountName,
+      account_identifier: accountIdentifier,
+      currency_code: currencyCode,
+      source_family: sourceFamily,
+      source_name: sourceName,
+      purpose_code: 'operational',
+      timezone,
+      anchor_date: anchorDate,
+      due_day_offset: dueDayOffset,
+      grace_days: graceDays,
+    };
+  }
+
+  let result;
+  try {
+    result = await provisionCompany(session.token, {
+      firm_id: firmId,
+      legal_name: legalName,
+      country_code: countryCode,
+      tax_identifier: taxIdentifier,
+      setup,
+    }, idempotencyKey);
+    await writeSession(
+      result.refreshed_session.token,
+      result.refreshed_session.display_name,
+      result.refreshed_session.expires_at,
+    );
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) redirect('/entrar');
+    if (error instanceof ApiError && error.status === 403) {
+      return { error: 'Ya no puedes crear empresas para esa firma.' };
+    }
+    if (error instanceof ApiError && error.status === 409) {
+      return { error: 'La empresa ya esta registrada o la solicitud cambio al reintentarse.' };
+    }
+    if (error instanceof ApiError && error.status === 422) {
+      return { error: 'La empresa o su configuracion inicial no son validas.' };
+    }
+    return { error: 'No se pudo crear la empresa. Intenta nuevamente.' };
+  }
+
+  revalidatePath('/empresas');
+  redirect(`/empresas/${result.company_id}/fuentes?alta=creada`);
+}
+
+// --------------------------------------------------------------------------- //
+// Administracion de equipo y roles (FNC-QA-007)
+// --------------------------------------------------------------------------- //
+
+export type RoleManagementState = { error: string | null; done: string | null };
+
+const COMPANY_ROLES = new Set([
+  'owner',
+  'firm_admin',
+  'preparer',
+  'reviewer',
+  'auditor',
+  'read_only',
+]);
+const ROLE_REASON_CODES = new Set([
+  'access_required',
+  'responsibility_change',
+  'team_change',
+  'least_privilege',
+  'access_removed',
+]);
+
+function roleManagementError(error: unknown): RoleManagementState {
+  if (error instanceof ApiError && error.status === 403) {
+    return {
+      error: 'Tu rol no puede administrar este acceso o el miembro ya no esta disponible.',
+      done: null,
+    };
+  }
+  if (error instanceof ApiError && error.status === 409) {
+    return {
+      error: 'El cambio entra en conflicto con la proteccion del ultimo owner o con una accion propia.',
+      done: null,
+    };
+  }
+  if (error instanceof ApiError && error.status === 422) {
+    return { error: 'El miembro, el rol o el motivo ya no son validos.', done: null };
+  }
+  if (error instanceof ApiError && error.status === 503) {
+    return { error: 'La administracion de accesos no esta disponible.', done: null };
+  }
+  return {
+    error: error instanceof ApiError ? error.message : 'No se pudo cambiar el rol.',
+    done: null,
+  };
+}
+
+async function changeMemberRoleAction(
+  operation: 'grant' | 'revoke',
+  formData: FormData,
+): Promise<RoleManagementState> {
+  const session = await readSession();
+  if (!session) redirect('/entrar');
+  const companyId = String(formData.get('companyId') ?? '');
+  const subjectId = String(formData.get('subjectId') ?? '');
+  const role = String(formData.get('role') ?? '');
+  const reasonCode = String(formData.get('reasonCode') ?? '');
+  if (
+    !UUID_PATTERN.test(companyId) || !UUID_PATTERN.test(subjectId) ||
+    !COMPANY_ROLES.has(role) || !ROLE_REASON_CODES.has(reasonCode)
+  ) {
+    return { error: 'El cambio de acceso no tiene un contexto valido.', done: null };
+  }
+  try {
+    const result = operation === 'grant'
+      ? await grantMemberRole(session.token, companyId, subjectId, {
+          role,
+          reason_code: reasonCode,
+        })
+      : await revokeMemberRole(session.token, companyId, subjectId, {
+          role,
+          reason_code: reasonCode,
+        });
+    if (result.refreshed_session) {
+      await writeSession(
+        result.refreshed_session.token,
+        result.refreshed_session.display_name,
+        result.refreshed_session.expires_at,
+      );
+    }
+    revalidatePath(`/empresas/${companyId}/equipo`);
+    revalidatePath(`/empresas/${companyId}`);
+    if (operation === 'grant') {
+      return {
+        error: null,
+        done: result.replayed
+          ? 'El miembro ya tenia ese rol.'
+          : 'Rol asignado y sesiones anteriores invalidadas.',
+      };
+    }
+    return {
+      error: null,
+      done: result.replayed
+        ? 'El rol ya estaba revocado.'
+        : 'Rol revocado y sesiones anteriores invalidadas.',
+    };
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) redirect('/entrar');
+    return roleManagementError(error);
+  }
+}
+
+export async function grantMemberRoleAction(
+  _previous: RoleManagementState,
+  formData: FormData,
+): Promise<RoleManagementState> {
+  return changeMemberRoleAction('grant', formData);
+}
+
+export async function revokeMemberRoleAction(
+  _previous: RoleManagementState,
+  formData: FormData,
+): Promise<RoleManagementState> {
+  return changeMemberRoleAction('revoke', formData);
+}
+
+// --------------------------------------------------------------------------- //
+// Revision humana de candidatos de conciliacion (FNC-REC-002)
+// --------------------------------------------------------------------------- //
+
+export type MatchReviewState = { error: string | null; done: string | null };
+
+const IDEMPOTENCY_PATTERN = /^[A-Za-z0-9._:-]{16,128}$/;
+
+function reviewError(error: unknown): MatchReviewState {
+  if (error instanceof ApiError && error.status === 403) {
+    return { error: 'El candidato o el permiso ya no estan disponibles.', done: null };
+  }
+  if (error instanceof ApiError && error.status === 409) {
+    if (error.code === 'movement-already-confirmed') {
+      return {
+        error: 'Uno de los movimientos ya fue confirmado con otra contraparte. Revisa ambos expedientes; no se registro esta decision.',
+        done: null,
+      };
+    }
+    return {
+      error: 'El comando entra en conflicto con una decision, una clave previa o la segregacion de funciones.',
+      done: null,
+    };
+  }
+  if (error instanceof ApiError && error.status === 422) {
+    return { error: 'La propuesta ya no cumple el contrato de revision.', done: null };
+  }
+  if (error instanceof ApiError && error.status === 503) {
+    return { error: 'La revision no esta habilitada en este entorno.', done: null };
+  }
+  return {
+    error: error instanceof ApiError ? error.message : 'No se pudo registrar la revision.',
+    done: null,
+  };
+}
+
+export async function proposeMatchAction(
+  _previous: MatchReviewState,
+  formData: FormData,
+): Promise<MatchReviewState> {
+  const session = await readSession();
+  if (!session) redirect('/entrar');
+  const companyId = String(formData.get('companyId') ?? '');
+  const leftDatasetId = String(formData.get('leftDatasetId') ?? '');
+  const rightDatasetId = String(formData.get('rightDatasetId') ?? '');
+  const leftMovementId = String(formData.get('leftMovementId') ?? '');
+  const rightMovementId = String(formData.get('rightMovementId') ?? '');
+  const idempotencyKey = String(formData.get('idempotencyKey') ?? '');
+  const maxDays = Number.parseInt(String(formData.get('maxDays') ?? ''), 10);
+  if (
+    ![companyId, leftDatasetId, rightDatasetId, leftMovementId, rightMovementId]
+      .every((value) => UUID_PATTERN.test(value)) ||
+    !IDEMPOTENCY_PATTERN.test(idempotencyKey) ||
+    !Number.isInteger(maxDays) || maxDays < 0 || maxDays > 31
+  ) {
+    return { error: 'El candidato visible ya no tiene un contexto valido.', done: null };
+  }
+  try {
+    const result = await proposeReconciliationReview(
+      session.token,
+      companyId,
+      idempotencyKey,
+      {
+        left_dataset_id: leftDatasetId,
+        right_dataset_id: rightDatasetId,
+        left_movement_id: leftMovementId,
+        right_movement_id: rightMovementId,
+        max_days: maxDays,
+      },
+    );
+    revalidatePath(`/empresas/${companyId}/conciliacion`);
+    return {
+      error: null,
+      done: result.replayed
+        ? 'La misma propuesta ya estaba registrada.'
+        : result.created
+          ? 'Propuesta registrada. No cambia movimientos ni saldos.'
+          : 'El par ya estaba propuesto; se vinculó el comando sin duplicarlo.',
+    };
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) redirect('/entrar');
+    return reviewError(error);
+  }
+}
+
+export async function decideMatchAction(
+  _previous: MatchReviewState,
+  formData: FormData,
+): Promise<MatchReviewState> {
+  const session = await readSession();
+  if (!session) redirect('/entrar');
+  const companyId = String(formData.get('companyId') ?? '');
+  const candidateId = String(formData.get('candidateId') ?? '');
+  const idempotencyKey = String(formData.get('idempotencyKey') ?? '');
+  const decision = String(formData.get('decision') ?? '');
+  const reasonCode = String(formData.get('reasonCode') ?? '');
+  if (
+    !UUID_PATTERN.test(companyId) || !UUID_PATTERN.test(candidateId) ||
+    !IDEMPOTENCY_PATTERN.test(idempotencyKey) ||
+    !['confirmed', 'rejected'].includes(decision) || !reasonCode
+  ) {
+    return { error: 'La decision visible ya no tiene un contexto valido.', done: null };
+  }
+  try {
+    const result = await decideReconciliationReview(
+      session.token,
+      companyId,
+      candidateId,
+      idempotencyKey,
+      decision as 'confirmed' | 'rejected',
+      reasonCode,
+    );
+    revalidatePath(`/empresas/${companyId}/conciliacion`);
+    return {
+      error: null,
+      done: result.replayed
+        ? 'La misma decision ya estaba registrada.'
+        : decision === 'confirmed'
+          ? 'Revision confirmada. Sigue sin efecto sobre movimientos o saldos.'
+          : 'Candidato rechazado; la evidencia y el movimiento base se conservan.',
+    };
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) redirect('/entrar');
+    return reviewError(error);
+  }
+}
+
+// --------------------------------------------------------------------------- //
+// Triaje de alertas deterministas de calidad (FNC-DQ-001)
+// --------------------------------------------------------------------------- //
+
+export type QualityActionState = { error: string | null; done: string | null };
+
+function qualityActionError(error: unknown): QualityActionState {
+  if (error instanceof ApiError && error.status === 403) {
+    return { error: 'La alerta o el permiso ya no estan disponibles.', done: null };
+  }
+  if (error instanceof ApiError && error.status === 409) {
+    return { error: 'La alerta ya tiene un estado terminal.', done: null };
+  }
+  if (error instanceof ApiError && error.status === 422) {
+    return { error: 'El estado, motivo o comentario no cumplen el contrato.', done: null };
+  }
+  if (error instanceof ApiError && error.status === 503) {
+    return { error: 'El centro de calidad no esta disponible.', done: null };
+  }
+  return {
+    error: error instanceof ApiError ? error.message : 'No se pudo completar la accion.',
+    done: null,
+  };
+}
+
+export async function scanQualityAction(
+  _previous: QualityActionState,
+  formData: FormData,
+): Promise<QualityActionState> {
+  const session = await readSession();
+  if (!session) redirect('/entrar');
+  const companyId = String(formData.get('companyId') ?? '');
+  if (!UUID_PATTERN.test(companyId)) {
+    return { error: 'La empresa ya no tiene un contexto valido.', done: null };
+  }
+  try {
+    const result = await scanQualityIssues(session.token, companyId);
+    revalidatePath('/calidad');
+    revalidatePath(`/empresas/${companyId}`);
+    return {
+      error: null,
+      done: result.truncated
+        ? `Se evaluo la ventana segura y se detectaron ${result.findings} senales; algunas reglas alcanzaron su limite.`
+        : `Evaluacion completa de la ventana: ${result.findings} senales, ${result.created} nuevas.`,
+    };
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) redirect('/entrar');
+    return qualityActionError(error);
+  }
+}
+
+const QUALITY_REASONS: Record<string, Set<string>> = {
+  acknowledged: new Set(['investigate']),
+  resolved: new Set(['reviewed_source', 'corrected_upstream', 'duplicate_confirmed']),
+  dismissed: new Set(['expected_pattern', 'false_positive', 'not_applicable']),
+};
+
+export async function triageQualityAction(
+  _previous: QualityActionState,
+  formData: FormData,
+): Promise<QualityActionState> {
+  const session = await readSession();
+  if (!session) redirect('/entrar');
+  const companyId = String(formData.get('companyId') ?? '');
+  const issueId = String(formData.get('issueId') ?? '');
+  const status = String(formData.get('status') ?? '');
+  const reasonCode = String(formData.get('reasonCode') ?? '');
+  const rationale = String(formData.get('rationale') ?? '').trim();
+  if (
+    !UUID_PATTERN.test(companyId) || !UUID_PATTERN.test(issueId)
+    || !QUALITY_REASONS[status]?.has(reasonCode)
+    || rationale.length < 10 || rationale.length > 500
+  ) {
+    return { error: 'La accion de calidad no tiene un contexto valido.', done: null };
+  }
+  try {
+    const result = await triageQualityIssue(
+      session.token, companyId, issueId,
+      { status, reason_code: reasonCode, rationale },
+    );
+    revalidatePath('/calidad');
+    return {
+      error: null,
+      done: result.replayed
+        ? 'La misma revision ya estaba registrada.'
+        : status === 'acknowledged'
+          ? 'Caso tomado para investigacion; no cambia ningun dato financiero.'
+          : status === 'resolved'
+            ? 'Caso resuelto con motivo y auditoria.'
+            : 'Senal descartada con motivo y auditoria.',
+    };
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) redirect('/entrar');
+    return qualityActionError(error);
+  }
 }
 
 // --------------------------------------------------------------------------- //
@@ -517,6 +1211,11 @@ export async function approveOverrideAction(
 }
 
 export type CorrectionState = { error: string | null; done: string | null };
+export type CorrectionApplicationState = {
+  error: string | null;
+  done: string | null;
+  resultDatasetVersionId: string | null;
+};
 
 /** Propone; vuelve a ligar todos los IDs y el digest a la lectura autorizada. */
 export async function proposeCorrectionAction(
@@ -660,6 +1359,93 @@ export async function reviewCorrectionAction(
       ? 'Correccion aprobada. Sigue pendiente de aplicar en una version nueva.'
       : 'Correccion rechazada; el dataset base no fue modificado.',
   };
+}
+
+/** Aplica el conjunto aprobado completo a otra version, nunca al dataset base. */
+export async function applyApprovedCorrectionsAction(
+  _previous: CorrectionApplicationState,
+  formData: FormData,
+): Promise<CorrectionApplicationState> {
+  const session = await readSession();
+  if (!session) {
+    redirect('/entrar');
+  }
+  const companyId = String(formData.get('companyId') ?? '');
+  const artifactId = String(formData.get('artifactId') ?? '');
+  const datasetVersionId = String(formData.get('datasetVersionId') ?? '');
+  if (!companyId || !artifactId || !datasetVersionId) {
+    return {
+      error: 'El contexto del dataset esta incompleto; vuelve a cargar la pantalla.',
+      done: null,
+      resultDatasetVersionId: null,
+    };
+  }
+
+  try {
+    // Los IDs ocultos no son autoridad. Volvemos a ligar documento, estado y
+    // conjunto de revisiones a lecturas autorizadas antes de ordenar la escritura.
+    const [dataset, corrections] = await Promise.all([
+      fetchDataset(session.token, companyId, datasetVersionId),
+      fetchCorrections(session.token, companyId, datasetVersionId),
+    ]);
+    if (dataset.artifact_id !== artifactId || dataset.state !== 'validated') {
+      return {
+        error: 'La version visible ya no es un dataset validado aplicable.',
+        done: null,
+        resultDatasetVersionId: null,
+      };
+    }
+    if (corrections.some((item) => item.status === 'pending_review')) {
+      return {
+        error: 'Todavia hay correcciones pendientes de revision independiente.',
+        done: null,
+        resultDatasetVersionId: null,
+      };
+    }
+    if (!corrections.some((item) => item.status === 'approved')) {
+      return {
+        error: 'No hay correcciones aprobadas pendientes de aplicar.',
+        done: null,
+        resultDatasetVersionId: null,
+      };
+    }
+    const result = await applyApprovedCorrections(
+      session.token, companyId, datasetVersionId,
+    );
+    revalidatePath(`/empresas/${companyId}/documentos/${artifactId}/mapeo`);
+    return {
+      error: null,
+      done:
+        `${result.applied_correction_count} correccion(es) aplicada(s) en una ` +
+        'version validada nueva. La version base permanece intacta.',
+      resultDatasetVersionId: result.result_dataset_version_id,
+    };
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) {
+      redirect('/entrar');
+    }
+    if (error instanceof ApiError && error.status === 403) {
+      return {
+        error: 'Este rol no puede aplicar correcciones.',
+        done: null,
+        resultDatasetVersionId: null,
+      };
+    }
+    if (error instanceof ApiError && error.status === 409) {
+      return {
+        error:
+          'No se pudo derivar una version reproducible. Revisa el estado, el ' +
+          'linaje y que ninguna propuesta haya cambiado.',
+        done: null,
+        resultDatasetVersionId: null,
+      };
+    }
+    return {
+      error: error instanceof ApiError ? error.message : 'No se pudieron aplicar las correcciones.',
+      done: null,
+      resultDatasetVersionId: null,
+    };
+  }
 }
 
 /** Rechazar conserva el motivo; nunca transforma el dataset ni borra evidencia. */

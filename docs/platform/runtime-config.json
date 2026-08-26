@@ -114,6 +114,16 @@
       "safe_example": "set_in_untracked_local_env"
     },
     {
+      "class": "secret_reference",
+      "name": "FINCILIA_AUTHORIZATION_CONTEXT_HMAC_KEY",
+      "owner": "Security",
+      "required": [
+        "local",
+        "ci"
+      ],
+      "safe_example": "set_in_untracked_local_env"
+    },
+    {
       "class": "plain",
       "name": "FINCILIA_AUTH_TOKEN_TTL_SECONDS",
       "owner": "Security",

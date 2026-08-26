@@ -117,9 +117,15 @@ cuando solo lo *consultó*. Son cosas distintas y el contrato las separa.
 `average_coverage_allowed: true`: un 99,7% de campos con linaje significa que hay campos
 publicados sin evidencia, y es precisamente ese 0,3% el que rompe una auditoría.
 
-Las 18 entidades del modelo canónico con `lineage_required: true` se derivan
+Las entidades del modelo canónico con `lineage_required: true` se derivan
 **dinámicamente** de `canonical-model.json`. No se mantiene una lista paralela, porque una
 lista paralela daría cobertura falsa en cuanto el modelo canónico cambiara.
+
+Las decisiones de completitud, partidas conciliatorias y estados de conciliación se
+materializan como nodos `decision`. Un estado `complete` sólo puede sobrevivir al
+`COMMIT` si un trigger diferido verifica el camino exacto a sus datasets, saldos y
+registros fuente. La base almacena nodos de baja cardinalidad y digests; las seis etapas
+lógicas por columna permanecen en el plan de transformación versionado de ADR-024.
 
 ---
 
@@ -304,10 +310,10 @@ Además expone tres funciones puras probadas: `validate_graph` sobre un grafo si
 
 | ID | Pregunta | Owner |
 |---|---|---|
-| `UD-DR-PRV-001` | Taxonomía del eje de dato personal y su obligatoriedad legal | Privacy |
+| `UD-DR-PRV-001` | Resuelta por IMP-017: sensibilidad y categoría de dato personal son ejes separados; aplicabilidad Legal sigue antes de DRG-00 | Privacy |
 | `UD-DR-LEG-001` | Reloj y orden de retención de linaje frente a backups y tombstones | Legal |
-| `UD-RELEASE-APPROVAL` | Quién firma una release `approved` y con qué evidencia | Platform |
-| `UD-LOCATOR-STORAGE` | Representación física y coste de almacenar linaje por campo | Architecture |
+| `UD-RELEASE-APPROVAL` | Resuelta por IMP-017: humano Platform, evidencia reproducible y revisión independiente Security/QA | Platform |
+| `UD-LOCATOR-STORAGE` | Resuelta por IMP-017 y ADR-024: plan compartido, localizador exacto y overrides append-only | Architecture |
 | `UD-EXTERNAL-MODEL-PINNING` | Qué hacer cuando un proveedor externo no ofrece versión fijable | Architecture |
 
 Ninguna se resuelve aquí. Aprobar este documento no supera S1-READY ni DRG-00.

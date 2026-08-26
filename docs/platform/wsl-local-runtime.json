@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "task_id": "FNC-PLT-009",
+  "status": "review_pending",
+  "human_acceptance": "pending",
+  "data_ceiling": "synthetic_only",
+  "purpose": "Mantener el Docker Engine instalado dentro de WSL disponible mientras el stack local de Fincilia esta en uso, sin requerir una ventana interactiva.",
+  "entrypoint": "infra/local/fincilia-local.ps1",
+  "default_distribution": "Ubuntu",
+  "compose_project": "fincilia-local",
+  "compose_file": "infra/local/compose.yaml",
+  "actions": {
+    "doctor": "read_only",
+    "up": "local_reversible",
+    "status": "read_only",
+    "down": "local_reversible"
+  },
+  "keepalive": {
+    "windows_binary": "wsl.exe",
+    "linux_argv": ["sleep", "infinity"],
+    "window_style": "hidden",
+    "state_root": "LocalApplicationData/Fincilia",
+    "state_fields": ["pid", "distribution", "project", "started_at"],
+    "validates_pid_command_line": true,
+    "stops_only_recorded_process": true
+  },
+  "lifecycle": {
+    "up_script": "infra/local/up.sh",
+    "waits_for_docker_seconds": 45,
+    "lock_required": true,
+    "preserves_volumes": true,
+    "removes_orphans": false,
+    "terminates_distribution": false,
+    "modifies_wsl_configuration": false,
+    "installs_or_updates_dependencies": false
+  },
+  "status_output": {
+    "fields": ["service", "state", "health", "ports"],
+    "includes_labels": false,
+    "includes_environment": false
+  },
+  "exit_codes": {
+    "ok": 0,
+    "command_failed": 1,
+    "dependency_missing": 3
+  },
+  "security_invariants": [
+    "La distribucion usa un patron cerrado y viaja como argumento, nunca como comando de shell.",
+    "El directorio de trabajo se resuelve desde la ubicacion del script y se pasa mediante wsl.exe --cd.",
+    "El estado local no almacena variables de entorno, credenciales, documentos ni informacion financiera.",
+    "El apagado conserva volumenes y no termina WSL completo ni otras distribuciones.",
+    "El wrapper no instala, actualiza ni modifica configuracion de Windows, WSL o Docker."
+  ],
+  "gate": {
+    "id": "S1-READY",
+    "status": "not_met",
+    "effect": "none"
+  },
+  "reviewers_pending": ["Platform/SRE", "Security", "Developer Experience"]
+}

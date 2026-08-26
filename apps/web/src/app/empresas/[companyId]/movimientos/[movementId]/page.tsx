@@ -216,7 +216,8 @@ export default async function MovementPage({
         <p className="meta">
           Una correccion es una propuesta append-only. No cambia el original ni
           este movimiento; si se aprueba, se aplicara al crear otra version del
-          conjunto con linaje nuevo.
+          conjunto con linaje nuevo. Solo aparecen campos cuyo plan conserva las
+          seis etapas necesarias para aplicar y comprobar el resultado.
         </p>
         {movementCorrections.length > 0 ? (
           <div className="correction-list">

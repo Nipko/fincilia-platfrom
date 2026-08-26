@@ -83,6 +83,10 @@ REQUIRED_TEST_IDS = {
 }
 REQUIRED_DFD_LINEAGE_FLOWS = {"F05", "F06"}
 REQUIRED_LINEAGE_RISKS = {"TM-007", "TM-008", "TM-015"}
+REQUIRED_DECISION_ENTITIES = {
+    "completeness_assessment", "completeness_control_result",
+    "reconciliation_statement", "reconciling_item",
+}
 REQUIRED_PLAN_INVARIANTS = {
     "PLAN-STAGE-COVERAGE", "PLAN-TYPE-CHAIN", "PLAN-TRANSFORM-NAMED",
     "PLAN-NO-VALUES", "PLAN-VERSIONED", "PLAN-APPEND-ONLY",
@@ -413,6 +417,13 @@ def validate_model(
                  f"{node.get('id')} must be immutable")
         if node.get("id") in REQUIRED_NODE_TYPES and node.get("company_scoped") is not True:
             fail("LIN-NODE-COMPANY", location, "financial lineage nodes are company-scoped")
+
+    decision = next((node for node in node_types if node.get("id") == "decision"), {})
+    decision_entities = set(decision.get("produces_lineage_for", []))
+    missing_decisions = sorted(REQUIRED_DECISION_ENTITIES - decision_entities)
+    if missing_decisions:
+        fail("LIN-DECISION-COVERAGE", "node_types[decision].produces_lineage_for",
+             f"missing materialized financial decisions: {missing_decisions}")
 
     # -- aristas ---------------------------------------------------------
     operation_ids = _ids(model.get("edge_operations", []))

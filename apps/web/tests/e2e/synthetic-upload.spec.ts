@@ -19,6 +19,18 @@ async function openSyntheticCompany(page: Page): Promise<void> {
   await expect(page).toHaveURL(COMPANY_URL);
 }
 
+async function selectDemoSource(page: Page): Promise<string> {
+  const source = page.getByLabel('Fuente del documento');
+  const option = source.locator('option').filter({
+    hasText: 'Extracto bancario (demo)',
+  });
+  await expect(option).toHaveCount(1);
+  const sourceId = await option.getAttribute('value');
+  expect(sourceId).toMatch(/^[0-9a-f-]+$/);
+  await source.selectOption(sourceId!);
+  return sourceId!;
+}
+
 function syntheticCsv(byteSize: number): Buffer {
   const header = Buffer.from('fecha,descripcion,importe\n', 'utf8');
   const row = Buffer.from('2026-08-01,operacion-sintetica,1.00\n', 'utf8');
@@ -34,7 +46,7 @@ test('fuente → carga exacta de 25 MiB → perfil conserva contexto', async ({
   await signIn(page);
   await openSyntheticCompany(page);
 
-  await page.getByLabel('Fuente del documento').selectOption({ index: 1 });
+  await selectDemoSource(page);
   await page.getByLabel('Extracto o soporte').setInputFiles({
     name: 'limite-exacto-sintetico.csv',
     mimeType: 'text/csv',
@@ -57,7 +69,7 @@ test('el navegador rechaza 25 MiB mas un byte sin abandonar la empresa', async (
   test.setTimeout(90_000);
   await signIn(page);
   await openSyntheticCompany(page);
-  await page.getByLabel('Fuente del documento').selectOption({ index: 1 });
+  await selectDemoSource(page);
   await page.getByLabel('Extracto o soporte').setInputFiles({
     name: 'sobre-limite-sintetico.csv',
     mimeType: 'text/csv',
@@ -78,9 +90,7 @@ test('el BFF conserva el 413 de la API ante un cliente que omite el precheck', a
   await signIn(page);
   await openSyntheticCompany(page);
   const companyId = new URL(page.url()).pathname.split('/').at(-1);
-  const source = page.getByLabel('Fuente del documento');
-  await source.selectOption({ index: 1 });
-  const sourceId = await source.inputValue();
+  const sourceId = await selectDemoSource(page);
   expect(companyId).toMatch(/^[0-9a-f-]+$/);
   expect(sourceId).toMatch(/^[0-9a-f-]+$/);
 

@@ -7,6 +7,7 @@ import type { Blocker, ColumnProfile, PreviewPage } from '@/lib/api';
 import { withFlowContext } from '@/lib/navigation';
 import {
   approveOverrideAction,
+  applyApprovedCorrectionsAction,
   continueDatasetAction,
   createMappingAction,
   decideAmbiguityAction,
@@ -15,6 +16,7 @@ import {
   reviewCorrectionAction,
   rejectDatasetAction,
   type DecisionState,
+  type CorrectionApplicationState,
   type MappingState,
   type PrepareState,
   type PublishState,
@@ -55,6 +57,11 @@ const MAPPING_INITIAL: MappingState = {
   blockers: [],
 };
 const DECISION_INITIAL: DecisionState = { error: null, resolved: null };
+const CORRECTION_APPLICATION_INITIAL: CorrectionApplicationState = {
+  error: null,
+  done: null,
+  resultDatasetVersionId: null,
+};
 const PREPARE_INITIAL: PrepareState = {
   error: null,
   datasetVersionId: null,
@@ -559,6 +566,56 @@ export function CorrectionReviewForm({
       </div>
       {state.error ? <p className="notice error" role="alert">{state.error}</p> : null}
       {state.done ? <p className="notice ok" role="status">{state.done}</p> : null}
+    </form>
+  );
+}
+
+export function ApplyCorrectionsForm({
+  companyId,
+  artifactId,
+  datasetVersionId,
+  sourceId,
+  mappingVersionId,
+}: {
+  companyId: string;
+  artifactId: string;
+  datasetVersionId: string;
+  sourceId: string;
+  mappingVersionId: string | null;
+}) {
+  const [state, action, pending] = useActionState(
+    applyApprovedCorrectionsAction,
+    CORRECTION_APPLICATION_INITIAL,
+  );
+  const resultHref = state.resultDatasetVersionId
+    ? withFlowContext(
+        `/empresas/${companyId}/documentos/${artifactId}/mapeo`,
+        {
+          documento: artifactId,
+          fuente: sourceId,
+          mapeo: mappingVersionId,
+          dataset: state.resultDatasetVersionId,
+          pagina: 0,
+          movimientosPagina: 0,
+        },
+      )
+    : null;
+  return (
+    <form className="upload" action={action}>
+      <input type="hidden" name="companyId" value={companyId} />
+      <input type="hidden" name="artifactId" value={artifactId} />
+      <input type="hidden" name="datasetVersionId" value={datasetVersionId} />
+      <p className="meta">
+        Se creara una version validada nueva con todas las correcciones aprobadas.
+        La evidencia y la version base no cambian; publicar sigue siendo una
+        decision independiente.
+      </p>
+      <button type="submit" disabled={pending || resultHref !== null}>
+        {pending ? 'Creando version...' : resultHref ? 'Version creada' : 'Aplicar correcciones aprobadas'}
+      </button>
+      {state.error ? <p className="notice error" role="alert">{state.error}</p> : null}
+      {state.done ? <p className="notice ok" role="status">{state.done}</p> : null}
+      {resultHref ? <p><Link href={resultHref}>Abrir la version corregida</Link></p> : null}
     </form>
   );
 }

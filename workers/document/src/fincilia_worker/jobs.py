@@ -63,6 +63,7 @@ class Claim:
     kind: str
     attempt: int
     lease_token: str
+    issued_context_id: str | None
 
 
 def claim_next(connection: psycopg.Connection, worker: str,
@@ -78,7 +79,17 @@ def claim_next(connection: psycopg.Connection, worker: str,
             "       attempt, lease_token::text "
             "FROM fincilia.claim_next_run(%s, %s)", (worker, lease_seconds))
         row = cursor.fetchone()
-    return Claim(*row) if row else None
+        if row is None:
+            return None
+        # La empresa proviene de la funcion definer, no del mensaje ni del
+        # cliente. Se fija solo para leer la fila RLS que acaba de reclamarse.
+        cursor.execute("SELECT set_config('fincilia.company_id', %s, true)",
+                       (str(row[1]),))
+        cursor.execute(
+            "SELECT issued_context_id::text FROM fincilia.processing_run "
+            "WHERE run_id = %s", (str(row[0]),))
+        context_row = cursor.fetchone()
+    return Claim(*row, context_row[0] if context_row else None)
 
 
 def finish(connection: psycopg.Connection, claim: Claim, *,

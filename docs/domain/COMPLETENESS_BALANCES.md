@@ -104,6 +104,9 @@ Solo `reconciling_item` confirmado, vigente, de la misma company/cuenta/periodo/
 
 Una partida declara:
 
+- `item_root_id`, que conserva la identidad de la partida entre decisiones
+  append-only, y `statement_root_id`, que la ata a las versiones inmutables del
+  mismo statement;
 - `add_to_bank` o `deduct_from_bank`;
 - importe positivo y moneda;
 - razón/tipo;
@@ -113,6 +116,8 @@ Una partida declara:
 - preparador, aprobador, versión y motivo.
 
 Un preparador no confirma su propia partida cuando la política exige SoD. Reversar crea decisión nueva; no edita la partida usada por un snapshot anterior.
+Evaluar nuevas partidas crea una nueva version del statement y conserva la
+anterior; la raiz estable evita reasignar o reescribir decisiones historicas.
 
 ## 9. Excepciones
 

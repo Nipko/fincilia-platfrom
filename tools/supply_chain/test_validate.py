@@ -450,6 +450,15 @@ class NegativeInvariantTests(SyntheticTreeMixin, unittest.TestCase):
                 tree, [".github/workflows/*.yml"])}
             self.assertNotIn(".github/workflows/linked.yml", collected)
 
+    def test_neg_13c2_generated_framework_cache_is_never_inventoried(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            tree = self.tree(Path(directory))
+            generated = tree / "apps/web/.next/package.json"
+            write(generated, manifest_json())
+            inventory = discover(self.model, tree)
+            paths = {item["path"] for item in inventory["components"]}
+            self.assertNotIn("apps/web/.next/package.json", paths)
+
     def test_neg_13d_the_cli_refuses_a_traversing_root(self) -> None:
         code, payload = run_cli(["--root", "../outside", "discover"])
         self.assertEqual(code, 2)
@@ -658,10 +667,25 @@ class CliAndSourceTests(unittest.TestCase):
         self.assertGreater(payload["component_count"], 10)
 
     def test_cli_02_validate_separates_model_validity_from_repository_findings(self) -> None:
-        _, payload = run_cli(["validate"])
+        code, payload = run_cli(["validate"])
+        self.assertEqual(1, code)
         self.assertTrue(payload["model_valid"])
         self.assertIn("repository_findings", payload)
         self.assertIn("blocking_findings", payload)
+
+    def test_cli_02b_gate_scope_keeps_later_blockers_visible_but_non_blocking(self) -> None:
+        code, payload = run_cli(["validate", "--gate", "S1-READY"])
+        self.assertEqual(0, code)
+        self.assertTrue(payload["ok"])
+        self.assertEqual("S1-READY", payload["target_gate"])
+        self.assertEqual(0, payload["blocking_findings"])
+        self.assertGreater(payload["out_of_scope_blocking_findings"], 0)
+        self.assertTrue(any(item["gate"] == "DRG-00" for item in payload["findings"]))
+
+    def test_cli_02c_unknown_gate_fails_closed(self) -> None:
+        code, payload = run_cli(["validate", "--gate", "GA-UNKNOWN"])
+        self.assertEqual(2, code)
+        self.assertFalse(payload["ok"])
 
     def test_cli_03_report_never_produces_an_aggregate_score(self) -> None:
         _, payload = run_cli(["report"])

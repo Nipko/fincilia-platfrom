@@ -184,6 +184,23 @@ export default async function CompanyPage({
           </span>
         </div>
         <nav aria-label="Navegacion de la empresa">
+          {company.permissions.includes('report.read') ? (
+            <><Link href={`/informes?empresa=${companyId}`}>Informes</Link>{' '}
+              <Link href={`/preparacion-cierre?empresa=${companyId}`}>
+                Preparacion de cierre
+              </Link>{' '}</>
+          ) : null}
+          {company.permissions.includes('quality.read') ? (
+            <><Link href={`/calidad?empresa=${companyId}`}>Calidad</Link>{' '}</>
+          ) : null}
+          {company.permissions.includes('member.manage') ? (
+            <><Link href={`/empresas/${companyId}/equipo`}>Equipo y roles</Link>{' '}</>
+          ) : null}
+          {company.permissions.includes('movement.read') ? (
+            <><Link href={`/empresas/${companyId}/saldos`}>Saldos</Link>{' '}
+              <Link href={`/empresas/${companyId}/conciliacion-saldos`}>Conciliar saldos</Link>{' '}
+              <Link href={`/empresas/${companyId}/conciliacion`}>Cruzar movimientos</Link>{' '}</>
+          ) : null}
           <Link href={`/empresas/${companyId}/fuentes`}>Fuentes y cuentas</Link>{' '}
           <Link href="/empresas">Empresas</Link>
         </nav>
@@ -325,6 +342,11 @@ export default async function CompanyPage({
       )}
 
       <h2>Registro de auditoria</h2>
+      {auditVisible ? (
+        <p><Link href={`/auditoria?empresa=${encodeURIComponent(companyId)}`}>
+          Abrir historial completo con filtros
+        </Link></p>
+      ) : null}
       {auditVisible ? (
         <div className="card scroll">
           <table>

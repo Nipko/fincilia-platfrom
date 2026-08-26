@@ -13,10 +13,12 @@ import datetime as dt
 import hashlib
 import logging
 import time
+import uuid
 
 import psycopg
 
 from fastapi import APIRouter, Depends, File, Request, Response, UploadFile
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from fincilia_contracts.ingestion import MAX_UPLOAD_BYTES, RejectedUpload, admit
@@ -25,7 +27,11 @@ from fincilia_platform.identity import AuthenticationError
 from fincilia_platform.objects import ObjectStoreError, object_key
 from fincilia_platform.tokens import issue
 
-from . import datasets, onboarding, repository
+from . import (access, audit as audit_query, balance_reconciliation, balances,
+               close_readiness, close_review, datasets, exports, financial_lineage,
+               onboarding, operations, quality, reconciliation, reports, repository)
+from . import company_onboarding
+from .issued_contexts import issue_context
 from .security import (Principal, ProblemError, company_context, current_principal,
                        forbidden, require, unauthorized)
 from fincilia_contracts.errors import problem
@@ -63,6 +69,51 @@ class CompanyDetail(CompanySummary):
     permissions: list[str]
 
 
+class ManagedFirm(BaseModel):
+    firm_id: str
+    legal_name: str
+    firm_role: str
+
+
+class InitialCompanySetupRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    account_family: str = Field(min_length=3, max_length=64)
+    account_name: str = Field(min_length=1, max_length=160)
+    # ``object`` evita que el error automatico de Pydantic repita un
+    # identificador protegido. La ruta comprueba que sea texto con un mensaje
+    # que nunca contiene el valor.
+    account_identifier: object
+    currency_code: str = Field(min_length=3, max_length=3)
+    source_family: str = Field(min_length=3, max_length=64)
+    source_name: str = Field(min_length=1, max_length=160)
+    purpose_code: str = Field(default="operational", min_length=3, max_length=64)
+    timezone: str = Field(default="America/Bogota", min_length=3, max_length=80)
+    anchor_date: dt.date
+    due_day_offset: int = Field(default=0, ge=0, le=120)
+    grace_days: int = Field(default=3, ge=0, le=120)
+
+
+class CompanyProvisionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    firm_id: uuid.UUID
+    legal_name: str = Field(min_length=2, max_length=300)
+    country_code: str = Field(min_length=2, max_length=2)
+    tax_identifier: object
+    setup: InitialCompanySetupRequest | None = None
+
+
+class CompanyProvisionResponse(CompanyDetail):
+    account_id: str | None
+    source_id: str | None
+    link_id: str | None
+    cycle_id: str | None
+    expectations_created: int
+    replayed: bool
+    refreshed_session: SessionResponse
+
+
 class AuditEvent(BaseModel):
     audit_event_id: str
     action: str
@@ -71,6 +122,56 @@ class AuditEvent(BaseModel):
     outcome: str
     occurred_at: str
     detail: dict
+    subject_id: str | None = None
+    actor_name: str = "Sistema"
+
+
+class AuditPage(BaseModel):
+    items: list[AuditEvent]
+    has_more: bool
+    next_cursor: str | None
+    limit: int
+
+
+class MatchProposalRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    left_dataset_id: str = Field(min_length=36, max_length=36)
+    right_dataset_id: str = Field(min_length=36, max_length=36)
+    left_movement_id: str = Field(min_length=36, max_length=36)
+    right_movement_id: str = Field(min_length=36, max_length=36)
+    max_days: int = Field(default=3, ge=0, le=31)
+
+
+class MatchDecisionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    decision: str
+    reason_code: str = Field(min_length=3, max_length=80)
+
+
+class CloseReviewPrepareRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    period_start: dt.date
+    period_end: dt.date
+    assigned_reviewer_id: uuid.UUID
+
+
+class CloseReviewDecisionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    decision: str = Field(min_length=16, max_length=17)
+    reason_code: str = Field(min_length=3, max_length=40)
+
+
+class RoleChangeRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    role: str = Field(min_length=3, max_length=40)
+    reason_code: str = Field(min_length=3, max_length=40)
+
+
+class QualityTriageRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    status: str = Field(min_length=8, max_length=16)
+    reason_code: str = Field(min_length=3, max_length=40)
+    rationale: str = Field(min_length=10, max_length=500)
 
 
 class ArtifactSummary(BaseModel):
@@ -191,6 +292,118 @@ def list_companies(request: Request,
     return _my_companies(request, principal)
 
 
+@router.get("/firms/manageable", response_model=list[ManagedFirm],
+            tags=["companies"])
+def manageable_firms(
+        request: Request,
+        principal: Principal = Depends(principal_dependency),
+        ) -> list[ManagedFirm]:
+    """Firmas donde el sujeto puede crear una empresa, sin revelar miembros."""
+    with request.app.state.database.session(
+            subject_id=principal.subject_id) as connection:
+        rows = company_onboarding.list_manageable_firms(
+            connection, subject_id=principal.subject_id)
+    return [ManagedFirm(**row) for row in rows]
+
+
+def _company_onboarding_problem(
+        error: company_onboarding.CompanyOnboardingError) -> ProblemError:
+    return ProblemError(problem(
+        error.code, "Company provisioning rejected", error.status, error.detail))
+
+
+def _protected_identifier(value: object) -> str:
+    if not isinstance(value, str) or not 4 <= len(value.strip()) <= 64:
+        raise _company_onboarding_problem(
+            company_onboarding.CompanyOnboardingError(
+                "invalid-identifier",
+                "the protected identifier must be text between 4 and 64 characters",
+            ))
+    return value
+
+
+@router.post("/companies", response_model=CompanyProvisionResponse,
+             tags=["companies"])
+def provision_company(
+        request: Request, response: Response, body: CompanyProvisionRequest,
+        principal: Principal = Depends(principal_dependency),
+        ) -> CompanyProvisionResponse:
+    """Crea company, engagement, owner y maestros iniciales en una transaccion."""
+    if request.app.state.settings.real_data_enabled:
+        raise ProblemError(problem(
+            "company-provisioning-disabled", "Company provisioning unavailable", 503,
+            "company provisioning is enabled only for synthetic data"))
+    idempotency_key = request.headers.get("idempotency-key", "")
+    tax_identifier = _protected_identifier(body.tax_identifier)
+    setup = None
+    if body.setup is not None:
+        account_identifier = _protected_identifier(body.setup.account_identifier)
+        setup = company_onboarding.InitialSetup(
+            account_family=body.setup.account_family,
+            account_name=body.setup.account_name,
+            account_identifier=account_identifier,
+            currency_code=body.setup.currency_code,
+            source_family=body.setup.source_family,
+            source_name=body.setup.source_name,
+            purpose_code=body.setup.purpose_code,
+            timezone=body.setup.timezone,
+            anchor_date=body.setup.anchor_date,
+            due_day_offset=body.setup.due_day_offset,
+            grace_days=body.setup.grace_days,
+        )
+
+    settings = request.app.state.settings
+    database = request.app.state.database
+    company_id = str(uuid.uuid4())
+    failure: company_onboarding.CompanyOnboardingError | None = None
+    result: dict | None = None
+    try:
+        # La company aun no existe, pero el contexto anticipado obliga a que
+        # cada INSERT company-scoped use exactamente el ID generado en servidor.
+        with database.session(company_id=company_id,
+                              subject_id=principal.subject_id) as connection:
+            result = company_onboarding.provision_company(
+                connection, company_id=company_id, firm_id=str(body.firm_id),
+                subject_id=principal.subject_id, legal_name=body.legal_name,
+                country_code=body.country_code,
+                tax_identifier=tax_identifier,
+                idempotency_key=idempotency_key,
+                tokenization_key=settings.identifier_tokenization_key,
+                key_version=settings.identifier_key_version, setup=setup)
+    except company_onboarding.CompanyOnboardingError as error:
+        failure = error
+
+    if failure is not None:
+        # Se registra tras el rollback de la operacion fallida. No se incluye
+        # firma, nombre, NIT ni identificador de cuenta.
+        with database.session(subject_id=principal.subject_id) as connection:
+            repository.record_audit(
+                connection, subject_id=principal.subject_id, company_id=None,
+                action="company.provision", resource_kind="company",
+                resource_ref="unallocated", outcome="denied",
+                detail={"reason": failure.code})
+        raise _company_onboarding_problem(failure)
+    if result is None:
+        raise RuntimeError("company provisioning completed without a result")
+    # La nueva concesion owner puede hacer anterior el token con el que se creo
+    # la empresa. El BFF recibe uno fresco para navegar de inmediato; no se
+    # guarda en el recibo idempotente ni llega a JavaScript del navegador.
+    refreshed_at = int(time.time())
+    result["refreshed_session"] = {
+        "token": issue(
+            principal.subject_id, key=settings.auth_signing_key,
+            issuer=settings.auth_issuer, audience=settings.auth_audience,
+            issued_at=refreshed_at,
+            ttl_seconds=settings.auth_token_ttl_seconds,
+        ),
+        "expires_at": refreshed_at + settings.auth_token_ttl_seconds,
+        "subject_id": principal.subject_id,
+        "display_name": principal.display_name,
+    }
+    response.status_code = 200 if result["replayed"] else 201
+    return CompanyProvisionResponse(**result)
+
+
 @router.get("/companies/{company_id}", response_model=CompanyDetail,
             tags=["companies"])
 def read_company(request: Request, company_id: str,
@@ -233,6 +446,40 @@ def read_audit(request: Request, company_id: str, limit: int = 50,
                           subject_id=principal.subject_id) as connection:
         events = repository.list_audit(connection, limit=limit)
     return [AuditEvent(**event) for event in events]
+
+
+@router.get("/companies/{company_id}/audit/events", response_model=AuditPage,
+            tags=["audit"])
+def read_audit_page(request: Request, company_id: str, limit: int = 25,
+                    action: str | None = None, outcome: str | None = None,
+                    resource_kind: str | None = None, cursor: str | None = None,
+                    principal: Principal = Depends(principal_dependency),
+                    ) -> AuditPage:
+    """Pagina keyset de auditoria, siempre bajo una sola company y su RLS."""
+    context: TenantContext = company_context(request, principal, company_id)
+    require(context, "audit.read")
+    bounded = max(1, min(limit, 100))
+    action = audit_query.validate_filter(action, field="action")
+    outcome = audit_query.validate_filter(outcome, field="outcome")
+    resource_kind = audit_query.validate_filter(
+        resource_kind, field="resource_kind")
+    decoded = audit_query.decode_cursor(cursor)
+    database = request.app.state.database
+    with database.session(company_id=context.company_id,
+                          subject_id=principal.subject_id) as connection:
+        events, has_more = repository.list_audit_page(
+            connection, limit=bounded, action=action, outcome=outcome,
+            resource_kind=resource_kind,
+            before=(decoded.occurred_at, decoded.audit_event_id)
+            if decoded else None)
+    next_cursor = None
+    if has_more and events:
+        last = events[-1]
+        next_cursor = audit_query.encode_cursor(
+            dt.datetime.fromisoformat(last["occurred_at"]),
+            last["audit_event_id"])
+    return AuditPage(items=[AuditEvent(**event) for event in events],
+                     has_more=has_more, next_cursor=next_cursor, limit=bounded)
 
 
 # --------------------------------------------------------------------------- #
@@ -336,8 +583,20 @@ def upload_document(request: Request, company_id: str,
             # leer el fichero entero, y eso no se hace sobre algo que todavia no
             # ha pasado inspeccion: el perfilado lo encola el escaneo si decide
             # promover.
-            repository.enqueue_run(connection, company_id=context.company_id,
-                                   artifact_id=artifact.artifact_id, kind="scan")
+            issued = issue_context(
+                connection, tenant=context, purpose_code="processing_job",
+                resource_kind="source_artifact",
+                resource_ref=artifact.artifact_id,
+                idempotency_key=(
+                    f"processing-job:source-artifact:{artifact.artifact_id}"
+                ),
+                expires_at=dt.datetime.now(dt.timezone.utc) + dt.timedelta(days=7),
+                hmac_key=request.app.state.settings.authorization_context_hmac_key,
+            )
+            repository.enqueue_run(
+                connection, company_id=context.company_id,
+                artifact_id=artifact.artifact_id, kind="scan",
+                issued_context_id=issued.context_id)
         # La auditoria distingue una entrega nueva de una repetida. Contarlas
         # igual haria imposible saber si alguien reintenta o si algo se duplica.
         repository.record_audit(
@@ -828,6 +1087,73 @@ def read_dataset(request: Request, company_id: str, dataset_version_id: str,
     return dataset
 
 
+@router.get("/companies/{company_id}/datasets/{dataset_version_id}/export",
+            tags=["datasets"])
+def export_dataset(request: Request, company_id: str, dataset_version_id: str,
+                   principal: Principal = Depends(principal_dependency)) -> Response:
+    """Transmite el dataset canonico publicado; nunca la evidencia original."""
+    context = company_context(request, principal, company_id)
+    require(context, "dataset.export")
+    if request.app.state.settings.real_data_enabled:
+        raise ProblemError(problem(
+            "dataset-export-disabled", "Dataset export unavailable", 503,
+            "dataset export is enabled only for synthetic data"))
+
+    database = request.app.state.database
+    refusal: exports.ExportError | None = None
+    descriptor: exports.ExportDescriptor | None = None
+    with database.session(company_id=context.company_id,
+                          subject_id=principal.subject_id) as connection:
+        try:
+            descriptor = exports.preflight_export(connection, dataset_version_id)
+        except exports.ExportError as error:
+            refusal = error
+        else:
+            repository.record_audit(
+                connection, subject_id=principal.subject_id,
+                company_id=context.company_id, action="dataset.export.request",
+                resource_kind="dataset", resource_ref=dataset_version_id,
+                outcome="allowed",
+                detail={"format": "csv", "profile": exports.EXPORT_PROFILE,
+                        "rows": descriptor.row_count,
+                        "canonical_schema_version":
+                            descriptor.canonical_schema_version,
+                        "reproduction_key": descriptor.reproduction_key})
+
+    if refusal is not None:
+        if refusal.code == "dataset-unknown":
+            raise forbidden() from None
+        with database.session(company_id=context.company_id,
+                              subject_id=principal.subject_id) as connection:
+            repository.record_audit(
+                connection, subject_id=principal.subject_id,
+                company_id=context.company_id, action="dataset.export.request",
+                resource_kind="dataset", resource_ref=dataset_version_id,
+                outcome="denied", detail={"reason": refusal.code})
+        raise ProblemError(problem(
+            refusal.code, "The dataset cannot be exported", 409,
+            refusal.detail))
+
+    assert descriptor is not None
+    return StreamingResponse(
+        exports.stream_dataset_csv(
+            database, company_id=context.company_id,
+            subject_id=principal.subject_id, descriptor=descriptor),
+        media_type="text/csv",
+        headers={
+            "Content-Disposition":
+                f'attachment; filename="{descriptor.filename}"',
+            "Cache-Control": "private, no-store, max-age=0",
+            "Pragma": "no-cache",
+            "X-Content-Type-Options": "nosniff",
+            "X-Fincilia-Export-Profile": exports.EXPORT_PROFILE,
+            "X-Fincilia-Export-Rows": str(descriptor.row_count),
+            "X-Fincilia-Canonical-Schema":
+                descriptor.canonical_schema_version,
+        },
+    )
+
+
 @router.post("/companies/{company_id}/datasets/{dataset_version_id}/publish",
              tags=["datasets"])
 def publish_dataset(request: Request, company_id: str, dataset_version_id: str,
@@ -1042,6 +1368,174 @@ def read_movement(request: Request, company_id: str, movement_id: str,
         if movement is None:
             raise forbidden()
     return movement
+
+
+@router.get("/companies/{company_id}/reconciliation/candidates",
+            tags=["reconciliation"])
+def reconciliation_candidates(
+        request: Request, company_id: str, left_dataset_id: str,
+        right_dataset_id: str,
+        max_days: int = reconciliation.DEFAULT_DATE_WINDOW_DAYS,
+        offset: int = 0, limit: int = reconciliation.DEFAULT_CANDIDATE_LIMIT,
+        principal: Principal = Depends(principal_dependency)) -> dict:
+    """Explora hipotesis exactas; nunca confirma ni persiste un match."""
+    context = company_context(request, principal, company_id)
+    require(context, "movement.read")
+    # El gate de Settings hace hoy imposible encender datos reales. Esta guarda
+    # explicita evita que una futura ampliacion habilite esta superficie por
+    # accidente sin revisar primero privacidad y reglas contables.
+    if request.app.state.settings.real_data_enabled:
+        raise ProblemError(problem(
+            "candidate-explorer-disabled", "Candidate explorer unavailable", 503,
+            "candidate exploration is enabled only for synthetic data"))
+
+    database = request.app.state.database
+    with database.session(company_id=context.company_id,
+                          subject_id=principal.subject_id) as connection:
+        try:
+            return reconciliation.explore_candidates(
+                connection, left_dataset_id=left_dataset_id,
+                right_dataset_id=right_dataset_id, max_days=max_days,
+                offset=offset, limit=limit)
+        except reconciliation.CandidateQueryError as error:
+            if error.code == "candidate-scope-unavailable":
+                raise forbidden() from None
+            raise ProblemError(problem(
+                error.code, "Candidate request invalid", 422, error.detail)) from None
+
+
+def _synthetic_reconciliation_only(request: Request) -> None:
+    if request.app.state.settings.real_data_enabled:
+        raise ProblemError(problem(
+            "reconciliation-review-disabled", "Reconciliation review unavailable",
+            503, "reconciliation review is enabled only for synthetic data"))
+
+
+def _review_problem(error: Exception) -> ProblemError:
+    code = getattr(error, "code", "review-request-invalid")
+    detail = getattr(error, "detail", "the review command is invalid")
+    if code == "candidate-scope-unavailable":
+        return forbidden()
+    status = 409 if code in {
+        "idempotency-conflict", "candidate-already-decided",
+        "segregation-of-duties", "movement-already-confirmed",
+    } else 422
+    return ProblemError(problem(code, "Reconciliation review rejected", status, detail))
+
+
+@router.get("/companies/{company_id}/reconciliation/reviews",
+            tags=["reconciliation"])
+def reconciliation_reviews(
+        request: Request, company_id: str, left_dataset_id: str,
+        right_dataset_id: str, limit: int = 200,
+        principal: Principal = Depends(principal_dependency)) -> list[dict]:
+    context = company_context(request, principal, company_id)
+    require(context, "movement.read")
+    _synthetic_reconciliation_only(request)
+    with request.app.state.database.session(
+            company_id=context.company_id,
+            subject_id=principal.subject_id) as connection:
+        try:
+            return reconciliation.list_reviews(
+                connection, left_dataset_id=left_dataset_id,
+                right_dataset_id=right_dataset_id, limit=limit)
+        except reconciliation.ReviewCommandError as error:
+            raise _review_problem(error) from None
+
+
+@router.get("/companies/{company_id}/reconciliation/review-queue",
+            tags=["reconciliation"])
+def reconciliation_review_queue(
+        request: Request, company_id: str, status: str = "open",
+        offset: int = 0, limit: int = 50,
+        principal: Principal = Depends(principal_dependency)) -> dict:
+    context = company_context(request, principal, company_id)
+    require(context, "movement.read")
+    _synthetic_reconciliation_only(request)
+    with request.app.state.database.session(
+            company_id=context.company_id,
+            subject_id=principal.subject_id) as connection:
+        try:
+            return reconciliation.list_review_queue(
+                connection, status=status, offset=offset, limit=limit)
+        except reconciliation.ReviewCommandError as error:
+            raise _review_problem(error) from None
+
+
+@router.post("/companies/{company_id}/reconciliation/reviews",
+             tags=["reconciliation"])
+def propose_reconciliation_review(
+        request: Request, company_id: str, body: MatchProposalRequest,
+        principal: Principal = Depends(principal_dependency)) -> dict:
+    context = company_context(request, principal, company_id)
+    require(context, "movement.read")
+    require(context, "match.propose")
+    _synthetic_reconciliation_only(request)
+    key = request.headers.get("idempotency-key", "")
+    refusal: Exception | None = None
+    result: dict | None = None
+    with request.app.state.database.session(
+            company_id=context.company_id,
+            subject_id=principal.subject_id) as connection:
+        try:
+            result = reconciliation.propose_review(
+                connection, company_id=context.company_id,
+                actor_id=principal.subject_id, idempotency_key=key,
+                left_dataset_id=body.left_dataset_id,
+                right_dataset_id=body.right_dataset_id,
+                left_movement_id=body.left_movement_id,
+                right_movement_id=body.right_movement_id,
+                max_days=body.max_days)
+        except (reconciliation.ReviewCommandError,
+                reconciliation.CandidateQueryError) as error:
+            refusal = error
+            repository.record_audit(
+                connection, subject_id=principal.subject_id,
+                company_id=context.company_id, action="match.propose",
+                resource_kind="match_candidate", resource_ref="unmaterialized",
+                outcome="denied", detail={"reason": error.code})
+    if refusal is not None:
+        raise _review_problem(refusal)
+    if result is None:
+        raise RuntimeError("review proposal completed without a result")
+    return result
+
+
+@router.post("/companies/{company_id}/reconciliation/reviews/{candidate_id}/decision",
+             tags=["reconciliation"])
+def decide_reconciliation_review(
+        request: Request, company_id: str, candidate_id: str,
+        body: MatchDecisionRequest,
+        principal: Principal = Depends(principal_dependency)) -> dict:
+    context = company_context(request, principal, company_id)
+    require(context, "movement.read")
+    permission = "match.confirm" if body.decision == "confirmed" else "match.reject"
+    require(context, permission)
+    _synthetic_reconciliation_only(request)
+    key = request.headers.get("idempotency-key", "")
+    refusal: reconciliation.ReviewCommandError | None = None
+    result: dict | None = None
+    with request.app.state.database.session(
+            company_id=context.company_id,
+            subject_id=principal.subject_id) as connection:
+        try:
+            result = reconciliation.decide_review(
+                connection, company_id=context.company_id,
+                actor_id=principal.subject_id, idempotency_key=key,
+                candidate_id=candidate_id, decision=body.decision,
+                reason_code=body.reason_code)
+        except reconciliation.ReviewCommandError as error:
+            refusal = error
+            repository.record_audit(
+                connection, subject_id=principal.subject_id,
+                company_id=context.company_id, action=f"match.{permission.rsplit('.', 1)[-1]}",
+                resource_kind="match_candidate", resource_ref=candidate_id[:80],
+                outcome="denied", detail={"reason": error.code})
+    if refusal is not None:
+        raise _review_problem(refusal)
+    if result is None:
+        raise RuntimeError("review decision completed without a result")
+    return result
 
 
 # --------------------------------------------------------------------------- #
@@ -1456,6 +1950,739 @@ def list_expectations(request: Request, company_id: str,
             limit=limit)
 
 
+@router.get("/companies/{company_id}/operations/periods", tags=["operations"])
+def operational_periods(
+        request: Request, company_id: str, status: str = "attention",
+        limit: int = operations.DEFAULT_LIMIT, cursor: str | None = None,
+        principal: Principal = Depends(principal_dependency)) -> dict:
+    """Recordatorios visuales e historico; nunca constancia de entrega."""
+    context = company_context(request, principal, company_id)
+    require(context, "data_source.manage")
+    if request.app.state.settings.real_data_enabled:
+        raise ProblemError(problem(
+            "operations-center-disabled", "Operations center unavailable", 503,
+            "the operations center is enabled only for synthetic data"))
+    database = request.app.state.database
+    with database.session(company_id=context.company_id,
+                          subject_id=principal.subject_id) as connection:
+        try:
+            result = operations.list_operational_periods(
+                connection, evaluated_at=dt.datetime.now(dt.timezone.utc),
+                subject_id=principal.subject_id, status=status, limit=limit,
+                cursor=cursor)
+        except operations.OperationsQueryError as error:
+            raise ProblemError(problem(
+                error.code, "Operations request invalid", 422,
+                error.detail)) from None
+        # Solo metadatos de la consulta. No se duplican nombres, fechas ni
+        # responsables en auditoria cada vez que el portafolio refresca.
+        repository.record_audit(
+            connection, subject_id=principal.subject_id,
+            company_id=context.company_id, action="operations.periods.read",
+            resource_kind="company", resource_ref=context.company_id,
+            outcome="allowed", detail={
+                "filter": result["filter"],
+                "returned": len(result["items"]),
+                "truncated": result["has_more"],
+            })
+    return result
+
+
+@router.get("/companies/{company_id}/close-readiness", tags=["close-readiness"])
+def read_close_readiness(
+        request: Request, company_id: str,
+        limit: int = close_readiness.DEFAULT_LIMIT,
+        principal: Principal = Depends(principal_dependency)) -> dict:
+    """Diagnostico previo; nunca ejecuta ni certifica un cierre."""
+    context = company_context(request, principal, company_id)
+    require(context, "report.read")
+    if request.app.state.settings.real_data_enabled:
+        raise ProblemError(problem(
+            "close-readiness-disabled", "Close readiness unavailable", 503,
+            "close readiness is enabled only for synthetic data"))
+    with request.app.state.database.session(
+            company_id=context.company_id,
+            subject_id=principal.subject_id) as connection:
+        try:
+            result = close_readiness.list_close_readiness(
+                connection, limit=limit)
+        except close_readiness.CloseReadinessError as error:
+            raise ProblemError(problem(
+                error.code, "Close readiness request invalid", 422,
+                error.detail)) from None
+        repository.record_audit(
+            connection, subject_id=principal.subject_id,
+            company_id=context.company_id, action="close.readiness.read",
+            resource_kind="company", resource_ref=context.company_id,
+            outcome="allowed", detail={
+                "limit": result["limit"],
+                "periods_returned": result["period_count"],
+                "sources_returned": result["source_count"],
+            })
+    return result
+
+
+# --------------------------------------------------------------------------- #
+# Expediente de revision previa al cierre (FNC-CLS-005)
+# --------------------------------------------------------------------------- #
+
+def _close_review_synthetic_only(request: Request) -> None:
+    if request.app.state.settings.real_data_enabled:
+        raise ProblemError(problem(
+            "close-review-disabled", "Close review unavailable", 503,
+            "close review is enabled only for synthetic data"))
+
+
+def _close_review_problem(error: close_review.CloseReviewError) -> ProblemError:
+    if error.code in {"close-review-packet-unavailable"}:
+        return forbidden()
+    conflict_codes = {
+        "close-review-idempotency-conflict",
+        "close-review-segregation-of-duties",
+        "close-review-reviewer-ineligible",
+        "close-review-evidence-stale",
+        "close-review-evidence-blocked",
+        "close-review-already-decided",
+    }
+    status = 409 if error.code in conflict_codes else 422
+    return ProblemError(problem(
+        error.code, "Close review request rejected", status, error.detail))
+
+
+@router.get("/companies/{company_id}/close-review/reviewers",
+            tags=["close-review"])
+def list_close_reviewers(
+        request: Request, company_id: str,
+        principal: Principal = Depends(principal_dependency)) -> list[dict]:
+    context = company_context(request, principal, company_id)
+    require(context, "close.prepare")
+    _close_review_synthetic_only(request)
+    with request.app.state.database.session(
+            company_id=context.company_id,
+            subject_id=principal.subject_id) as connection:
+        result = close_review.eligible_reviewers(
+            connection, company_id=context.company_id)
+        repository.record_audit(
+            connection, subject_id=principal.subject_id,
+            company_id=context.company_id, action="close.review.reviewer.list",
+            resource_kind="company", resource_ref=context.company_id,
+            outcome="allowed", detail={"candidates": len(result)})
+    return result
+
+
+@router.get("/companies/{company_id}/close-review/packets",
+            tags=["close-review"])
+def list_close_review_packets(
+        request: Request, company_id: str,
+        period_start: str | None = None, period_end: str | None = None,
+        limit: int = close_review.DEFAULT_LIMIT,
+        principal: Principal = Depends(principal_dependency)) -> dict:
+    context = company_context(request, principal, company_id)
+    require(context, "report.read")
+    _close_review_synthetic_only(request)
+    with request.app.state.database.session(
+            company_id=context.company_id,
+            subject_id=principal.subject_id) as connection:
+        try:
+            result = close_review.list_packets(
+                connection, limit=limit, period_start=period_start,
+                period_end=period_end)
+        except close_review.CloseReviewError as error:
+            raise _close_review_problem(error) from None
+        repository.record_audit(
+            connection, subject_id=principal.subject_id,
+            company_id=context.company_id, action="close.review.packet.list",
+            resource_kind="company", resource_ref=context.company_id,
+            outcome="allowed", detail={
+                "returned": len(result["items"]),
+                "has_more": result["has_more"],
+            })
+    return result
+
+
+@router.post("/companies/{company_id}/close-review/packets",
+             tags=["close-review"], status_code=201)
+def prepare_close_review_packet(
+        request: Request, response: Response, company_id: str,
+        body: CloseReviewPrepareRequest,
+        principal: Principal = Depends(principal_dependency)) -> dict:
+    context = company_context(request, principal, company_id)
+    require(context, "close.prepare")
+    _close_review_synthetic_only(request)
+    key = request.headers.get("idempotency-key", "")
+    refusal: close_review.CloseReviewError | None = None
+    result: dict[str, object] | None = None
+    with request.app.state.database.session(
+            company_id=context.company_id,
+            subject_id=principal.subject_id) as connection:
+        try:
+            result = close_review.prepare_packet(
+                connection, company_id=context.company_id,
+                actor_id=principal.subject_id, idempotency_key=key,
+                period_start=body.period_start.isoformat(),
+                period_end=body.period_end.isoformat(),
+                assigned_reviewer_id=str(body.assigned_reviewer_id))
+        except close_review.CloseReviewError as error:
+            refusal = error
+            repository.record_audit(
+                connection, subject_id=principal.subject_id,
+                company_id=context.company_id, action="close.review.prepare",
+                resource_kind="close_review_packet", resource_ref="unmaterialized",
+                outcome="denied", detail={"reason": error.code})
+    if refusal is not None:
+        raise _close_review_problem(refusal)
+    if result is None:
+        raise RuntimeError("close review prepare completed without a result")
+    if result["replayed"]:
+        response.status_code = 200
+    return result
+
+
+@router.post("/companies/{company_id}/close-review/packets/{packet_id}/decision",
+             tags=["close-review"], status_code=201)
+def decide_close_review_packet(
+        request: Request, response: Response, company_id: str, packet_id: str,
+        body: CloseReviewDecisionRequest,
+        principal: Principal = Depends(principal_dependency)) -> dict:
+    context = company_context(request, principal, company_id)
+    require(context, "close.approve")
+    _close_review_synthetic_only(request)
+    key = request.headers.get("idempotency-key", "")
+    refusal: close_review.CloseReviewError | None = None
+    result: dict[str, object] | None = None
+    with request.app.state.database.session(
+            company_id=context.company_id,
+            subject_id=principal.subject_id) as connection:
+        try:
+            result = close_review.decide_packet(
+                connection, company_id=context.company_id,
+                actor_id=principal.subject_id, idempotency_key=key,
+                packet_id=packet_id, decision=body.decision,
+                reason_code=body.reason_code)
+        except close_review.CloseReviewError as error:
+            refusal = error
+            reference = packet_id if len(packet_id) <= 80 else "invalid"
+            audit_action = (
+                f"close.review.{body.decision}"
+                if body.decision in close_review.DECISION_REASONS
+                else "close.review.decision"
+            )
+            repository.record_audit(
+                connection, subject_id=principal.subject_id,
+                company_id=context.company_id,
+                action=audit_action,
+                resource_kind="close_review_packet", resource_ref=reference,
+                outcome="denied", detail={"reason": error.code})
+    if refusal is not None:
+        raise _close_review_problem(refusal)
+    if result is None:
+        raise RuntimeError("close review decision completed without a result")
+    if result["replayed"]:
+        response.status_code = 200
+    return result
+
+
+# --------------------------------------------------------------------------- #
+# Observaciones canonicas de saldo (FNC-CLS-002)
+# --------------------------------------------------------------------------- #
+
+class BalanceRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    source_record_id: str = Field(min_length=1, max_length=64)
+    balance_type: str = Field(min_length=1, max_length=32)
+    amount_field_index: int = Field(ge=0, le=2047)
+    as_of_field_index: int = Field(ge=0, le=2047)
+
+
+class CompletenessAssessmentRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    expectation_id: str = Field(min_length=36, max_length=36)
+
+
+class ReconciliationStatementRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    bank_balance_id: str = Field(min_length=36, max_length=36)
+    books_balance_id: str = Field(min_length=36, max_length=36)
+    assessment_ids: list[str] = Field(min_length=1, max_length=1000)
+
+
+class ReconcilingItemRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    amount: object
+    adjustment_side: str = Field(min_length=3, max_length=32)
+    reason_code: str = Field(min_length=3, max_length=64)
+    evidence_source_record_ids: list[str] = Field(min_length=1, max_length=50)
+
+
+class ReconcilingItemDecisionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    decision: str = Field(min_length=7, max_length=16)
+
+
+def _balance_synthetic_only(request: Request) -> None:
+    if request.app.state.settings.real_data_enabled:
+        raise ProblemError(problem(
+            "account-balances-disabled", "Account balances unavailable", 503,
+            "account balances are enabled only for synthetic data"))
+
+
+def _balance_problem(error: balances.BalanceError) -> ProblemError:
+    if error.code == "balance-evidence-unavailable":
+        return forbidden()
+    status = 409 if error.code == "balance-observation-conflict" else 422
+    return ProblemError(problem(
+        error.code, "The balance observation cannot be applied", status,
+        error.detail))
+
+
+@router.get("/companies/{company_id}/balances", tags=["balances"])
+def list_account_balances(
+        request: Request, company_id: str, limit: int = balances.DEFAULT_LIMIT,
+        principal: Principal = Depends(principal_dependency)) -> dict:
+    context = company_context(request, principal, company_id)
+    require(context, "movement.read")
+    _balance_synthetic_only(request)
+    with request.app.state.database.session(
+            company_id=context.company_id,
+            subject_id=principal.subject_id) as connection:
+        try:
+            result = balances.list_balances(connection, limit=limit)
+        except balances.BalanceError as error:
+            raise _balance_problem(error) from None
+    return result
+
+
+@router.get("/companies/{company_id}/balances/evidence", tags=["balances"])
+def list_balance_evidence(
+        request: Request, company_id: str,
+        limit: int = balances.DEFAULT_EVIDENCE_LIMIT,
+        principal: Principal = Depends(principal_dependency)) -> dict:
+    context = company_context(request, principal, company_id)
+    require(context, "close.prepare")
+    _balance_synthetic_only(request)
+    with request.app.state.database.session(
+            company_id=context.company_id,
+            subject_id=principal.subject_id) as connection:
+        try:
+            result = balances.list_evidence(connection, limit=limit)
+        except balances.BalanceError as error:
+            raise _balance_problem(error) from None
+        repository.record_audit(
+            connection, subject_id=principal.subject_id,
+            company_id=context.company_id, action="balance.evidence.read",
+            resource_kind="company", resource_ref=context.company_id,
+            outcome="allowed", detail={
+                "returned": len(result["items"]),
+                "truncated": result["truncated"],
+            })
+    return result
+
+
+@router.post("/companies/{company_id}/balances", tags=["balances"], status_code=201)
+def create_account_balance(
+        request: Request, response: Response, company_id: str, body: BalanceRequest,
+        principal: Principal = Depends(principal_dependency)) -> dict:
+    context = company_context(request, principal, company_id)
+    require(context, "close.prepare")
+    _balance_synthetic_only(request)
+    with request.app.state.database.session(
+            company_id=context.company_id,
+            subject_id=principal.subject_id) as connection:
+        try:
+            result = balances.create_balance(
+                connection, company_id=context.company_id,
+                subject_id=principal.subject_id,
+                source_record_id=body.source_record_id,
+                balance_type=body.balance_type,
+                amount_field_index=body.amount_field_index,
+                as_of_field_index=body.as_of_field_index)
+        except balances.BalanceError as error:
+            raise _balance_problem(error) from None
+        repository.record_audit(
+            connection, subject_id=principal.subject_id,
+            company_id=context.company_id, action="balance.observe",
+            resource_kind="account_balance", resource_ref=result["balance_id"],
+            outcome="allowed", detail={
+                "balance_type": result["balance_type"],
+                "currency_code": result["currency_code"],
+                "amount_field_index": result["amount_field_index"],
+                "as_of_field_index": result["as_of_field_index"],
+                "lineage_state": result["lineage_state"],
+                "replayed": result["replayed"],
+            })
+    if result["replayed"]:
+        response.status_code = 200
+    return result
+
+
+# --------------------------------------------------------------------------- #
+# Estados diagnosticos de conciliacion de saldos (FNC-CLS-003)
+# --------------------------------------------------------------------------- #
+
+def _balance_reconciliation_synthetic_only(request: Request) -> None:
+    if request.app.state.settings.real_data_enabled:
+        raise ProblemError(problem(
+            "balance-reconciliation-disabled", "Balance reconciliation unavailable",
+            503, "balance reconciliation is enabled only for synthetic data"))
+
+
+def _balance_reconciliation_problem(
+        error: balance_reconciliation.ReconciliationError) -> ProblemError:
+    if error.code.endswith("unavailable"):
+        return forbidden()
+    status = 409 if (error.code.endswith("conflict")
+                     or error.code == "reconciling-item-sod-conflict") else 422
+    return ProblemError(problem(
+        error.code, "The reconciliation request cannot be applied", status,
+        error.detail))
+
+
+@router.get("/companies/{company_id}/balance-reconciliation",
+            tags=["balance-reconciliation"])
+def get_balance_reconciliation_workspace(
+        request: Request, company_id: str,
+        limit: int = balance_reconciliation.DEFAULT_LIMIT,
+        principal: Principal = Depends(principal_dependency)) -> dict:
+    context = company_context(request, principal, company_id)
+    require(context, "movement.read")
+    _balance_reconciliation_synthetic_only(request)
+    with request.app.state.database.session(
+            company_id=context.company_id,
+            subject_id=principal.subject_id) as connection:
+        try:
+            result = balance_reconciliation.list_workspace(connection, limit=limit)
+        except balance_reconciliation.ReconciliationError as error:
+            raise _balance_reconciliation_problem(error) from None
+    return result
+
+
+@router.post("/companies/{company_id}/balance-reconciliation/assessments",
+             tags=["balance-reconciliation"], status_code=201)
+def create_completeness_assessment(
+        request: Request, response: Response, company_id: str,
+        body: CompletenessAssessmentRequest,
+        principal: Principal = Depends(principal_dependency)) -> dict:
+    context = company_context(request, principal, company_id)
+    require(context, "close.prepare")
+    _balance_reconciliation_synthetic_only(request)
+    with request.app.state.database.session(
+            company_id=context.company_id,
+            subject_id=principal.subject_id) as connection:
+        try:
+            result = balance_reconciliation.create_assessment(
+                connection, company_id=context.company_id,
+                subject_id=principal.subject_id,
+                expectation_id=body.expectation_id)
+        except balance_reconciliation.ReconciliationError as error:
+            raise _balance_reconciliation_problem(error) from None
+        repository.record_audit(
+            connection, subject_id=principal.subject_id,
+            company_id=context.company_id, action="completeness.assess",
+            resource_kind="completeness_assessment",
+            resource_ref=result["assessment_id"], outcome="allowed", detail={
+                "state": result["state"],
+                "lineage_state": result["lineage_state"],
+                "control_count": len(result["controls"]),
+                "replayed": result["replayed"],
+            })
+    if result["replayed"]:
+        response.status_code = 200
+    return result
+
+
+@router.post("/companies/{company_id}/balance-reconciliation/statements",
+             tags=["balance-reconciliation"], status_code=201)
+def create_balance_reconciliation_statement(
+        request: Request, response: Response, company_id: str,
+        body: ReconciliationStatementRequest,
+        principal: Principal = Depends(principal_dependency)) -> dict:
+    context = company_context(request, principal, company_id)
+    require(context, "close.prepare")
+    _balance_reconciliation_synthetic_only(request)
+    with request.app.state.database.session(
+            company_id=context.company_id,
+            subject_id=principal.subject_id) as connection:
+        try:
+            result = balance_reconciliation.create_statement(
+                connection, company_id=context.company_id,
+                subject_id=principal.subject_id,
+                bank_balance_id=body.bank_balance_id,
+                books_balance_id=body.books_balance_id,
+                assessment_ids=body.assessment_ids)
+        except balance_reconciliation.ReconciliationError as error:
+            raise _balance_reconciliation_problem(error) from None
+        repository.record_audit(
+            connection, subject_id=principal.subject_id,
+            company_id=context.company_id, action="balance_reconciliation.evaluate",
+            resource_kind="reconciliation_statement",
+            resource_ref=result["statement_id"], outcome="allowed", detail={
+                "state": result["state"], "version": result["version"],
+                "lineage_state": result["lineage_state"],
+                "assessment_count": len(result["completeness_assessment_ids"]),
+                "confirmed_item_count": len(result["confirmed_reconciling_item_ids"]),
+                "replayed": result["replayed"],
+            })
+    if result["replayed"]:
+        response.status_code = 200
+    return result
+
+
+@router.get(
+    "/companies/{company_id}/balance-reconciliation/statements/"
+    "{statement_id}/lineage",
+    tags=["balance-reconciliation"],
+)
+def get_balance_reconciliation_statement_lineage(
+        request: Request, company_id: str, statement_id: str,
+        principal: Principal = Depends(principal_dependency)) -> dict:
+    context = company_context(request, principal, company_id)
+    require(context, "movement.read")
+    _balance_reconciliation_synthetic_only(request)
+    with request.app.state.database.session(
+            company_id=context.company_id,
+            subject_id=principal.subject_id) as connection:
+        try:
+            result = financial_lineage.explain_statement(
+                connection, statement_id=statement_id)
+        except financial_lineage.LineageError:
+            raise forbidden() from None
+        repository.record_audit(
+            connection, subject_id=principal.subject_id,
+            company_id=context.company_id,
+            action="financial_lineage.read",
+            resource_kind="reconciliation_statement",
+            resource_ref=result["statement_id"], outcome="allowed", detail={
+                "lineage_state": result["lineage_state"],
+                "input_count": len(result["inputs"]),
+            })
+    return result
+
+
+@router.post(
+    "/companies/{company_id}/balance-reconciliation/statements/"
+    "{statement_root_id}/items", tags=["balance-reconciliation"], status_code=201)
+def create_reconciling_item(
+        request: Request, company_id: str, statement_root_id: str,
+        body: ReconcilingItemRequest,
+        principal: Principal = Depends(principal_dependency)) -> dict:
+    context = company_context(request, principal, company_id)
+    require(context, "close.prepare")
+    _balance_reconciliation_synthetic_only(request)
+    if not isinstance(body.amount, str):
+        raise _balance_reconciliation_problem(
+            balance_reconciliation.ReconciliationError(
+                "reconciling-item-invalid", "amount must be an exact decimal string"))
+    with request.app.state.database.session(
+            company_id=context.company_id,
+            subject_id=principal.subject_id) as connection:
+        try:
+            result = balance_reconciliation.create_item(
+                connection, company_id=context.company_id,
+                subject_id=principal.subject_id,
+                statement_root_id=statement_root_id, amount=body.amount,
+                adjustment_side=body.adjustment_side, reason_code=body.reason_code,
+                evidence_source_record_ids=body.evidence_source_record_ids)
+        except balance_reconciliation.ReconciliationError as error:
+            raise _balance_reconciliation_problem(error) from None
+        repository.record_audit(
+            connection, subject_id=principal.subject_id,
+            company_id=context.company_id, action="reconciling_item.propose",
+            resource_kind="reconciling_item", resource_ref=result["item_root_id"],
+            outcome="allowed", detail={
+                "adjustment_side": result["adjustment_side"],
+                "reason_code": result["reason_code"],
+                "evidence_count": len(body.evidence_source_record_ids),
+                "state": result["state"],
+            })
+    return result
+
+
+@router.post(
+    "/companies/{company_id}/balance-reconciliation/items/{item_root_id}/decisions",
+    tags=["balance-reconciliation"], status_code=201)
+def decide_reconciling_item(
+        request: Request, response: Response, company_id: str, item_root_id: str,
+        body: ReconcilingItemDecisionRequest,
+        principal: Principal = Depends(principal_dependency)) -> dict:
+    context = company_context(request, principal, company_id)
+    require(context, "close.approve")
+    _balance_reconciliation_synthetic_only(request)
+    with request.app.state.database.session(
+            company_id=context.company_id,
+            subject_id=principal.subject_id) as connection:
+        try:
+            result = balance_reconciliation.decide_item(
+                connection, company_id=context.company_id,
+                subject_id=principal.subject_id, item_root_id=item_root_id,
+                decision=body.decision)
+        except balance_reconciliation.ReconciliationError as error:
+            raise _balance_reconciliation_problem(error) from None
+        repository.record_audit(
+            connection, subject_id=principal.subject_id,
+            company_id=context.company_id, action="reconciling_item.decide",
+            resource_kind="reconciling_item", resource_ref=result["item_root_id"],
+            outcome="allowed", detail={
+                "decision": result["state"],
+                "decision_version": result["decision_version"],
+                "replayed": result["replayed"],
+            })
+    if result["replayed"]:
+        response.status_code = 200
+    return result
+
+
+def _quality_synthetic_only(request: Request) -> None:
+    if request.app.state.settings.real_data_enabled:
+        raise ProblemError(problem(
+            "quality-center-disabled", "Quality center unavailable", 503,
+            "quality evaluation is enabled only for synthetic data"))
+
+
+def _quality_problem(error: quality.QualityError) -> ProblemError:
+    if error.code == "quality-issue-unavailable":
+        return forbidden()
+    status = 409 if error.code == "quality-issue-terminal" else 422
+    return ProblemError(problem(
+        error.code, "Quality request rejected", status, error.detail))
+
+
+@router.post("/companies/{company_id}/quality/scan", tags=["quality"])
+def scan_quality_issues(
+        request: Request, company_id: str,
+        principal: Principal = Depends(principal_dependency)) -> dict:
+    """Ejecuta reglas exactas y acotadas; nunca afirma fraude."""
+    context = company_context(request, principal, company_id)
+    require(context, "quality.manage")
+    _quality_synthetic_only(request)
+    with request.app.state.database.session(
+            company_id=context.company_id,
+            subject_id=principal.subject_id) as connection:
+        return quality.scan(
+            connection, company_id=context.company_id,
+            actor_id=principal.subject_id)
+
+
+@router.get("/companies/{company_id}/quality/issues", tags=["quality"])
+def quality_issues(
+        request: Request, company_id: str, status: str = "open",
+        severity: str = "all", rule: str = "all", offset: int = 0,
+        limit: int = quality.DEFAULT_LIMIT,
+        principal: Principal = Depends(principal_dependency)) -> dict:
+    context = company_context(request, principal, company_id)
+    require(context, "quality.read")
+    _quality_synthetic_only(request)
+    with request.app.state.database.session(
+            company_id=context.company_id,
+            subject_id=principal.subject_id) as connection:
+        try:
+            result = quality.list_issues(
+                connection, status=status, severity=severity, rule=rule,
+                offset=offset, limit=limit)
+        except quality.QualityError as error:
+            raise _quality_problem(error) from None
+        repository.record_audit(
+            connection, subject_id=principal.subject_id,
+            company_id=context.company_id, action="quality.issues.read",
+            resource_kind="company", resource_ref=context.company_id,
+            outcome="allowed", detail={
+                "status": status, "severity": severity, "rule": rule,
+                "returned": len(result["items"]),
+                "truncated": result["truncated"],
+            })
+    return result
+
+
+@router.patch("/companies/{company_id}/quality/issues/{issue_id}", tags=["quality"])
+def triage_quality_issue(
+        request: Request, company_id: str, issue_id: str,
+        body: QualityTriageRequest,
+        principal: Principal = Depends(principal_dependency)) -> dict:
+    context = company_context(request, principal, company_id)
+    require(context, "quality.manage")
+    _quality_synthetic_only(request)
+    with request.app.state.database.session(
+            company_id=context.company_id,
+            subject_id=principal.subject_id) as connection:
+        try:
+            return quality.triage(
+                connection, company_id=context.company_id,
+                actor_id=principal.subject_id, issue_id=issue_id,
+                status=body.status, reason_code=body.reason_code,
+                rationale=body.rationale)
+        except quality.QualityError as error:
+            raise _quality_problem(error) from None
+
+
+def _report_synthetic_only(request: Request) -> None:
+    if request.app.state.settings.real_data_enabled:
+        raise ProblemError(problem(
+            "report-center-disabled", "Report center unavailable", 503,
+            "operational reports are enabled only for synthetic data"))
+
+
+def _report_problem(error: reports.ReportError) -> ProblemError:
+    return ProblemError(problem(
+        error.code, "Report request invalid", 422, error.detail))
+
+
+def _build_operational_report(request: Request, principal: Principal,
+                              company_id: str, days: int,
+                              as_of: dt.date | None, action: str) -> tuple[dict, TenantContext]:
+    context = company_context(request, principal, company_id)
+    require(context, "report.read" if action == "read" else "report.export")
+    _report_synthetic_only(request)
+    with request.app.state.database.session(
+            company_id=context.company_id,
+            subject_id=principal.subject_id) as connection:
+        try:
+            result = reports.operational_report(
+                connection, days=days, as_of=as_of)
+        except reports.ReportError as error:
+            raise _report_problem(error) from None
+        repository.record_audit(
+            connection, subject_id=principal.subject_id,
+            company_id=context.company_id, action=f"report.operational.{action}",
+            resource_kind="company", resource_ref=context.company_id,
+            outcome="allowed", detail={
+                "days": result["range"]["days"],
+                "start": result["range"]["start"],
+                "end": result["range"]["end"],
+                "series_rows": len(result["money_series"]),
+            })
+    return result, context
+
+
+@router.get("/companies/{company_id}/reports/operational", tags=["reports"])
+def operational_report(
+        request: Request, company_id: str, days: int = 90,
+        as_of: dt.date | None = None,
+        principal: Principal = Depends(principal_dependency)) -> dict:
+    """Historico operativo exacto; no es balance, cierre ni certificacion."""
+    result, _ = _build_operational_report(
+        request, principal, company_id, days, as_of, "read")
+    return result
+
+
+@router.get("/companies/{company_id}/reports/operational.csv", tags=["reports"])
+def export_operational_report(
+        request: Request, company_id: str, days: int = 90,
+        as_of: dt.date | None = None,
+        principal: Principal = Depends(principal_dependency)) -> Response:
+    """La serie visible, en CSV determinista y sin nombres aportados por usuarios."""
+    result, _ = _build_operational_report(
+        request, principal, company_id, days, as_of, "export")
+    filename = f"fincilia-informe-{result['range']['end']}-{days}d.csv"
+    return Response(
+        content=reports.report_csv(result), media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"',
+                 "X-Content-Type-Options": "nosniff"})
+
+
 @router.get("/companies/{company_id}/assignees", tags=["onboarding"])
 def list_assignees(request: Request, company_id: str,
                    principal: Principal = Depends(principal_dependency)) -> list[dict]:
@@ -1484,3 +2711,134 @@ def list_assignees(request: Request, company_id: str,
             resource_kind="company", resource_ref=context.company_id,
             outcome="allowed", detail={"candidates": len(people)})
     return people
+
+
+def _access_problem(error: access.AccessManagementError) -> ProblemError:
+    status = 409 if error.code in {
+        "self-role-change", "last-owner", "authorization-missing"
+    } else 422
+    return ProblemError(problem(
+        error.code, "Role change rejected", status, error.detail))
+
+
+@router.get("/companies/{company_id}/members", tags=["access"])
+def list_company_members(
+        request: Request, company_id: str,
+        principal: Principal = Depends(principal_dependency)) -> list[dict]:
+    """Miembros de la firma delegada, sin correo ni identidad externa."""
+    context = company_context(request, principal, company_id)
+    require(context, "member.manage")
+    database = request.app.state.database
+    with database.session(company_id=context.company_id,
+                          subject_id=principal.subject_id) as connection:
+        members = access.list_members(connection, context.company_id)
+        repository.record_audit(
+            connection, subject_id=principal.subject_id,
+            company_id=context.company_id, action="member.list",
+            resource_kind="company", resource_ref=context.company_id,
+            outcome="allowed", detail={"members": len(members)})
+    return members
+
+
+def _change_member_role(
+        *, request: Request, company_id: str, subject_id: str,
+        body: RoleChangeRequest, principal: Principal, operation: str) -> dict:
+    context = company_context(request, principal, company_id)
+    require(context, "member.manage")
+    database = request.app.state.database
+    role_error: access.AccessManagementError | None = None
+    result: dict | None = None
+    version = context.authorization_version
+    with database.session(company_id=context.company_id,
+                          subject_id=principal.subject_id) as connection:
+        try:
+            if operation == "grant":
+                result = access.grant_role(
+                    connection, company_id=context.company_id,
+                    actor_id=principal.subject_id, actor_roles=context.roles,
+                    subject_id=subject_id, role=body.role,
+                    reason_code=body.reason_code)
+            else:
+                result = access.revoke_role(
+                    connection, company_id=context.company_id,
+                    actor_id=principal.subject_id, actor_roles=context.roles,
+                    subject_id=subject_id, role=body.role,
+                    reason_code=body.reason_code)
+        except access.AccessManagementError as error:
+            # No se audita dentro de esta transaccion: al devolver un problema,
+            # el rollback borraria justo la negativa que hay que conservar.
+            role_error = error
+        if role_error is None and result is not None:
+            if result["changed"]:
+                version = repository.bump_authorization_version(
+                    connection, context.company_id)
+            repository.record_audit(
+                connection, subject_id=principal.subject_id,
+                company_id=context.company_id,
+                action=f"member.role.{operation}", resource_kind="subject",
+                resource_ref=result["subject_id"], outcome="allowed",
+                detail={
+                    "role": result["role"],
+                    "reason_code": body.reason_code,
+                    "changed": result["changed"],
+                    "replayed": result["replayed"],
+                    "authorization_version": version,
+                })
+    if role_error is not None:
+        try:
+            opaque_target = str(uuid.UUID(subject_id))
+        except (ValueError, TypeError, AttributeError):
+            opaque_target = "invalid-member-reference"
+        detail = {"reason": role_error.code}
+        if body.role in access.ROLES:
+            detail["role"] = body.role
+        if body.reason_code in access.REASON_CODES:
+            detail["reason_code"] = body.reason_code
+        with database.session(company_id=context.company_id,
+                              subject_id=principal.subject_id) as connection:
+            repository.record_audit(
+                connection, subject_id=principal.subject_id,
+                company_id=context.company_id,
+                action=f"member.role.{operation}", resource_kind="subject",
+                resource_ref=opaque_target, outcome="denied", detail=detail)
+        if role_error.code == "protected-role":
+            raise forbidden() from None
+        raise _access_problem(role_error) from None
+    if result is None:  # Defensa ante una ampliacion que olvide producir resultado.
+        raise ProblemError(problem(
+            "role-change-failed", "Role change failed", 500,
+            "the role change did not produce a result"))
+    refreshed_session = None
+    if result["changed"]:
+        settings = request.app.state.settings
+        now = int(time.time())
+        refreshed_session = {
+            "token": issue(
+                principal.subject_id, key=settings.auth_signing_key,
+                issuer=settings.auth_issuer, audience=settings.auth_audience,
+                issued_at=now, ttl_seconds=settings.auth_token_ttl_seconds),
+            "expires_at": now + settings.auth_token_ttl_seconds,
+            "display_name": principal.display_name,
+        }
+    return {**result, "authorization_version": version,
+            "refreshed_session": refreshed_session}
+
+
+@router.post("/companies/{company_id}/members/{subject_id}/roles", tags=["access"])
+def grant_company_role(
+        request: Request, company_id: str, subject_id: str,
+        body: RoleChangeRequest,
+        principal: Principal = Depends(principal_dependency)) -> dict:
+    return _change_member_role(
+        request=request, company_id=company_id, subject_id=subject_id,
+        body=body, principal=principal, operation="grant")
+
+
+@router.delete("/companies/{company_id}/members/{subject_id}/roles", tags=["access"])
+def revoke_company_role(
+        request: Request, company_id: str, subject_id: str,
+        body: RoleChangeRequest,
+        principal: Principal = Depends(principal_dependency)) -> dict:
+    return _change_member_role(
+        request=request, company_id=company_id, subject_id=subject_id,
+        body=body, principal=principal, operation="revoke")

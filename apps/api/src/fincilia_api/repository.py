@@ -202,27 +202,59 @@ def record_audit(connection: psycopg.Connection, *, subject_id: str | None,
     return event_id
 
 
-def list_audit(connection: psycopg.Connection, *, limit: int = 50) -> list[dict]:
+def list_audit_page(connection: psycopg.Connection, *, limit: int = 50,
+                    action: str | None = None, outcome: str | None = None,
+                    resource_kind: str | None = None,
+                    before: tuple[object, str] | None = None) -> tuple[list[dict], bool]:
     """Ultimos eventos **del alcance ya fijado**; no recibe `company_id`.
 
     Pasar la empresa por parametro invitaria a filtrar en Python lo que ya filtra
     la politica, y a que alguien la pasara distinta del contexto.
     """
-    bounded = max(1, min(int(limit), 200))
+    bounded = max(1, min(int(limit), 100))
+    where = ["event.company_id IS NOT NULL"]
+    params: list[object] = []
+    if action is not None:
+        where.append("event.action = %s")
+        params.append(action)
+    if outcome is not None:
+        where.append("event.outcome = %s")
+        params.append(outcome)
+    if resource_kind is not None:
+        where.append("event.resource_kind = %s")
+        params.append(resource_kind)
+    if before is not None:
+        where.append("(event.occurred_at, event.audit_event_id) < (%s, %s)")
+        params.extend(before)
+    params.append(bounded + 1)
     with connection.cursor() as cursor:
         cursor.execute(
-            "SELECT audit_event_id::text, action, resource_kind, resource_ref, "
-            "outcome, occurred_at, detail FROM fincilia.audit_event "
+            "SELECT event.audit_event_id::text, event.action, "
+            "event.resource_kind, event.resource_ref, event.outcome, "
+            "event.occurred_at, event.detail, event.subject_id::text, "
+            "subject_row.display_name FROM fincilia.audit_event event "
+            "LEFT JOIN fincilia.subject subject_row "
+            "  ON subject_row.subject_id = event.subject_id "
             # La politica deja ver dos conjuntos disjuntos: los eventos de esta
             # empresa y los de plataforma del propio sujeto, que no tienen
             # empresa. Un inicio de sesion no pertenece al registro de una
             # empresa, asi que aqui se piden solo los que si.
-            "WHERE company_id IS NOT NULL "
-            "ORDER BY occurred_at DESC, audit_event_id LIMIT %s", (bounded,))
+            f"WHERE {' AND '.join(where)} "
+            "ORDER BY event.occurred_at DESC, event.audit_event_id DESC LIMIT %s",
+            params)
         rows = cursor.fetchall()
-    return [{"audit_event_id": row[0], "action": row[1], "resource_kind": row[2],
+    has_more = len(rows) > bounded
+    rows = rows[:bounded]
+    return ([{"audit_event_id": row[0], "action": row[1], "resource_kind": row[2],
              "resource_ref": row[3], "outcome": row[4],
-             "occurred_at": row[5].isoformat(), "detail": row[6]} for row in rows]
+             "occurred_at": row[5].isoformat(), "detail": row[6],
+             "subject_id": row[7], "actor_name": row[8] or "Sistema"}
+            for row in rows], has_more)
+
+
+def list_audit(connection: psycopg.Connection, *, limit: int = 50) -> list[dict]:
+    events, _has_more = list_audit_page(connection, limit=limit)
+    return events
 
 
 # --------------------------------------------------------------------------- #
@@ -327,7 +359,7 @@ def list_artifacts(connection: psycopg.Connection, *, limit: int = 50) -> list[A
 
 
 def enqueue_run(connection: psycopg.Connection, *, company_id: str,
-                artifact_id: str, kind: str) -> str:
+                artifact_id: str, kind: str, issued_context_id: str) -> str:
     """Encola un trabajo a traves de la funcion de despacho.
 
     La API **no tiene ningun privilegio** sobre `fincilia.dispatch_pointer`: la
@@ -341,8 +373,8 @@ def enqueue_run(connection: psycopg.Connection, *, company_id: str,
     """
     with connection.cursor() as cursor:
         cursor.execute(
-            "SELECT fincilia.enqueue_processing_run(%s, %s, %s)::text",
-            (company_id, artifact_id, kind))
+            "SELECT fincilia.enqueue_processing_run(%s, %s, %s, %s)::text",
+            (company_id, artifact_id, kind, issued_context_id))
         row = cursor.fetchone()
     return row[0] if row else ""
 
