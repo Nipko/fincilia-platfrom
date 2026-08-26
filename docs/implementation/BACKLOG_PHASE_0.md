@@ -130,7 +130,7 @@ dependencias de `FNC-GAT-002` ni afirmar que Sprint 1 está habilitado.
 | FNC-REC-003 | A5/A6 | REC-002, WEB-003 | Review pending | Bandeja multiempresa company-by-company para priorizar revisiones sin agregar importes ni decidir fuera del expediente |
 | FNC-REC-004 | A5/A6 | REC-002, REC-003 | Review pending | Exclusividad uno-a-uno de confirmaciones bajo concurrencia, sin efecto financiero ni cierre |
 | FNC-REC-005 | A5/A6 | REC-004, DOM-003, DOM-005 | Review pending | Borradores manuales 1:N/N:1 de movimientos completos, append-only, idempotentes y sin asignaciones ni efecto financiero; revisión independiente pendiente |
-| FNC-REC-006 | A5/A6 | REC-002, REC-003 | In progress | Expediente append-only consultable por ID estable aunque su dataset ya no sea elegible o el candidato no esté en la página visible |
+| FNC-REC-006 | A5/A6 | REC-002, REC-003 | Review pending | Expediente append-only consultable por ID estable aunque su dataset ya no sea elegible o el candidato no esté en la página visible; revisión independiente pendiente |
 | FNC-CLS-001 | A5/A6 | OPS-001, DQ-001, RPT-001, REC-004 | Review pending | Diagnostico company-scoped por periodo de evidencia y bloqueos; nunca ejecuta ni certifica cierre |
 | FNC-CLS-002 | A5/A6 | CLS-001, DOM-002, DOM-003, DOM-005 | Review pending | Observaciones canonicas e inmutables de saldo por cuenta con evidencia visible; linaje completo y revision independiente pendientes |
 | FNC-CLS-003 | A5/A6 | CLS-002, DOM-003, DOM-005, REC-004 | Review pending | Assessments, partidas conciliatorias y statements reproducibles verificados; sin excepcion aceptada, snapshot ni cierre productivo |

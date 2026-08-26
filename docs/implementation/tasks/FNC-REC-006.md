@@ -1,7 +1,7 @@
 ---
 id: FNC-REC-006
 title: Expediente histórico de conciliación direccionable y company-scoped
-status: in_progress
+status: review_pending
 implementer: Codex principal dev + Integration Steward
 base_sha: 9dd1759817cbc91cc61a8ee117df920c3be37984
 gate: S1-READY
