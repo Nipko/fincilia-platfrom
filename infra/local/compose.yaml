@@ -269,6 +269,8 @@ services:
       - no-new-privileges:true
     tmpfs:
       - /tmp
+    volumes:
+      - ./scripts:/checks:ro
     networks:
       - fincilia_local_private
     labels:

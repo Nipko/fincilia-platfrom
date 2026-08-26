@@ -12,6 +12,7 @@ $WslExe = Join-Path $env:SystemRoot 'System32\wsl.exe'
 $Lifecycle = 'infra/local/test-web-isolated.sh'
 $WebRoot = Join-Path $RepositoryRoot 'apps\web'
 $BaseUrl = 'http://127.0.0.1:53100'
+$ApiUrl = 'http://127.0.0.1:58180'
 $Npm = Get-Command 'npm.cmd' -ErrorAction SilentlyContinue
 
 function Invoke-WslAction {
@@ -49,6 +50,8 @@ $RunFailure = $null
 $CleanupFailure = $null
 $PreviousBaseUrl = $env:FINCILIA_E2E_BASE_URL
 $HadBaseUrl = Test-Path Env:FINCILIA_E2E_BASE_URL
+$PreviousApiUrl = $env:FINCILIA_E2E_API_URL
+$HadApiUrl = Test-Path Env:FINCILIA_E2E_API_URL
 $StartedAt = [DateTimeOffset]::UtcNow
 
 try {
@@ -76,6 +79,7 @@ try {
     Invoke-WslAction 'up'
     Invoke-WslAction 'assert-isolated'
     $env:FINCILIA_E2E_BASE_URL = $BaseUrl
+    $env:FINCILIA_E2E_API_URL = $ApiUrl
     Invoke-WebSuite 'test:e2e'
     Invoke-WebSuite 'test:a11y'
 }
@@ -96,6 +100,12 @@ finally {
     }
     else {
         Remove-Item Env:FINCILIA_E2E_BASE_URL -ErrorAction SilentlyContinue
+    }
+    if ($HadApiUrl) {
+        $env:FINCILIA_E2E_API_URL = $PreviousApiUrl
+    }
+    else {
+        Remove-Item Env:FINCILIA_E2E_API_URL -ErrorAction SilentlyContinue
     }
 
     if ($null -ne $Keeper -and -not $Keeper.HasExited) {
@@ -118,6 +128,7 @@ if ($null -ne $CleanupFailure) {
     ok = $true
     project = 'fincilia-e2e'
     base_url = $BaseUrl
+    api_url = $ApiUrl
     suites = @('test:e2e', 'test:a11y')
     cleanup_verified = $true
     data_ceiling = 'synthetic_only'

@@ -31,14 +31,17 @@ fallo, de modo que la regresion automatizada no contamine la demo persistente.
 - `infra/local/fincilia-local.ps1`.
 - `infra/local/test-web-isolated.sh`.
 - `infra/local/test-web-isolated.ps1`.
+- `infra/local/scripts/e2e_fixture.py`.
 - `infra/local/README.md`.
+- `apps/web/tests/e2e/quality-center.spec.ts`.
+- `apps/web/tests/e2e/close-readiness.spec.ts`.
 - `docs/platform/isolated-web-runtime.json`.
 - `tools/isolated_web_runtime/**`.
 - Esta ficha, su handoff y registros centrales por Integration Steward.
 
 # Rutas prohibidas
 
-- `apps/api/**`, `apps/web/src/**`, `db/**`, migraciones y seeds.
+- `apps/api/**`, `apps/web/src/**`, `db/**`, migraciones y la semilla de demo.
 - Borrar o recrear volumenes, redes o contenedores de `fincilia-local`.
 - Aceptar datos reales, alterar RLS/SoD/auditoria o fabricar aprobaciones.
 - Mobile, IA, proveedores externos, gates o ADR aceptados.

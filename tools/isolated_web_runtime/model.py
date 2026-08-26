@@ -31,6 +31,7 @@ REQUIRED_PHASES = (
     "dependencies",
     "migrate",
     "synthetic_seed",
+    "acceptance_fixture",
     "applications",
     "readiness",
     "isolation_probe",
@@ -128,6 +129,8 @@ def validate_contract(model: dict[str, Any]) -> list[Finding]:
         ))
     if execution.get("browser_base_url") != "http://127.0.0.1:53100":
         findings.append(Finding("IWR-BASE-URL", "browser must target isolated web port"))
+    if execution.get("api_base_url") != "http://127.0.0.1:58180":
+        findings.append(Finding("IWR-API-URL", "test helpers must target isolated API port"))
     if execution.get("npm_scripts") != ["test:e2e", "test:a11y"]:
         findings.append(Finding("IWR-SUITES", "Chromium and Axe are both mandatory"))
     if execution.get("playwright_workers") != 1:
@@ -151,6 +154,7 @@ def validate_scripts(shell: str, powershell: str, compose: str) -> list[Finding]
         'EXPECTED_PROJECT=fincilia-e2e',
         'compose down --volumes --remove-orphans',
         'python -m db.seed.local',
+        '/checks/e2e_fixture.py',
         '/health/ready',
         'assert_isolated',
         'assert_absent',
@@ -174,6 +178,8 @@ def validate_scripts(shell: str, powershell: str, compose: str) -> list[Finding]
         "test:e2e",
         "test:a11y",
         "http://127.0.0.1:53100",
+        "http://127.0.0.1:58180",
+        "FINCILIA_E2E_API_URL",
         "test-web-isolated.sh",
         "'down'",
         "'assert-clean'",

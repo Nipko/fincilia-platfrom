@@ -24,7 +24,7 @@ test('FNC-DQ-001 evalua y explica calidad sin afirmar fraude', async ({ page }) 
   await page.getByRole('button', { name: 'Evaluar ahora' }).click();
   await expect(page.getByRole('status').filter({ hasText: /Evaluacion completa|ventana segura/ }))
     .toBeVisible();
-  await expect(page.getByText(/senales visibles/i)).toBeVisible();
+  await expect(page.getByText(/^\d+ senales visibles$/i)).toBeVisible();
 });
 
 test('FNC-DQ-001 auditor ve senales pero no obtiene gestion', async ({ page }) => {

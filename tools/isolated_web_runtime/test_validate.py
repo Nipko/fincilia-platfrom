@@ -90,6 +90,10 @@ class ContractTests(unittest.TestCase):
         model = self.mutate("disposable_runtime", "bind_address", "0.0.0.0")
         self.assertIn("IWR-LOOPBACK", codes(validate_contract(model)))
 
+    def test_api_helpers_cannot_fall_back_to_the_demo(self) -> None:
+        model = self.mutate("execution", "api_base_url", "http://127.0.0.1:58080")
+        self.assertIn("IWR-API-URL", codes(validate_contract(model)))
+
     def test_each_cleanup_guarantee_bites(self) -> None:
         targets = (
             ("disposable_runtime", "precleans_exact_project"),
@@ -150,6 +154,7 @@ class EntrypointTests(unittest.TestCase):
                 "compose down --volumes --remove-orphans\npython -m db.seed.local\n"
                 "/health/ready\nassert_isolated\nassert_absent\n")
         powershell = ("finally test:e2e test:a11y http://127.0.0.1:53100 "
+                      "http://127.0.0.1:58180 FINCILIA_E2E_API_URL "
                       "test-web-isolated.sh 'down' 'assert-clean'")
         for resource in ("fincilia_local_pgdata", "fincilia_local_private"):
             with self.subTest(resource=resource):

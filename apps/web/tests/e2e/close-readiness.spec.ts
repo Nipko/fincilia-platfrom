@@ -41,7 +41,16 @@ test('FNC-CLS-004 integra statements sin habilitar un cierre', async ({
   await expect(balances).toBeVisible();
   await expect(balances.getByText('Bloquea')).toBeVisible();
   await page.getByText('Ver cobertura por cuenta', { exact: false }).first().click();
-  await expect(page.getByRole('columnheader', { name: 'Statement' }).first()).toBeVisible();
+  // Una base desechable aun puede no tener cuenta ligada al ciclo del dia. Ese
+  // vacio debe mostrarse como bloqueo explicito; si ya hay cobertura, se exige
+  // la tabla versionada de statements. Ninguna de las dos ramas implica cierre.
+  await expect(
+    page.getByRole('columnheader', { name: 'Statement' }).first().or(
+      page.getByRole('status').filter({
+        hasText: 'No hay cuentas asignadas a las fuentes de este periodo',
+      }),
+    ),
+  ).toBeVisible();
   const lineage = page.locator('summary:visible').filter({ hasText: 'Ver trazabilidad' });
   if (await lineage.count()) {
     await lineage.first().click();

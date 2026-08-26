@@ -130,6 +130,9 @@ up() {
   echo "==> synthetic seed"
   compose --profile migrate run --rm migrate python -m db.seed.local
 
+  echo "==> isolated acceptance fixture"
+  compose --profile migrate run --rm migrate python /checks/e2e_fixture.py
+
   echo "==> isolated applications"
   compose up -d --wait --force-recreate api worker web
 

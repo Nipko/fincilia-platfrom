@@ -52,6 +52,7 @@
       "dependencies",
       "migrate",
       "synthetic_seed",
+      "acceptance_fixture",
       "applications",
       "readiness",
       "isolation_probe",
@@ -61,6 +62,7 @@
       "absence_probe"
     ],
     "browser_base_url": "http://127.0.0.1:53100",
+    "api_base_url": "http://127.0.0.1:58180",
     "npm_scripts": ["test:e2e", "test:a11y"],
     "playwright_workers": 1,
     "cleanup_in_finally": true,
