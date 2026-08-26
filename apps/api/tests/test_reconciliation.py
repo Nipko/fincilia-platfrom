@@ -17,6 +17,7 @@ from fincilia_api.reconciliation import (
     decide_review,
     explore_candidates,
     list_review_queue,
+    propose_group,
     propose_review,
 )
 
@@ -224,6 +225,35 @@ class CandidateQueryTests(unittest.TestCase):
                         candidate_id=LEFT, decision=decision,
                         reason_code=reason)
                 self.assertEqual("review-decision-invalid", raised.exception.code)
+        self.assertEqual([], connection.calls)
+
+    def test_group_requires_two_to_forty_nine_distinct_members(self) -> None:
+        invalid_members = ([LEFT], [LEFT, LEFT], [str(uuid.uuid4()) for _ in range(50)])
+        for members in invalid_members:
+            with self.subTest(count=len(members)):
+                connection = FakeConnection()
+                with self.assertRaises(ReviewCommandError) as raised:
+                    propose_group(
+                        connection, company_id=LEFT, actor_id=RIGHT,
+                        idempotency_key="rec005-safe-key-0001",
+                        anchor_dataset_id=LEFT, related_dataset_id=RIGHT,
+                        anchor_movement_id=str(uuid.uuid4()),
+                        related_movement_ids=list(members))
+                self.assertIn(raised.exception.code, {
+                    "group-cardinality-invalid", "group-members-invalid"})
+                self.assertEqual([], connection.calls)
+
+    def test_group_rejects_anchor_repeated_as_member_before_database(self) -> None:
+        anchor = str(uuid.uuid4())
+        connection = FakeConnection()
+        with self.assertRaises(ReviewCommandError) as raised:
+            propose_group(
+                connection, company_id=LEFT, actor_id=RIGHT,
+                idempotency_key="rec005-safe-key-0002",
+                anchor_dataset_id=LEFT, related_dataset_id=RIGHT,
+                anchor_movement_id=anchor,
+                related_movement_ids=[anchor, str(uuid.uuid4())])
+        self.assertEqual("group-members-invalid", raised.exception.code)
         self.assertEqual([], connection.calls)
 
 

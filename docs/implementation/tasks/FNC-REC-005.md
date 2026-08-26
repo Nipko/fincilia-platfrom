@@ -33,6 +33,8 @@ movimientos, acredita saldos ni habilita cierres.
 # Rutas reservadas
 
 - `docs/adr/ADR-028-reconciliation-group-proposals.md` y el índice ADR.
+- `docs/architecture/adr-readiness.json` y su prueba adjudicada, únicamente para
+  registrar ADR-028 como bloqueada sin promoverla.
 - `db/migrations/V0035__reconciliation_group_proposals.sql`.
 - `db/tests/test_reconciliation_group_proposals.py`.
 - `apps/api/src/fincilia_api/reconciliation.py`, `routes.py` y pruebas focales.
@@ -54,7 +56,8 @@ movimientos, acredita saldos ni habilita cierres.
 - **AC-02.** El servidor canoniza un ancla y 2..49 relacionados distintos, sin
   duplicados ni incluir el ancla, y exige al menos dos datasets.
 - **AC-03.** Todos los movimientos pertenecen a la misma empresa y moneda,
-  conservan linaje completo y proceden de datasets elegibles publicados.
+  conservan linaje completo y proceden de datasets elegibles validados o
+  publicados, con completitud verificada o excepción aceptada.
 - **AC-04.** La base impone cardinalidad, orden canónico, pertenencia, moneda,
   elegibilidad y append-only; la API no es la única barrera.
 - **AC-05.** La composición es única por empresa, regla, ancla y conjunto. La

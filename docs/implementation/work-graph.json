@@ -60,6 +60,8 @@
       "holder": "Codex principal dev + Integration Steward",
       "paths": [
         "docs/adr/ADR-028-reconciliation-group-proposals.md",
+        "docs/architecture/adr-readiness.json",
+        "tools/adr_readiness/test_validate.py",
         "db/migrations/V0035__reconciliation_group_proposals.sql",
         "db/tests/test_reconciliation_group_proposals.py",
         "apps/api/src/fincilia_api/reconciliation.py",

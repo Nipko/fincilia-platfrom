@@ -39,6 +39,7 @@ RULES = (
 )
 
 REVIEW_RULE_VERSION = "fnc-rec-exact-v1"
+GROUP_RULE_VERSION = "fnc-rec-group-whole-v1"
 IDEMPOTENCY_KEY = re.compile(r"^[A-Za-z0-9._:-]{16,128}$")
 REVIEW_QUEUE_STATUSES = frozenset(("open", "confirmed", "rejected", "all"))
 MAX_REVIEW_QUEUE_LIMIT = 100
@@ -653,3 +654,270 @@ def list_review_queue(connection: psycopg.Connection, *, status: str = "open",
         "financial_effect": "none",
         "proves_balance_reconciliation": False,
     }
+
+
+# --------------------------------------------------------------------------- #
+# Borradores manuales 1:N/N:1. No comparten decisiones ni reservas con el
+# ledger uno-a-uno: una composicion es trabajo preparatorio, no un match.
+# --------------------------------------------------------------------------- #
+
+GROUP_SELECT = (
+    "SELECT g.group_candidate_id, g.anchor_dataset_version_id, "
+    "       g.related_dataset_version_id, g.anchor_movement_id, "
+    "       g.related_movement_ids, g.rule_version, g.proposed_by, "
+    "       proposer.display_name, g.proposed_at, "
+    "       anchor.amount, anchor.currency_code, anchor.direction, "
+    "       anchor.description, anchor.reference_original, anchor.occurred_on, "
+    "       anchor.state, anchor_raw.record_ordinal, "
+    "       sum(related.amount)::numeric(38,12), "
+    "       (anchor.amount - sum(related.amount))::numeric(38,12), "
+    "       jsonb_agg(jsonb_build_object("
+    "         'movement_id', related.movement_id::text, "
+    "         'amount', related.amount::text, "
+    "         'currency', related.currency_code, "
+    "         'direction', related.direction, "
+    "         'description', related.description, "
+    "         'reference', related.reference_original, "
+    "         'occurred_on', related.occurred_on::text, "
+    "         'state', related.state, "
+    "         'record_ordinal', related_raw.record_ordinal) "
+    "         ORDER BY requested.ordinality) "
+    "FROM fincilia.match_group_candidate g "
+    "JOIN fincilia.subject proposer ON proposer.subject_id = g.proposed_by "
+    "JOIN fincilia.canonical_movement anchor "
+    "  ON anchor.movement_id = g.anchor_movement_id "
+    " AND anchor.company_id = g.company_id "
+    "JOIN fincilia.source_record anchor_source "
+    "  ON anchor_source.source_record_id = anchor.source_record_id "
+    " AND anchor_source.company_id = g.company_id "
+    "JOIN fincilia.raw_record anchor_raw "
+    "  ON anchor_raw.raw_record_id = anchor_source.raw_record_id "
+    " AND anchor_raw.company_id = g.company_id "
+    "JOIN LATERAL unnest(g.related_movement_ids) WITH ORDINALITY "
+    "  AS requested(movement_id, ordinality) ON true "
+    "JOIN fincilia.canonical_movement related "
+    "  ON related.movement_id = requested.movement_id "
+    " AND related.company_id = g.company_id "
+    "JOIN fincilia.source_record related_source "
+    "  ON related_source.source_record_id = related.source_record_id "
+    " AND related_source.company_id = g.company_id "
+    "JOIN fincilia.raw_record related_raw "
+    "  ON related_raw.raw_record_id = related_source.raw_record_id "
+    " AND related_raw.company_id = g.company_id ")
+
+GROUP_SELECT_END = (
+    "GROUP BY g.group_candidate_id, g.anchor_dataset_version_id, "
+    "         g.related_dataset_version_id, g.anchor_movement_id, "
+    "         g.related_movement_ids, g.rule_version, g.proposed_by, "
+    "         proposer.display_name, g.proposed_at, anchor.amount, "
+    "         anchor.currency_code, anchor.direction, anchor.description, "
+    "         anchor.reference_original, anchor.occurred_on, anchor.state, "
+    "         anchor_raw.record_ordinal ")
+
+
+def _group_movement(value: dict[str, Any]) -> dict[str, Any]:
+    return {
+        **value,
+        "amount": f"{value['amount']}",
+        "record_ordinal": int(value["record_ordinal"]),
+    }
+
+
+def _group_from_row(row: tuple[Any, ...], *,
+                    view_left_dataset_id: str) -> dict[str, Any]:
+    anchor_dataset_id = str(row[1])
+    anchor = {
+        "movement_id": str(row[3]),
+        "amount": f"{row[9]:.12f}",
+        "currency": row[10],
+        "direction": row[11],
+        "description": row[12],
+        "reference": row[13],
+        "occurred_on": row[14].isoformat(),
+        "state": row[15],
+        "record_ordinal": int(row[16]),
+    }
+    return {
+        "group_candidate_id": str(row[0]),
+        "anchor_dataset_id": anchor_dataset_id,
+        "related_dataset_id": str(row[2]),
+        "anchor": anchor,
+        "related": [_group_movement(item) for item in row[19]],
+        "related_movement_count": len(row[4]),
+        "related_total": f"{row[17]:.12f}",
+        "difference": f"{row[18]:.12f}",
+        "currency": row[10],
+        "rule_version": row[5],
+        "proposed_by": str(row[6]),
+        "proposed_by_name": row[7],
+        "proposed_at": row[8].isoformat(),
+        "view_relation": (
+            "one_to_many" if anchor_dataset_id == view_left_dataset_id
+            else "many_to_one"),
+        "status": "draft",
+        "financial_effect": "none",
+        "proves_balance_reconciliation": False,
+        "can_confirm": False,
+    }
+
+
+def _load_group(connection: psycopg.Connection, *, group_candidate_id: str,
+                view_left_dataset_id: str) -> dict[str, Any] | None:
+    with connection.cursor() as cursor:
+        cursor.execute(
+            GROUP_SELECT + "WHERE g.group_candidate_id = %s "
+            + GROUP_SELECT_END,
+            (group_candidate_id,))
+        row = cursor.fetchone()
+    return None if row is None else _group_from_row(
+        row, view_left_dataset_id=view_left_dataset_id)
+
+
+def _group_receipt(connection: psycopg.Connection, *, actor_id: str,
+                   key: str) -> tuple[str, str] | None:
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT request_digest, group_candidate_id "
+            "FROM fincilia.match_group_command_receipt "
+            "WHERE actor_id = %s AND idempotency_key = %s",
+            (actor_id, key))
+        row = cursor.fetchone()
+    return None if row is None else (str(row[0]).strip(), str(row[1]))
+
+
+def _canonical_related_ids(values: list[str]) -> list[str]:
+    if not 2 <= len(values) <= 49:
+        raise ReviewCommandError(
+            "group-cardinality-invalid",
+            "a group proposal requires between 2 and 49 related movements")
+    canonical = sorted(_uuid(value, field="related_movement_ids")
+                       for value in values)
+    if len(set(canonical)) != len(canonical):
+        raise ReviewCommandError(
+            "group-members-invalid", "related movements must be distinct")
+    return canonical
+
+
+def propose_group(connection: psycopg.Connection, *, company_id: str,
+                  actor_id: str, idempotency_key: str,
+                  anchor_dataset_id: str, related_dataset_id: str,
+                  anchor_movement_id: str,
+                  related_movement_ids: list[str]) -> dict[str, Any]:
+    """Materializa un borrador agrupado sin asignar ni confirmar importes."""
+    key = _idempotency_key(idempotency_key)
+    payload = {
+        "anchor_dataset_id": _uuid(
+            anchor_dataset_id, field="anchor_dataset_id"),
+        "related_dataset_id": _uuid(
+            related_dataset_id, field="related_dataset_id"),
+        "anchor_movement_id": _uuid(
+            anchor_movement_id, field="anchor_movement_id"),
+        "related_movement_ids": _canonical_related_ids(related_movement_ids),
+        "rule_version": GROUP_RULE_VERSION,
+    }
+    if payload["anchor_movement_id"] in payload["related_movement_ids"]:
+        raise ReviewCommandError(
+            "group-members-invalid", "anchor cannot also be a related movement")
+
+    # Mantiene la misma definición cerrada de dataset elegible del explorador.
+    _load_eligible_pair(connection, CandidateQuery(
+        left_dataset_id=payload["anchor_dataset_id"],
+        right_dataset_id=payload["related_dataset_id"]).validated())
+    digest = _digest(payload)
+    _lock_command(connection, company_id=company_id, actor_id=actor_id,
+                  key=f"group:{key}")
+    receipt = _group_receipt(connection, actor_id=actor_id, key=key)
+    if receipt is not None:
+        seen_digest, group_candidate_id = receipt
+        if seen_digest != digest:
+            raise ReviewCommandError(
+                "idempotency-conflict",
+                "the idempotency key was already used for another group command")
+        group = _load_group(
+            connection, group_candidate_id=group_candidate_id,
+            view_left_dataset_id=payload["anchor_dataset_id"])
+        if group is None:
+            raise RuntimeError("group receipt points to a missing proposal")
+        return {**group, "replayed": True, "created": False}
+
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))",
+            (f"match-group:{company_id}:{digest}",))
+        cursor.execute(
+            "SELECT group_candidate_id "
+            "FROM fincilia.match_group_candidate "
+            "WHERE rule_version = %s AND anchor_movement_id = %s "
+            "AND related_movement_ids = %s::uuid[]",
+            (GROUP_RULE_VERSION, payload["anchor_movement_id"],
+             payload["related_movement_ids"]))
+        existing = cursor.fetchone()
+
+    created = existing is None
+    group_candidate_id = str(uuid.uuid4()) if created else str(existing[0])
+    try:
+        with connection.transaction():
+            audit_event_id = repository.record_audit(
+                connection, subject_id=actor_id, company_id=company_id,
+                action="match.group.propose",
+                resource_kind="match_group_candidate",
+                resource_ref=group_candidate_id, outcome="allowed",
+                detail={"rule_version": GROUP_RULE_VERSION,
+                        "member_count": len(payload["related_movement_ids"]),
+                        "reused": not created})
+            if created:
+                with connection.cursor() as cursor:
+                    cursor.execute(
+                        "INSERT INTO fincilia.match_group_candidate "
+                        "(group_candidate_id, company_id, "
+                        " anchor_dataset_version_id, related_dataset_version_id, "
+                        " anchor_movement_id, related_movement_ids, rule_version, "
+                        " proposed_by, audit_event_id) "
+                        "VALUES (%s, %s, %s, %s, %s, %s::uuid[], %s, %s, %s)",
+                        (group_candidate_id, company_id,
+                         payload["anchor_dataset_id"],
+                         payload["related_dataset_id"],
+                         payload["anchor_movement_id"],
+                         payload["related_movement_ids"], GROUP_RULE_VERSION,
+                         actor_id, audit_event_id))
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "INSERT INTO fincilia.match_group_command_receipt "
+                    "(company_id, actor_id, idempotency_key, request_digest, "
+                    " group_candidate_id) VALUES (%s, %s, %s, %s, %s)",
+                    (company_id, actor_id, key, digest, group_candidate_id))
+    except psycopg.errors.CheckViolation:
+        raise ReviewCommandError(
+            "group-composition-unavailable",
+            "the requested group is unavailable or ineligible") from None
+
+    group = _load_group(
+        connection, group_candidate_id=group_candidate_id,
+        view_left_dataset_id=payload["anchor_dataset_id"])
+    if group is None:
+        raise RuntimeError("created group proposal cannot be read back")
+    return {**group, "replayed": False, "created": created}
+
+
+def list_groups(connection: psycopg.Connection, *, left_dataset_id: str,
+                right_dataset_id: str, limit: int = 100) -> list[dict[str, Any]]:
+    left = _uuid(left_dataset_id, field="left_dataset_id")
+    right = _uuid(right_dataset_id, field="right_dataset_id")
+    if left == right:
+        raise ReviewCommandError(
+            "datasets-must-differ", "two distinct datasets are required")
+    if not 1 <= int(limit) <= 100:
+        raise ReviewCommandError(
+            "group-limit-invalid", "limit must be between 1 and 100")
+    with connection.cursor() as cursor:
+        cursor.execute(
+            GROUP_SELECT
+            + "WHERE ((g.anchor_dataset_version_id = %s "
+              "        AND g.related_dataset_version_id = %s) "
+              "    OR (g.anchor_dataset_version_id = %s "
+              "        AND g.related_dataset_version_id = %s)) "
+            + GROUP_SELECT_END
+            + "ORDER BY g.proposed_at DESC, g.group_candidate_id LIMIT %s",
+            (left, right, right, left, int(limit)))
+        return [_group_from_row(row, view_left_dataset_id=left)
+                for row in cursor]

@@ -375,6 +375,32 @@
         "QA"
       ],
       "scope": "reconciliation_review_ledger"
+    },
+    {
+      "blockers": [
+        "accounting_architecture_product_ratification",
+        "security_database_ratification",
+        "allocation_overlap_reversal_semantics_deferred"
+      ],
+      "evidence": [
+        "docs/adr/ADR-028-reconciliation-group-proposals.md",
+        "docs/implementation/tasks/FNC-REC-005.md",
+        "db/migrations/V0035__reconciliation_group_proposals.sql"
+      ],
+      "id": "ADR-028",
+      "owners": [
+        "Accounting",
+        "Architecture",
+        "Product"
+      ],
+      "path": "docs/adr/ADR-028-reconciliation-group-proposals.md",
+      "readiness": "blocked",
+      "reviewers": [
+        "Security",
+        "Database",
+        "QA"
+      ],
+      "scope": "reconciliation_group_proposals"
     }
   ],
   "agent_may_accept": false,

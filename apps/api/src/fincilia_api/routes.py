@@ -148,6 +148,14 @@ class MatchDecisionRequest(BaseModel):
     reason_code: str = Field(min_length=3, max_length=80)
 
 
+class MatchGroupProposalRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    anchor_dataset_id: str = Field(min_length=36, max_length=36)
+    related_dataset_id: str = Field(min_length=36, max_length=36)
+    anchor_movement_id: str = Field(min_length=36, max_length=36)
+    related_movement_ids: list[str] = Field(min_length=2, max_length=49)
+
+
 class CloseReviewPrepareRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     period_start: dt.date
@@ -1535,6 +1543,65 @@ def decide_reconciliation_review(
         raise _review_problem(refusal)
     if result is None:
         raise RuntimeError("review decision completed without a result")
+    return result
+
+
+@router.get("/companies/{company_id}/reconciliation/group-proposals",
+            tags=["reconciliation"])
+def reconciliation_group_proposals(
+        request: Request, company_id: str, left_dataset_id: str,
+        right_dataset_id: str, limit: int = 100,
+        principal: Principal = Depends(principal_dependency)) -> list[dict]:
+    context = company_context(request, principal, company_id)
+    require(context, "movement.read")
+    _synthetic_reconciliation_only(request)
+    with request.app.state.database.session(
+            company_id=context.company_id,
+            subject_id=principal.subject_id) as connection:
+        try:
+            return reconciliation.list_groups(
+                connection, left_dataset_id=left_dataset_id,
+                right_dataset_id=right_dataset_id, limit=limit)
+        except reconciliation.ReviewCommandError as error:
+            raise _review_problem(error) from None
+
+
+@router.post("/companies/{company_id}/reconciliation/group-proposals",
+             tags=["reconciliation"])
+def propose_reconciliation_group(
+        request: Request, company_id: str, body: MatchGroupProposalRequest,
+        principal: Principal = Depends(principal_dependency)) -> dict:
+    context = company_context(request, principal, company_id)
+    require(context, "movement.read")
+    require(context, "match.propose")
+    _synthetic_reconciliation_only(request)
+    key = request.headers.get("idempotency-key", "")
+    refusal: Exception | None = None
+    result: dict | None = None
+    with request.app.state.database.session(
+            company_id=context.company_id,
+            subject_id=principal.subject_id) as connection:
+        try:
+            result = reconciliation.propose_group(
+                connection, company_id=context.company_id,
+                actor_id=principal.subject_id, idempotency_key=key,
+                anchor_dataset_id=body.anchor_dataset_id,
+                related_dataset_id=body.related_dataset_id,
+                anchor_movement_id=body.anchor_movement_id,
+                related_movement_ids=body.related_movement_ids)
+        except (reconciliation.ReviewCommandError,
+                reconciliation.CandidateQueryError) as error:
+            refusal = error
+            repository.record_audit(
+                connection, subject_id=principal.subject_id,
+                company_id=context.company_id, action="match.group.propose",
+                resource_kind="match_group_candidate",
+                resource_ref="unmaterialized", outcome="denied",
+                detail={"reason": error.code})
+    if refusal is not None:
+        raise _review_problem(refusal)
+    if result is None:
+        raise RuntimeError("group proposal completed without a result")
     return result
 
 

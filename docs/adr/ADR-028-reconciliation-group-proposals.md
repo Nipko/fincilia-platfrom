@@ -25,8 +25,9 @@ inventar una asignación.
    ordenado de 2..49 movimientos relacionados. El lado del ancla determina si
    la vista representa 1:N o, al invertir datasets, N:1.
 2. Todos los miembros son movimientos completos, de una empresa y moneda, con
-   linaje completo y datasets publicados/elegibles. Debe haber al menos dos
-   datasets para impedir agrupaciones internas ambiguas.
+   linaje completo y datasets elegibles (`validated|published`, completitud
+   verificada o excepción aceptada). Debe haber al menos dos datasets para
+   impedir agrupaciones internas ambiguas.
 3. La composición es append-only y única por empresa, versión de regla, ancla y
    conjunto ordenado. Un recibo separado aporta idempotencia por actor.
 4. La suma del lado relacionado y la diferencia frente al ancla se derivan de
