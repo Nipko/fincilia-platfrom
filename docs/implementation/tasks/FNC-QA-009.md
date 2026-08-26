@@ -37,6 +37,7 @@ fallo, de modo que la regresion automatizada no contamine la demo persistente.
 - `apps/web/tests/e2e/close-readiness.spec.ts`.
 - `docs/platform/isolated-web-runtime.json`.
 - `tools/isolated_web_runtime/**`.
+- `.github/workflows/ci.yml` (solo lanes de contrato).
 - Esta ficha, su handoff y registros centrales por Integration Steward.
 
 # Rutas prohibidas
