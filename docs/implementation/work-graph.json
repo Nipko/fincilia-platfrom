@@ -63,6 +63,7 @@
         "db/tests/test_close_review_packets.py",
         "apps/api/src/fincilia_api/close_review.py",
         "apps/api/src/fincilia_api/routes.py",
+        "apps/api/tests/test_close_review.py",
         "apps/web/src/lib/close-review.ts",
         "apps/web/src/lib/api.ts",
         "apps/web/src/app/preparacion-cierre",

@@ -28,8 +28,8 @@ from fincilia_platform.objects import ObjectStoreError, object_key
 from fincilia_platform.tokens import issue
 
 from . import (access, audit as audit_query, balance_reconciliation, balances,
-               close_readiness, datasets, exports, financial_lineage, onboarding,
-               operations, quality, reconciliation, reports, repository)
+               close_readiness, close_review, datasets, exports, financial_lineage,
+               onboarding, operations, quality, reconciliation, reports, repository)
 from . import company_onboarding
 from .issued_contexts import issue_context
 from .security import (Principal, ProblemError, company_context, current_principal,
@@ -146,6 +146,19 @@ class MatchDecisionRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     decision: str
     reason_code: str = Field(min_length=3, max_length=80)
+
+
+class CloseReviewPrepareRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    period_start: dt.date
+    period_end: dt.date
+    assigned_reviewer_id: uuid.UUID
+
+
+class CloseReviewDecisionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    decision: str = Field(min_length=16, max_length=17)
+    reason_code: str = Field(min_length=3, max_length=40)
 
 
 class RoleChangeRequest(BaseModel):
@@ -2006,6 +2019,166 @@ def read_close_readiness(
                 "periods_returned": result["period_count"],
                 "sources_returned": result["source_count"],
             })
+    return result
+
+
+# --------------------------------------------------------------------------- #
+# Expediente de revision previa al cierre (FNC-CLS-005)
+# --------------------------------------------------------------------------- #
+
+def _close_review_synthetic_only(request: Request) -> None:
+    if request.app.state.settings.real_data_enabled:
+        raise ProblemError(problem(
+            "close-review-disabled", "Close review unavailable", 503,
+            "close review is enabled only for synthetic data"))
+
+
+def _close_review_problem(error: close_review.CloseReviewError) -> ProblemError:
+    if error.code in {"close-review-packet-unavailable"}:
+        return forbidden()
+    conflict_codes = {
+        "close-review-idempotency-conflict",
+        "close-review-segregation-of-duties",
+        "close-review-reviewer-ineligible",
+        "close-review-evidence-stale",
+        "close-review-evidence-blocked",
+        "close-review-already-decided",
+    }
+    status = 409 if error.code in conflict_codes else 422
+    return ProblemError(problem(
+        error.code, "Close review request rejected", status, error.detail))
+
+
+@router.get("/companies/{company_id}/close-review/reviewers",
+            tags=["close-review"])
+def list_close_reviewers(
+        request: Request, company_id: str,
+        principal: Principal = Depends(principal_dependency)) -> list[dict]:
+    context = company_context(request, principal, company_id)
+    require(context, "close.prepare")
+    _close_review_synthetic_only(request)
+    with request.app.state.database.session(
+            company_id=context.company_id,
+            subject_id=principal.subject_id) as connection:
+        result = close_review.eligible_reviewers(
+            connection, company_id=context.company_id)
+        repository.record_audit(
+            connection, subject_id=principal.subject_id,
+            company_id=context.company_id, action="close.review.reviewer.list",
+            resource_kind="company", resource_ref=context.company_id,
+            outcome="allowed", detail={"candidates": len(result)})
+    return result
+
+
+@router.get("/companies/{company_id}/close-review/packets",
+            tags=["close-review"])
+def list_close_review_packets(
+        request: Request, company_id: str,
+        period_start: str | None = None, period_end: str | None = None,
+        limit: int = close_review.DEFAULT_LIMIT,
+        principal: Principal = Depends(principal_dependency)) -> dict:
+    context = company_context(request, principal, company_id)
+    require(context, "report.read")
+    _close_review_synthetic_only(request)
+    with request.app.state.database.session(
+            company_id=context.company_id,
+            subject_id=principal.subject_id) as connection:
+        try:
+            result = close_review.list_packets(
+                connection, limit=limit, period_start=period_start,
+                period_end=period_end)
+        except close_review.CloseReviewError as error:
+            raise _close_review_problem(error) from None
+        repository.record_audit(
+            connection, subject_id=principal.subject_id,
+            company_id=context.company_id, action="close.review.packet.list",
+            resource_kind="company", resource_ref=context.company_id,
+            outcome="allowed", detail={
+                "returned": len(result["items"]),
+                "has_more": result["has_more"],
+            })
+    return result
+
+
+@router.post("/companies/{company_id}/close-review/packets",
+             tags=["close-review"], status_code=201)
+def prepare_close_review_packet(
+        request: Request, response: Response, company_id: str,
+        body: CloseReviewPrepareRequest,
+        principal: Principal = Depends(principal_dependency)) -> dict:
+    context = company_context(request, principal, company_id)
+    require(context, "close.prepare")
+    _close_review_synthetic_only(request)
+    key = request.headers.get("idempotency-key", "")
+    refusal: close_review.CloseReviewError | None = None
+    result: dict[str, object] | None = None
+    with request.app.state.database.session(
+            company_id=context.company_id,
+            subject_id=principal.subject_id) as connection:
+        try:
+            result = close_review.prepare_packet(
+                connection, company_id=context.company_id,
+                actor_id=principal.subject_id, idempotency_key=key,
+                period_start=body.period_start.isoformat(),
+                period_end=body.period_end.isoformat(),
+                assigned_reviewer_id=str(body.assigned_reviewer_id))
+        except close_review.CloseReviewError as error:
+            refusal = error
+            repository.record_audit(
+                connection, subject_id=principal.subject_id,
+                company_id=context.company_id, action="close.review.prepare",
+                resource_kind="close_review_packet", resource_ref="unmaterialized",
+                outcome="denied", detail={"reason": error.code})
+    if refusal is not None:
+        raise _close_review_problem(refusal)
+    if result is None:
+        raise RuntimeError("close review prepare completed without a result")
+    if result["replayed"]:
+        response.status_code = 200
+    return result
+
+
+@router.post("/companies/{company_id}/close-review/packets/{packet_id}/decision",
+             tags=["close-review"], status_code=201)
+def decide_close_review_packet(
+        request: Request, response: Response, company_id: str, packet_id: str,
+        body: CloseReviewDecisionRequest,
+        principal: Principal = Depends(principal_dependency)) -> dict:
+    context = company_context(request, principal, company_id)
+    require(context, "close.approve")
+    _close_review_synthetic_only(request)
+    key = request.headers.get("idempotency-key", "")
+    refusal: close_review.CloseReviewError | None = None
+    result: dict[str, object] | None = None
+    with request.app.state.database.session(
+            company_id=context.company_id,
+            subject_id=principal.subject_id) as connection:
+        try:
+            result = close_review.decide_packet(
+                connection, company_id=context.company_id,
+                actor_id=principal.subject_id, idempotency_key=key,
+                packet_id=packet_id, decision=body.decision,
+                reason_code=body.reason_code)
+        except close_review.CloseReviewError as error:
+            refusal = error
+            reference = packet_id if len(packet_id) <= 80 else "invalid"
+            audit_action = (
+                f"close.review.{body.decision}"
+                if body.decision in close_review.DECISION_REASONS
+                else "close.review.decision"
+            )
+            repository.record_audit(
+                connection, subject_id=principal.subject_id,
+                company_id=context.company_id,
+                action=audit_action,
+                resource_kind="close_review_packet", resource_ref=reference,
+                outcome="denied", detail={"reason": error.code})
+    if refusal is not None:
+        raise _close_review_problem(refusal)
+    if result is None:
+        raise RuntimeError("close review decision completed without a result")
+    if result["replayed"]:
+        response.status_code = 200
     return result
 
 
