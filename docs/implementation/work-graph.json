@@ -54,5 +54,23 @@
       "agent_may_accept": false
     }
   ],
-  "active_reservations": []
+  "active_reservations": [
+    {
+      "task": "FNC-REC-006",
+      "holder": "Codex principal dev + Integration Steward",
+      "paths": [
+        "apps/api/src/fincilia_api/reconciliation.py",
+        "apps/api/src/fincilia_api/routes.py",
+        "apps/api/tests/test_reconciliation.py",
+        "db/tests/test_reconciliation_reviews.py",
+        "apps/web/src/lib/api.ts",
+        "apps/web/src/lib/reconciliation.ts",
+        "apps/web/src/app/revisiones",
+        "apps/web/src/app/empresas/[companyId]/conciliacion",
+        "apps/web/tests/e2e/reconciliation-helpers.ts",
+        "apps/web/tests/e2e/reconciliation.spec.ts",
+        "apps/web/tests/e2e/reconciliation-review.a11y.spec.ts"
+      ]
+    }
+  ]
 }
