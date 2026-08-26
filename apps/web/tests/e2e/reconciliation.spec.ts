@@ -120,7 +120,9 @@ test('FNC-REC-003 prioriza revisiones multiempresa y abre el expediente exacto',
   const first = page.getByRole('link', { name: 'Abrir expediente' }).first();
   await expect(first).toBeVisible();
   await first.click();
-  await expect(page).toHaveURL(/\/conciliacion\?izquierda=.+&derecha=.+#revision-/);
+  await expect(page).toHaveURL(
+    /\/conciliacion\?izquierda=.+&derecha=.+&ventana=\d+&pagina=\d+&revision=.+#revision-/,
+  );
   await expect(page.getByLabel('Estado de revision').first()).toBeVisible();
   await expect(page.getByText(/sin efecto financiero/i).first()).toBeVisible();
 });

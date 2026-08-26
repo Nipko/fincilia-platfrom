@@ -625,6 +625,16 @@ def list_reviews(connection: psycopg.Connection, *, left_dataset_id: str,
         return [_review_from_row(row) for row in cursor]
 
 
+def get_review(connection: psycopg.Connection, *, candidate_id: str) -> dict[str, Any]:
+    """Lee el ledger exacto sin volver a ejecutar elegibilidad de candidatos."""
+    candidate = _uuid(candidate_id, field="candidate_id")
+    review = _load_review(connection, candidate_id=candidate)
+    if review is None:
+        raise ReviewCommandError(
+            "candidate-scope-unavailable", "the candidate is unavailable")
+    return review
+
+
 def list_review_queue(connection: psycopg.Connection, *, status: str = "open",
                       offset: int = 0, limit: int = 50) -> dict[str, Any]:
     """Devuelve trabajo company-scoped sin agregar importes ni saldos."""

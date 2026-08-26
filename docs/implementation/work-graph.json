@@ -62,7 +62,7 @@
         "apps/api/src/fincilia_api/reconciliation.py",
         "apps/api/src/fincilia_api/routes.py",
         "apps/api/tests/test_reconciliation.py",
-        "db/tests/test_reconciliation_reviews.py",
+        "db/tests/test_reconciliation_decisions.py",
         "apps/web/src/lib/api.ts",
         "apps/web/src/lib/reconciliation.ts",
         "apps/web/src/app/revisiones",

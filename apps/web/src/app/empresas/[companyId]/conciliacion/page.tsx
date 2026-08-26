@@ -10,6 +10,7 @@ import {
   fetchMovements,
   fetchReconciliationCandidates,
   fetchReconciliationGroups,
+  fetchReconciliationReview,
   fetchReconciliationReviews,
   type CandidatePage,
   type DatasetSummary,
@@ -22,6 +23,7 @@ import {
   formatExactMoney,
   reconciliationUrl,
   selectReconciliation,
+  selectReconciliationReview,
 } from '@/lib/reconciliation';
 import { readSession } from '@/lib/session';
 import { PageState } from '@/components/page-state';
@@ -90,17 +92,41 @@ export default async function ReconciliationPage({
     query,
     selectable.map((dataset) => dataset.dataset_version_id),
   );
+  const reviewReference = selectReconciliationReview(query);
   let result: CandidatePage | null = null;
   let reviews: MatchReview[] = [];
+  let requestedReview: MatchReview | null = null;
   let groups: MatchGroupProposal[] = [];
   let leftMovements: Movement[] = [];
   let rightMovements: Movement[] = [];
   let failure: 'scope' | 'invalid' | 'degraded' | null = null;
   let reviewFailure = false;
+  let requestedReviewFailure: 'invalid' | 'scope' | 'degraded' | null = null;
   let groupFailure = false;
   const canPropose = company.permissions.includes('match.propose');
   const canConfirm = company.permissions.includes('match.confirm');
   const canReject = company.permissions.includes('match.reject');
+  if (reviewReference.requested) {
+    if (!reviewReference.valid) {
+      requestedReviewFailure = 'invalid';
+    } else {
+      try {
+        requestedReview = await fetchReconciliationReview(
+          session.token, companyId, reviewReference.candidateId);
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 401) redirect('/entrar');
+        if (error instanceof ApiError && (error.status === 403 || error.status === 404)) {
+          requestedReviewFailure = 'scope';
+        } else if (error instanceof ApiError && error.status === 422) {
+          requestedReviewFailure = 'invalid';
+        } else if (error instanceof ApiError && error.status === 503) {
+          requestedReviewFailure = 'degraded';
+        } else {
+          throw error;
+        }
+      }
+    }
+  }
   if (selection.valid) {
     try {
       result = await fetchReconciliationCandidates(
@@ -161,6 +187,15 @@ export default async function ReconciliationPage({
       pairKey(review.left_movement_id, review.right_movement_id),
       review,
     ]),
+  );
+  const requestedReviewIsInCandidatePage = Boolean(
+    requestedReview && !reviewFailure && reviews.some(
+      (review) => review.candidate_id === requestedReview?.candidate_id,
+    ) && result?.candidates.some((candidate) => pairKey(
+      candidate.left.movement_id, candidate.right.movement_id,
+    ) === pairKey(
+      requestedReview.left_movement_id, requestedReview.right_movement_id,
+    )),
   );
   const previous = selection.page > 0
     ? reconciliationUrl(companyId, { ...selection, page: selection.page - 1 })
@@ -225,6 +260,51 @@ export default async function ReconciliationPage({
         </label>
         <button type="submit">Buscar candidatos</button>
       </form>
+
+      {requestedReviewFailure ? (
+        <section aria-label="Expediente solicitado">
+          <PageState
+            kind={requestedReviewFailure === 'scope' ? 'denied' : 'degraded'}
+            title={requestedReviewFailure === 'scope'
+              ? 'El expediente no esta disponible'
+              : requestedReviewFailure === 'invalid'
+                ? 'El identificador del expediente no es valido'
+                : 'El expediente no se pudo consultar'}
+            description="La plataforma no sustituye este registro por otro ni asume que la empresa esta conciliada."
+          />
+        </section>
+      ) : requestedReview && !requestedReviewIsInCandidatePage ? (
+        <section className="card" aria-labelledby="requested-review-title">
+          <div className="candidate-heading">
+            <div>
+              <h2 id="requested-review-title">Expediente historico solicitado</h2>
+              <p className="meta">
+                Vista estable del ledger append-only. No reactiva datasets,
+                no recalcula el candidato y no demuestra que los saldos esten
+                conciliados.
+              </p>
+            </div>
+            <span className="tag">sin efecto financiero</span>
+          </div>
+          <div className="candidate-movement">
+            <span className="candidate-side">Evidencia registrada</span>
+            <Link href={`/empresas/${companyId}/movimientos/${requestedReview.left_movement_id}`}>
+              Ver movimiento izquierdo
+            </Link>{' '}
+            <Link href={`/empresas/${companyId}/movimientos/${requestedReview.right_movement_id}`}>
+              Ver movimiento derecho
+            </Link>
+          </div>
+          <MatchReviewPanel
+            companyId={companyId}
+            review={requestedReview}
+            canConfirm={canConfirm}
+            canReject={canReject}
+            confirmCommandKey={`rec006-confirm-${randomUUID()}`}
+            rejectCommandKey={`rec006-reject-${randomUUID()}`}
+          />
+        </section>
+      ) : null}
 
       {selection.valid && result ? (
         <section className="group-proposal-workbench"

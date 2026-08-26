@@ -30,6 +30,7 @@ ni afirma que exista una conciliación de saldos.
 # Rutas reservadas
 
 - `apps/api/src/fincilia_api/reconciliation.py`, `routes.py` y pruebas focales.
+- `db/tests/test_reconciliation_decisions.py` para el contrato HTTP/RLS real.
 - `apps/web/src/lib/api.ts`, `reconciliation.ts`, bandeja y estación web.
 - pruebas unitarias, E2E y Axe de conciliación.
 - esta ficha, handoff y registros centrales por Integration Steward.
@@ -61,4 +62,3 @@ ni afirma que exista una conciliación de saldos.
 
 Rollout local con datos sintéticos. El rollback retira endpoint, parámetro y
 sección histórica; ningún ledger o dato debe borrarse o reescribirse.
-

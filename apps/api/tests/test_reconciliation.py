@@ -16,6 +16,7 @@ from fincilia_api.reconciliation import (
     candidate_from_row,
     decide_review,
     explore_candidates,
+    get_review,
     list_review_queue,
     propose_group,
     propose_review,
@@ -66,6 +67,9 @@ class FakeCursor:
 
     def __iter__(self):
         return iter(self.rows)
+
+    def fetchone(self):
+        return self.rows[0] if self.rows else None
 
 
 class FakeConnection:
@@ -197,6 +201,37 @@ class CandidateQueryTests(unittest.TestCase):
         self.assertIn("c.proposed_at ASC", connection.calls[0][0])
         self.assertEqual((2, 4), connection.calls[0][1])
         self.assertNotIn("amount", result["items"][0])
+
+    def test_exact_review_reads_ledger_without_dataset_eligibility_query(self) -> None:
+        candidate_id = uuid.uuid4()
+        now = dt.datetime(2026, 8, 24, 12, tzinfo=dt.timezone.utc)
+        row = (
+            candidate_id, uuid.uuid4(), uuid.uuid4(), "fnc-rec-exact-v1",
+            list(RULES), 3, 1, uuid.uuid4(), "Ada Preparadora", now,
+            None, None, None, None, None, None, uuid.uuid4(), uuid.uuid4(),
+            False,
+        )
+        connection = FakeConnection([row])
+
+        result = get_review(connection, candidate_id=str(candidate_id))
+
+        self.assertEqual(str(candidate_id), result["candidate_id"])
+        self.assertEqual("open", result["status"])
+        self.assertEqual("none", result["financial_effect"])
+        self.assertEqual(1, len(connection.calls))
+        self.assertNotIn("canonical_dataset_version", connection.calls[0][0])
+
+    def test_exact_review_rejects_invalid_or_invisible_identifier(self) -> None:
+        invalid = FakeConnection()
+        with self.assertRaises(ReviewCommandError) as malformed:
+            get_review(invalid, candidate_id="not-a-uuid")
+        self.assertEqual("review-request-invalid", malformed.exception.code)
+        self.assertEqual([], invalid.calls)
+
+        missing = FakeConnection([])
+        with self.assertRaises(ReviewCommandError) as invisible:
+            get_review(missing, candidate_id=str(uuid.uuid4()))
+        self.assertEqual("candidate-scope-unavailable", invisible.exception.code)
 
     def test_review_rejects_non_uuid_before_database_work(self) -> None:
         connection = FakeConnection()

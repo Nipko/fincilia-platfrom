@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   fetchCandidates: vi.fn(),
   fetchGroups: vi.fn(),
   fetchMovements: vi.fn(),
+  fetchExactReview: vi.fn(),
   fetchReviews: vi.fn(),
   readSession: vi.fn(),
   redirect: vi.fn(),
@@ -32,6 +33,7 @@ vi.mock('@/lib/api', () => ({
   fetchReconciliationCandidates: mocks.fetchCandidates,
   fetchReconciliationGroups: mocks.fetchGroups,
   fetchMovements: mocks.fetchMovements,
+  fetchReconciliationReview: mocks.fetchExactReview,
   fetchReconciliationReviews: mocks.fetchReviews,
 }));
 
@@ -42,6 +44,7 @@ const LEFT = '11111111-1111-4111-8111-111111111111';
 const RIGHT = '22222222-2222-4222-8222-222222222222';
 const LEFT_MOVEMENT = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const RIGHT_MOVEMENT = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+const CANDIDATE = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
 
 function dataset(id: string) {
   return {
@@ -195,10 +198,13 @@ describe('ReconciliationPage', () => {
       mode: 'candidate_only',
       proves_balance_reconciliation: false,
     });
-    mocks.fetchReviews.mockResolvedValue([{
-      candidate_id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+    const review = {
+      candidate_id: CANDIDATE,
       left_movement_id: LEFT_MOVEMENT,
       right_movement_id: RIGHT_MOVEMENT,
+      left_dataset_id: LEFT,
+      right_dataset_id: RIGHT,
+      date_window_days: 3,
       confirmation_conflict: false,
       proposed_by_name: 'Ana Preparadora',
       proposed_at: '2026-08-24T12:00:00+00:00',
@@ -206,11 +212,15 @@ describe('ReconciliationPage', () => {
       decision: null,
       financial_effect: 'none',
       proves_balance_reconciliation: false,
-    }]);
+    };
+    mocks.fetchReviews.mockResolvedValue([review]);
+    mocks.fetchExactReview.mockResolvedValue(review);
 
     render(await ReconciliationPage({
       params: Promise.resolve({ companyId: COMPANY }),
-      searchParams: Promise.resolve({ izquierda: LEFT, derecha: RIGHT }),
+      searchParams: Promise.resolve({
+        izquierda: LEFT, derecha: RIGHT, revision: CANDIDATE,
+      }),
     }));
 
     expect(screen.getByText('Pendiente de decision humana')).toBeInTheDocument();
@@ -221,6 +231,50 @@ describe('ReconciliationPage', () => {
       .toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Enviar a revision humana' }))
       .not.toBeInTheDocument();
+    expect(screen.getAllByLabelText('Estado de revision')).toHaveLength(1);
+  });
+
+  it('conserva el expediente aunque sus datasets ya no sean elegibles', async () => {
+    const historicalLeft = '33333333-3333-4333-8333-333333333333';
+    const historicalRight = '44444444-4444-4444-8444-444444444444';
+    mocks.fetchCompany.mockResolvedValue({
+      legal_name: 'Servicios Espiga SAS',
+      permissions: ['movement.read'],
+    });
+    mocks.fetchExactReview.mockResolvedValue({
+      candidate_id: CANDIDATE,
+      left_movement_id: LEFT_MOVEMENT,
+      right_movement_id: RIGHT_MOVEMENT,
+      left_dataset_id: historicalLeft,
+      right_dataset_id: historicalRight,
+      date_window_days: 3,
+      confirmation_conflict: false,
+      proposed_by_name: 'Ana Preparadora',
+      proposed_at: '2026-08-24T12:00:00+00:00',
+      status: 'open',
+      decision: null,
+      financial_effect: 'none',
+      proves_balance_reconciliation: false,
+    });
+
+    render(await ReconciliationPage({
+      params: Promise.resolve({ companyId: COMPANY }),
+      searchParams: Promise.resolve({
+        izquierda: historicalLeft,
+        derecha: historicalRight,
+        revision: CANDIDATE,
+      }),
+    }));
+
+    expect(screen.getByRole('heading', { name: 'Expediente historico solicitado' }))
+      .toBeInTheDocument();
+    expect(screen.getByText(/No reactiva datasets/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Ver movimiento izquierdo' }))
+      .toHaveAttribute('href', expect.stringContaining(LEFT_MOVEMENT));
+    expect(screen.getByRole('link', { name: 'Ver movimiento derecho' }))
+      .toHaveAttribute('href', expect.stringContaining(RIGHT_MOVEMENT));
+    expect(screen.getByLabelText('Estado de revision')).toBeInTheDocument();
+    expect(mocks.fetchCandidates).not.toHaveBeenCalled();
   });
 
   it('presenta composicion 1:N y N:1 e historial sin boton de confirmar', async () => {

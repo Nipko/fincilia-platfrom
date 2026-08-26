@@ -192,6 +192,54 @@ class ReconciliationDecisionTests(rec.ReconciliationCandidateTests):
         self.assertEqual({"open", "confirmed", "rejected"},
                          {item["status"] for item in listed.json()})
 
+        exact_url = f"{review_url}/{proposal['candidate_id']}"
+        exact = self.client.get(exact_url, headers=self.auth(REVIEWER))
+        self.assertEqual(200, exact.status_code, exact.text)
+        self.assertEqual(proposal["candidate_id"], exact.json()["candidate_id"])
+        self.assertEqual("confirmed", exact.json()["status"])
+
+        # El ledger histórico no depende de que el dataset todavía sea elegible
+        # para generar candidatos nuevos. La mutación se restaura porque este
+        # laboratorio prepara después otras pruebas sobre los mismos fixtures.
+        with psycopg.connect(MIGRATOR_DSN) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT set_config('fincilia.company_id', %s, false)",
+                               (ESPIGA,))
+                cursor.execute(
+                    "UPDATE fincilia.dataset_version SET completeness_state = "
+                    "'mismatch' WHERE dataset_version_id = %s", (right,))
+                self.assertEqual(1, cursor.rowcount)
+            connection.commit()
+        try:
+            no_longer_candidate = self.client.get(
+                candidate_url, headers=self.auth(REVIEWER), params=query)
+            self.assertEqual(403, no_longer_candidate.status_code,
+                             no_longer_candidate.text)
+            historical = self.client.get(exact_url, headers=self.auth(REVIEWER))
+            self.assertEqual(200, historical.status_code, historical.text)
+            self.assertEqual(proposal["candidate_id"],
+                             historical.json()["candidate_id"])
+        finally:
+            with psycopg.connect(MIGRATOR_DSN) as connection:
+                with connection.cursor() as cursor:
+                    cursor.execute(
+                        "SELECT set_config('fincilia.company_id', %s, false)",
+                        (ESPIGA,))
+                    cursor.execute(
+                        "UPDATE fincilia.dataset_version SET completeness_state = "
+                        "'verified' WHERE dataset_version_id = %s", (right,))
+                    self.assertEqual(1, cursor.rowcount)
+                connection.commit()
+
+        cross_company_exact = self.client.get(
+            f"/api/v1/companies/{ANDINOS}/reconciliation/reviews/"
+            f"{proposal['candidate_id']}", headers=self.auth(OWNER))
+        self.assertEqual(403, cross_company_exact.status_code,
+                         cross_company_exact.text)
+        malformed_exact = self.client.get(
+            f"{review_url}/not-a-uuid", headers=self.auth(REVIEWER))
+        self.assertEqual(422, malformed_exact.status_code, malformed_exact.text)
+
         queue_url = f"/api/v1/companies/{ESPIGA}/reconciliation/review-queue"
         open_queue = self.client.get(
             queue_url, headers=self.auth(REVIEWER),

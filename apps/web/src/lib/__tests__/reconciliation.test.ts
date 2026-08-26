@@ -4,8 +4,10 @@ import {
   CANDIDATE_PAGE_SIZE,
   MAX_CANDIDATE_PAGE,
   formatExactMoney,
+  reconciliationReviewUrl,
   reconciliationUrl,
   selectReconciliation,
+  selectReconciliationReview,
 } from '../reconciliation';
 
 describe('selectReconciliation', () => {
@@ -65,6 +67,33 @@ describe('reconciliationUrl', () => {
       '/empresas/company/conciliacion?' +
       'izquierda=left+one&derecha=right%2Ftwo&ventana=3&pagina=2',
     );
+  });
+
+  it('conserva el identificador estable del expediente en query y fragmento', () => {
+    const candidate = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+    expect(reconciliationReviewUrl('company', {
+      leftDatasetId: 'left', rightDatasetId: 'right', maxDays: 3, page: 0,
+    }, candidate)).toBe(
+      '/empresas/company/conciliacion?' +
+      'izquierda=left&derecha=right&ventana=3&pagina=0&' +
+      `revision=${candidate}#revision-${candidate}`,
+    );
+  });
+});
+
+describe('selectReconciliationReview', () => {
+  it('acepta solo un UUID unico y no confunde ausencia con entrada invalida', () => {
+    const candidate = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+    expect(selectReconciliationReview({ revision: candidate })).toEqual({
+      requested: true, valid: true, candidateId: candidate,
+    });
+    expect(selectReconciliationReview({})).toEqual({
+      requested: false, valid: false, candidateId: '',
+    });
+    expect(selectReconciliationReview({ revision: ['one', 'two'] }).valid)
+      .toBe(false);
+    expect(selectReconciliationReview({ revision: 'not-a-uuid' }).valid)
+      .toBe(false);
   });
 });
 

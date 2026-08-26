@@ -282,6 +282,7 @@ export function reviewUrl(pair: ReviewPair): string {
     derecha: pair.right,
     ventana: String(pair.maxDays),
     pagina: String(pair.page),
+    revision: pair.candidateId,
   });
   return `/empresas/${ESPIGA}/conciliacion?${query.toString()}#revision-${pair.candidateId}`;
 }

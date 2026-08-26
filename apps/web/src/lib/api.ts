@@ -983,6 +983,19 @@ export function fetchReconciliationReviews(
   );
 }
 
+export function fetchReconciliationReview(
+  token: string,
+  companyId: string,
+  candidateId: string,
+): Promise<MatchReview> {
+  const company = encodeURIComponent(companyId);
+  const candidate = encodeURIComponent(candidateId);
+  return request<MatchReview>(
+    `/api/v1/companies/${company}/reconciliation/reviews/${candidate}`,
+    { token },
+  );
+}
+
 export function fetchReviewQueue(
   token: string,
   companyId: string,

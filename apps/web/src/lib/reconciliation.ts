@@ -1,5 +1,6 @@
 export const CANDIDATE_PAGE_SIZE = 25;
 export const MAX_CANDIDATE_PAGE = 400;
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 type QueryValue = string | string[] | undefined;
 
@@ -10,6 +11,12 @@ export type ReconciliationSelection = {
   rightDatasetId: string;
   maxDays: number;
   page: number;
+};
+
+export type ReconciliationReviewReference = {
+  requested: boolean;
+  valid: boolean;
+  candidateId: string;
 };
 
 function single(value: QueryValue): string | null {
@@ -65,6 +72,28 @@ export function reconciliationUrl(
     pagina: String(selection.page),
   });
   return `/empresas/${encodeURIComponent(companyId)}/conciliacion?${params.toString()}`;
+}
+
+export function selectReconciliationReview(
+  query: Record<string, QueryValue>,
+): ReconciliationReviewReference {
+  const candidateId = single(query.revision) ?? '';
+  return {
+    requested: query.revision !== undefined,
+    valid: UUID_PATTERN.test(candidateId),
+    candidateId,
+  };
+}
+
+export function reconciliationReviewUrl(
+  companyId: string,
+  selection: Pick<ReconciliationSelection,
+    'leftDatasetId' | 'rightDatasetId' | 'maxDays' | 'page'>,
+  candidateId: string,
+): string {
+  const params = new URLSearchParams({ revision: candidateId });
+  return `${reconciliationUrl(companyId, selection)}&${params.toString()}` +
+    `#revision-${encodeURIComponent(candidateId)}`;
 }
 
 export function formatExactMoney(amount: string, currency: string): string {

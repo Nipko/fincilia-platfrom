@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 
 import { SignOut } from '@/app/empresas/sign-out';
 import { ApiError, fetchMe, type MatchReview } from '@/lib/api';
-import { reconciliationUrl } from '@/lib/reconciliation';
+import { reconciliationReviewUrl } from '@/lib/reconciliation';
 import {
   formatReviewTimestamp,
   loadReviewInbox,
@@ -40,12 +40,12 @@ const SIGNAL_LABELS: Record<string, string> = {
 };
 
 function expedienteUrl(companyId: string, review: MatchReview): string {
-  return `${reconciliationUrl(companyId, {
+  return reconciliationReviewUrl(companyId, {
     leftDatasetId: review.left_dataset_id,
     rightDatasetId: review.right_dataset_id,
     maxDays: review.date_window_days,
     page: 0,
-  })}#revision-${encodeURIComponent(review.candidate_id)}`;
+  }, review.candidate_id);
 }
 
 export default async function ReviewsPage({
