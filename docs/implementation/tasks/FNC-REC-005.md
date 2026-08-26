@@ -1,7 +1,7 @@
 ---
 id: FNC-REC-005
 title: Propuestas manuales agrupadas 1:N y N:1 sin efecto financiero
-status: in_progress
+status: review_pending
 implementer: Codex principal dev + Integration Steward
 base_sha: a4403d64c270b900c80a0def87e39a90e6d2bba9
 gate: S1-READY
