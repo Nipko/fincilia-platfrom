@@ -1,9 +1,12 @@
 ---
 id: FNC-QA-009
 title: Regresion web aislada de la demo persistente
-status: in_progress
+status: review_pending
 implementer: Codex principal dev + Integration Steward
 base_sha: 8846157
+implementation_sha: 406816b
+ci_sha: b02fbd7
+browser_tested_sha: 406816b
 gate: S1-READY
 gate_effect: none
 data_ceiling: synthetic_only

@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "task_id": "FNC-QA-009",
-  "status": "in_progress",
+  "status": "review_pending",
   "human_acceptance": "pending",
   "data_ceiling": "synthetic_only",
   "purpose": "Ejecutar la regresion web completa sobre recursos locales desechables sin conectar ni modificar la demo persistente.",
