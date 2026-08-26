@@ -147,9 +147,11 @@ function CloseReviewPanel({
   actorId: string;
   snapshot: CloseReviewSnapshot | undefined;
 }) {
+  const accessibleLabel = `Expediente de revision ${formatClosePeriod(
+    period.period_start, period.period_end)}`;
   if (!snapshot || snapshot.access !== 'available') {
     return (
-      <section className="close-review-panel" aria-label="Expediente de revision">
+      <section className="close-review-panel" aria-label={accessibleLabel}>
         <h4>Expediente de revision de evidencia</h4>
         <p className="meta" role="status">
           Los expedientes no estan disponibles. No se presume que el periodo fue revisado.
@@ -162,7 +164,7 @@ function CloseReviewPanel({
   const canPrepare = snapshot.permissions.includes('close.prepare');
   const canApprove = snapshot.permissions.includes('close.approve');
   return (
-    <section className="close-review-panel" aria-label="Expediente de revision">
+    <section className="close-review-panel" aria-label={accessibleLabel}>
       <header>
         <div>
           <p className="eyebrow">Control previo sin efecto financiero</p>
