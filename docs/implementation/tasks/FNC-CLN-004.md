@@ -1,7 +1,7 @@
 ---
 id: FNC-CLN-004
 title: Rango, preview canonico y plantillas de limpieza reutilizables
-status: in_progress
+status: review_pending
 implementer: Codex principal dev + Integration Steward
 base_sha: faf93927c61fd50ff23a7f5b62f581e491a51fde
 gate: S1-READY
@@ -33,7 +33,12 @@ nueva e inmutable.
 
 - `packages/contracts/python/fincilia_contracts/mapping.py` y pruebas focales.
 - `apps/api/src/fincilia_api/datasets.py`, `routes.py` y pruebas focales.
-- `apps/web/src/lib/api.ts`, `app/actions.ts`, estudio de mapeo, estilos y pruebas.
+- `apps/web/src/lib/api.ts`, `lib/navigation.ts`, `app/actions.ts`, estudio de
+  mapeo, estilos y pruebas.
+- BFF de carga y su prueba focal, ampliado al demostrar en E2E que cancelar un
+  stream todavia bloqueado interrumpia cargas pequenas validas.
+- Formulario de carga, ampliado para impedir submit nativo antes de hidratacion;
+  el hallazgo aparecio al encadenar dos documentos para reutilizar la plantilla.
 - `db/tests/test_p3_vertical.py`.
 - E2E/Axe de mapeo y esta ficha/handoff.
 - Registros centrales, CI o contratos compartidos solo por Integration Steward.

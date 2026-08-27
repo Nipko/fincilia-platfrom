@@ -120,7 +120,7 @@ dependencias de `FNC-GAT-002` ni afirmar que Sprint 1 está habilitado.
 | FNC-CLN-001 | A5/A6 | DOM-005, WEB-002, P3.6 | Review pending | Propuesta tipada y revisión SoD de correcciones por fila, sin mutar el dataset base |
 | FNC-CLN-002 | A5/A6 | CLN-001, DOM-005, P3.6 | Review pending | Aplicacion reproducible de overlays aprobados a una version nueva, con manifest y linaje digest-only |
 | FNC-CLN-003 | A5/A6 | CLN-002, DOM-005 | Review pending | Solo propone campos materializables por el plan real de linaje; petición manipulada falla cerrada |
-| FNC-CLN-004 | A5/A6 | ING-002, API-001, CLN-003 | In progress | Rango final, preview canonico read-only y reutilizacion versionada de plantillas de limpieza |
+| FNC-CLN-004 | A5/A6 | ING-002, API-001, CLN-003 | Review pending | Rango final, preview canonico read-only y reutilizacion versionada de plantillas de limpieza; revision independiente pendiente |
 | FNC-QA-006 | A6 | PLT-008, WEB-001, WEB-003, CLN-001 | Review pending | Arranque local coherente y aceptación web automatizada de roles y frontera multiempresa |
 | FNC-QA-007 | A5/A6 | QA-006, SEC-001 | Review pending | Administracion final de miembros y multiples roles company-scoped, sin autenticacion propia ni debilitamiento de SoD |
 | FNC-QA-008 | A6 | QA-006, QA-007, REC-004, CLS-003 | Review pending | Regresion Chromium/Axe repetible sobre el runtime local persistente sin revertir ledgers ni debilitar revocacion |
