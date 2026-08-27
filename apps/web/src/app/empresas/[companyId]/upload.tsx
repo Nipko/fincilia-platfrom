@@ -211,7 +211,10 @@ export function UploadForm({
     }
     const selected = items.filter((item) => statuses.includes(item.status));
     if (selected.length === 0) {
-      setMessage('Elige al menos un archivo valido para enviar.');
+      setMessage(
+        items.find((item) => item.status === 'invalid')?.detail
+          ?? 'Elige al menos un archivo valido para enviar.',
+      );
       return;
     }
 
@@ -422,7 +425,7 @@ export function UploadForm({
       <div className="upload-actions">
         <button
           type="submit"
-          disabled={!ready || pending || sources.length === 0 || counts.ready === 0}
+          disabled={!ready || pending || sources.length === 0 || items.length === 0}
         >
           {pending
             ? 'Cargando lote...'

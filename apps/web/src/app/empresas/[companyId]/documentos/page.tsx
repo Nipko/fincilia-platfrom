@@ -279,8 +279,9 @@ export default async function DocumentCenterPage({
             placeholder="extracto-agosto.csv" maxLength={120} />
         </label>
         <label>
-          Fuente
-          <select name="fuente" defaultValue={filters.dataSourceId ?? ''}
+          Filtrar por fuente
+          <select aria-label="Filtrar por fuente" name="fuente"
+            defaultValue={filters.dataSourceId ?? ''}
             disabled={!sourcesVisible}>
             <option value="">Todas las fuentes</option>
             {sources.map((source) => (

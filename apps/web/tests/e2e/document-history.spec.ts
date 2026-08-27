@@ -45,7 +45,7 @@ test('una carga queda ligada a su fuente y aparece en el centro filtrable', asyn
   await expect(page.getByRole('heading', { name: 'Centro de documentos' })).toBeVisible();
   await expect(page.getByRole('link', { name: filename })).toBeVisible();
   await expect(page.getByText('Extracto bancario (demo)', { exact: true }).last()).toBeVisible();
-  await expect(page.getByLabel('Fuente')).toHaveValue(sourceId);
+  await expect(page.getByLabel('Filtrar por fuente', { exact: true })).toHaveValue(sourceId);
   await expect(page.getByLabel('Nombre contiene')).toHaveValue(marker);
 
   await page.getByLabel('Zona efectiva').selectOption('raw');
