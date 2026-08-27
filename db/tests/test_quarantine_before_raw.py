@@ -267,6 +267,12 @@ class QuarantineBeforeRawTests(unittest.TestCase):
         self.assertEqual(["scan"], [run["kind"] for run in document["runs"]])
 
         sheets = document["spreadsheet"]["sheets"]
+        unknown = self.client.post(
+            f"/api/v1/companies/{ESPIGA}/documents/{created['artifact_id']}"
+            "/spreadsheet-selection",
+            headers={"Authorization": f"Bearer {self.token()}"},
+            json={"sheet_identity": "0" * 64})
+        self.assertEqual(422, unknown.status_code, unknown.text)
         response = self.client.post(
             f"/api/v1/companies/{ESPIGA}/documents/{created['artifact_id']}"
             "/spreadsheet-selection",
@@ -278,6 +284,7 @@ class QuarantineBeforeRawTests(unittest.TestCase):
 
         document = self.document(created["artifact_id"])
         self.assertEqual("Otra", document["spreadsheet"]["selection"]["sheet_name"])
+        selection_id = document["spreadsheet"]["selection"]["selection_id"]
         runs = {run["kind"]: run for run in document["runs"]}
         self.assertEqual("Otra", runs["profile"]["result"]["sheet_name"])
         self.assertEqual("succeeded", runs["extract"]["status"])
@@ -293,6 +300,26 @@ class QuarantineBeforeRawTests(unittest.TestCase):
         self.assertIn(f"SEGUNDA-{RUN}", repr(rows))
         self.assertNotIn(f"NO-EXTRAER-{RUN}", repr(rows))
         self.assertTrue(all(row[1]["sheet_ordinal"] == 2 for row in rows))
+
+        with psycopg.connect(RUNTIME_DSN) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT set_config('fincilia.company_id', %s, true)",
+                               (ESPIGA,))
+                with self.assertRaises(psycopg.errors.InsufficientPrivilege):
+                    cursor.execute(
+                        "UPDATE fincilia.spreadsheet_selection SET sheet_ordinal = 1 "
+                        "WHERE selection_id = %s", (selection_id,))
+            connection.rollback()
+
+        andinos = stable_id("company", "andinos")
+        with psycopg.connect(RUNTIME_DSN) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT set_config('fincilia.company_id', %s, true)",
+                               (andinos,))
+                cursor.execute(
+                    "SELECT count(*) FROM fincilia.spreadsheet_selection "
+                    "WHERE selection_id = %s", (selection_id,))
+                self.assertEqual(0, cursor.fetchone()[0])
 
         conflict = self.client.post(
             f"/api/v1/companies/{ESPIGA}/documents/{created['artifact_id']}"
