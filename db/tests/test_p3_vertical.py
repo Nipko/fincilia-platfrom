@@ -188,6 +188,38 @@ def purge(created: set[str]) -> None:
         "  SELECT mapping_version_id FROM fincilia.column_mapping_version"
         "  WHERE artifact_id IN (SELECT artifact_id FROM fincilia.source_artifact"
         "   WHERE content_sha256 = ANY(%s))))",
+        # Una aplicacion de overlays referencia tanto a los movimientos como al
+        # override. La limpieza compartida tambien debe poder retirar residuos
+        # sinteticos de una corrida interrumpida antes de tocar esas evidencias.
+        "DELETE FROM fincilia.field_overlay_application_item WHERE application_id IN ("
+        " SELECT application_id FROM fincilia.field_overlay_application"
+        " WHERE base_dataset_version_id IN (SELECT dataset_version_id"
+        "  FROM fincilia.dataset_version WHERE artifact_id IN ("
+        "   SELECT artifact_id FROM fincilia.source_artifact"
+        "   WHERE content_sha256 = ANY(%s)))"
+        " OR result_dataset_version_id IN (SELECT dataset_version_id"
+        "  FROM fincilia.dataset_version WHERE artifact_id IN ("
+        "   SELECT artifact_id FROM fincilia.source_artifact"
+        "   WHERE content_sha256 = ANY(%s))))",
+        "DELETE FROM fincilia.field_overlay_application WHERE"
+        " base_dataset_version_id IN (SELECT dataset_version_id"
+        "  FROM fincilia.dataset_version WHERE artifact_id IN ("
+        "   SELECT artifact_id FROM fincilia.source_artifact"
+        "   WHERE content_sha256 = ANY(%s)))"
+        " OR result_dataset_version_id IN (SELECT dataset_version_id"
+        "  FROM fincilia.dataset_version WHERE artifact_id IN ("
+        "   SELECT artifact_id FROM fincilia.source_artifact"
+        "   WHERE content_sha256 = ANY(%s)))",
+        "DELETE FROM fincilia.field_overlay_review WHERE overlay_id IN ("
+        " SELECT overlay_id FROM fincilia.field_overlay"
+        " WHERE dataset_version_id IN (SELECT dataset_version_id"
+        "  FROM fincilia.dataset_version WHERE artifact_id IN ("
+        "   SELECT artifact_id FROM fincilia.source_artifact"
+        "   WHERE content_sha256 = ANY(%s))))",
+        "DELETE FROM fincilia.field_overlay WHERE dataset_version_id IN ("
+        " SELECT dataset_version_id FROM fincilia.dataset_version"
+        " WHERE artifact_id IN (SELECT artifact_id FROM fincilia.source_artifact"
+        "  WHERE content_sha256 = ANY(%s)))",
         # La excepcion por fila referencia al dataset, a la fila y al paso del
         # plan, las tres con `RESTRICT`: se retira antes que ninguna de ellas.
         "DELETE FROM fincilia.lineage_row_override WHERE dataset_version_id IN ("
@@ -272,8 +304,8 @@ def purge(created: set[str]) -> None:
                     "SELECT set_config('fincilia.company_id', %s, false)",
                     (company,))
                 for statement in statements:
-                    cursor.execute(statement,
-                                   () if "%s" not in statement else (keys,))
+                    parameter_count = statement.count("%s")
+                    cursor.execute(statement, tuple(keys for _ in range(parameter_count)))
 
 
 class VerticalHarness(unittest.TestCase):
