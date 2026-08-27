@@ -2160,6 +2160,28 @@ ul {
   padding-inline: clamp(1rem, 3vw, 2.5rem);
 }
 
+.global-nav {
+  align-items: center;
+  display: flex;
+  gap: 0.15rem;
+  margin-inline: auto 1rem;
+}
+
+.global-nav a {
+  border-radius: 999px;
+  color: var(--ink-soft);
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.45rem 0.65rem;
+  text-decoration: none;
+}
+
+.global-nav a:hover,
+.global-nav a[aria-current='page'] {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
 .brand-lockup {
   align-items: center;
   color: var(--ink);
@@ -2538,6 +2560,7 @@ main > *,
 .scroll { min-width: 0; max-width: 100%; }
 
 @media (max-width: 64rem) {
+  .global-nav a { padding-inline: 0.45rem; }
   .portfolio-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .company-home > .workspace-section .metric-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2545,6 +2568,18 @@ main > *,
 }
 
 @media (max-width: 48rem) {
+  .product-bar__inner { flex-wrap: wrap; padding-block: 0.55rem; }
+  .global-nav {
+    border-top: 1px solid var(--line);
+    margin: 0.45rem 0 -0.55rem;
+    order: 3;
+    overflow-x: auto;
+    padding-block: 0.35rem;
+    scrollbar-width: none;
+    width: 100%;
+  }
+  .global-nav::-webkit-scrollbar { display: none; }
+  .global-nav a { flex: 0 0 auto; }
   .shell { padding-top: 1.25rem; }
   .signin-page { grid-template-columns: 1fr; min-height: auto; }
   .signin-story { padding: 1rem 0 0; }

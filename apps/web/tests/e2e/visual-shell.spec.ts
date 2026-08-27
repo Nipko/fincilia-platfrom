@@ -27,6 +27,9 @@ test.describe('FNC-WEB-004 · shell visual responsive', () => {
 
     await expect(page).toHaveURL(/\/empresas$/);
     await expect(
+      page.getByRole('navigation', { name: 'Navegacion principal' }),
+    ).toBeVisible();
+    await expect(
       page.getByRole('navigation', { name: 'Herramientas multiempresa' }),
     ).toBeVisible();
     await expectNoPageOverflow(page);
