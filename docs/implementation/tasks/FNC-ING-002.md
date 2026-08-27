@@ -1,7 +1,7 @@
 ---
 id: FNC-ING-002
 title: Seleccion explicita de hoja XLSX y limpieza visual web
-status: in_progress
+status: review_pending
 implementer: Codex principal dev + Integration Steward
 base_sha: 7b1f1259f3bdc9846a6f44c6eb4b03a31836d93b
 gate: S1-READY
