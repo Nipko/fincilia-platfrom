@@ -54,5 +54,22 @@
       "agent_may_accept": false
     }
   ],
-  "active_reservations": []
+  "active_reservations": [
+    {
+      "task": "FNC-ING-002",
+      "owner": "Codex + Integration Steward",
+      "base_sha": "7b1f1259f3bdc9846a6f44c6eb4b03a31836d93b",
+      "paths": [
+        "packages/contracts/python/fincilia_contracts/spreadsheet.py",
+        "packages/contracts/python/fincilia_contracts/ingestion.py",
+        "packages/contracts/python/fincilia_contracts/profiling.py",
+        "workers/document/src/fincilia_worker",
+        "db/migrations/V0037__spreadsheet_selection.sql",
+        "apps/api/src/fincilia_api",
+        "apps/web/src",
+        "docs/implementation/tasks/FNC-ING-002.md",
+        "docs/implementation/handoffs/HANDOFF_FNC-ING-002.md"
+      ]
+    }
+  ]
 }

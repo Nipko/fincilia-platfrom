@@ -132,6 +132,7 @@ dependencias de `FNC-GAT-002` ni afirmar que Sprint 1 está habilitado.
 | FNC-REC-005 | A5/A6 | REC-004, DOM-003, DOM-005 | Review pending | Borradores manuales 1:N/N:1 de movimientos completos, append-only, idempotentes y sin asignaciones ni efecto financiero; revisión independiente pendiente |
 | FNC-REC-006 | A5/A6 | REC-002, REC-003 | Review pending | Expediente append-only consultable por ID estable aunque su dataset ya no sea elegible o el candidato no esté en la página visible; revisión independiente pendiente |
 | FNC-ING-001 | A4/A5/A6 | DOM-005, PLT-008, WEB-001 | Review pending | Ingesta segura y determinista de XLSX sintetico de una hoja con localizador exacto; libros activos o ambiguos permanecen en cuarentena |
+| FNC-ING-002 | A4/A5/A6 | ING-001, QA-010 | In progress | Seleccion company-scoped de una hoja XLSX segura, seguida de perfil, extraccion y limpieza visual en el estudio de mapeo |
 | FNC-CLS-001 | A5/A6 | OPS-001, DQ-001, RPT-001, REC-004 | Review pending | Diagnostico company-scoped por periodo de evidencia y bloqueos; nunca ejecuta ni certifica cierre |
 | FNC-CLS-002 | A5/A6 | CLS-001, DOM-002, DOM-003, DOM-005 | Review pending | Observaciones canonicas e inmutables de saldo por cuenta con evidencia visible; linaje completo y revision independiente pendientes |
 | FNC-CLS-003 | A5/A6 | CLS-002, DOM-003, DOM-005, REC-004 | Review pending | Assessments, partidas conciliatorias y statements reproducibles verificados; sin excepcion aceptada, snapshot ni cierre productivo |
