@@ -1,7 +1,7 @@
 ---
 id: FNC-ING-004
 title: Bandeja web de carga multiple por fuente
-status: in_progress
+status: review_pending
 implementer: Codex principal dev + Integration Steward
 base_sha: 8aaaca645ee0b33884a202971a5c09a2d7dbbdbe
 gate: S1-READY
