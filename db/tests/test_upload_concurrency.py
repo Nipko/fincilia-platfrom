@@ -21,7 +21,8 @@ import psycopg
 from fastapi.testclient import TestClient
 
 from db.seed.local import DEFAULT_SECRET, seed, stable_id
-from db.tests.test_api_authorization import MIGRATOR_DSN, RUNTIME_DSN, build_settings
+from db.tests.test_api_authorization import (ANDINOS, MIGRATOR_DSN, RUNTIME_DSN,
+                                             build_settings)
 from fincilia_api.main import create_app
 from fincilia_contracts.ingestion import sha256_bytes
 from fincilia_platform.objects import S3ObjectStore, object_key
@@ -31,6 +32,12 @@ RUN = uuid.uuid4().hex[:12]
 SANDBOX_A = stable_id("company", "sandbox_a")
 SANDBOX_B = stable_id("company", "sandbox_b")
 ESPIGA = stable_id("company", "espiga")
+SOURCES = {
+    ESPIGA: stable_id("data_source", "espiga"),
+    ANDINOS: stable_id("data_source", "andinos"),
+    SANDBOX_A: stable_id("data_source", "sandbox_a"),
+    SANDBOX_B: stable_id("data_source", "sandbox_b"),
+}
 
 CONCURRENT_UPLOADS = 16
 
@@ -60,7 +67,7 @@ class ConcurrentUploadTests(unittest.TestCase):
             return
         with psycopg.connect(MIGRATOR_DSN, autocommit=True) as connection:
             with connection.cursor() as cursor:
-                for company in (ESPIGA, SANDBOX_A, SANDBOX_B):
+                for company in (ESPIGA, ANDINOS, SANDBOX_A, SANDBOX_B):
                     cursor.execute(
                         "SELECT set_config('fincilia.company_id', %s, false)", (company,))
                     for statement in (
@@ -72,6 +79,9 @@ class ConcurrentUploadTests(unittest.TestCase):
                             " SELECT run_id FROM fincilia.processing_run WHERE artifact_id IN ("
                             "  SELECT artifact_id FROM fincilia.source_artifact "
                             "  WHERE content_sha256 = ANY(%s)))",
+                            "DELETE FROM fincilia.raw_record WHERE artifact_id IN ("
+                            " SELECT artifact_id FROM fincilia.source_artifact "
+                            " WHERE content_sha256 = ANY(%s))",
                             "DELETE FROM fincilia.processing_run WHERE artifact_id IN ("
                             " SELECT artifact_id FROM fincilia.source_artifact "
                             " WHERE content_sha256 = ANY(%s))",
@@ -96,6 +106,7 @@ class ConcurrentUploadTests(unittest.TestCase):
         type(self).created.add(sha256_bytes(payload))
         return self.client.post(
             f"/api/v1/companies/{company}/documents",
+            params={"data_source_id": SOURCES[company]},
             headers={"Authorization": f"Bearer {token or self.token()}"},
             files={"file": (filename, io.BytesIO(payload), "application/octet-stream")})
 
@@ -172,12 +183,11 @@ class ConcurrentUploadTests(unittest.TestCase):
         payload = csv_for("dos-empresas")
         # Ana tiene concesion sobre las dos empresas de demo.
         first = self.upload(payload, company=ESPIGA).json()
-        andinos = stable_id("company", "andinos")
-        second = self.upload(payload, company=andinos).json()
+        second = self.upload(payload, company=ANDINOS).json()
         self.assertNotEqual(first["artifact_id"], second["artifact_id"])
         self.assertEqual(first["content_sha256"], second["content_sha256"])
         self.assertEqual(1, self.artifact_count(first["content_sha256"], ESPIGA))
-        self.assertEqual(1, self.artifact_count(first["content_sha256"], andinos))
+        self.assertEqual(1, self.artifact_count(first["content_sha256"], ANDINOS))
 
     def test_one_changed_byte_is_a_different_artifact(self) -> None:
         first = self.upload(csv_for("byte-a")).json()

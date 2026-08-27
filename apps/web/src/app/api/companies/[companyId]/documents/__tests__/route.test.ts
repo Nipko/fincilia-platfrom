@@ -202,6 +202,10 @@ describe('POST upload BFF', () => {
       SOURCE_ID,
     );
     expect(upstream).toHaveBeenCalledOnce();
+    expect(upstream.mock.calls[0]?.[0]).toBe(
+      `http://api.internal/api/v1/companies/${COMPANY_ID}/documents?` +
+        `data_source_id=${SOURCE_ID}`,
+    );
     const init = upstream.mock.calls[0]?.[1] as RequestInit;
     expect(init.headers).toEqual({
       accept: 'application/json',

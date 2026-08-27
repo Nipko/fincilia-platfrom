@@ -191,6 +191,7 @@ class ScalePublicationTests(unittest.TestCase):
 
         upload = self.client.post(
             f"/api/v1/companies/{ESPIGA}/documents", headers=self.auth(PREPARER),
+            params={"data_source_id": SOURCE},
             files={"file": ("extracto-grande.csv", io.BytesIO(payload), "text/csv")})
         self.assertEqual(200, upload.status_code, upload.text)
         artifact = upload.json()["artifact_id"]

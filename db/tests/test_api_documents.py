@@ -62,6 +62,7 @@ class DocumentUploadTests(unittest.TestCase):
                 "`docker compose up -d --wait objectstore` "
                 f"({type(error).__name__})") from error
         cls.created: set[str] = set()
+        cls.created_sources: set[tuple[str, str]] = set()
         cls.client = TestClient(create_app(settings))
         cls.client.__enter__()
 
@@ -117,6 +118,13 @@ class DocumentUploadTests(unittest.TestCase):
                     cursor.execute(
                         "DELETE FROM fincilia.source_artifact WHERE content_sha256 = ANY(%s)",
                         (list(cls.created),))
+                for company, source_id in cls.created_sources:
+                    cursor.execute(
+                        "SELECT set_config('fincilia.company_id', %s, false)",
+                        (company,))
+                    cursor.execute(
+                        "DELETE FROM fincilia.data_source WHERE data_source_id = %s",
+                        (source_id,))
 
     # ---------------------------------------------------------------- helpers #
 
@@ -127,13 +135,33 @@ class DocumentUploadTests(unittest.TestCase):
         self.assertEqual(200, response.status_code, response.text)
         return {"Authorization": f"Bearer {response.json()['token']}"}
 
-    def upload(self, username: str, company_id: str, payload: bytes, filename: str):
+    def upload(self, username: str, company_id: str, payload: bytes, filename: str,
+               *, source_id: str | None = None):
         if payload:
             type(self).created.add(sha256_bytes(payload))
+        source_key = "andinos" if company_id == ANDINOS else "espiga"
         return self.client.post(
             f"/api/v1/companies/{company_id}/documents",
+            params={"data_source_id": source_id or
+                    stable_id("data_source", source_key)},
             headers=self.auth(username),
             files={"file": (filename, io.BytesIO(payload), "application/octet-stream")})
+
+    def create_source(self, company_id: str, *, status: str = "active") -> str:
+        source_id = str(uuid.uuid4())
+        with psycopg.connect(MIGRATOR_DSN, autocommit=True) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT set_config('fincilia.company_id', %s, false)",
+                    (company_id,))
+                cursor.execute(
+                    "INSERT INTO fincilia.data_source (data_source_id, company_id, "
+                    "source_family, display_name, status, closed_reason) "
+                    "VALUES (%s, %s, 'bank_account', %s, %s, %s)",
+                    (source_id, company_id, f"Fuente sintetica {source_id[:8]}",
+                     status, "SYNTHETIC-TEST" if status != "active" else None))
+        type(self).created_sources.add((company_id, source_id))
+        return source_id
 
     # ------------------------------------------------------------- recorrido #
 
@@ -150,6 +178,44 @@ class DocumentUploadTests(unittest.TestCase):
         self.assertEqual(sha256_bytes(payload), body["content_sha256"])
         self.assertEqual(len(payload), body["byte_size"])
         self.assertEqual([], body["findings"])
+        self.assertEqual(stable_id("data_source", "espiga"),
+                         body["data_source_id"])
+
+    def test_a_source_is_required_before_bytes_are_stored(self) -> None:
+        from fincilia_platform.objects import S3ObjectStore, object_key
+        payload = unique_csv("sin-fuente")
+        digest = sha256_bytes(payload)
+        response = self.client.post(
+            f"/api/v1/companies/{ESPIGA}/documents",
+            headers=self.auth("ana@demo.local"),
+            files={"file": ("sin-fuente.csv", io.BytesIO(payload), "text/csv")})
+        self.assertEqual(422, response.status_code, response.text)
+        self.assertFalse(S3ObjectStore(build_settings()).exists(
+            "quarantine", object_key(ESPIGA, digest)))
+
+    def test_a_source_from_another_company_is_neutral_and_writes_nothing(self) -> None:
+        payload = unique_csv("fuente-ajena")
+        response = self.upload(
+            "ana@demo.local", ESPIGA, payload, "ajena.csv",
+            source_id=stable_id("data_source", "andinos"))
+        self.assertEqual(403, response.status_code, response.text)
+        with psycopg.connect(MIGRATOR_DSN, autocommit=True) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT set_config('fincilia.company_id', %s, false)",
+                    (ESPIGA,))
+                cursor.execute(
+                    "SELECT count(*) FROM fincilia.source_artifact "
+                    "WHERE content_sha256 = %s", (sha256_bytes(payload),))
+                self.assertEqual(0, cursor.fetchone()[0])
+
+    def test_an_inactive_source_is_rejected_before_storage(self) -> None:
+        source_id = self.create_source(ESPIGA, status="suspended")
+        response = self.upload(
+            "ana@demo.local", ESPIGA, unique_csv("fuente-inactiva"),
+            "inactiva.csv", source_id=source_id)
+        self.assertEqual(409, response.status_code, response.text)
+        self.assertEqual("source-inactive", response.json()["type"].rsplit("/", 1)[-1])
 
     def test_the_same_bytes_twice_are_one_delivery(self) -> None:
         payload = unique_csv("idempotencia")
@@ -158,6 +224,126 @@ class DocumentUploadTests(unittest.TestCase):
         self.assertEqual(first["artifact_id"], second["artifact_id"])
         self.assertFalse(first["already_present"])
         self.assertTrue(second["already_present"])
+
+    def test_the_same_bytes_from_two_sources_are_two_logical_deliveries(self) -> None:
+        payload = unique_csv("dos-fuentes")
+        other_source = self.create_source(ESPIGA)
+        first = self.upload(
+            "ana@demo.local", ESPIGA, payload, "primera.csv").json()
+        second = self.upload(
+            "ana@demo.local", ESPIGA, payload, "segunda.csv",
+            source_id=other_source).json()
+        self.assertNotEqual(first["artifact_id"], second["artifact_id"])
+        self.assertEqual(first["content_sha256"], second["content_sha256"])
+        self.assertEqual(other_source, second["data_source_id"])
+        self.assertFalse(second["already_present"])
+
+    def test_document_history_is_source_bound_filtered_and_keyset_paginated(self) -> None:
+        source_id = stable_id("data_source", "espiga")
+        marker = uuid.uuid4().hex[:12]
+        created_ids: list[str] = []
+        for ordinal in range(3):
+            response = self.upload(
+                "ana@demo.local", ESPIGA,
+                unique_csv(f"historial-{marker}-{ordinal}"),
+                f"ciclo-{marker}-{ordinal}.csv", source_id=source_id)
+            self.assertEqual(200, response.status_code, response.text)
+            created_ids.append(response.json()["artifact_id"])
+
+        headers = self.auth("ana@demo.local")
+        first = self.client.get(
+            f"/api/v1/companies/{ESPIGA}/document-history",
+            params={"limit": 2, "data_source_id": source_id,
+                    "filename": marker}, headers=headers)
+        self.assertEqual(200, first.status_code, first.text)
+        page_one = first.json()
+        self.assertEqual(3, page_one["summary"]["total"])
+        self.assertEqual(2, len(page_one["items"]))
+        self.assertTrue(page_one["has_next"])
+        self.assertFalse(page_one["has_previous"])
+        self.assertIsNotNone(page_one["next_cursor"])
+        for item in page_one["items"]:
+            self.assertEqual(source_id, item["data_source_id"])
+            self.assertIn(marker, item["filename"])
+            self.assertEqual("Extracto bancario (demo)", item["source_name"])
+            self.assertNotIn("object_key", item)
+            self.assertNotIn("findings", item)
+            self.assertNotIn("uploaded_by", item)
+
+        second = self.client.get(
+            f"/api/v1/companies/{ESPIGA}/document-history",
+            params={"limit": 2, "data_source_id": source_id,
+                    "filename": marker, "cursor": page_one["next_cursor"],
+                    "direction": "next"}, headers=headers)
+        self.assertEqual(200, second.status_code, second.text)
+        page_two = second.json()
+        self.assertEqual(1, len(page_two["items"]))
+        self.assertFalse(page_two["has_next"])
+        self.assertTrue(page_two["has_previous"])
+        self.assertEqual(set(created_ids), {
+            item["artifact_id"] for item in page_one["items"] + page_two["items"]
+        })
+
+        previous = self.client.get(
+            f"/api/v1/companies/{ESPIGA}/document-history",
+            params={"limit": 2, "data_source_id": source_id,
+                    "filename": marker,
+                    "cursor": page_two["previous_cursor"],
+                    "direction": "previous"}, headers=headers)
+        self.assertEqual(200, previous.status_code, previous.text)
+        self.assertEqual(
+            [item["artifact_id"] for item in page_one["items"]],
+            [item["artifact_id"] for item in previous.json()["items"]])
+
+    def test_document_history_keeps_legacy_source_unknown(self) -> None:
+        digest = sha256_bytes(unique_csv("legacy-historico"))
+        type(self).created.add(digest)
+        artifact_id = str(uuid.uuid4())
+        filename = f"legacy-{uuid.uuid4().hex[:10]}.csv"
+        with psycopg.connect(MIGRATOR_DSN, autocommit=True) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT set_config('fincilia.company_id', %s, false)",
+                    (ESPIGA,))
+                cursor.execute(
+                    "INSERT INTO fincilia.source_artifact (artifact_id, company_id, "
+                    "filename, byte_size, content_sha256, media_type, zone, "
+                    "object_key, status, uploaded_by) VALUES "
+                    "(%s, %s, %s, 10, %s, 'text/csv', 'quarantine', %s, "
+                    "'quarantined', %s)",
+                    (artifact_id, ESPIGA, filename, digest,
+                     f"legacy/{artifact_id}", stable_id("subject", "ana")))
+
+        response = self.client.get(
+            f"/api/v1/companies/{ESPIGA}/document-history",
+            params={"filename": filename, "processing_status": "not_started",
+                    "zone": "quarantine"},
+            headers=self.auth("ana@demo.local"))
+        self.assertEqual(200, response.status_code, response.text)
+        body = response.json()
+        self.assertEqual(1, body["summary"]["legacy_unattributed"])
+        self.assertEqual(artifact_id, body["items"][0]["artifact_id"])
+        self.assertIsNone(body["items"][0]["data_source_id"])
+        self.assertEqual("Fuente historica no registrada",
+                         body["items"][0]["source_name"])
+
+    def test_document_history_rejects_bad_filters_without_enumeration(self) -> None:
+        headers = self.auth("ana@demo.local")
+        endpoint = f"/api/v1/companies/{ESPIGA}/document-history"
+        for params in (
+                {"cursor": "esto-no-es-un-cursor"},
+                {"direction": "sideways"},
+                {"zone": "object-store"},
+                {"processing_status": "cancelled"},
+                {"filename": "linea\ninyectada"}):
+            with self.subTest(params=params):
+                response = self.client.get(endpoint, params=params, headers=headers)
+                self.assertEqual(422, response.status_code, response.text)
+        foreign = self.client.get(
+            endpoint,
+            params={"data_source_id": stable_id("data_source", "andinos")},
+            headers=headers)
+        self.assertEqual(403, foreign.status_code, foreign.text)
 
     def test_one_changed_byte_is_another_delivery(self) -> None:
         first = self.upload("ana@demo.local", ESPIGA, unique_csv("a"), "e.csv").json()
@@ -279,11 +465,36 @@ class DocumentUploadTests(unittest.TestCase):
                 for statement in (
                         "UPDATE fincilia.source_artifact SET zone = 'raw' "
                         "WHERE artifact_id = %s",
+                        "UPDATE fincilia.source_artifact SET data_source_id = NULL "
+                        "WHERE artifact_id = %s",
                         "DELETE FROM fincilia.source_artifact WHERE artifact_id = %s"):
                     with self.subTest(statement=statement.split()[0]):
                         with self.assertRaises(psycopg.errors.InsufficientPrivilege):
                             cursor.execute(statement, (created["artifact_id"],))
                         connection.rollback()
+
+    def test_source_scoped_idempotency_indexes_replace_company_only_constraint(self) -> None:
+        with psycopg.connect(MIGRATOR_DSN, autocommit=True) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT conname FROM pg_constraint "
+                    "WHERE conrelid = 'fincilia.source_artifact'::regclass "
+                    "AND conname = 'uq_artifact_content'")
+                self.assertIsNone(cursor.fetchone())
+                cursor.execute(
+                    "SELECT indexname, indexdef FROM pg_indexes "
+                    "WHERE schemaname = 'fincilia' AND tablename = 'source_artifact' "
+                    "AND indexname IN ('uq_artifact_source_content', "
+                    "'uq_artifact_legacy_content') ORDER BY indexname")
+                indexes = dict(cursor.fetchall())
+        self.assertEqual(
+            {"uq_artifact_legacy_content", "uq_artifact_source_content"},
+            set(indexes))
+        self.assertIn("data_source_id", indexes["uq_artifact_source_content"])
+        self.assertIn("WHERE (data_source_id IS NOT NULL)",
+                      indexes["uq_artifact_source_content"])
+        self.assertIn("WHERE (data_source_id IS NULL)",
+                      indexes["uq_artifact_legacy_content"])
 
     def test_a_quarantined_artifact_cannot_claim_to_be_stored(self) -> None:
         # El CHECK acopla zona y estado: si pudieran discrepar, «esta en raw»

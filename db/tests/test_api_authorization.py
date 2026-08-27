@@ -33,6 +33,7 @@ AUDIENCE = "fincilia-api"
 
 ESPIGA = stable_id("company", "espiga")
 ANDINOS = stable_id("company", "andinos")
+SOURCE = stable_id("data_source", "espiga")
 
 
 @contextmanager
@@ -285,6 +286,7 @@ class ApiAuthorizationTests(unittest.TestCase):
         payload = f"Fecha,Referencia,Valor\n2026-08-25,{marker},100.00\n".encode()
         response = self.client.post(
             f"/api/v1/companies/{ESPIGA}/documents",
+            params={"data_source_id": SOURCE},
             headers=self.auth("ana@demo.local"),
             files={"file": (f"synthetic-{marker}.csv", payload, "text/csv")})
         self.assertEqual(200, response.status_code, response.text)

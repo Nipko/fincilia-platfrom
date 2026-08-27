@@ -11,6 +11,7 @@ cliente se compara contra el contexto autorizado antes de llegar hasta aqui.
 
 from __future__ import annotations
 
+import datetime as dt
 import json
 import re
 import uuid
@@ -265,6 +266,7 @@ def list_audit(connection: psycopg.Connection, *, limit: int = 50) -> list[dict]
 class Artifact:
     artifact_id: str
     company_id: str
+    data_source_id: str | None
     filename: str
     byte_size: int
     content_sha256: str
@@ -278,23 +280,25 @@ class Artifact:
 
     def as_dict(self) -> dict:
         payload = {key: getattr(self, key) for key in
-                   ("artifact_id", "filename", "byte_size", "content_sha256",
+                   ("artifact_id", "data_source_id", "filename", "byte_size", "content_sha256",
                     "media_type", "zone", "status", "findings", "uploaded_at")}
         return payload
 
 
-ARTIFACT_COLUMNS = ("artifact_id::text, company_id::text, filename, byte_size, "
+ARTIFACT_COLUMNS = ("artifact_id::text, company_id::text, data_source_id::text, "
+                    "filename, byte_size, "
                     "content_sha256, media_type, zone, object_key, status, findings, "
                     "uploaded_by::text, uploaded_at")
 
 
 def _artifact(row) -> Artifact:
     values = list(row)
-    values[11] = values[11].isoformat()
+    values[12] = values[12].isoformat()
     return Artifact(*values)
 
 
 def find_artifact_by_content(connection: psycopg.Connection,
+                             data_source_id: str,
                              content_sha256: str) -> Artifact | None:
     """Busca por contenido dentro del alcance ya fijado.
 
@@ -304,18 +308,20 @@ def find_artifact_by_content(connection: psycopg.Connection,
     with connection.cursor() as cursor:
         cursor.execute(
             f"SELECT {ARTIFACT_COLUMNS} FROM fincilia.source_artifact "
-            "WHERE content_sha256 = %s", (content_sha256,))
+            "WHERE data_source_id = %s AND content_sha256 = %s",
+            (data_source_id, content_sha256))
         row = cursor.fetchone()
     return _artifact(row) if row else None
 
 
 def insert_artifact(connection: psycopg.Connection, *, company_id: str,
-                    filename: str, byte_size: int, content_sha256: str,
+                    data_source_id: str, filename: str, byte_size: int,
+                    content_sha256: str,
                     media_type: str, zone: str, object_key: str, status: str,
                     findings: list, uploaded_by: str) -> tuple[Artifact, bool]:
     """Registra la entrega. Devuelve `(artefacto, si_es_nueva)`.
 
-    La idempotencia la decide la restriccion `uq_artifact_content`, no una
+    La idempotencia la decide el indice `uq_artifact_source_content`, no una
     comprobacion previa. Entre mirar «¿ya existe?» y escribir cabe otra peticion,
     y con dos subidas simultaneas de los mismos bytes esa ventana producia o dos
     filas o un 500 por violacion de unicidad. Aqui el perdedor no falla: lee la
@@ -328,20 +334,22 @@ def insert_artifact(connection: psycopg.Connection, *, company_id: str,
     artifact_id = new_id()
     with connection.cursor() as cursor:
         cursor.execute(
-            "INSERT INTO fincilia.source_artifact (artifact_id, company_id, filename, "
-            "byte_size, content_sha256, media_type, zone, object_key, status, "
+            "INSERT INTO fincilia.source_artifact (artifact_id, company_id, "
+            "data_source_id, filename, byte_size, content_sha256, media_type, "
+            "zone, object_key, status, "
             "findings, uploaded_by) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s) "
-            "ON CONFLICT (company_id, content_sha256) DO NOTHING "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s) "
+            "ON CONFLICT (company_id, data_source_id, content_sha256) "
+            "WHERE data_source_id IS NOT NULL DO NOTHING "
             f"RETURNING {ARTIFACT_COLUMNS}",
-            (artifact_id, company_id, filename, byte_size, content_sha256, media_type,
-             zone, object_key, status,
+            (artifact_id, company_id, data_source_id, filename, byte_size,
+             content_sha256, media_type, zone, object_key, status,
              json.dumps(findings, ensure_ascii=False, sort_keys=True), uploaded_by))
         row = cursor.fetchone()
     if row is not None:
         return _artifact(row), True
 
-    existing = find_artifact_by_content(connection, content_sha256)
+    existing = find_artifact_by_content(connection, data_source_id, content_sha256)
     if existing is None:
         # El conflicto existe pero la fila no se ve bajo la politica. Reportarlo
         # como exito seria afirmar algo que no se puede comprobar.
@@ -356,6 +364,131 @@ def list_artifacts(connection: psycopg.Connection, *, limit: int = 50) -> list[A
             f"SELECT {ARTIFACT_COLUMNS} FROM fincilia.source_artifact "
             "ORDER BY uploaded_at DESC, artifact_id LIMIT %s", (bounded,))
         return [_artifact(row) for row in cursor.fetchall()]
+
+
+def list_artifact_history(
+        connection: psycopg.Connection, *, limit: int,
+        data_source_id: str | None = None, zone: str = "all",
+        processing_status: str = "all", filename: str | None = None,
+        cursor: tuple[dt.datetime, str] | None = None,
+        direction: str = "next") -> tuple[list[dict], bool, dict]:
+    """Historico operativo company-scoped sin valores del documento.
+
+    El orden total `(uploaded_at, artifact_id)` hace estable la paginacion aun
+    cuando varias recepciones compartan timestamp. Los laterales seleccionan una
+    sola decision, trabajo y version; nunca multiplican el artefacto.
+    """
+    bounded = max(1, min(int(limit), 100))
+    joins = """
+FROM fincilia.source_artifact artifact
+LEFT JOIN fincilia.data_source source
+  ON source.data_source_id = artifact.data_source_id
+LEFT JOIN LATERAL (
+  SELECT decision, reason_code
+  FROM fincilia.promotion_decision promotion_row
+  WHERE promotion_row.artifact_id = artifact.artifact_id
+  ORDER BY decided_at DESC, decision_id DESC LIMIT 1
+) promotion ON true
+LEFT JOIN LATERAL (
+  SELECT kind, status, error_code
+  FROM fincilia.processing_run run_row
+  WHERE run_row.artifact_id = artifact.artifact_id
+  ORDER BY queued_at DESC, run_id DESC LIMIT 1
+) latest_run ON true
+LEFT JOIN LATERAL (
+  SELECT dataset_version_id, state, completeness_state, record_count,
+         movement_count, rejected_count
+  FROM fincilia.dataset_version dataset_row
+  WHERE dataset_row.artifact_id = artifact.artifact_id
+  ORDER BY prepared_at DESC, dataset_version_id DESC LIMIT 1
+) latest_dataset ON true
+"""
+    where = ["true"]
+    params: list[object] = []
+    if data_source_id is not None:
+        where.append("artifact.data_source_id = %s")
+        params.append(data_source_id)
+    if zone == "raw":
+        where.append("promotion.decision = 'promoted'")
+    elif zone == "quarantine":
+        where.append("promotion.decision IS DISTINCT FROM 'promoted'")
+    if processing_status != "all":
+        if processing_status == "not_started":
+            where.append("latest_run.status IS NULL")
+        else:
+            where.append("latest_run.status = %s")
+            params.append(processing_status)
+    if filename:
+        escaped = filename.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        where.append("artifact.filename ILIKE %s ESCAPE '\\'")
+        params.append(f"%{escaped}%")
+    filters = "WHERE " + " AND ".join(where)
+
+    summary_sql = f"""
+SELECT count(*),
+       count(*) FILTER (WHERE promotion.decision = 'promoted'),
+       count(*) FILTER (WHERE promotion.decision IS DISTINCT FROM 'promoted'),
+       count(*) FILTER (WHERE latest_run.status = 'failed'),
+       count(*) FILTER (WHERE artifact.data_source_id IS NULL)
+{joins}{filters}
+"""
+    with connection.cursor() as db_cursor:
+        db_cursor.execute(summary_sql, tuple(params))
+        summary_row = db_cursor.fetchone() or (0, 0, 0, 0, 0)
+
+    page_where = list(where)
+    page_params = list(params)
+    ascending = direction == "previous"
+    if cursor is not None:
+        operator = ">" if ascending else "<"
+        page_where.append(
+            f"(artifact.uploaded_at, artifact.artifact_id) {operator} "
+            "(%s::timestamptz, %s::uuid)")
+        page_params.extend(cursor)
+    order = "ASC" if ascending else "DESC"
+    page_sql = f"""
+SELECT artifact.artifact_id::text, artifact.data_source_id::text,
+       artifact.filename, artifact.byte_size, artifact.content_sha256,
+       artifact.media_type, artifact.status, artifact.uploaded_at,
+       source.display_name,
+       CASE WHEN promotion.decision = 'promoted' THEN 'raw' ELSE 'quarantine' END,
+       promotion.reason_code,
+       latest_run.kind, coalesce(latest_run.status, 'not_started'),
+       latest_run.error_code,
+       latest_dataset.dataset_version_id::text, latest_dataset.state,
+       latest_dataset.completeness_state, latest_dataset.record_count,
+       latest_dataset.movement_count, latest_dataset.rejected_count
+{joins}WHERE {' AND '.join(page_where)}
+ORDER BY artifact.uploaded_at {order}, artifact.artifact_id {order}
+LIMIT %s
+"""
+    page_params.append(bounded + 1)
+    with connection.cursor() as db_cursor:
+        db_cursor.execute(page_sql, tuple(page_params))
+        rows = db_cursor.fetchall()
+    has_more = len(rows) > bounded
+    rows = rows[:bounded]
+    if ascending:
+        rows.reverse()
+    items = [{
+        "artifact_id": row[0], "data_source_id": row[1],
+        "filename": row[2], "byte_size": row[3],
+        "content_sha256": row[4], "media_type": row[5],
+        "status": row[6], "uploaded_at": row[7].isoformat(),
+        "source_name": row[8] or "Fuente historica no registrada",
+        "zone": row[9], "promotion_reason": row[10],
+        "latest_run_kind": row[11], "processing_status": row[12],
+        "processing_error": row[13], "dataset_version_id": row[14],
+        "dataset_state": row[15], "completeness_state": row[16],
+        "record_count": row[17], "movement_count": row[18],
+        "rejected_count": row[19],
+    } for row in rows]
+    summary = {
+        "total": int(summary_row[0]), "raw": int(summary_row[1]),
+        "quarantine": int(summary_row[2]), "failed": int(summary_row[3]),
+        "legacy_unattributed": int(summary_row[4]),
+    }
+    return items, has_more, summary
 
 
 def enqueue_run(connection: psycopg.Connection, *, company_id: str,

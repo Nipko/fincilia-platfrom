@@ -45,6 +45,7 @@ from xlsx_factory import build_xlsx
 
 RUN = uuid.uuid4().hex[:12]
 ESPIGA = stable_id("company", "espiga")
+SOURCE = stable_id("data_source", "espiga")
 
 PDF = b"%PDF-1.7\n1 0 obj\n<<>>\nendobj\ntrailer\n"
 
@@ -131,6 +132,7 @@ class QuarantineBeforeRawTests(unittest.TestCase):
         type(self).created.add(sha256_bytes(payload))
         response = self.client.post(
             f"/api/v1/companies/{ESPIGA}/documents",
+            params={"data_source_id": SOURCE},
             headers={"Authorization": f"Bearer {self.token()}"},
             files={"file": (filename, io.BytesIO(payload), "application/octet-stream")})
         self.assertEqual(200, response.status_code, response.text)

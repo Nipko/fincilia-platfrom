@@ -169,7 +169,10 @@ export async function POST(
       body: counted.stream,
     };
     upstream = await fetch(
-      apiUrl(`/api/v1/companies/${encodeURIComponent(companyId)}/documents`),
+      apiUrl(
+        `/api/v1/companies/${encodeURIComponent(companyId)}/documents?` +
+          new URLSearchParams({ data_source_id: sourceId }).toString(),
+      ),
       init,
     );
   } catch {

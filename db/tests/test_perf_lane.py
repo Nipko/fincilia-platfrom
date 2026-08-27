@@ -162,6 +162,7 @@ class PerformanceLaneTests(unittest.TestCase):
         baseline = peak_rss_mib()
         upload = self.client.post(
             f"/api/v1/companies/{ESPIGA}/documents", headers=self.auth(PREPARER),
+            params={"data_source_id": SOURCE},
             files={"file": (f"perf-{RUN}.csv", io.BytesIO(payload), "text/csv")})
         self.assertEqual(200, upload.status_code, upload.text)
         artifact = upload.json()["artifact_id"]
@@ -243,6 +244,7 @@ class PerformanceLaneTests(unittest.TestCase):
         type(self).created.add(sha256_bytes(payload))
         upload = self.client.post(
             f"/api/v1/companies/{ESPIGA}/documents", headers=self.auth(PREPARER),
+            params={"data_source_id": SOURCE},
             files={"file": (f"techo-{RUN}.csv", io.BytesIO(payload), "text/csv")})
         self.assertEqual(200, upload.status_code, upload.text)
         self.drain()

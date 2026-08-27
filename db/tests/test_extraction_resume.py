@@ -46,6 +46,7 @@ from fincilia_worker.main import process_one
 
 RUN = uuid.uuid4().hex[:12]
 ESPIGA = stable_id("company", "espiga")
+SOURCE = stable_id("data_source", "espiga")
 PREPARER = "ana@demo.local"
 
 # Suficientes filas para que haya varias tandas y el fallo caiga de verdad entre
@@ -213,6 +214,7 @@ class ExtractionResumeTests(unittest.TestCase):
         type(self).created.add(sha256_bytes(payload))
         upload = self.client.post(
             f"/api/v1/companies/{ESPIGA}/documents", headers=self.auth(PREPARER),
+            params={"data_source_id": SOURCE},
             files={"file": (f"settle-{helper_name}-{RUN}.csv", io.BytesIO(payload),
                             "text/csv")})
         self.assertEqual(200, upload.status_code, upload.text)
@@ -256,6 +258,7 @@ class ExtractionResumeTests(unittest.TestCase):
 
         upload = self.client.post(
             f"/api/v1/companies/{ESPIGA}/documents", headers=self.auth(PREPARER),
+            params={"data_source_id": SOURCE},
             files={"file": (f"resume-{RUN}.csv", io.BytesIO(payload), "text/csv")})
         self.assertEqual(200, upload.status_code, upload.text)
         artifact = upload.json()["artifact_id"]
@@ -332,6 +335,7 @@ class ExtractionResumeTests(unittest.TestCase):
         type(self).created.add(sha256_bytes(payload))
         upload = self.client.post(
             f"/api/v1/companies/{ESPIGA}/documents", headers=self.auth(PREPARER),
+            params={"data_source_id": SOURCE},
             files={"file": (f"divergent-{RUN}.csv", io.BytesIO(payload),
                             "text/csv")})
         self.assertEqual(200, upload.status_code, upload.text)
@@ -567,6 +571,7 @@ class ExtractionResumeTests(unittest.TestCase):
 
         upload = self.client.post(
             f"/api/v1/companies/{ESPIGA}/documents", headers=self.auth(PREPARER),
+            params={"data_source_id": SOURCE},
             files={"file": (f"raro-{RUN}.csv", io.BytesIO(payload), "text/csv")})
         self.assertEqual(200, upload.status_code, upload.text)
         self.drain()

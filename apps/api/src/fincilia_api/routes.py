@@ -185,6 +185,7 @@ class QualityTriageRequest(BaseModel):
 
 class ArtifactSummary(BaseModel):
     artifact_id: str
+    data_source_id: str | None
     filename: str
     byte_size: int
     content_sha256: str
@@ -203,6 +204,47 @@ class ArtifactSummary(BaseModel):
 class ArtifactDetail(ArtifactSummary):
     runs: list[dict]
     spreadsheet: dict | None = None
+
+
+class DocumentHistoryItem(BaseModel):
+    artifact_id: str
+    data_source_id: str | None
+    source_name: str
+    filename: str
+    byte_size: int
+    content_sha256: str
+    media_type: str
+    status: str
+    zone: str
+    uploaded_at: str
+    promotion_reason: str | None
+    latest_run_kind: str | None
+    processing_status: str
+    processing_error: str | None
+    dataset_version_id: str | None
+    dataset_state: str | None
+    completeness_state: str | None
+    record_count: int | None
+    movement_count: int | None
+    rejected_count: int | None
+
+
+class DocumentHistorySummary(BaseModel):
+    total: int
+    raw: int
+    quarantine: int
+    failed: int
+    legacy_unattributed: int
+
+
+class DocumentHistoryPage(BaseModel):
+    items: list[DocumentHistoryItem]
+    summary: DocumentHistorySummary
+    limit: int
+    has_next: bool
+    has_previous: bool
+    next_cursor: str | None
+    previous_cursor: str | None
 
 
 class SpreadsheetSelectionRequest(BaseModel):
@@ -501,6 +543,16 @@ def read_audit_page(request: Request, company_id: str, limit: int = 25,
 # Documentos
 # --------------------------------------------------------------------------- #
 
+def _source_or_forbidden(connection, data_source_id: str):
+    """Resuelve una fuente dentro del contexto RLS sin permitir enumerarla."""
+    try:
+        source = onboarding.load_source(connection, data_source_id)
+    except psycopg.errors.InvalidTextRepresentation:
+        raise forbidden() from None
+    if source is None:
+        raise forbidden()
+    return source
+
 def _read_bounded(upload: UploadFile) -> bytes:
     """Lee con techo. Se corta **mientras** se lee, no despues.
 
@@ -528,6 +580,7 @@ def _read_bounded(upload: UploadFile) -> bytes:
 @router.post("/companies/{company_id}/documents", response_model=ArtifactSummary,
              tags=["documents"])
 def upload_document(request: Request, company_id: str,
+                          data_source_id: str,
                           file: UploadFile = File(...),
                           principal: Principal = Depends(principal_dependency),
                           ) -> ArtifactSummary:
@@ -535,6 +588,16 @@ def upload_document(request: Request, company_id: str,
     require(context, "document.upload")
     database = request.app.state.database
     store = request.app.state.object_store
+
+    # La fuente se decide dentro del mismo contexto company-scoped que usara el
+    # INSERT. Validarla solo en el BFF dejaria abierta la API directa.
+    with database.session(company_id=context.company_id,
+                          subject_id=principal.subject_id) as connection:
+        source = _source_or_forbidden(connection, data_source_id)
+        if source["status"] != "active":
+            raise ProblemError(problem(
+                "source-inactive", "Source is not active", 409,
+                "the selected source is not active"))
 
     payload = _read_bounded(file)
     filename = (file.filename or "sin-nombre").strip()[:255]
@@ -587,7 +650,8 @@ def upload_document(request: Request, company_id: str,
         # Dos subidas simultaneas de los mismos bytes son una sola entrega: el
         # perdedor lee la fila del ganador y responde lo mismo, sin fallar.
         artifact, created = repository.insert_artifact(
-            connection, company_id=context.company_id, filename=filename,
+            connection, company_id=context.company_id,
+            data_source_id=source["data_source_id"], filename=filename,
             byte_size=admission.byte_size, content_sha256=admission.content_sha256,
             media_type=admission.media_type, zone=admission.zone,
             object_key=stored.key, status=status,
@@ -620,6 +684,7 @@ def upload_document(request: Request, company_id: str,
             resource_kind="document", resource_ref=artifact.artifact_id,
             outcome="allowed",
             detail={"result": "created" if created else "duplicate",
+                    "data_source_id": source["data_source_id"],
                     "zone": admission.zone, "media_type": admission.media_type,
                     "findings": len(admission.findings)})
     return ArtifactSummary(**artifact.as_dict(), already_present=not created)
@@ -645,6 +710,76 @@ def list_documents(request: Request, company_id: str, limit: int = 50,
         payload["zone"] = repository.effective_zone(decision)
         summaries.append(ArtifactSummary(**payload, promotion=decision))
     return summaries
+
+
+@router.get("/companies/{company_id}/document-history",
+            response_model=DocumentHistoryPage, tags=["documents"])
+def read_document_history(
+        request: Request, company_id: str, limit: int = 25,
+        data_source_id: str | None = None, zone: str = "all",
+        processing_status: str = "all", filename: str | None = None,
+        cursor: str | None = None, direction: str = "next",
+        principal: Principal = Depends(principal_dependency)) -> DocumentHistoryPage:
+    """Historico keyset de recepciones; nunca agrega valores financieros."""
+    context = company_context(request, principal, company_id)
+    require(context, "document.read")
+    bounded = max(1, min(int(limit), 100))
+    if zone not in {"all", "quarantine", "raw"}:
+        raise ProblemError(problem(
+            "document-filter-invalid", "Document filter is invalid", 422,
+            "zone must be all, quarantine or raw"))
+    if processing_status not in {
+            "all", "not_started", "queued", "running", "succeeded", "failed"}:
+        raise ProblemError(problem(
+            "document-filter-invalid", "Document filter is invalid", 422,
+            "processing status is not allowlisted"))
+    if direction not in {"next", "previous"}:
+        raise ProblemError(problem(
+            "document-cursor-invalid", "Document cursor is invalid", 422,
+            "direction must be next or previous"))
+    filename = (filename or "").strip() or None
+    if filename is not None and (len(filename) > 120 or any(
+            ord(character) < 32 for character in filename)):
+        raise ProblemError(problem(
+            "document-filter-invalid", "Document filter is invalid", 422,
+            "filename filter is invalid"))
+    try:
+        decoded = audit_query.decode_cursor(cursor)
+    except ValueError:
+        raise ProblemError(problem(
+            "document-cursor-invalid", "Document cursor is invalid", 422,
+            "cursor is malformed")) from None
+    database = request.app.state.database
+    with database.session(company_id=context.company_id,
+                          subject_id=principal.subject_id) as connection:
+        if data_source_id is not None:
+            _source_or_forbidden(connection, data_source_id)
+        items, directional_more, summary = repository.list_artifact_history(
+            connection, limit=bounded, data_source_id=data_source_id, zone=zone,
+            processing_status=processing_status, filename=filename,
+            cursor=(decoded.occurred_at, decoded.audit_event_id)
+            if decoded else None, direction=direction)
+    if direction == "previous":
+        has_previous = directional_more
+        has_next = cursor is not None
+    else:
+        has_previous = cursor is not None
+        has_next = directional_more
+    previous_cursor = None
+    next_cursor = None
+    if items and has_previous:
+        previous_cursor = audit_query.encode_cursor(
+            dt.datetime.fromisoformat(items[0]["uploaded_at"]),
+            items[0]["artifact_id"])
+    if items and has_next:
+        next_cursor = audit_query.encode_cursor(
+            dt.datetime.fromisoformat(items[-1]["uploaded_at"]),
+            items[-1]["artifact_id"])
+    return DocumentHistoryPage(
+        items=[DocumentHistoryItem(**item) for item in items],
+        summary=DocumentHistorySummary(**summary), limit=bounded,
+        has_next=has_next, has_previous=has_previous,
+        next_cursor=next_cursor, previous_cursor=previous_cursor)
 
 
 @router.get("/companies/{company_id}/documents/{artifact_id}",
@@ -853,17 +988,6 @@ def _artifact_or_forbidden(connection, artifact_id: str):
     if artifact is None:
         raise forbidden()
     return artifact
-
-
-def _source_or_forbidden(connection, data_source_id: str):
-    """Resuelve una fuente dentro del contexto RLS sin permitir enumerarla."""
-    try:
-        source = onboarding.load_source(connection, data_source_id)
-    except psycopg.errors.InvalidTextRepresentation:
-        raise forbidden() from None
-    if source is None:
-        raise forbidden()
-    return source
 
 
 def _preparation_problem(error: datasets.PreparationError) -> ProblemError:

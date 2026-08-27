@@ -311,6 +311,7 @@ class ReleaseGateApiTests(unittest.TestCase):
         type(self).created.add(sha256_bytes(payload))
         response = self.client.post(
             f"/api/v1/companies/{ESPIGA}/documents", headers=self.auth(PREPARER),
+            params={"data_source_id": SOURCE},
             files={"file": ("extracto.csv", io.BytesIO(payload),
                             "application/octet-stream")})
         self.assertEqual(200, response.status_code, response.text)
