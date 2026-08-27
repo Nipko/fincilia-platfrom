@@ -403,7 +403,11 @@ export function MappingForm({
             </div>
           ) : (
             <>
-              <div className="scroll">
+              <div
+                className="scroll"
+                tabIndex={0}
+                aria-label="Movimientos de la vista procesada"
+              >
                 <table>
                   <caption className="meta">
                     Fechas e importes normalizados por el mismo dominio que prepara.

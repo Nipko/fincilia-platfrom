@@ -9,6 +9,7 @@ import {
 
 test('la ficha perfilada de un XLSX seguro no tiene violaciones Axe', async ({ page }) => {
   test.setTimeout(120_000);
+  const marker = Date.now().toString(36);
   await page.goto('/entrar');
   await page.getByLabel('Usuario').fill('ana@demo.local');
   await page.getByLabel('Contrasena').fill('fincilia-demo-only');
@@ -23,9 +24,9 @@ test('la ficha perfilada de un XLSX seguro no tiene violaciones Axe', async ({ p
   expect(sourceId).toMatch(/^[0-9a-f-]+$/);
   await source.selectOption(sourceId!);
   await page.getByLabel('Extracto o soporte').setInputFiles({
-    name: 'movimientos-sinteticos.xlsx',
+    name: `movimientos-accesibles-${marker}.xlsx`,
     mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    buffer: syntheticXlsx(),
+    buffer: syntheticXlsx(marker),
   });
   await page.getByRole('button', { name: 'Subir' }).click();
   await expect(page).toHaveURL(/\/documentos\/[0-9a-f-]+\?fuente=[0-9a-f-]+$/);
@@ -35,7 +36,8 @@ test('la ficha perfilada de un XLSX seguro no tiene violaciones Axe', async ({ p
   expect(results.violations).toEqual([]);
 
   await page.getByRole('link', { name: 'Mapear y publicar' }).click();
-  await waitForRenderedText(page, 'Extraccion', 'Pago XLSX sintetico');
+  await expect(page).toHaveURL(/\/documentos\/[0-9a-f-]+\/mapeo\?/);
+  await waitForRenderedText(page, 'Extraccion', `Pago XLSX sintetico ${marker}`);
   await page.locator('#col_occurred_on').selectOption('0');
   await page.locator('#col_description').selectOption('1');
   await page.locator('#col_amount').selectOption('2');

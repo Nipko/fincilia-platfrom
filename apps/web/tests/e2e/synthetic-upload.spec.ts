@@ -173,6 +173,7 @@ test('XLSX multihoja exige seleccion y ofrece limpieza visual antes de mapear', 
   await page.locator('#col_amount').selectOption('2');
   await page.locator('#dateFormat').selectOption('iso');
   await page.locator('#decimalFormat').selectOption('dot');
+  await page.getByLabel('Nombre del mapeo').fill(`Limpieza multihoja ${marker}`);
   await page.getByLabel('Ultima fila de datos').fill('2');
   await page.getByRole('checkbox', { name: /4\. Moneda/ }).check();
   await page.getByRole('checkbox', { name: /5\. Nota auxiliar/ }).check();
@@ -200,7 +201,7 @@ test('una plantilla compatible se aplica como nueva version sin reconfigurar col
   await page.getByLabel('Extracto o soporte').setInputFiles({
     name: `plantilla-origen-${marker}.xlsx`,
     mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    buffer: syntheticXlsx(`${marker}-origen`),
+    buffer: syntheticXlsx(`${marker}-uno`),
   });
   await page.getByRole('button', { name: 'Subir' }).click();
   await expect(page).toHaveURL(/\/documentos\/[0-9a-f-]+\?fuente=[0-9a-f-]+$/);
@@ -213,6 +214,7 @@ test('una plantilla compatible se aplica como nueva version sin reconfigurar col
   await page.locator('#col_amount').selectOption('2');
   await page.locator('#dateFormat').selectOption('iso');
   await page.locator('#decimalFormat').selectOption('dot');
+  await page.getByLabel('Nombre del mapeo').fill(`Plantilla E2E ${marker}`);
   await page.getByRole('checkbox', { name: /4\. Moneda/ }).check();
   await page.getByRole('button', { name: 'Guardar mapeo' }).click();
   await expect(page.getByText(/Mapeo guardado en borrador/)).toBeVisible();
@@ -222,7 +224,7 @@ test('una plantilla compatible se aplica como nueva version sin reconfigurar col
   await page.getByLabel('Extracto o soporte').setInputFiles({
     name: `plantilla-destino-${marker}.xlsx`,
     mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    buffer: syntheticXlsx(`${marker}-destino`),
+    buffer: syntheticXlsx(`${marker}-dos`),
   });
   await page.getByRole('button', { name: 'Subir' }).click();
   await expect(page).toHaveURL(/\/documentos\/[0-9a-f-]+\?fuente=[0-9a-f-]+$/);
@@ -233,7 +235,9 @@ test('una plantilla compatible se aplica como nueva version sin reconfigurar col
 
   const library = page.getByRole('navigation', { name: 'Plantillas reutilizables' });
   await expect(library).toContainText('compatible');
-  await library.getByRole('link', { name: /Usar Mapeo de/ }).first().click();
+  await library.getByRole('link', {
+    name: `Usar Plantilla E2E ${marker}`,
+  }).click();
   await expect(page).toHaveURL(/plantilla=[0-9a-f-]+/);
   await expect(page.getByText(/Crearas la version 2/)).toBeVisible();
   await expect(page.locator('#col_occurred_on')).toHaveValue('0');
@@ -242,7 +246,7 @@ test('una plantilla compatible se aplica como nueva version sin reconfigurar col
   await page.getByRole('button', { name: 'Vista procesada' }).click();
   await expect(page.getByRole('region', {
     name: 'Vista procesada, aun sin guardar',
-  })).toContainText(`Pago XLSX sintetico ${marker}-destino`);
+  })).toContainText(`Pago XLSX sintetico ${marker}-dos`);
   await page.getByRole('button', { name: 'Guardar nueva version' }).click();
   await expect(page.getByText(/Mapeo guardado en borrador/)).toBeVisible();
 });
