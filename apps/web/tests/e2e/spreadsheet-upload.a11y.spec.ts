@@ -77,3 +77,47 @@ test('el selector multihoja y su estado pendiente no tienen violaciones Axe', as
   const results = await new AxeBuilder({ page }).analyze();
   expect(results.violations).toEqual([]);
 });
+
+test('la bandeja multiple antes y despues de cargar no tiene violaciones Axe', async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  const marker = Date.now().toString(36);
+  await page.goto('/entrar');
+  await page.getByLabel('Usuario').fill('ana@demo.local');
+  await page.getByLabel('Contrasena').fill('fincilia-demo-only');
+  await page.getByRole('button', { name: 'Entrar' }).click();
+  await page.getByRole('link', { name: /Panaderia La Espiga SAS/ }).click();
+  await page.getByRole('link', { name: 'Documentos', exact: true }).click();
+  await expect(page).toHaveURL(/\/empresas\/[0-9a-f-]+\/documentos$/);
+
+  const source = page.getByLabel('Fuente del documento');
+  const sourceId = await source.locator('option').filter({
+    hasText: 'Extracto bancario (demo)',
+  }).getAttribute('value');
+  await source.selectOption(sourceId!);
+  await page.getByLabel('Extracto o soporte').setInputFiles([
+    {
+      name: `accesible-a-${marker}.csv`,
+      mimeType: 'text/csv',
+      buffer: Buffer.from(
+        `fecha,descripcion,importe\n2026-08-01,accesible-${marker}-a,1.00\n`,
+      ),
+    },
+    {
+      name: `accesible-b-${marker}.csv`,
+      mimeType: 'text/csv',
+      buffer: Buffer.from(
+        `fecha,descripcion,importe\n2026-08-02,accesible-${marker}-b,2.00\n`,
+      ),
+    },
+  ]);
+
+  const queued = await new AxeBuilder({ page }).analyze();
+  expect(queued.violations).toEqual([]);
+
+  await page.getByRole('button', { name: 'Subir 2' }).click();
+  await expect(page.getByText('Completado')).toHaveCount(2);
+  const completed = await new AxeBuilder({ page }).analyze();
+  expect(completed.violations).toEqual([]);
+});

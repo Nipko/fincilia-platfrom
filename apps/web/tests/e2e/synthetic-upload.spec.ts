@@ -89,6 +89,42 @@ test('el navegador rechaza 25 MiB mas un byte sin abandonar la empresa', async (
   await expect(page).toHaveURL(COMPANY_URL);
 });
 
+test('el centro documental carga tres archivos y conserva cada expediente', async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  const marker = Date.now().toString(36);
+  await signIn(page);
+  await openSyntheticCompany(page);
+  await page.getByRole('link', { name: 'Documentos', exact: true }).click();
+  await expect(page).toHaveURL(/\/empresas\/[0-9a-f-]+\/documentos$/);
+  await selectDemoSource(page);
+
+  const filenames = ['banco', 'libros', 'pasarela'].map(
+    (kind) => `lote-${kind}-${marker}.csv`,
+  );
+  await page.getByLabel('Extracto o soporte').setInputFiles(
+    filenames.map((name, index) => ({
+      name,
+      mimeType: 'text/csv',
+      buffer: Buffer.from(
+        `fecha,descripcion,importe\n2026-08-0${index + 1},lote-${marker}-${index},${index + 1}.00\n`,
+        'utf8',
+      ),
+    })),
+  );
+  await expect(page.getByRole('region', { name: 'Bandeja de carga' }))
+    .toContainText('3 seleccionado(s)');
+  await page.getByRole('button', { name: 'Subir 3' }).click();
+
+  await expect(page).toHaveURL(/\/empresas\/[0-9a-f-]+\/documentos$/);
+  await expect(page.getByText('Completado')).toHaveCount(3);
+  await expect(page.getByRole('link', { name: 'Abrir' })).toHaveCount(3);
+  for (const filename of filenames) {
+    await expect(page.getByRole('link', { name: filename, exact: true })).toBeVisible();
+  }
+});
+
 test('el BFF conserva el 413 de la API ante un cliente que omite el precheck', async ({
   page,
 }) => {
