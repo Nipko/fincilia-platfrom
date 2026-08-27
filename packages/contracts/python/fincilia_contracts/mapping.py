@@ -91,6 +91,9 @@ class ColumnMapping:
     direction_mode: str
     header_row: int = 1
     first_data_row: int = 2
+    # Inclusiva. `None` significa hasta el ultimo registro extraido. El archivo
+    # original no se corta: el rango solo gobierna esta version reproducible.
+    last_data_row: int | None = None
 
     def column_of(self, name: str) -> int | None:
         return self.columns.get(name)
@@ -186,6 +189,19 @@ def validate_mapping(mapping: ColumnMapping,
     if any(index < 0 for index in mapping.columns.values()):
         findings.append(Finding("MAP-COLUMN-INDEX", "columns",
                                 "a column index is never negative"))
+
+    if mapping.header_row < 1:
+        findings.append(Finding("MAP-ROW-RANGE", "header_row",
+                                "the header row is 1-based"))
+    if mapping.first_data_row <= mapping.header_row:
+        findings.append(Finding(
+            "MAP-ROW-RANGE", "first_data_row",
+            "the first data row must come after the header row"))
+    if (mapping.last_data_row is not None
+            and mapping.last_data_row < mapping.first_data_row):
+        findings.append(Finding(
+            "MAP-ROW-RANGE", "last_data_row",
+            "the last data row cannot precede the first data row"))
 
     findings.extend(_validate_direction(mapping))
     if profile is not None:
@@ -406,6 +422,8 @@ def apply(mapping: ColumnMapping, rows: list[list[str]], *,
     rejections: list[Rejection] = []
     for offset, row in enumerate(rows):
         number = start + offset
+        if mapping.last_data_row is not None and number > mapping.last_data_row:
+            break
         try:
             movements.append(apply_row(mapping, row, number))
         except (MappingError, MoneyError) as error:

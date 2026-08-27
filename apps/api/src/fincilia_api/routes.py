@@ -14,6 +14,7 @@ import hashlib
 import logging
 import time
 import uuid
+from typing import Annotated
 
 import psycopg
 
@@ -772,20 +773,29 @@ class PreviewPage(BaseModel):
     rows: list[PreviewCell]
 
 
-class MappingRequest(BaseModel):
+class MappingDefinitionRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    artifact_id: str
-    data_source_id: str
-    display_name: str = Field(min_length=1, max_length=160)
     columns: dict[str, int]
     date_format: str = "iso"
     decimal_format: str = "dot"
     currency: str = Field(min_length=3, max_length=3)
     direction_mode: str = "signed_amount"
-    header_row: int = Field(default=1, ge=1)
-    first_data_row: int = Field(default=2, ge=1)
-    ignored_columns: list[int] = Field(default_factory=list)
+    header_row: int = Field(default=1, ge=1, le=200_001)
+    first_data_row: int = Field(default=2, ge=1, le=200_001)
+    last_data_row: int | None = Field(default=None, ge=1, le=200_001)
+    ignored_columns: list[Annotated[int, Field(ge=0, le=2_047)]] = Field(
+        default_factory=list, max_length=2_048)
+
+
+class MappingRequest(MappingDefinitionRequest):
+    artifact_id: str
+    data_source_id: str
+    display_name: str = Field(min_length=1, max_length=160)
+
+
+class MappingVersionRequest(MappingDefinitionRequest):
+    artifact_id: str
 
 
 class DecisionRequest(BaseModel):
@@ -918,6 +928,45 @@ def read_preview(request: Request, company_id: str, artifact_id: str,
                           locator=item["locator"]) for item in rows])
 
 
+@router.post("/companies/{company_id}/documents/{artifact_id}/mapping-preview",
+             tags=["mapping"])
+def preview_canonical_mapping(request: Request, company_id: str, artifact_id: str,
+                              body: MappingDefinitionRequest, limit: int = 10,
+                              principal: Principal = Depends(
+                                  principal_dependency)) -> dict:
+    """Aplica el dominio a una muestra y no persiste ningun hecho financiero."""
+    context = company_context(request, principal, company_id)
+    require(context, "dataset.map")
+    definition = body.model_dump()
+    database = request.app.state.database
+    with database.session(company_id=context.company_id,
+                          subject_id=principal.subject_id) as connection:
+        _artifact_or_forbidden(connection, artifact_id)
+        run = datasets.latest_run(connection, artifact_id, "extract")
+        if run is None:
+            raise ProblemError(problem(
+                "not-extracted", "No preview available", 409,
+                "this document has no completed extraction"))
+        profile_run = datasets.latest_run(connection, artifact_id, "profile")
+        profile = (profile_run or {}).get("result") or {}
+        try:
+            mapping = datasets.mapping_from_definition(definition)
+        except datasets.PreparationError as error:
+            raise ProblemError(problem(error.code, "Invalid mapping", 422,
+                                       error.detail)) from None
+        result = datasets.preview_mapping(
+            connection, run_id=run["run_id"], mapping=mapping,
+            definition=definition, profile=profile, limit=limit)
+        repository.record_audit(
+            connection, subject_id=principal.subject_id,
+            company_id=context.company_id, action="mapping.preview",
+            resource_kind="document", resource_ref=artifact_id, outcome="allowed",
+            detail={"sampled_rows": result["sampled_count"],
+                    "range_rows": result["range_record_count"],
+                    "blockers": len(result["blockers"])})
+    return result
+
+
 @router.post("/companies/{company_id}/mappings", tags=["mapping"], status_code=201)
 def create_mapping(request: Request, company_id: str, body: MappingRequest,
                    principal: Principal = Depends(principal_dependency)) -> dict:
@@ -953,12 +1002,86 @@ def create_mapping(request: Request, company_id: str, body: MappingRequest,
         except datasets.MappingReferenceRefused:
             logger.warning("mapping refused for company %s", context.company_id)
             raise forbidden() from None
-        blockers = datasets.blockers_for(mapping, profile, [])
+        blockers = datasets.blockers_for(mapping, profile, [], definition)
+        extract_run = datasets.latest_run(connection, body.artifact_id, "extract")
+        if extract_run is not None:
+            blockers.extend(datasets.range_blockers(
+                mapping, datasets.count_records(connection, extract_run["run_id"])))
         repository.record_audit(
             connection, subject_id=principal.subject_id,
             company_id=context.company_id, action="dataset.map",
             resource_kind="mapping", resource_ref=created["mapping_version_id"],
             outcome="allowed", detail={"artifact": body.artifact_id,
+                                       "blockers": len(blockers)})
+    return {**created, "blockers": blockers}
+
+
+@router.get("/companies/{company_id}/mapping-templates", tags=["mapping"])
+def list_mapping_templates(request: Request, company_id: str,
+                           data_source_id: str, artifact_id: str,
+                           principal: Principal = Depends(
+                               principal_dependency)) -> list[dict]:
+    context = company_context(request, principal, company_id)
+    require(context, "dataset.map")
+    database = request.app.state.database
+    with database.session(company_id=context.company_id,
+                          subject_id=principal.subject_id) as connection:
+        _source_or_forbidden(connection, data_source_id)
+        _artifact_or_forbidden(connection, artifact_id)
+        profile_run = datasets.latest_run(connection, artifact_id, "profile")
+        profile = (profile_run or {}).get("result") or {}
+        target_schema = datasets.schema_digest(profile) if profile else ""
+        return datasets.list_mapping_templates(
+            connection, data_source_id=data_source_id,
+            target_schema=target_schema)
+
+
+@router.post("/companies/{company_id}/mapping-templates/{mapping_id}/versions",
+             tags=["mapping"], status_code=201)
+def create_mapping_template_version(
+        request: Request, company_id: str, mapping_id: str,
+        body: MappingVersionRequest,
+        principal: Principal = Depends(principal_dependency)) -> dict:
+    context = company_context(request, principal, company_id)
+    require(context, "dataset.map")
+    definition = body.model_dump(exclude={"artifact_id"})
+    database = request.app.state.database
+    with database.session(company_id=context.company_id,
+                          subject_id=principal.subject_id) as connection:
+        _artifact_or_forbidden(connection, body.artifact_id)
+        profile_run = datasets.latest_run(connection, body.artifact_id, "profile")
+        profile = (profile_run or {}).get("result") or {}
+        if not profile:
+            raise ProblemError(problem(
+                "mapping-unverifiable", "Mapping cannot be verified", 409,
+                "the target document has no profile"))
+        try:
+            mapping = datasets.mapping_from_definition(definition)
+            created = datasets.create_mapping_version(
+                connection, company_id=context.company_id, mapping_id=mapping_id,
+                artifact_id=body.artifact_id, definition=definition,
+                subject_id=principal.subject_id,
+                source_schema=datasets.schema_digest(profile))
+        except (datasets.MappingReferenceRefused,
+                psycopg.errors.InvalidTextRepresentation):
+            raise forbidden() from None
+        except datasets.MappingSchemaDrift:
+            raise ProblemError(problem(
+                "mapping-template-schema-drift", "Template is not compatible", 409,
+                "the target document schema differs from the latest template version"
+            )) from None
+        blockers = datasets.blockers_for(mapping, profile, [], definition)
+        extract_run = datasets.latest_run(connection, body.artifact_id, "extract")
+        if extract_run is not None:
+            blockers.extend(datasets.range_blockers(
+                mapping, datasets.count_records(connection, extract_run["run_id"])))
+        repository.record_audit(
+            connection, subject_id=principal.subject_id,
+            company_id=context.company_id, action="dataset.map",
+            resource_kind="mapping", resource_ref=created["mapping_version_id"],
+            outcome="allowed", detail={"artifact": body.artifact_id,
+                                       "template_reused": True,
+                                       "replayed": created["replayed"],
                                        "blockers": len(blockers)})
     return {**created, "blockers": blockers}
 
@@ -989,7 +1112,12 @@ def read_mapping(request: Request, company_id: str, mapping_version_id: str,
         profile = (profile_run or {}).get("result") or {}
         decisions = datasets.list_decisions(connection, mapping_version_id)
         mapping = datasets.mapping_from_definition(version["definition"])
-        blockers = datasets.blockers_for(mapping, profile, decisions)
+        blockers = datasets.blockers_for(
+            mapping, profile, decisions, version["definition"])
+        extract_run = datasets.latest_run(connection, version["artifact_id"], "extract")
+        if extract_run is not None:
+            blockers.extend(datasets.range_blockers(
+                mapping, datasets.count_records(connection, extract_run["run_id"])))
         unaccounted = datasets.unaccounted_columns(
             version["definition"], mapping, profile)
     return {**version, "decisions": decisions, "blockers": blockers,
@@ -1049,7 +1177,12 @@ def validate_mapping(request: Request, company_id: str, mapping_version_id: str,
         profile = (profile_run or {}).get("result") or {}
         decisions = datasets.list_decisions(connection, mapping_version_id)
         mapping = datasets.mapping_from_definition(version["definition"])
-        blockers = datasets.blockers_for(mapping, profile, decisions)
+        blockers = datasets.blockers_for(
+            mapping, profile, decisions, version["definition"])
+        extract_run = datasets.latest_run(connection, version["artifact_id"], "extract")
+        if extract_run is not None:
+            blockers.extend(datasets.range_blockers(
+                mapping, datasets.count_records(connection, extract_run["run_id"])))
         if blockers:
             raise ProblemError(problem(
                 "unresolved-ambiguity", "The mapping is not valid yet", 422,

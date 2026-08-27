@@ -79,6 +79,16 @@ class MappingValidationTests(unittest.TestCase):
         for name in mapping().columns:
             self.assertIn(name, CANONICAL_FIELDS)
 
+    def test_the_data_range_starts_after_the_header(self) -> None:
+        codes = [item.code for item in validate_mapping(
+            mapping(header_row=3, first_data_row=3))]
+        self.assertIn("MAP-ROW-RANGE", codes)
+
+    def test_the_last_row_never_precedes_the_first(self) -> None:
+        codes = [item.code for item in validate_mapping(
+            mapping(first_data_row=4, last_data_row=3))]
+        self.assertIn("MAP-ROW-RANGE", codes)
+
 
 class ProfileAgreementTests(unittest.TestCase):
     """El perfil marco lo ambiguo; publicar sobre eso seria elegir por la persona."""
@@ -286,6 +296,16 @@ class ApplyTests(unittest.TestCase):
         result = apply(mapping(), self.ROWS, first_row_number=2)
         self.assertEqual([2, 3], [item.row_number for item in result.movements])
         self.assertEqual([4, 5, 6], [item.row_number for item in result.rejections])
+
+    def test_the_inclusive_last_row_limits_the_processed_view(self) -> None:
+        result = apply(mapping(last_data_row=3), self.ROWS, first_row_number=2)
+        self.assertEqual([2, 3], [item.row_number for item in result.movements])
+        self.assertEqual([], list(result.rejections))
+
+    def test_an_absent_last_row_preserves_the_unbounded_contract(self) -> None:
+        self.assertEqual(
+            apply(mapping(), self.ROWS).as_dict(),
+            apply(mapping(last_data_row=None), self.ROWS).as_dict())
 
     def test_a_mapping_that_cannot_publish_never_runs(self) -> None:
         # No se procesa media entrega con un mapeo que no valida: se para antes.

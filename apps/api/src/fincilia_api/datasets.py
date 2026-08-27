@@ -127,6 +127,10 @@ class MappingReferenceRefused(Exception):
     """Una fuente o un artefacto no pertenece al alcance de la operacion."""
 
 
+class MappingSchemaDrift(Exception):
+    """La plantilla fue creada para otra forma de documento."""
+
+
 @dataclass(frozen=True)
 class Preparation:
     """Lo que se sabe de una preparacion, en conteos y nunca en payload."""
@@ -236,7 +240,9 @@ def mapping_from_definition(definition: dict[str, Any]) -> ColumnMapping:
             currency=str(definition.get("currency", "")),
             direction_mode=str(definition.get("direction_mode", "signed_amount")),
             header_row=int(definition.get("header_row", 1)),
-            first_data_row=int(definition.get("first_data_row", 2)))
+            first_data_row=int(definition.get("first_data_row", 2)),
+            last_data_row=(int(definition["last_data_row"])
+                           if definition.get("last_data_row") is not None else None))
     except (TypeError, ValueError) as error:
         raise PreparationError("mapping-invalid", str(error)) from error
 
@@ -344,6 +350,104 @@ def list_mappings(connection: psycopg.Connection, *,
                  "created_at": row[6].isoformat()} for row in cursor]
 
 
+def list_mapping_templates(connection: psycopg.Connection, *,
+                           data_source_id: str,
+                           target_schema: str) -> list[dict[str, Any]]:
+    """Ultima version de cada plantilla visible para una fuente.
+
+    La compatibilidad se calcula en el servidor con la huella del perfil
+    destino. Una lista consolidada en la web podria mezclar empresas o declarar
+    compatible una plantilla obsoleta.
+    """
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT DISTINCT ON (m.mapping_id) m.mapping_id, m.display_name, "
+            "       m.data_source_id, v.mapping_version_id, v.version_number, "
+            "       v.artifact_id, v.definition, v.definition_digest, "
+            "       v.source_schema_digest, v.state, v.created_at "
+            "FROM fincilia.column_mapping m "
+            "JOIN fincilia.column_mapping_version v "
+            "  ON v.mapping_id = m.mapping_id AND v.company_id = m.company_id "
+            "WHERE m.data_source_id = %s "
+            "ORDER BY m.mapping_id, v.version_number DESC",
+            (data_source_id,))
+        rows = cursor.fetchall()
+    result = [
+        {"mapping_id": str(row[0]), "display_name": row[1],
+         "data_source_id": str(row[2]), "mapping_version_id": str(row[3]),
+         "version_number": int(row[4]), "artifact_id": str(row[5]),
+         "definition": row[6], "definition_digest": row[7],
+         "source_schema_digest": row[8], "state": row[9],
+         "created_at": row[10].isoformat(),
+         "compatible": bool(target_schema and row[8] == target_schema)}
+        for row in rows
+    ]
+    return sorted(result, key=lambda item: item["created_at"], reverse=True)[:100]
+
+
+def create_mapping_version(connection: psycopg.Connection, *, company_id: str,
+                           mapping_id: str, artifact_id: str,
+                           definition: dict[str, Any], subject_id: str,
+                           source_schema: str) -> dict[str, Any]:
+    """Aplica una plantilla como version inmutable, serializada por plantilla.
+
+    El lock de la fila estable hace que dos solicitudes iguales vean la misma
+    version. No se necesita una unicidad nueva ni una carrera `max + 1`.
+    """
+    digest = definition_digest(definition)
+    try:
+        with connection.transaction():
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT m.data_source_id, v.source_schema_digest "
+                    "FROM fincilia.column_mapping m "
+                    "JOIN fincilia.column_mapping_version v "
+                    "  ON v.mapping_id = m.mapping_id AND v.company_id = m.company_id "
+                    "WHERE m.mapping_id = %s "
+                    "ORDER BY v.version_number DESC LIMIT 1 FOR UPDATE OF v",
+                    (mapping_id,))
+                template = cursor.fetchone()
+                if template is None:
+                    raise MappingReferenceRefused
+                if template[1] != source_schema:
+                    raise MappingSchemaDrift
+                cursor.execute(
+                    "SELECT mapping_version_id, version_number, state "
+                    "FROM fincilia.column_mapping_version "
+                    "WHERE mapping_id = %s AND artifact_id = %s "
+                    "AND definition_digest = %s ORDER BY version_number DESC LIMIT 1",
+                    (mapping_id, artifact_id, digest))
+                existing = cursor.fetchone()
+                if existing is not None:
+                    return {"mapping_id": mapping_id,
+                            "mapping_version_id": str(existing[0]),
+                            "version_number": int(existing[1]),
+                            "state": existing[2], "replayed": True,
+                            "data_source_id": str(template[0])}
+                cursor.execute(
+                    "SELECT coalesce(max(version_number), 0) + 1 "
+                    "FROM fincilia.column_mapping_version WHERE mapping_id = %s",
+                    (mapping_id,))
+                version_number = int(cursor.fetchone()[0])
+                cursor.execute(
+                    "INSERT INTO fincilia.column_mapping_version "
+                    "(mapping_version_id, company_id, mapping_id, version_number, "
+                    "artifact_id, definition, definition_digest, "
+                    "source_schema_digest, created_by) VALUES "
+                    "(gen_random_uuid(), %s, %s, %s, %s, %s::jsonb, %s, %s, %s) "
+                    "RETURNING mapping_version_id",
+                    (company_id, mapping_id, version_number, artifact_id,
+                     json.dumps(definition), digest, source_schema, subject_id))
+                version_id = str(cursor.fetchone()[0])
+    except psycopg.errors.ForeignKeyViolation as error:
+        if error.diag.constraint_name == "fk_mapping_version_artifact":
+            raise MappingReferenceRefused from None
+        raise
+    return {"mapping_id": mapping_id, "mapping_version_id": version_id,
+            "version_number": version_number, "state": "draft",
+            "replayed": False, "data_source_id": str(template[0])}
+
+
 def record_decision(connection: psycopg.Connection, *, company_id: str,
                     mapping_version_id: str, ambiguity_kind: str, subject_ref: str,
                     resolved_value: str, rationale: str,
@@ -440,7 +544,8 @@ def unaccounted_columns(definition: dict[str, Any], mapping: ColumnMapping,
 
 
 def blockers_for(mapping: ColumnMapping, profile: dict[str, Any],
-                 decisions: list[dict[str, Any]]) -> list[dict[str, str]]:
+                 decisions: list[dict[str, Any]],
+                 definition: dict[str, Any] | None = None) -> list[dict[str, str]]:
     """Lo que impide publicar, ya descontado lo que una persona resolvio.
 
     Un hallazgo resoluble desaparece cuando existe la decision que lo cubre **y**
@@ -464,7 +569,85 @@ def blockers_for(mapping: ColumnMapping, profile: dict[str, Any],
                          "ambiguity_kind": kind, "subject_ref": subject,
                          "expected_value": DECLARED_BY_KIND[kind](mapping) if kind else "",
                          "resolvable": "true" if kind else "false"})
+    if definition is not None:
+        ignored = {int(index) for index in (definition.get("ignored_columns") or [])
+                   if isinstance(index, int)}
+        overlap = sorted(ignored & set(mapping.columns.values()))
+        for index in overlap:
+            blockers.append({
+                "code": "MAP-COLUMN-CONFLICT", "location": f"column:{index}",
+                "detail": "an assigned column cannot also be ignored",
+                "ambiguity_kind": "", "subject_ref": "", "expected_value": "",
+                "resolvable": "false"})
     return blockers
+
+
+def range_blockers(mapping: ColumnMapping,
+                   total_records: int) -> list[dict[str, str]]:
+    blockers: list[dict[str, str]] = []
+    if mapping.first_data_row > total_records:
+        blockers.append({
+            "code": "MAP-ROW-ABSENT", "location": "first_data_row",
+            "detail": "the first data row is outside the extracted document",
+            "ambiguity_kind": "", "subject_ref": "", "expected_value": "",
+            "resolvable": "false"})
+    if (mapping.last_data_row is not None
+            and mapping.last_data_row > total_records):
+        blockers.append({
+            "code": "MAP-ROW-ABSENT", "location": "last_data_row",
+            "detail": "the last data row is outside the extracted document",
+            "ambiguity_kind": "", "subject_ref": "", "expected_value": "",
+            "resolvable": "false"})
+    return blockers
+
+
+def preview_mapping(connection: psycopg.Connection, *, run_id: str,
+                    mapping: ColumnMapping, definition: dict[str, Any],
+                    profile: dict[str, Any], limit: int = 10) -> dict[str, Any]:
+    """Muestra canonica sin escribir movimientos ni datasets."""
+    total_records = count_records(connection, run_id)
+    blockers = blockers_for(mapping, profile, [], definition)
+    blockers.extend(range_blockers(mapping, total_records))
+    upper = mapping.last_data_row
+    range_total = max(
+        0,
+        min(total_records, upper if upper is not None else total_records)
+        - mapping.first_data_row + 1,
+    )
+    result: dict[str, Any] = {
+        "header_row": mapping.header_row,
+        "first_data_row": mapping.first_data_row,
+        "last_data_row": upper,
+        "range_record_count": range_total,
+        "sample_limit": max(1, min(int(limit), 25)),
+        "sampled_count": 0,
+        "sample_truncated": range_total > max(1, min(int(limit), 25)),
+        "blockers": blockers,
+        "movements": [],
+        "rejections": [],
+    }
+    if blockers:
+        return result
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT record_ordinal, raw_values FROM fincilia.raw_record "
+            "WHERE processing_run_id = %s AND record_ordinal >= %s "
+            "AND (%s::integer IS NULL OR record_ordinal <= %s::integer) "
+            "ORDER BY record_ordinal LIMIT %s",
+            (run_id, mapping.first_data_row, upper, upper, result["sample_limit"]))
+        rows = cursor.fetchall()
+    for ordinal, values in rows:
+        try:
+            movement = apply_row(mapping, list(values), int(ordinal))
+        except Exception as error:  # noqa: BLE001 - una fila rara es un rechazo visible
+            result["rejections"].append({
+                "record_ordinal": int(ordinal), "code": "row_not_mappable",
+                "detail": str(error) if isinstance(error, MappingError)
+                else type(error).__name__})
+        else:
+            result["movements"].append(movement.as_dict())
+    result["sampled_count"] = len(rows)
+    return result
 
 
 # --------------------------------------------------------------------------- #
@@ -602,7 +785,9 @@ def _preparation_context(connection: psycopg.Connection, *, company_id: str,
 
     mapping = mapping_from_definition(version["definition"])
     decisions = list_decisions(connection, mapping_version_id)
-    blockers = blockers_for(mapping, profile, decisions)
+    blockers = blockers_for(mapping, profile, decisions, version["definition"])
+    blockers.extend(range_blockers(mapping, count_records(
+        connection, extract_run["run_id"])))
     if blockers:
         raise PreparationError(
             "unresolved-ambiguity",
@@ -787,7 +972,8 @@ def _plan_for(connection: psycopg.Connection, *, company_id: str,
 
 
 def _count_records(connection: psycopg.Connection, run_id: str,
-                   first_data_row: int) -> int:
+                   first_data_row: int,
+                   last_data_row: int | None = None) -> int:
     """Cuantas filas hay que preparar, **antes** de traer ninguna.
 
     La version anterior contaba despues de un `fetchall`: el techo protegia la
@@ -797,8 +983,9 @@ def _count_records(connection: psycopg.Connection, run_id: str,
     with connection.cursor() as cursor:
         cursor.execute(
             "SELECT count(*) FROM fincilia.raw_record "
-            "WHERE processing_run_id = %s AND record_ordinal >= %s",
-            (run_id, first_data_row))
+            "WHERE processing_run_id = %s AND record_ordinal >= %s "
+            "AND (%s::integer IS NULL OR record_ordinal <= %s::integer)",
+            (run_id, first_data_row, last_data_row, last_data_row))
         return int(cursor.fetchone()[0])
 
 
@@ -1142,7 +1329,8 @@ def prepare_dataset(database, *, company_id: str, artifact_id: str,
             connection, data_source_id=context["data_source_id"],
             financial_account_id=financial_account_id)
         expected = _count_records(connection, context["run_id"],
-                                  context["mapping"].first_data_row)
+                                  context["mapping"].first_data_row,
+                                  context["mapping"].last_data_row)
         if expected == 0:
             raise PreparationError("no-data-rows",
                                    "the declared range leaves no data rows")
@@ -1202,7 +1390,8 @@ def continue_dataset(database, *, company_id: str, dataset_version_id: str,
         context["financial_account_id"] = _account_of(
             connection, dataset_version_id, context["data_source_id"])
         expected = dataset.get("expected_record_count") or _count_records(
-            connection, context["run_id"], context["mapping"].first_data_row)
+            connection, context["run_id"], context["mapping"].first_data_row,
+            context["mapping"].last_data_row)
 
     return _drive_chunks(database, company_id=company_id, subject_id=subject_id,
                          dataset_id=dataset_version_id, context=context,
@@ -1270,9 +1459,11 @@ def _drive_chunks(database, *, company_id: str, subject_id: str, dataset_id: str
                     "SELECT raw_record_id, record_ordinal, raw_values, origin_locator "
                     "FROM fincilia.raw_record WHERE processing_run_id = %s "
                     "AND record_ordinal >= %s AND record_ordinal > %s "
+                    "AND (%s::integer IS NULL OR record_ordinal <= %s::integer) "
                     "ORDER BY record_ordinal LIMIT %s",
                     (context["run_id"], context["mapping"].first_data_row,
-                     last_record, chunk_size))
+                     last_record, context["mapping"].last_data_row,
+                     context["mapping"].last_data_row, chunk_size))
                 rows = cursor.fetchall()
             if not rows:
                 break
@@ -1416,6 +1607,7 @@ def _finalise(database, *, company_id: str, subject_id: str, dataset_id: str,
                 "direction_mode": context["mapping"].direction_mode,
                 "first_data_row": context["mapping"].first_data_row,
                 "header_row": context["mapping"].header_row,
+                "last_data_row": context["mapping"].last_data_row,
                 "lineage_plan_digest": context["plan"]["digest"],
             },
             "engine_release_key": context["release"]["release_key"],

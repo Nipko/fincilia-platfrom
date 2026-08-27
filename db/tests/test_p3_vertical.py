@@ -83,6 +83,14 @@ def ambiguous_csv(marker: str) -> bytes:
     ).encode("utf-8")
 
 
+def changed_schema_csv(marker: str) -> bytes:
+    return (
+        "fecha;descripcion;referencia;valor;nota\n"
+        f"13/02/2026;Pago proveedor {RUN}-{marker};REF-0201;-1.234,56;x\n"
+        "02/03/2026;Consignacion cliente;REF-0202;980.000,00;y\n"
+    ).encode("utf-8")
+
+
 PDF = b"%PDF-1.7\n1 0 obj\n<<>>\nendobj\ntrailer\n"
 
 MAPPING = {
@@ -538,6 +546,62 @@ class VerticalTests(VerticalHarness):
         for value in ("Pago proveedor", "REF-0001", "1.234,56", "980.000"):
             self.assertNotIn(value, rendered)
 
+    def test_canonical_preview_respects_the_range_and_persists_nothing_FNC_CLN_004_AC_01_02(
+            self) -> None:
+        artifact = self.promoted(statement_csv("clean-preview"), "extracto.csv")
+        definition = {**MAPPING, "last_data_row": 3}
+        response = self.client.post(
+            f"/api/v1/companies/{ESPIGA}/documents/{artifact}/mapping-preview",
+            headers=self.auth(PREPARER), json=definition)
+        self.assertEqual(200, response.status_code, response.text)
+        preview = response.json()
+        self.assertEqual(2, preview["range_record_count"])
+        self.assertEqual([2, 3],
+                         [item["row_number"] for item in preview["movements"]])
+        self.assertEqual("1234.560000000000", preview["movements"][0]["amount"])
+        events = self.client.get(
+            f"/api/v1/companies/{ESPIGA}/audit?limit=50",
+            headers=self.auth(REVIEWER)).json()
+        previews = [event for event in events
+                    if event["action"] == "mapping.preview"
+                    and event["resource_ref"] == artifact]
+        self.assertTrue(previews, "the canonical preview left no audit trail")
+        rendered_audit = str(previews[0])
+        self.assertIn("sampled_rows", rendered_audit)
+        for value in ("Pago proveedor", "REF-0001", "1.234,56", "980.000"):
+            self.assertNotIn(value, rendered_audit)
+        with psycopg.connect(MIGRATOR_DSN, autocommit=True) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT count(*) FROM fincilia.dataset_version WHERE artifact_id = %s",
+                    (artifact,))
+                self.assertEqual(0, int(cursor.fetchone()[0]))
+                cursor.execute(
+                    "SELECT count(*) FROM fincilia.canonical_movement m JOIN "
+                    "fincilia.dataset_version d USING (dataset_version_id) "
+                    "WHERE d.artifact_id = %s", (artifact,))
+                self.assertEqual(0, int(cursor.fetchone()[0]))
+
+    def test_canonical_preview_fails_closed_on_column_conflict_FNC_CLN_004_AC_03(
+            self) -> None:
+        artifact = self.promoted(statement_csv("clean-conflict"), "extracto.csv")
+        definition = {**MAPPING, "ignored_columns": [3]}
+        response = self.client.post(
+            f"/api/v1/companies/{ESPIGA}/documents/{artifact}/mapping-preview",
+            headers=self.auth(PREPARER), json=definition)
+        self.assertEqual(200, response.status_code, response.text)
+        preview = response.json()
+        self.assertIn("MAP-COLUMN-CONFLICT",
+                      [item["code"] for item in preview["blockers"]])
+        self.assertEqual([], preview["movements"])
+
+    def test_canonical_preview_needs_map_permission_FNC_CLN_004_AC_02(self) -> None:
+        artifact = self.promoted(statement_csv("clean-permission"), "extracto.csv")
+        response = self.client.post(
+            f"/api/v1/companies/{ESPIGA}/documents/{artifact}/mapping-preview",
+            headers=self.auth(REVIEWER), json=MAPPING)
+        self.assertEqual(403, response.status_code, response.text)
+
     # ------------------------------------------------------------------ mapeo #
 
     def test_a_cross_company_or_malformed_source_writes_nothing_FNC_API_001_AC_01(
@@ -694,6 +758,98 @@ class VerticalTests(VerticalHarness):
         artifact = self.promoted(statement_csv("revmap"), "extracto.csv")
         response = self.create_mapping(artifact, user=REVIEWER)
         self.assertEqual(403, response.status_code, response.text)
+
+    def test_a_template_creates_one_replayable_version_FNC_CLN_004_AC_05_06(
+            self) -> None:
+        first_artifact = self.promoted(statement_csv("template-one"), "uno.csv")
+        second_artifact = self.promoted(statement_csv("template-two"), "dos.csv")
+        original = self.create_mapping(first_artifact)
+        self.assertEqual(201, original.status_code, original.text)
+        mapping_id = original.json()["mapping_id"]
+
+        listed = self.client.get(
+            f"/api/v1/companies/{ESPIGA}/mapping-templates",
+            params={"data_source_id": SOURCE, "artifact_id": second_artifact},
+            headers=self.auth(PREPARER))
+        self.assertEqual(200, listed.status_code, listed.text)
+        template = next(item for item in listed.json()
+                        if item["mapping_id"] == mapping_id)
+        self.assertTrue(template["compatible"])
+
+        body = {**MAPPING, "artifact_id": second_artifact, "last_data_row": 3}
+        endpoint = (f"/api/v1/companies/{ESPIGA}/mapping-templates/"
+                    f"{mapping_id}/versions")
+        first = self.client.post(endpoint, headers=self.auth(PREPARER), json=body)
+        replay = self.client.post(endpoint, headers=self.auth(PREPARER), json=body)
+        self.assertEqual(201, first.status_code, first.text)
+        self.assertEqual(201, replay.status_code, replay.text)
+        self.assertFalse(first.json()["replayed"])
+        self.assertTrue(replay.json()["replayed"])
+        self.assertEqual(first.json()["mapping_version_id"],
+                         replay.json()["mapping_version_id"])
+        self.assertEqual(2, first.json()["version_number"])
+
+    def test_concurrent_template_reuse_does_not_duplicate_FNC_CLN_004_AC_06(
+            self) -> None:
+        first_artifact = self.promoted(statement_csv("template-race-a"), "a.csv")
+        second_artifact = self.promoted(statement_csv("template-race-b"), "b.csv")
+        mapping_id = self.create_mapping(first_artifact).json()["mapping_id"]
+        endpoint = (f"/api/v1/companies/{ESPIGA}/mapping-templates/"
+                    f"{mapping_id}/versions")
+        headers = self.auth(PREPARER)
+        body = {**MAPPING, "artifact_id": second_artifact}
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            responses = list(executor.map(
+                lambda _: self.client.post(endpoint, headers=headers, json=body),
+                range(2)))
+        self.assertEqual([201, 201], sorted(item.status_code for item in responses),
+                         [item.text for item in responses])
+        ids = {item.json()["mapping_version_id"] for item in responses}
+        self.assertEqual(1, len(ids))
+        self.assertEqual([False, True],
+                         sorted(item.json()["replayed"] for item in responses))
+
+    def test_template_schema_drift_is_visible_and_writes_nothing_FNC_CLN_004_AC_06(
+            self) -> None:
+        first_artifact = self.promoted(statement_csv("template-shape-a"), "a.csv")
+        changed_artifact = self.promoted(
+            changed_schema_csv("template-shape-b"), "b.csv")
+        original = self.create_mapping(first_artifact)
+        mapping_id = original.json()["mapping_id"]
+        listed = self.client.get(
+            f"/api/v1/companies/{ESPIGA}/mapping-templates",
+            params={"data_source_id": SOURCE, "artifact_id": changed_artifact},
+            headers=self.auth(PREPARER)).json()
+        template = next(item for item in listed if item["mapping_id"] == mapping_id)
+        self.assertFalse(template["compatible"])
+        refused = self.client.post(
+            f"/api/v1/companies/{ESPIGA}/mapping-templates/{mapping_id}/versions",
+            headers=self.auth(PREPARER),
+            json={**MAPPING, "artifact_id": changed_artifact})
+        self.assertEqual(409, refused.status_code, refused.text)
+        self.assertEqual("mapping-template-schema-drift",
+                         refused.json()["type"].rsplit("/", 1)[-1])
+
+    def test_the_last_row_limits_preparation_and_the_manifest_FNC_CLN_004_AC_01(
+            self) -> None:
+        artifact = self.promoted(statement_csv("range-prepare"), "extracto.csv")
+        definition = {**MAPPING, "last_data_row": 3}
+        created = self.create_mapping(artifact, definition)
+        version_id = created.json()["mapping_version_id"]
+        validated = self.client.post(
+            f"/api/v1/companies/{ESPIGA}/mappings/{version_id}/validate",
+            headers=self.auth(PREPARER))
+        self.assertEqual(200, validated.status_code, validated.text)
+        prepared = self.prepared(artifact, version_id)
+        self.assertEqual(201, prepared.status_code, prepared.text)
+        self.assertEqual(2, prepared.json()["record_count"])
+        detail = self.client.get(
+            f"/api/v1/companies/{ESPIGA}/datasets/"
+            f"{prepared.json()['dataset_version_id']}",
+            headers=self.auth(PREPARER))
+        self.assertEqual(
+            3, detail.json()["manifest"]["deterministic_config"]["last_data_row"])
 
     # ------------------------------------------------------------ preparacion #
 
