@@ -345,9 +345,9 @@ def profile(payload: bytes, *, max_rows: int = MAX_PROFILE_ROWS) -> TableProfile
                         ragged, truncated, tuple(columns))
 
 
-def profile_workbook(payload: bytes, *,
+def profile_workbook(payload: bytes, *, sheet_identity: str | None = None,
                      max_rows: int = MAX_PROFILE_ROWS) -> SpreadsheetTableProfile:
-    """Perfila la unica hoja segura de un XLSX mediante el lector compartido."""
+    """Perfila la hoja segura seleccionada mediante el lector compartido."""
     # Import local para que el perfilador CSV siga siendo una dependencia
     # pequena y para dejar explicita la frontera de formato.
     from .spreadsheet import (
@@ -358,7 +358,7 @@ def profile_workbook(payload: bytes, *,
     )
 
     try:
-        _, preamble = sniff_workbook(payload)
+        _, preamble = sniff_workbook(payload, sheet_identity=sheet_identity)
         outcome = SpreadsheetOutcome()
         rows = stream_workbook_rows(payload, preamble, max_rows=max_rows,
                                     outcome=outcome)

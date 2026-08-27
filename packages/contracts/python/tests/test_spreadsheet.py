@@ -44,9 +44,28 @@ class WorkbookInspectionTests(unittest.TestCase):
 
     def test_multiple_sheets_require_selection(self) -> None:
         payload = build_xlsx(ROWS, second_sheet=[["Otra"], ["fila"]])
-        self.assertEqual(2, len(inspect_workbook(payload).sheets))
+        inspection = inspect_workbook(payload)
+        self.assertEqual(2, len(inspection.sheets))
         with self.assertRaises(SpreadsheetError):
             sniff_workbook(payload)
+        _, preamble = sniff_workbook(
+            payload, sheet_identity=inspection.sheets[1].identity)
+        self.assertEqual("Otra", preamble.sheet_name)
+        self.assertEqual(2, preamble.sheet_ordinal)
+
+    def test_manifest_has_sheet_identity_but_never_cell_values(self) -> None:
+        payload = build_xlsx(ROWS, second_sheet=[["Secreto sintetico"], ["fila"]])
+        inspection = inspect_workbook(payload)
+        manifest = inspection.manifest(hashlib.sha256(payload).hexdigest())
+        self.assertEqual(2, manifest["sheet_count"])
+        self.assertEqual(["Movimientos", "Otra"],
+                         [sheet["name"] for sheet in manifest["sheets"]])
+        self.assertNotIn("Secreto sintetico", repr(manifest))
+
+    def test_unknown_sheet_identity_fails_closed(self) -> None:
+        payload = build_xlsx(ROWS, second_sheet=[["Otra"], ["fila"]])
+        with self.assertRaises(SpreadsheetError):
+            sniff_workbook(payload, sheet_identity="0" * 64)
 
     def test_active_and_external_content_are_visible(self) -> None:
         active = inspect_workbook(build_xlsx(
@@ -100,6 +119,17 @@ class WorkbookExtractionTests(unittest.TestCase):
         self.assertEqual("complete", outcome.state)
         self.assertEqual(2, outcome.data_rows)
 
+    def test_selected_second_sheet_is_the_only_one_extracted(self) -> None:
+        payload = build_xlsx(ROWS, second_sheet=[
+            ["Referencia", "Importe"], ["SEGUNDA", 27]])
+        inspection = inspect_workbook(payload)
+        _, preamble = sniff_workbook(
+            payload, sheet_identity=inspection.sheets[1].identity)
+        rows = list(stream_workbook_rows(payload, preamble))
+        self.assertEqual(("Referencia", "Importe"), rows[0].values)
+        self.assertEqual(("SEGUNDA", "27"), rows[1].values)
+        self.assertEqual(2, rows[1].locator("a" * 64)["sheet_ordinal"])
+
     def test_excel_serial_with_date_style_is_rendered_as_iso(self) -> None:
         payload = build_xlsx(
             [["Fecha", "Importe"], [45292, 10]], date_at={(2, 1)})
@@ -141,6 +171,17 @@ class WorkbookProfileTests(unittest.TestCase):
         self.assertEqual("integer", profile["columns"][2]["inferred_type"])
         self.assertEqual(2, profile["row_count"])
         self.assertNotIn("Pago sintetico", repr(profile))
+
+    def test_profile_uses_the_selected_sheet(self) -> None:
+        payload = build_xlsx(ROWS, second_sheet=[
+            ["Referencia", "Importe"], ["SEGUNDA", 27]])
+        inspection = inspect_workbook(payload)
+        profile = profile_workbook(
+            payload, sheet_identity=inspection.sheets[1].identity).as_dict()
+        self.assertEqual("Otra", profile["sheet_name"])
+        self.assertEqual(["Referencia", "Importe"],
+                         [column["header"] for column in profile["columns"]])
+        self.assertNotIn("SEGUNDA", repr(profile))
 
 
 if __name__ == "__main__":

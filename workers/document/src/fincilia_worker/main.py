@@ -162,7 +162,8 @@ def process_one(database: Database, store, identity: str) -> bool:
                         jobs.RETRYABLE
         else:
             result, error_code, failure_class = jobs.run_profile(
-                payload, internal_type=artifact["internal_type"])
+                payload, internal_type=artifact["internal_type"],
+                sheet_identity=artifact.get("sheet_identity"))
 
     try:
         with database.session(company_id=claim.company_id) as connection:
@@ -203,14 +204,19 @@ def _artifact_row(database: Database, claim: "jobs.Claim") -> dict:
                 "        WHERE p.artifact_id = a.artifact_id "
                 "          AND p.company_id = a.company_id "
                 "          AND p.decision = 'promoted' "
-                "        ORDER BY p.decided_at DESC, p.decision_id DESC LIMIT 1), '') "
-                "FROM fincilia.source_artifact a WHERE a.artifact_id = %s",
+                "        ORDER BY p.decided_at DESC, p.decision_id DESC LIMIT 1), ''), "
+                "       selection.sheet_identity "
+                "FROM fincilia.source_artifact a "
+                "LEFT JOIN fincilia.spreadsheet_selection selection "
+                "  ON selection.artifact_id = a.artifact_id "
+                " AND selection.company_id = a.company_id "
+                "WHERE a.artifact_id = %s",
                 (claim.artifact_id,))
             row = cursor.fetchone()
     if row is None:
         raise ObjectStoreError("the artifact is not visible in its own context")
     return {"object_key": row[0], "filename": row[1], "content_sha256": row[2],
-            "internal_type": row[3]}
+            "internal_type": row[3], "sheet_identity": row[4]}
 
 
 def _record_decision(database: Database, store, claim: "jobs.Claim", artifact: dict,
@@ -252,7 +258,8 @@ def _record_decision(database: Database, store, claim: "jobs.Claim", artifact: d
             # Son dos trabajos independientes y no uno con dos partes: perfilar
             # mide sin transcribir y extraer transcribe con coordenadas. Que uno
             # falle no debe impedir el otro.
-            if decision["decision"] == "promoted":
+            if (decision["decision"] == "promoted"
+                    and not decision.get("requires_selection", False)):
                 for kind in ("profile", "extract"):
                     if claim.issued_context_id is None:
                         # Compatibilidad expand-only para un scan creado antes
@@ -322,7 +329,8 @@ def _extract_streaming(database: Database, store, claim: "jobs.Claim") -> bool:
                 )
 
                 payload = store.get("raw", artifact["object_key"])
-                _, preamble = sniff_workbook(payload)
+                _, preamble = sniff_workbook(
+                    payload, sheet_identity=artifact.get("sheet_identity"))
                 xlsx_outcome = SpreadsheetOutcome()
                 written = _store_stream(
                     database, claim, artifact,

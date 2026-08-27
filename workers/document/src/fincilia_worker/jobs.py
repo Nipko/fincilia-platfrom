@@ -53,7 +53,7 @@ UNKNOWN = "unknown"
 # sobre el mismo artefacto es una sola decision, y reejecutarlo no crea otra.
 # Cuando el escaner cambie de verdad, esto sube y la decision se puede revisar
 # sin reescribir la anterior.
-SCANNER_RELEASE = "scan-2"
+SCANNER_RELEASE = "scan-3"
 
 
 @dataclass(frozen=True)
@@ -116,7 +116,8 @@ def dumps(payload) -> str:
 
 
 def run_profile(payload: bytes, *,
-                internal_type: str = "") -> tuple[dict | None, str | None, str | None]:
+                internal_type: str = "", sheet_identity: str | None = None
+                ) -> tuple[dict | None, str | None, str | None]:
     """Perfila unos bytes. Devuelve `(resultado, codigo, clase_de_fallo)`.
 
     El resultado no lleva ni un valor del fichero: solo su forma. Un perfil que
@@ -127,7 +128,7 @@ def run_profile(payload: bytes, *,
         if internal_type == "xlsx":
             from fincilia_contracts.profiling import profile_workbook
 
-            table = profile_workbook(payload)
+            table = profile_workbook(payload, sheet_identity=sheet_identity)
         else:
             table = profile(payload)
     except UnprofilableFile as error:

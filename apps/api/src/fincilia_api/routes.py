@@ -201,6 +201,12 @@ class ArtifactSummary(BaseModel):
 
 class ArtifactDetail(ArtifactSummary):
     runs: list[dict]
+    spreadsheet: dict | None = None
+
+
+class SpreadsheetSelectionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    sheet_identity: str = Field(pattern=r"^[0-9a-f]{64}$")
 
 
 def principal_dependency(request: Request) -> Principal:
@@ -657,12 +663,88 @@ def read_document(request: Request, company_id: str, artifact_id: str,
             raise forbidden()
         runs = repository.list_runs(connection, artifact_id)
         decision = repository.latest_decision(connection, artifact_id)
+        spreadsheet = repository.spreadsheet_workspace(connection, artifact_id)
     payload = artifact.as_dict()
     # La zona que se publica es la efectiva, no la de la fila: el artefacto es
     # inmutable y siempre dice `quarantine`; quien decide donde vive la evidencia
     # es la decision de promocion.
     payload["zone"] = repository.effective_zone(decision)
-    return ArtifactDetail(**payload, runs=runs, promotion=decision)
+    return ArtifactDetail(**payload, runs=runs, promotion=decision,
+                          spreadsheet=spreadsheet)
+
+
+@router.post(
+    "/companies/{company_id}/documents/{artifact_id}/spreadsheet-selection",
+    tags=["documents"], status_code=201)
+def select_spreadsheet_worksheet(
+        request: Request, company_id: str, artifact_id: str,
+        body: SpreadsheetSelectionRequest,
+        principal: Principal = Depends(principal_dependency)) -> dict:
+    """Fija la hoja OPC que el worker puede perfilar y extraer.
+
+    El cliente solo propone una identidad del manifiesto ya inspeccionado. El
+    nombre, ordinal, workbook y empresa salen de estado server-side; una hoja
+    oculta o una identidad inventada nunca llega a la cola.
+    """
+    context = company_context(request, principal, company_id)
+    require(context, "dataset.map")
+    require(context, "document.upload")
+    database = request.app.state.database
+    with database.session(company_id=context.company_id,
+                          subject_id=principal.subject_id) as connection:
+        artifact = _artifact_or_forbidden(connection, artifact_id)
+        decision = repository.latest_decision(connection, artifact_id)
+        workspace = repository.spreadsheet_workspace(connection, artifact_id)
+        if (decision is None or decision.get("decision") != "promoted"
+                or decision.get("internal_type") != "xlsx" or workspace is None):
+            raise ProblemError(problem(
+                "spreadsheet-not-ready", "Spreadsheet not ready", 409,
+                "the workbook has not completed its safe inspection"))
+        if workspace.get("workbook_identity") != artifact.content_sha256:
+            raise ProblemError(problem(
+                "spreadsheet-manifest-stale", "Spreadsheet manifest stale", 409,
+                "the inspected workbook identity does not match the artifact"))
+        sheet = next((candidate for candidate in workspace.get("sheets", [])
+                      if candidate.get("sheet_identity") == body.sheet_identity), None)
+        if sheet is None or sheet.get("state") != "visible":
+            repository.record_audit(
+                connection, subject_id=principal.subject_id,
+                company_id=context.company_id, action="spreadsheet.sheet.select",
+                resource_kind="document", resource_ref=artifact_id,
+                outcome="denied", detail={"reason": "sheet-not-selectable"})
+            raise ProblemError(problem(
+                "sheet-not-selectable", "Worksheet not selectable", 422,
+                "the requested worksheet is not a visible member of the inspected book"))
+        try:
+            selected, created = repository.select_spreadsheet_sheet(
+                connection, company_id=context.company_id, artifact_id=artifact_id,
+                workbook_identity=artifact.content_sha256,
+                sheet_identity=body.sheet_identity, sheet_name=str(sheet["name"]),
+                sheet_ordinal=int(sheet["ordinal"]), selected_by=principal.subject_id)
+        except ValueError:
+            raise ProblemError(problem(
+                "spreadsheet-selection-conflict", "Worksheet already selected", 409,
+                "this artifact already has a different immutable worksheet selection"
+            )) from None
+        if created:
+            issued = issue_context(
+                connection, tenant=context, purpose_code="processing_job",
+                resource_kind="source_artifact", resource_ref=artifact_id,
+                idempotency_key=f"spreadsheet-selection:{selected['selection_id']}",
+                expires_at=dt.datetime.now(dt.timezone.utc) + dt.timedelta(days=7),
+                hmac_key=request.app.state.settings.authorization_context_hmac_key)
+            for kind in ("profile", "extract"):
+                repository.enqueue_run(
+                    connection, company_id=context.company_id,
+                    artifact_id=artifact_id, kind=kind,
+                    issued_context_id=issued.context_id)
+        repository.record_audit(
+            connection, subject_id=principal.subject_id,
+            company_id=context.company_id, action="spreadsheet.sheet.select",
+            resource_kind="document", resource_ref=artifact_id, outcome="allowed",
+            detail={"result": "created" if created else "replayed",
+                    "sheet_ordinal": selected["sheet_ordinal"]})
+    return {**selected, "created": created}
 
 
 # --------------------------------------------------------------------------- #

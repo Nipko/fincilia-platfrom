@@ -316,13 +316,18 @@ class PromotionTests(unittest.TestCase):
         self.assertEqual("sensitive_content", decision.reason_code)
         self.assertNotIn(pan, repr(decision.as_dict()))
 
-    def test_formula_and_multiple_sheet_books_require_explicit_flows(self) -> None:
+    def test_formula_and_multiple_sheet_books_use_explicit_flows(self) -> None:
         formula = decide_promotion(build_xlsx(
             [["Importe"], [10]], formula_at=(2, 1)), "formula.xlsx")
         self.assertEqual("formula_review_required", formula.reason_code)
         multiple = decide_promotion(build_xlsx(
             [["A"], ["uno"]], second_sheet=[["B"], ["dos"]]), "multi.xlsx")
-        self.assertEqual("worksheet_selection_required", multiple.reason_code)
+        self.assertTrue(multiple.promoted)
+        self.assertEqual("content_inspected_selection_required", multiple.reason_code)
+        self.assertTrue(multiple.requires_selection)
+        self.assertEqual(2, multiple.workbook["sheet_count"])
+        self.assertNotIn("uno", repr(multiple.as_dict()))
+        self.assertNotIn("dos", repr(multiple.as_dict()))
 
     def test_active_workbook_content_is_rejected(self) -> None:
         decision = decide_promotion(build_xlsx(

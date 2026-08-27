@@ -106,6 +106,9 @@ class QuarantineBeforeRawTests(unittest.TestCase):
                         "DELETE FROM fincilia.raw_record WHERE artifact_id IN ("
                         " SELECT artifact_id FROM fincilia.source_artifact "
                         " WHERE content_sha256 = ANY(%s))",
+                        "DELETE FROM fincilia.spreadsheet_selection WHERE artifact_id IN ("
+                        " SELECT artifact_id FROM fincilia.source_artifact "
+                        " WHERE content_sha256 = ANY(%s))",
                         "DELETE FROM fincilia.processing_run WHERE artifact_id IN ("
                         " SELECT artifact_id FROM fincilia.source_artifact "
                         " WHERE content_sha256 = ANY(%s))",
@@ -246,6 +249,57 @@ class QuarantineBeforeRawTests(unittest.TestCase):
         self.assertEqual("spreadsheet", rows[1][1]["locator_kind"])
         self.assertEqual(2, rows[1][1]["row_number"])
         self.assertEqual(f"Pago {RUN}", rows[1][2][1])
+
+    def test_a_safe_multi_sheet_xlsx_waits_for_and_uses_explicit_selection(self) -> None:
+        payload = build_xlsx(
+            [["Resumen"], [f"NO-EXTRAER-{RUN}"]],
+            second_sheet=[
+                ["Fecha", "Descripcion", "Importe", "Moneda"],
+                ["2026-02-01", f"SEGUNDA-{RUN}", -2700, "COP"],
+            ])
+        created = self.upload(payload, "multihoja.xlsx")
+        self.drain()
+        document = self.document(created["artifact_id"])
+        self.assertEqual("raw", document["zone"])
+        self.assertEqual("content_inspected_selection_required",
+                         document["promotion"]["reason_code"])
+        self.assertIsNone(document["spreadsheet"]["selection"])
+        self.assertEqual(["scan"], [run["kind"] for run in document["runs"]])
+
+        sheets = document["spreadsheet"]["sheets"]
+        response = self.client.post(
+            f"/api/v1/companies/{ESPIGA}/documents/{created['artifact_id']}"
+            "/spreadsheet-selection",
+            headers={"Authorization": f"Bearer {self.token()}"},
+            json={"sheet_identity": sheets[1]["sheet_identity"]})
+        self.assertEqual(201, response.status_code, response.text)
+        self.assertEqual("Otra", response.json()["sheet_name"])
+        self.drain()
+
+        document = self.document(created["artifact_id"])
+        self.assertEqual("Otra", document["spreadsheet"]["selection"]["sheet_name"])
+        runs = {run["kind"]: run for run in document["runs"]}
+        self.assertEqual("Otra", runs["profile"]["result"]["sheet_name"])
+        self.assertEqual("succeeded", runs["extract"]["status"])
+        with psycopg.connect(MIGRATOR_DSN, autocommit=True) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT set_config('fincilia.company_id', %s, false)",
+                               (ESPIGA,))
+                cursor.execute(
+                    "SELECT raw_values, origin_locator FROM fincilia.raw_record "
+                    "WHERE artifact_id = %s ORDER BY record_ordinal",
+                    (created["artifact_id"],))
+                rows = cursor.fetchall()
+        self.assertIn(f"SEGUNDA-{RUN}", repr(rows))
+        self.assertNotIn(f"NO-EXTRAER-{RUN}", repr(rows))
+        self.assertTrue(all(row[1]["sheet_ordinal"] == 2 for row in rows))
+
+        conflict = self.client.post(
+            f"/api/v1/companies/{ESPIGA}/documents/{created['artifact_id']}"
+            "/spreadsheet-selection",
+            headers={"Authorization": f"Bearer {self.token()}"},
+            json={"sheet_identity": sheets[0]["sheet_identity"]})
+        self.assertEqual(409, conflict.status_code, conflict.text)
 
     def test_a_csv_with_a_card_stays_quarantined(self) -> None:
         document = self.settle(card_csv("tarjeta"), "clientes.csv")

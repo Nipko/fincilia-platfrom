@@ -291,15 +291,22 @@ class Decision:
     media_type: str
     internal_type: str
     findings: tuple[Finding, ...]
+    workbook: dict[str, object] | None = None
+    requires_selection: bool = False
 
     @property
     def promoted(self) -> bool:
         return self.decision == "promoted"
 
     def as_dict(self) -> dict[str, object]:
-        return {"decision": self.decision, "reason_code": self.reason_code,
+        result: dict[str, object] = {
+                "decision": self.decision, "reason_code": self.reason_code,
                 "media_type": self.media_type, "internal_type": self.internal_type,
-                "findings": [item.as_dict() for item in self.findings]}
+                "findings": [item.as_dict() for item in self.findings],
+                "requires_selection": self.requires_selection}
+        if self.workbook is not None:
+            result["workbook"] = self.workbook
+        return result
 
 
 def decide_promotion(payload: bytes, filename: str) -> Decision:
@@ -349,13 +356,6 @@ def decide_promotion(payload: bytes, filename: str) -> Decision:
                     "formula cells require an explicit review flow and are never executed"))
                 return Decision("quarantined", "formula_review_required",
                                 detection.media_type, internal, tuple(findings))
-            if len(workbook.sheets) != 1 or workbook.sheets[0].state != "visible":
-                findings.append(Finding(
-                    "worksheet_selection", "xlsx workbook",
-                    "the workbook requires an explicit worksheet selection"))
-                return Decision("quarantined", "worksheet_selection_required",
-                                detection.media_type, internal, tuple(findings))
-
             # Se inspecciona texto logico, no XML crudo. Un rich string puede
             # partir un secreto entre varios runs de formato; concatenarlo antes
             # de escanear evita que el formato se convierta en una evasion.
@@ -369,8 +369,24 @@ def decide_promotion(payload: bytes, filename: str) -> Decision:
             if any(item.kind in SENSITIVE_KINDS for item in findings):
                 return Decision("quarantined", "sensitive_content",
                                 detection.media_type, internal, tuple(findings))
+            manifest = workbook.manifest(hashlib.sha256(payload).hexdigest())
+            visible = [sheet for sheet in workbook.sheets if sheet.state == "visible"]
+            if not visible:
+                findings.append(Finding(
+                    "worksheet_visibility", "xlsx workbook",
+                    "the workbook has no visible worksheet that can be selected"))
+                return Decision("quarantined", "no_visible_worksheet",
+                                detection.media_type, internal, tuple(findings),
+                                manifest, True)
+            if len(workbook.sheets) != 1:
+                findings.append(Finding(
+                    "worksheet_selection", "xlsx workbook",
+                    "the workbook requires an explicit worksheet selection"))
+                return Decision(
+                    "promoted", "content_inspected_selection_required",
+                    detection.media_type, internal, tuple(findings), manifest, True)
             return Decision("promoted", "content_inspected", detection.media_type,
-                            internal, tuple(findings))
+                            internal, tuple(findings), manifest, False)
 
     inspectable = internal or detection.media_type
     if inspectable not in FULLY_INSPECTABLE:

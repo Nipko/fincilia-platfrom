@@ -392,6 +392,78 @@ def list_runs(connection: psycopg.Connection, artifact_id: str) -> list[dict]:
              "result": row[6], "error_code": row[7]} for row in rows]
 
 
+def spreadsheet_workspace(connection: psycopg.Connection,
+                          artifact_id: str) -> dict | None:
+    """Inventario sin valores y seleccion vigente del artefacto visible."""
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT run.result FROM fincilia.processing_run run "
+            "WHERE run.artifact_id = %s AND run.kind = 'scan' "
+            "  AND run.status = 'succeeded' AND run.result ? 'workbook' "
+            "ORDER BY run.finished_at DESC, run.run_id DESC LIMIT 1",
+            (artifact_id,))
+        scan = cursor.fetchone()
+        if scan is None:
+            return None
+        cursor.execute(
+            "SELECT selection_id::text, workbook_identity, sheet_identity, "
+            "sheet_name, sheet_ordinal, selected_by::text, selected_at "
+            "FROM fincilia.spreadsheet_selection WHERE artifact_id = %s",
+            (artifact_id,))
+        selected = cursor.fetchone()
+    result = scan[0] or {}
+    workspace = dict(result.get("workbook") or {})
+    workspace["requires_selection"] = bool(result.get("requires_selection"))
+    workspace["selection"] = None if selected is None else {
+        "selection_id": selected[0], "workbook_identity": selected[1],
+        "sheet_identity": selected[2], "sheet_name": selected[3],
+        "sheet_ordinal": selected[4], "selected_by": selected[5],
+        "selected_at": selected[6].isoformat(),
+    }
+    return workspace
+
+
+def select_spreadsheet_sheet(
+        connection: psycopg.Connection, *, company_id: str, artifact_id: str,
+        workbook_identity: str, sheet_identity: str, sheet_name: str,
+        sheet_ordinal: int, selected_by: str) -> tuple[dict, bool]:
+    """Fija una hoja una sola vez; replay exacto es inocuo, drift es conflicto."""
+    selection_id = new_id()
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "INSERT INTO fincilia.spreadsheet_selection (selection_id, company_id, "
+            "artifact_id, workbook_identity, sheet_identity, sheet_name, "
+            "sheet_ordinal, selected_by) VALUES (%s, %s, %s, %s, %s, %s, %s, %s) "
+            "ON CONFLICT (artifact_id) DO NOTHING RETURNING selection_id::text, "
+            "workbook_identity, sheet_identity, sheet_name, sheet_ordinal, "
+            "selected_by::text, selected_at",
+            (selection_id, company_id, artifact_id, workbook_identity,
+             sheet_identity, sheet_name, sheet_ordinal, selected_by))
+        row = cursor.fetchone()
+        created = row is not None
+        if row is None:
+            cursor.execute(
+                "SELECT selection_id::text, workbook_identity, sheet_identity, "
+                "sheet_name, sheet_ordinal, selected_by::text, selected_at "
+                "FROM fincilia.spreadsheet_selection WHERE artifact_id = %s",
+                (artifact_id,))
+            row = cursor.fetchone()
+    if row is None:
+        raise LookupError("the spreadsheet selection is not visible")
+    selected = {
+        "selection_id": row[0], "workbook_identity": row[1],
+        "sheet_identity": row[2], "sheet_name": row[3],
+        "sheet_ordinal": row[4], "selected_by": row[5],
+        "selected_at": row[6].isoformat(),
+    }
+    if (selected["workbook_identity"] != workbook_identity
+            or selected["sheet_identity"] != sheet_identity
+            or selected["sheet_name"] != sheet_name
+            or selected["sheet_ordinal"] != sheet_ordinal):
+        raise ValueError("spreadsheet-selection-conflict")
+    return selected, created
+
+
 def find_artifact_by_id(connection: psycopg.Connection,
                         artifact_id: str) -> Artifact | None:
     if not UUID_SHAPE.match(artifact_id or ""):

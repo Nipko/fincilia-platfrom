@@ -1,9 +1,9 @@
 """Lector XLSX determinista, sin ejecucion ni dependencias externas.
 
 XLSX es un contenedor OPC de XML. Este modulo solo admite el subconjunto que
-Fincilia puede explicar de principio a fin: un libro con una hoja, sin macros,
-formulas, objetos activos ni relaciones externas. Lo que no entra en ese
-subconjunto no se interpreta a medias; permanece en cuarentena.
+Fincilia puede explicar de principio a fin: hojas seleccionadas explicitamente,
+sin macros, formulas, objetos activos ni relaciones externas. Lo que no entra en
+ese subconjunto no se interpreta a medias; permanece en cuarentena.
 
 Los valores salen como texto mostrado determinista. Una fecha serial con estilo
 de fecha se convierte a ISO; el numero original sigue recuperable en la celda
@@ -107,6 +107,27 @@ class WorkbookInspection:
         return (len(self.sheets) == 1 and self.sheets[0].state == "visible"
                 and self.formula_count == 0 and not self.active_parts
                 and self.external_relationships == 0)
+
+    def manifest(self, workbook_identity: str) -> dict[str, object]:
+        """Inventario sin valores para que una persona elija la hoja.
+
+        La identidad se deriva de relaciones OPC y no del nombre presentado. El
+        manifiesto puede vivir en el resultado del escaneo porque no transcribe
+        ninguna celda.
+        """
+        return {
+            "workbook_identity": workbook_identity,
+            "sheet_count": len(self.sheets),
+            "sheets": [
+                {
+                    "sheet_identity": sheet.identity,
+                    "name": sheet.name,
+                    "ordinal": sheet.ordinal,
+                    "state": sheet.state,
+                }
+                for sheet in self.sheets
+            ],
+        }
 
 
 @dataclass(frozen=True)
@@ -529,13 +550,22 @@ def _rows(payload: bytes, sheet: Sheet) -> Iterator[tuple[int, tuple[str, ...]]]
                 yield row_number, values
 
 
-def sniff_workbook(payload: bytes) -> tuple[WorkbookInspection, SpreadsheetPreamble]:
+def sniff_workbook(
+        payload: bytes, *, sheet_identity: str | None = None
+        ) -> tuple[WorkbookInspection, SpreadsheetPreamble]:
     inspection = inspect_workbook(payload)
-    if len(inspection.sheets) != 1:
-        raise SpreadsheetError("worksheet selection is required for multi-sheet books")
-    sheet = inspection.sheets[0]
+    if sheet_identity is None:
+        if len(inspection.sheets) != 1:
+            raise SpreadsheetError(
+                "worksheet selection is required for multi-sheet books")
+        sheet = inspection.sheets[0]
+    else:
+        sheet = next((candidate for candidate in inspection.sheets
+                      if candidate.identity == sheet_identity), None)
+        if sheet is None:
+            raise SpreadsheetError("the selected worksheet identity does not exist")
     if sheet.state != "visible":
-        raise SpreadsheetError("the only worksheet is not visible")
+        raise SpreadsheetError("the selected worksheet is not visible")
     if inspection.active_parts or inspection.external_relationships:
         raise SpreadsheetError("the workbook contains active or external content")
     if inspection.formula_count:
@@ -570,7 +600,17 @@ def stream_workbook_rows(payload: bytes, preamble: SpreadsheetPreamble, *,
         report.reason = "object_digest_mismatch"
         raise SpreadsheetError("the workbook bytes do not match the artifact digest")
     inspection = inspect_workbook(payload)
-    sheet = inspection.sheets[0]
+    sheet = next((candidate for candidate in inspection.sheets
+                  if candidate.identity == preamble.sheet_identity), None)
+    if sheet is None or sheet.state != "visible":
+        report.state = "failed"
+        report.reason = "worksheet_identity_mismatch"
+        raise SpreadsheetError("the selected worksheet is no longer available")
+    if (sheet.ordinal != preamble.sheet_ordinal or sheet.part != preamble.sheet_part
+            or hashlib.sha256(payload).hexdigest() != preamble.workbook_identity):
+        report.state = "failed"
+        report.reason = "worksheet_identity_mismatch"
+        raise SpreadsheetError("the selected worksheet preamble does not match")
     started = time.monotonic()
     emitted = 0
     try:

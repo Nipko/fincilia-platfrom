@@ -67,6 +67,22 @@ class FailureClassificationTests(unittest.TestCase):
         self.assertEqual(1, result["row_count"])
         self.assertNotIn("Pago sintetico", repr(result))
 
+    def test_a_selected_xlsx_sheet_is_profiled_without_other_sheet_values(self) -> None:
+        payload = build_xlsx(
+            [["Primera"], ["NO-DEBE-APARECER"]],
+            second_sheet=[["Referencia", "Importe"], ["SEGUNDA", 27]])
+        from fincilia_contracts.spreadsheet import inspect_workbook
+
+        selected = inspect_workbook(payload).sheets[1]
+        result, error, failure = jobs.run_profile(
+            payload, internal_type="xlsx", sheet_identity=selected.identity)
+        self.assertIsNone(error)
+        self.assertIsNone(failure)
+        self.assertEqual("Otra", result["sheet_name"])
+        self.assertEqual(["Referencia", "Importe"],
+                         [column["header"] for column in result["columns"]])
+        self.assertNotIn("NO-DEBE-APARECER", repr(result))
+
     def test_an_unreadable_file_is_fatal_not_retryable(self) -> None:
         # El fichero es el que es. Reintentarlo tres veces daria lo mismo tres
         # veces y solo retrasaria el unico desenlace posible.
