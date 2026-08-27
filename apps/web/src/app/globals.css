@@ -199,6 +199,44 @@ ul.companies a:focus-visible .card {
   font-size: 0.88rem;
 }
 
+.document-history-summary {
+  margin-bottom: 1rem;
+}
+
+.document-history-summary h2 {
+  margin-top: 0;
+}
+
+.document-history-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: 0.8rem;
+  align-items: end;
+  margin-bottom: 1rem;
+}
+
+.document-history-filter-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+}
+
+.document-history-filter-actions a {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.document-history-source,
+.document-history-source + .meta,
+.document-history-table td > .meta {
+  display: block;
+}
+
+.document-history-table tbody th {
+  text-transform: none;
+  letter-spacing: normal;
+}
+
 .version-picker {
   display: flex;
   flex-wrap: wrap;

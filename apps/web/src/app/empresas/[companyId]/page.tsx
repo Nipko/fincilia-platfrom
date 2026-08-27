@@ -205,6 +205,9 @@ export default async function CompanyPage({
               <Link href={`/empresas/${companyId}/conciliacion-saldos`}>Conciliar saldos</Link>{' '}
               <Link href={`/empresas/${companyId}/conciliacion`}>Cruzar movimientos</Link>{' '}</>
           ) : null}
+          {company.permissions.includes('document.read') ? (
+            <><Link href={`/empresas/${companyId}/documentos`}>Documentos</Link>{' '}</>
+          ) : null}
           <Link href={`/empresas/${companyId}/fuentes`}>Fuentes y cuentas</Link>{' '}
           <Link href="/empresas">Empresas</Link>
         </nav>
@@ -268,7 +271,7 @@ export default async function CompanyPage({
         </dl>
       </section>
 
-      <h2>Documentos</h2>
+      <h2 id="carga-documentos">Documentos</h2>
       {uploadSourcesVisible ? (
         <div className="card">
           <UploadForm
@@ -297,12 +300,18 @@ export default async function CompanyPage({
           vacia porque la ausencia de acceso no dice si existen o no.
         </p>
       ) : documents.length === 0 ? (
-        <p className="card">Todavia no hay documentos en esta empresa.</p>
+        <div className="card">
+          <p>Todavia no hay documentos en esta empresa.</p>
+          <Link href={`/empresas/${companyId}/documentos`}>Abrir centro de documentos</Link>
+        </div>
       ) : (
         <div className="card scroll">
           <table>
             <caption className="meta">
-              Ultimos 50 documentos. El API actual no expone una pagina siguiente.
+              Ultimos 50 documentos.{' '}
+              <Link href={`/empresas/${companyId}/documentos`}>
+                Buscar, filtrar y recorrer todo el historico
+              </Link>
             </caption>
             <thead>
               <tr>

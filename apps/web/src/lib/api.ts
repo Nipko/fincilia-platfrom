@@ -213,6 +213,7 @@ export type PromotionDecision = {
 
 export type ArtifactSummary = {
   artifact_id: string;
+  data_source_id: string | null;
   filename: string;
   byte_size: number;
   content_sha256: string;
@@ -231,6 +232,82 @@ export function fetchDocuments(
 ): Promise<ArtifactSummary[]> {
   return request<ArtifactSummary[]>(
     `/api/v1/companies/${encodeURIComponent(companyId)}/documents?limit=50`,
+    { token },
+  );
+}
+
+export type DocumentHistoryItem = {
+  artifact_id: string;
+  data_source_id: string | null;
+  source_name: string;
+  filename: string;
+  byte_size: number;
+  content_sha256: string;
+  media_type: string;
+  status: string;
+  zone: 'quarantine' | 'raw';
+  uploaded_at: string;
+  promotion_reason: string | null;
+  latest_run_kind: string | null;
+  processing_status: 'not_started' | 'queued' | 'running' | 'succeeded' | 'failed';
+  processing_error: string | null;
+  dataset_version_id: string | null;
+  dataset_state: string | null;
+  completeness_state: string | null;
+  record_count: number | null;
+  movement_count: number | null;
+  rejected_count: number | null;
+};
+
+export type DocumentHistoryPage = {
+  items: DocumentHistoryItem[];
+  summary: {
+    total: number;
+    raw: number;
+    quarantine: number;
+    failed: number;
+    legacy_unattributed: number;
+  };
+  limit: number;
+  has_next: boolean;
+  has_previous: boolean;
+  next_cursor: string | null;
+  previous_cursor: string | null;
+};
+
+export type DocumentHistoryFilters = {
+  dataSourceId?: string;
+  zone?: 'all' | 'quarantine' | 'raw';
+  processingStatus?:
+    | 'all'
+    | 'not_started'
+    | 'queued'
+    | 'running'
+    | 'succeeded'
+    | 'failed';
+  filename?: string;
+  cursor?: string;
+  direction?: 'next' | 'previous';
+  limit?: number;
+};
+
+export function fetchDocumentHistory(
+  token: string,
+  companyId: string,
+  filters: DocumentHistoryFilters = {},
+): Promise<DocumentHistoryPage> {
+  const query = new URLSearchParams();
+  query.set('limit', String(filters.limit ?? 25));
+  if (filters.dataSourceId) query.set('data_source_id', filters.dataSourceId);
+  if (filters.zone && filters.zone !== 'all') query.set('zone', filters.zone);
+  if (filters.processingStatus && filters.processingStatus !== 'all') {
+    query.set('processing_status', filters.processingStatus);
+  }
+  if (filters.filename) query.set('filename', filters.filename);
+  if (filters.cursor) query.set('cursor', filters.cursor);
+  if (filters.direction) query.set('direction', filters.direction);
+  return request<DocumentHistoryPage>(
+    `/api/v1/companies/${encodeURIComponent(companyId)}/document-history?${query}`,
     { token },
   );
 }
