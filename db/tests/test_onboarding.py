@@ -143,7 +143,10 @@ class OnboardingTests(unittest.TestCase):
                    if event["action"] == "account.create"
                    and event["resource_ref"] == response.json()["account_id"]]
         self.assertTrue(created, "the account creation left no trail")
-        rendered = str(created[0])
+        # Solo el payload de negocio puede copiar el identificador. Buscar sus
+        # digitos en timestamp o UUID vuelve la prueba aleatoria (por ejemplo,
+        # los microsegundos pueden contener 7777 sin que exista una fuga).
+        rendered = str(created[0]["detail"])
         for fragment in ("7777", "1234", "CO-7777"):
             self.assertNotIn(fragment, rendered)
         # La cola visible si: es lo unico que una persona necesita para
