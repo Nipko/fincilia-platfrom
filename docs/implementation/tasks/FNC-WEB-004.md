@@ -1,7 +1,7 @@
 ---
 id: FNC-WEB-004
 title: Sistema visual y navegacion contextual de la plataforma web
-status: in_progress
+status: review_pending
 implementer: Codex principal dev + Integration Steward
 base_sha: 83d2392
 gate: S1-READY
