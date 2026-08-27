@@ -185,6 +185,26 @@ class ReconstructionTests(unittest.TestCase):
         self.assertEqual(cell["byte_end"], 1236)
         self.assertEqual(cell["artifact_sha256"], "a" * 64)
 
+    def test_a_spreadsheet_column_reconstructs_its_one_based_a1_cell(self) -> None:
+        locator = {
+            "locator_kind": "spreadsheet",
+            "artifact_sha256": "b" * 64,
+            "record_ordinal": 42,
+            "row_number": 42,
+            "field_count": 4,
+            "workbook_identity": "b" * 64,
+            "sheet_identity": "d" * 64,
+            "sheet_ordinal": 1,
+        }
+        stages = reconstruct(self.steps, canonical_field="amount",
+                             origin_locator=locator, raw_record_id="raw-xlsx",
+                             source_record_id="src-xlsx", movement_id="mov-xlsx",
+                             value_digest="e" * 64)
+        cell = stages[1]["identity"]["cell"]
+        self.assertEqual(4, cell["column_number"])
+        self.assertEqual("D42", cell["cell_a1"])
+        self.assertEqual(3, cell["field_ordinal"])
+
     def test_the_intermediate_stage_is_identifiable(self) -> None:
         # La pregunta que la divergencia anterior no podia contestar: en que punto
         # exacto este texto se convirtio en un decimal.

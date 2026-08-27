@@ -32,11 +32,11 @@ el estudio de importacion con localizadores exactos de hoja, fila y celda.
 # Rutas reservadas
 
 - `packages/contracts/python/fincilia_contracts/ingestion.py`, `profiling.py`,
-  `extraction.py`, `lineage.py` y pruebas focales.
+  `extraction.py`, `lineage.py`, `spreadsheet.py` y pruebas focales.
 - `workers/document/src/fincilia_worker/jobs.py`, `main.py` y pruebas focales.
 - `db/migrations/V0036__spreadsheet_origin_locator.sql` y pruebas de migracion.
-- API/web de documento, preview, mapeo y pruebas focales cuando sea necesario
-  para presentar el formato sin alterar el flujo CSV.
+- API/web de empresa, documento, preview, mapeo y pruebas focales cuando sea
+  necesario para presentar el formato sin alterar el flujo CSV.
 - fixtures XLSX exclusivamente sinteticos y generador determinista de la tarea.
 - documentacion local, esta ficha, handoff y registros centrales por el
   Integration Steward.
@@ -81,4 +81,3 @@ Rollout local y sintetico. `SCANNER_RELEASE` cambia para que una decision previa
 de cuarentena pueda reevaluarse sin reescribirla. El rollback retira el despacho
 XLSX y deja sus decisiones y `raw_record` inmutables; V0036 se revierte solo por
 forward-fix, nunca editando migraciones aplicadas.
-

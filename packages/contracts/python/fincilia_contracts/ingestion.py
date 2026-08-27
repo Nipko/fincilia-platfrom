@@ -31,6 +31,12 @@ import zipfile
 from dataclasses import dataclass
 from typing import Final
 
+from .spreadsheet import (
+    SpreadsheetError,
+    inspect_workbook,
+    iter_inspection_texts,
+)
+
 # --------------------------------------------------------------------------- #
 # Limites
 # --------------------------------------------------------------------------- #
@@ -261,10 +267,10 @@ def identify_archive(payload: bytes) -> str:
     return "zip"
 
 
-# Lo unico que hoy se sabe inspeccionar de principio a fin. Un PDF o una hoja de
-# calculo necesitan un analizador que todavia no existe, y prometer que estan
-# soportados seria peor que decir que no.
-FULLY_INSPECTABLE: Final[frozenset[str]] = frozenset({"text/csv"})
+# Tipos tecnicos que se saben inspeccionar de principio a fin. XLSX se expresa
+# por su identidad interna, no por `application/zip`: un ZIP generico sigue sin
+# ser promovible y una extension `.xlsx` no decide nada.
+FULLY_INSPECTABLE: Final[frozenset[str]] = frozenset({"text/csv", "xlsx"})
 
 SENSITIVE_KINDS: Final[frozenset[str]] = frozenset({
     "payment_card_number", "private_key", "aws_access_key", "bearer_token",
@@ -321,7 +327,53 @@ def decide_promotion(payload: bytes, filename: str) -> Decision:
             return Decision("rejected", "macro_enabled_archive", detection.media_type,
                             internal, tuple(findings))
 
-    if detection.media_type not in FULLY_INSPECTABLE:
+        if internal == "xlsx":
+            try:
+                workbook = inspect_workbook(payload)
+            except SpreadsheetError:
+                findings.append(Finding(
+                    "workbook_structure", "xlsx package",
+                    "the workbook is malformed or uses an unsafe XML/package feature"))
+                return Decision("quarantined", "unsafe_or_malformed_workbook",
+                                detection.media_type, internal, tuple(findings))
+
+            if workbook.active_parts or workbook.external_relationships:
+                findings.append(Finding(
+                    "active_workbook_content", "xlsx package",
+                    "active, embedded or externally linked content is not accepted"))
+                return Decision("rejected", "active_workbook_content",
+                                detection.media_type, internal, tuple(findings))
+            if workbook.formula_count:
+                findings.append(Finding(
+                    "formula_cells", "xlsx worksheet",
+                    "formula cells require an explicit review flow and are never executed"))
+                return Decision("quarantined", "formula_review_required",
+                                detection.media_type, internal, tuple(findings))
+            if len(workbook.sheets) != 1 or workbook.sheets[0].state != "visible":
+                findings.append(Finding(
+                    "worksheet_selection", "xlsx workbook",
+                    "the workbook requires an explicit worksheet selection"))
+                return Decision("quarantined", "worksheet_selection_required",
+                                detection.media_type, internal, tuple(findings))
+
+            # Se inspecciona texto logico, no XML crudo. Un rich string puede
+            # partir un secreto entre varios runs de formato; concatenarlo antes
+            # de escanear evita que el formato se convierta en una evasion.
+            for part, value in iter_inspection_texts(payload):
+                if len(findings) >= 50:
+                    break
+                for item in scan_secrets(value.encode("utf-8"),
+                                         max_findings=50 - len(findings)):
+                    findings.append(Finding(
+                        item.kind, f"{part}:{item.location}", item.detail))
+            if any(item.kind in SENSITIVE_KINDS for item in findings):
+                return Decision("quarantined", "sensitive_content",
+                                detection.media_type, internal, tuple(findings))
+            return Decision("promoted", "content_inspected", detection.media_type,
+                            internal, tuple(findings))
+
+    inspectable = internal or detection.media_type
+    if inspectable not in FULLY_INSPECTABLE:
         # No es un rechazo: es una promocion que no se puede justificar todavia.
         # El fichero se conserva y se puede volver a decidir cuando exista un
         # analizador seguro para su formato.

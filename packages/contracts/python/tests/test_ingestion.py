@@ -8,8 +8,12 @@ exactos, que es lo unico que hay al otro lado de una subida.
 from __future__ import annotations
 
 import io
+import sys
 import unittest
 import zipfile
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 # Cadenas con forma de credencial, compuestas en ejecucion. La politica del
 # repositorio prohibe dejarlas literales, y hace bien: una excepcion por fichero
@@ -24,6 +28,7 @@ from fincilia_contracts.ingestion import (ACCEPTED_MEDIA_TYPES, FULLY_INSPECTABL
                                           extension_type, identify_archive,
                                           inspect_archive, luhn_valid, scan_secrets,
                                           sha256_bytes)
+from xlsx_factory import build_xlsx
 
 CSV = b"fecha,descripcion,valor\n2026-01-02,Pago proveedor,-125000.00\n"
 NEWLINE = b"\n"
@@ -293,13 +298,38 @@ class PromotionTests(unittest.TestCase):
         self.assertFalse(decision.promoted)
         self.assertEqual("no_scanner_for_format", decision.reason_code)
 
-    def test_a_spreadsheet_is_never_promoted_without_being_inspected(self) -> None:
-        payload = build_zip({"[Content_Types].xml": b"<Types/>",
-                             "xl/workbook.xml": b"<workbook/>"})
+    def test_a_clean_single_sheet_workbook_is_promoted_after_full_inspection(self) -> None:
+        payload = build_xlsx([
+            ["Fecha", "Descripcion", "Importe"],
+            ["2026-01-02", "Pago sintetico", -1250],
+        ])
         decision = decide_promotion(payload, "libro.xlsx")
-        self.assertFalse(decision.promoted)
-        self.assertEqual("no_scanner_for_format", decision.reason_code)
+        self.assertTrue(decision.promoted)
+        self.assertEqual("content_inspected", decision.reason_code)
         self.assertEqual("xlsx", decision.internal_type)
+
+    def test_an_xlsx_secret_is_found_without_copying_its_value(self) -> None:
+        pan = "4111" + "1111" + "1111" + "1111"
+        payload = build_xlsx([["Cliente", "Tarjeta"], ["Sintetico", pan]])
+        decision = decide_promotion(payload, "libro.xlsx")
+        self.assertEqual("quarantined", decision.decision)
+        self.assertEqual("sensitive_content", decision.reason_code)
+        self.assertNotIn(pan, repr(decision.as_dict()))
+
+    def test_formula_and_multiple_sheet_books_require_explicit_flows(self) -> None:
+        formula = decide_promotion(build_xlsx(
+            [["Importe"], [10]], formula_at=(2, 1)), "formula.xlsx")
+        self.assertEqual("formula_review_required", formula.reason_code)
+        multiple = decide_promotion(build_xlsx(
+            [["A"], ["uno"]], second_sheet=[["B"], ["dos"]]), "multi.xlsx")
+        self.assertEqual("worksheet_selection_required", multiple.reason_code)
+
+    def test_active_workbook_content_is_rejected(self) -> None:
+        decision = decide_promotion(build_xlsx(
+            [["A"], ["uno"]], active_part="xl/embeddings/object1.bin"),
+            "activo.xlsx")
+        self.assertEqual("rejected", decision.decision)
+        self.assertEqual("active_workbook_content", decision.reason_code)
 
     def test_a_generic_zip_is_never_promoted(self) -> None:
         decision = decide_promotion(build_zip({"a.txt": b"hola"}), "cosas.zip")
@@ -317,10 +347,9 @@ class PromotionTests(unittest.TestCase):
     def test_only_what_can_be_read_whole_is_promotable(self) -> None:
         # Si esta lista creciera sin un analizador detras, la regla dejaria de
         # significar nada.
-        self.assertEqual({"text/csv"}, set(FULLY_INSPECTABLE))
-        for media_type in ACCEPTED_MEDIA_TYPES - FULLY_INSPECTABLE:
-            with self.subTest(media_type=media_type):
-                self.assertNotIn(media_type, FULLY_INSPECTABLE)
+        self.assertEqual({"text/csv", "xlsx"}, set(FULLY_INSPECTABLE))
+        self.assertNotIn("application/zip", FULLY_INSPECTABLE)
+        self.assertNotIn("application/pdf", FULLY_INSPECTABLE)
 
     def test_quarantine_keeps_the_file_instead_of_deleting_it(self) -> None:
         # Ningun camino devuelve «borrado»: borrar la evidencia de un incidente

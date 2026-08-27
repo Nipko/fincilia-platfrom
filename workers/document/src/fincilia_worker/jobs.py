@@ -34,6 +34,7 @@ from fincilia_contracts.extraction import ExtractionError
 from fincilia_contracts.ingestion import RejectedUpload, decide_promotion
 from fincilia_platform.objects import ObjectStoreError
 from fincilia_contracts.profiling import UnprofilableFile, profile
+from fincilia_contracts.spreadsheet import SpreadsheetError
 
 logger = logging.getLogger("fincilia.worker.jobs")
 
@@ -52,7 +53,7 @@ UNKNOWN = "unknown"
 # sobre el mismo artefacto es una sola decision, y reejecutarlo no crea otra.
 # Cuando el escaner cambie de verdad, esto sube y la decision se puede revisar
 # sin reescribir la anterior.
-SCANNER_RELEASE = "scan-1"
+SCANNER_RELEASE = "scan-2"
 
 
 @dataclass(frozen=True)
@@ -114,7 +115,8 @@ def dumps(payload) -> str:
     return json.dumps(payload, ensure_ascii=False, sort_keys=True)
 
 
-def run_profile(payload: bytes) -> tuple[dict | None, str | None, str | None]:
+def run_profile(payload: bytes, *,
+                internal_type: str = "") -> tuple[dict | None, str | None, str | None]:
     """Perfila unos bytes. Devuelve `(resultado, codigo, clase_de_fallo)`.
 
     El resultado no lleva ni un valor del fichero: solo su forma. Un perfil que
@@ -122,7 +124,12 @@ def run_profile(payload: bytes) -> tuple[dict | None, str | None, str | None]:
     el metadato, con otras reglas de acceso.
     """
     try:
-        table = profile(payload)
+        if internal_type == "xlsx":
+            from fincilia_contracts.profiling import profile_workbook
+
+            table = profile_workbook(payload)
+        else:
+            table = profile(payload)
     except UnprofilableFile as error:
         # El fichero es el que es: reintentarlo dara lo mismo.
         logger.warning("unprofilable artifact: %s", error)
@@ -169,7 +176,7 @@ def classify_extraction(error: Exception) -> tuple[str, str]:
         # Lo que hace falta es que alguien mire por que dos lecturas del mismo
         # tramo no coinciden.
         return "raw_record_conflict", FATAL
-    if isinstance(error, ExtractionError):
+    if isinstance(error, (ExtractionError, SpreadsheetError)):
         # El fichero es el que es: releerlo dara lo mismo.
         logger.warning("unextractable artifact: %s", error)
         return "unextractable", FATAL

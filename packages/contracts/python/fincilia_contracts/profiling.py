@@ -166,6 +166,40 @@ class TableProfile:
                 "columns": [column.as_dict() for column in self.columns]}
 
 
+@dataclass(frozen=True)
+class SpreadsheetTableProfile:
+    """Forma de una hoja XLSX; nunca contiene ejemplos de sus celdas."""
+
+    sheet_name: str
+    sheet_ordinal: int
+    has_header: bool
+    row_count: int
+    column_count: int
+    ragged_rows: int
+    truncated: bool
+    columns: tuple[ColumnProfile, ...]
+
+    @property
+    def needs_decision(self) -> tuple[str, ...]:
+        return tuple(column.header for column in self.columns if column.ambiguous)
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "technical_format": "xlsx",
+            "encoding": "xlsx-xml",
+            "delimiter": "",
+            "sheet_name": self.sheet_name,
+            "sheet_ordinal": self.sheet_ordinal,
+            "has_header": self.has_header,
+            "row_count": self.row_count,
+            "column_count": self.column_count,
+            "ragged_rows": self.ragged_rows,
+            "truncated": self.truncated,
+            "needs_decision": list(self.needs_decision),
+            "columns": [column.as_dict() for column in self.columns],
+        }
+
+
 def classify(value: str) -> str:
     if AMBIGUOUS_NUMERIC.match(value):
         return "ambiguous_numeric"
@@ -309,3 +343,45 @@ def profile(payload: bytes, *, max_rows: int = MAX_PROFILE_ROWS) -> TableProfile
     reported = "" if delimiter == SINGLE_COLUMN else delimiter
     return TableProfile(encoding, reported, has_header, row_count, len(columns),
                         ragged, truncated, tuple(columns))
+
+
+def profile_workbook(payload: bytes, *,
+                     max_rows: int = MAX_PROFILE_ROWS) -> SpreadsheetTableProfile:
+    """Perfila la unica hoja segura de un XLSX mediante el lector compartido."""
+    # Import local para que el perfilador CSV siga siendo una dependencia
+    # pequena y para dejar explicita la frontera de formato.
+    from .spreadsheet import (
+        SpreadsheetError,
+        SpreadsheetOutcome,
+        sniff_workbook,
+        stream_workbook_rows,
+    )
+
+    try:
+        _, preamble = sniff_workbook(payload)
+        outcome = SpreadsheetOutcome()
+        rows = stream_workbook_rows(payload, preamble, max_rows=max_rows,
+                                    outcome=outcome)
+        columns = [ColumnProfile(index, header)
+                   for index, header in enumerate(preamble.header)]
+        for row in rows:
+            if row.record_ordinal < preamble.first_data_row:
+                continue
+            while len(columns) < len(row.values):
+                index = len(columns)
+                columns.append(ColumnProfile(index, f"columna_{index + 1}"))
+            for index, column in enumerate(columns):
+                column.observe(row.values[index] if index < len(row.values) else "")
+    except SpreadsheetError as error:
+        raise UnprofilableFile(str(error)) from error
+
+    return SpreadsheetTableProfile(
+        sheet_name=preamble.sheet_name,
+        sheet_ordinal=preamble.sheet_ordinal,
+        has_header=looks_like_header(list(preamble.header)),
+        row_count=outcome.data_rows,
+        column_count=len(columns),
+        ragged_rows=outcome.ragged_rows,
+        truncated=outcome.state == "truncated",
+        columns=tuple(columns),
+    )

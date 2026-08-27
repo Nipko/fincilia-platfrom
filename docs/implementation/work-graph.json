@@ -63,6 +63,7 @@
         "packages/contracts/python/fincilia_contracts/profiling.py",
         "packages/contracts/python/fincilia_contracts/extraction.py",
         "packages/contracts/python/fincilia_contracts/lineage.py",
+        "packages/contracts/python/fincilia_contracts/spreadsheet.py",
         "packages/contracts/python/tests",
         "workers/document/src/fincilia_worker/jobs.py",
         "workers/document/src/fincilia_worker/main.py",
@@ -73,6 +74,7 @@
         "apps/api/src/fincilia_api/routes.py",
         "apps/api/tests",
         "apps/web/src/app/empresas/[companyId]/documentos",
+        "apps/web/src/app/empresas/[companyId]/page.tsx",
         "apps/web/src/lib/api.ts",
         "apps/web/tests/e2e",
         "docs/platform/LOCAL_DEVELOPMENT.md"

@@ -609,6 +609,45 @@ class CanonicalSchemaTests(unittest.TestCase):
                  digest("x")))
         self.assertIn("ck_raw_locator", str(caught.exception))
 
+    def test_a_spreadsheet_locator_is_typed_and_matches_the_stored_row(self) -> None:
+        artifact = self.fixture.artifact(uploader=self.preparer)
+        run = self.fixture.run(artifact)
+        locator = {
+            "locator_kind": "spreadsheet",
+            "artifact_sha256": digest(artifact),
+            "record_ordinal": 2,
+            "row_number": 2,
+            "field_count": 3,
+            "workbook_identity": digest("workbook"),
+            "sheet_identity": digest("sheet-1"),
+            "sheet_ordinal": 1,
+        }
+        self.cursor.execute(
+            "INSERT INTO fincilia.raw_record (raw_record_id, company_id, "
+            "artifact_id, processing_run_id, record_ordinal, origin_locator, "
+            "raw_values, values_digest) VALUES (%s, %s, %s, %s, 2, %s, %s, %s)",
+            (new_id(), self.company_a, artifact, run, json.dumps(locator),
+             json.dumps(["2026-02-01", "Pago sintetico", "1250"]), digest("xlsx-row")))
+
+        invalid = (
+            {**locator, "sheet_identity": None},
+            {**locator, "row_number": 3},
+            {**locator, "record_ordinal": 3},
+            {**locator, "field_count": 2},
+        )
+        for index, candidate in enumerate(invalid, start=3):
+            with self.subTest(candidate=index):
+                with self.assertRaises(psycopg.errors.CheckViolation) as caught:
+                    self.cursor.execute(
+                        "INSERT INTO fincilia.raw_record (raw_record_id, company_id, "
+                        "artifact_id, processing_run_id, record_ordinal, "
+                        "origin_locator, raw_values, values_digest) "
+                        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+                        (new_id(), self.company_a, artifact, run, index,
+                         json.dumps(candidate), json.dumps(["a", "b", "c"]),
+                         digest(f"bad-xlsx-{index}")))
+                self.assertIn("ck_raw_locator", str(caught.exception))
+
 
 class RuntimePrivilegeTests(unittest.TestCase):
     """Lo que cada rol **no** puede hacer, afirmado desde ese mismo rol.

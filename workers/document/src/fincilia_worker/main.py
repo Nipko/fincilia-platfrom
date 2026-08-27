@@ -161,7 +161,8 @@ def process_one(database: Database, store, identity: str) -> bool:
                     result, error_code, failure_class = None, "decision_unstorable", \
                         jobs.RETRYABLE
         else:
-            result, error_code, failure_class = jobs.run_profile(payload)
+            result, error_code, failure_class = jobs.run_profile(
+                payload, internal_type=artifact["internal_type"])
 
     try:
         with database.session(company_id=claim.company_id) as connection:
@@ -196,13 +197,20 @@ def _artifact_row(database: Database, claim: "jobs.Claim") -> dict:
                 raise jobs.StaleLease(
                     "the processing lease or authorization context is no longer valid")
             cursor.execute(
-                "SELECT object_key, filename, content_sha256 "
-                "FROM fincilia.source_artifact WHERE artifact_id = %s",
+                "SELECT a.object_key, a.filename, a.content_sha256, "
+                "       COALESCE((SELECT p.internal_type "
+                "         FROM fincilia.promotion_decision p "
+                "        WHERE p.artifact_id = a.artifact_id "
+                "          AND p.company_id = a.company_id "
+                "          AND p.decision = 'promoted' "
+                "        ORDER BY p.decided_at DESC, p.decision_id DESC LIMIT 1), '') "
+                "FROM fincilia.source_artifact a WHERE a.artifact_id = %s",
                 (claim.artifact_id,))
             row = cursor.fetchone()
     if row is None:
         raise ObjectStoreError("the artifact is not visible in its own context")
-    return {"object_key": row[0], "filename": row[1], "content_sha256": row[2]}
+    return {"object_key": row[0], "filename": row[1], "content_sha256": row[2],
+            "internal_type": row[3]}
 
 
 def _record_decision(database: Database, store, claim: "jobs.Claim", artifact: dict,
@@ -305,13 +313,31 @@ def _extract_streaming(database: Database, store, claim: "jobs.Claim") -> bool:
         outcome = StreamOutcome()
         stream = None
         try:
-            stream = store.open("raw", artifact["object_key"])
-            preamble, reader = sniff(stream)
-            written = _store_stream(
-                database, claim, artifact,
-                stream_records(reader, preamble, outcome=outcome,
-                               artifact_sha256=artifact["content_sha256"]))
-            result = extraction_summary(preamble, outcome)
+            if artifact["internal_type"] == "xlsx":
+                from fincilia_contracts.spreadsheet import (
+                    SpreadsheetOutcome,
+                    sniff_workbook,
+                    spreadsheet_summary,
+                    stream_workbook_rows,
+                )
+
+                payload = store.get("raw", artifact["object_key"])
+                _, preamble = sniff_workbook(payload)
+                xlsx_outcome = SpreadsheetOutcome()
+                written = _store_stream(
+                    database, claim, artifact,
+                    stream_workbook_rows(
+                        payload, preamble, outcome=xlsx_outcome,
+                        artifact_sha256=artifact["content_sha256"]))
+                result = spreadsheet_summary(preamble, xlsx_outcome)
+            else:
+                stream = store.open("raw", artifact["object_key"])
+                preamble, reader = sniff(stream)
+                written = _store_stream(
+                    database, claim, artifact,
+                    stream_records(reader, preamble, outcome=outcome,
+                                   artifact_sha256=artifact["content_sha256"]))
+                result = extraction_summary(preamble, outcome)
             # Dos cifras distintas y las dos ciertas: cuantas filas escribio
             # **este** intento, y cuantas hay. Al reanudar se separan, y es
             # justo entonces cuando una sola no basta para saber que paso.

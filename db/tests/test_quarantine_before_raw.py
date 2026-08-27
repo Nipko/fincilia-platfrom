@@ -31,6 +31,7 @@ from fastapi.testclient import TestClient
 # tiempo.
 import sys
 sys.path.insert(0, "/app/worker_src")
+sys.path.insert(0, "/app/packages/contracts/python/tests")
 
 from db.seed.local import DEFAULT_SECRET, seed, stable_id
 from db.tests.test_api_authorization import MIGRATOR_DSN, RUNTIME_DSN, build_settings
@@ -40,6 +41,7 @@ from fincilia_platform.objects import S3ObjectStore, object_key
 from fincilia_platform.probes import ensure_buckets
 from fincilia_worker import jobs
 from fincilia_worker.main import process_one
+from xlsx_factory import build_xlsx
 
 RUN = uuid.uuid4().hex[:12]
 ESPIGA = stable_id("company", "espiga")
@@ -217,13 +219,33 @@ class QuarantineBeforeRawTests(unittest.TestCase):
         self.assertEqual("quarantine", document["zone"])
         self.assertEqual("zip", document["promotion"]["internal_type"])
 
-    def test_a_valid_spreadsheet_stays_quarantined_until_it_can_be_scanned(self) -> None:
-        payload = build_zip({"[Content_Types].xml": b"<Types/>",
-                             "xl/workbook.xml": f"<workbook>{RUN}</workbook>".encode()})
+    def test_a_safe_single_sheet_xlsx_is_scanned_profiled_and_extracted(self) -> None:
+        payload = build_xlsx([
+            ["Fecha", "Descripcion", "Importe", "Moneda"],
+            ["2026-01-02", f"Pago {RUN}", -1250, "COP"],
+            ["2026-01-03", f"Abono {RUN}", 3400, "COP"],
+        ])
         document = self.settle(payload, "libro.xlsx")
-        self.assertEqual("quarantine", document["zone"])
+        self.assertEqual("raw", document["zone"])
         self.assertEqual("xlsx", document["promotion"]["internal_type"])
-        self.assertEqual("no_scanner_for_format", document["promotion"]["reason_code"])
+        self.assertEqual("content_inspected", document["promotion"]["reason_code"])
+        runs = {run["kind"]: run for run in document["runs"]}
+        self.assertEqual("xlsx", runs["profile"]["result"]["technical_format"])
+        self.assertEqual("succeeded", runs["extract"]["status"])
+        self.assertEqual(3, runs["extract"]["result"]["stored_records"])
+        with psycopg.connect(MIGRATOR_DSN, autocommit=True) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT set_config('fincilia.company_id', %s, false)",
+                               (ESPIGA,))
+                cursor.execute(
+                    "SELECT record_ordinal, origin_locator, raw_values "
+                    "FROM fincilia.raw_record WHERE artifact_id = %s "
+                    "ORDER BY record_ordinal", (document["artifact_id"],))
+                rows = cursor.fetchall()
+        self.assertEqual([1, 2, 3], [row[0] for row in rows])
+        self.assertEqual("spreadsheet", rows[1][1]["locator_kind"])
+        self.assertEqual(2, rows[1][1]["row_number"])
+        self.assertEqual(f"Pago {RUN}", rows[1][2][1])
 
     def test_a_csv_with_a_card_stays_quarantined(self) -> None:
         document = self.settle(card_csv("tarjeta"), "clientes.csv")

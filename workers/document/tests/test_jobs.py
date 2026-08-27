@@ -18,6 +18,7 @@ import sys
 import unittest
 
 sys.path.insert(0, "/app/src")
+sys.path.insert(0, "/app/packages/contracts/python/tests")
 
 from fincilia_contracts.extraction import (  # noqa: E402
     ExtractionError,
@@ -28,6 +29,7 @@ from fincilia_contracts.extraction import (  # noqa: E402
 )
 from fincilia_platform.objects import ObjectStoreError  # noqa: E402
 from fincilia_worker import jobs  # noqa: E402
+from xlsx_factory import build_xlsx  # noqa: E402
 
 CLEAN_CSV = (
     "Fecha;Detalle;Debito;Credito\n"
@@ -52,6 +54,18 @@ class FailureClassificationTests(unittest.TestCase):
         rendered = str(result)
         for value in ("Transferencia", "Consignacion", "1.250.000", "3.400.000"):
             self.assertNotIn(value, rendered)
+
+    def test_a_safe_xlsx_uses_the_spreadsheet_profiler(self) -> None:
+        payload = build_xlsx([
+            ["Fecha", "Descripcion", "Importe"],
+            ["2026-02-01", "Pago sintetico", -1250],
+        ])
+        result, error, failure = jobs.run_profile(payload, internal_type="xlsx")
+        self.assertIsNone(error)
+        self.assertIsNone(failure)
+        self.assertEqual("xlsx", result["technical_format"])
+        self.assertEqual(1, result["row_count"])
+        self.assertNotIn("Pago sintetico", repr(result))
 
     def test_an_unreadable_file_is_fatal_not_retryable(self) -> None:
         # El fichero es el que es. Reintentarlo tres veces daria lo mismo tres

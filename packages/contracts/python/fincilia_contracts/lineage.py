@@ -341,7 +341,17 @@ def reconstruct(steps: tuple[TransformStep, ...], *, canonical_field: str,
     column = chain[0].source_column
     cell = dict(origin_locator)
     if column is not None:
-        cell["field_ordinal"] = int(column)
+        field_ordinal = int(column)
+        cell["field_ordinal"] = field_ordinal
+        if origin_locator.get("locator_kind") == "spreadsheet":
+            # El plan guarda columnas con base cero porque indexa `raw_values`;
+            # XLSX y su contrato de linaje usan base uno. La celda se deriva de
+            # ambas piezas y se comprueba, no se acepta desde el cliente.
+            from .spreadsheet import cell_a1
+
+            row_number = int(origin_locator["row_number"])
+            cell["column_number"] = field_ordinal + 1
+            cell["cell_a1"] = cell_a1(row_number, field_ordinal + 1)
 
     # Que identifica cada etapa. No es decorativo: es lo que permite volver al
     # fichero, comprobar, y decir en que punto exacto un texto se volvio decimal.
