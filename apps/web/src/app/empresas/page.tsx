@@ -32,7 +32,12 @@ function CompanyCard({ snapshot }: { snapshot: PortfolioSnapshot }) {
       <article className="card portfolio-card">
         <div className="portfolio-card__header">
           <div>
-            <div className="company-name">{company.legal_name}</div>
+            <div className="company-name">
+              <span aria-hidden="true" className="company-avatar">
+                {company.legal_name.slice(0, 1)}
+              </span>
+              <span>{company.legal_name}</span>
+            </div>
             <div className="meta">
               {company.country_code} · {company.status}
             </div>
@@ -142,32 +147,76 @@ export default async function CompaniesPage() {
   }
 
   return (
-    <main>
-      <header className="bar">
-        <div>
+    <main className="portfolio-page">
+      <header className="bar page-hero">
+        <div className="page-heading">
+          <p className="eyebrow">Espacio de trabajo</p>
           <h1>Portafolio de empresas</h1>
-          <span className="who">{me.display_name}</span>
+          <p className="page-heading__description">
+            Prioriza lo pendiente y entra al contexto correcto antes de actuar.
+          </p>
         </div>
-        <SignOut />
+        <div className="account-control">
+          <span aria-hidden="true" className="account-avatar">
+            {me.display_name.slice(0, 1).toUpperCase()}
+          </span>
+          <span className="who">{me.display_name}</span>
+          <SignOut />
+        </div>
       </header>
 
-      <p className="lede">
-        Carga operativa por empresa. Son conteos de trabajo, no saldos ni una
-        evaluacion de salud financiera. Cada conteo usa la ventana acotada que
-        expone hoy la API.
-      </p>
-
-      <nav className="portfolio-actions" aria-label="Herramientas multiempresa">
+      <section className="workspace-section" aria-labelledby="portfolio-tools">
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">Vista multiempresa</p>
+            <h2 id="portfolio-tools">Centros de trabajo</h2>
+          </div>
+          <p>Consulta transversal sin mezclar saldos ni decisiones entre empresas.</p>
+        </div>
+        <nav className="portfolio-actions" aria-label="Herramientas multiempresa">
         {manageableFirms.length > 0 ? (
-          <Link className="button-link" href="/empresas/nueva">Crear una empresa</Link>
+          <Link aria-label="Crear una empresa" className="action-tile action-tile--primary" href="/empresas/nueva">
+            <span aria-hidden="true" className="action-tile__icon">+</span>
+            <strong>Crear una empresa</strong>
+            <span>Configura el nuevo espacio de trabajo</span>
+          </Link>
         ) : null}
-        <Link href="/informes">Abrir informes e historicos</Link>
-        <Link href="/calidad">Abrir centro de calidad</Link>
-        <Link href="/recordatorios">Abrir ciclos y recordatorios</Link>
-        <Link href="/revisiones">Abrir bandeja de revisiones multiempresa</Link>
-        <Link href="/preparacion-cierre">Abrir preparacion de cierre</Link>
-        <Link href="/auditoria">Abrir accesos y auditoria</Link>
-      </nav>
+          <Link aria-label="Abrir bandeja de revisiones multiempresa" className="action-tile" href="/revisiones">
+            <span aria-hidden="true" className="action-tile__icon">✓</span>
+            <strong>Revisiones</strong><span>Decisiones que esperan intervencion</span>
+          </Link>
+          <Link aria-label="Abrir ciclos y recordatorios" className="action-tile" href="/recordatorios">
+            <span aria-hidden="true" className="action-tile__icon">◷</span>
+            <strong>Ciclos</strong><span>Vencimientos y recordatorios</span>
+          </Link>
+          <Link aria-label="Abrir centro de calidad" className="action-tile" href="/calidad">
+            <span aria-hidden="true" className="action-tile__icon">◇</span>
+            <strong>Calidad</strong><span>Señales e informacion inconsistente</span>
+          </Link>
+          <Link aria-label="Abrir preparacion de cierre" className="action-tile" href="/preparacion-cierre">
+            <span aria-hidden="true" className="action-tile__icon">◎</span>
+            <strong>Preparar cierre</strong><span>Cobertura y evidencia por periodo</span>
+          </Link>
+          <Link aria-label="Abrir informes e historicos" className="action-tile" href="/informes">
+            <span aria-hidden="true" className="action-tile__icon">↗</span>
+            <strong>Informes</strong><span>Historicos y lectura operativa</span>
+          </Link>
+          <Link aria-label="Abrir accesos y auditoria" className="action-tile" href="/auditoria">
+            <span aria-hidden="true" className="action-tile__icon">⌁</span>
+            <strong>Auditoria</strong><span>Accesos y actividad trazable</span>
+          </Link>
+        </nav>
+      </section>
+
+      <div className="section-heading portfolio-list-heading">
+        <div>
+          <p className="eyebrow">Tu portafolio</p>
+          <h2>Empresas activas</h2>
+        </div>
+        <p>
+          Carga operativa, no saldos ni una evaluacion de salud financiera.
+        </p>
+      </div>
 
       {snapshots.length === 0 ? (
         <p className="card">

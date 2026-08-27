@@ -178,67 +178,79 @@ export default async function CompanyPage({
   }
 
   return (
-    <main>
-      <header className="bar">
-        <div>
+    <main className="company-home">
+      <header className="bar page-hero company-hero">
+        <div className="page-heading">
+          <Link className="breadcrumb" href="/empresas">← Portafolio</Link>
           <h1>{company.legal_name}</h1>
-          <span className="who">
-            {company.country_code} · {company.status} · autorizacion v
-            {company.authorization_version}
-          </span>
+          <div className="company-context">
+            <span className="status-pill status-pill--ok">{company.status}</span>
+            <span>{company.country_code}</span>
+            <span>Autorizacion v{company.authorization_version}</span>
+          </div>
         </div>
-        <nav aria-label="Navegacion de la empresa">
-          {company.permissions.includes('report.read') ? (
-            <><Link href={`/informes?empresa=${companyId}`}>Informes</Link>{' '}
-              <Link href={`/preparacion-cierre?empresa=${companyId}`}>
-                Preparacion de cierre
-              </Link>{' '}</>
-          ) : null}
-          {company.permissions.includes('quality.read') ? (
-            <><Link href={`/calidad?empresa=${companyId}`}>Calidad</Link>{' '}</>
-          ) : null}
-          {company.permissions.includes('member.manage') ? (
-            <><Link href={`/empresas/${companyId}/equipo`}>Equipo y roles</Link>{' '}</>
-          ) : null}
-          {company.permissions.includes('movement.read') ? (
-            <><Link href={`/empresas/${companyId}/saldos`}>Saldos</Link>{' '}
-              <Link href={`/empresas/${companyId}/conciliacion-saldos`}>Conciliar saldos</Link>{' '}
-              <Link href={`/empresas/${companyId}/conciliacion`}>Cruzar movimientos</Link>{' '}</>
-          ) : null}
-          {company.permissions.includes('document.read') ? (
-            <><Link href={`/empresas/${companyId}/documentos`}>Documentos</Link>{' '}</>
-          ) : null}
-          <Link href={`/empresas/${companyId}/fuentes`}>Fuentes y cuentas</Link>{' '}
-          <Link href="/empresas">Empresas</Link>
-        </nav>
       </header>
 
-      <section className="card">
-        <div className="meta">Roles en esta empresa</div>
-        <div className="tags">
-          {company.roles.map((role) => (
-            <span className="tag" key={role}>
-              {role}
-            </span>
-          ))}
-        </div>
-        <div className="meta" style={{ marginTop: '1rem' }}>
-          Permisos que concede el servidor
-        </div>
-        <div className="tags">
-          {company.permissions.map((permission) => (
-            <span className="tag" key={permission}>
-              {permission}
-            </span>
-          ))}
-        </div>
-      </section>
+      <nav className="workspace-nav" aria-label="Navegacion de la empresa">
+          {company.permissions.includes('report.read') ? (
+            <><Link href={`/informes?empresa=${companyId}`}><span aria-hidden="true">▥</span> Informes</Link>
+              <Link href={`/preparacion-cierre?empresa=${companyId}`}><span aria-hidden="true">◎</span>
+                Preparacion de cierre
+              </Link></>
+          ) : null}
+          {company.permissions.includes('quality.read') ? (
+            <Link href={`/calidad?empresa=${companyId}`}><span aria-hidden="true">◇</span> Calidad</Link>
+          ) : null}
+          {company.permissions.includes('member.manage') ? (
+            <Link href={`/empresas/${companyId}/equipo`}><span aria-hidden="true">◌</span> Equipo y roles</Link>
+          ) : null}
+          {company.permissions.includes('movement.read') ? (
+            <><Link href={`/empresas/${companyId}/saldos`}><span aria-hidden="true">≋</span> Saldos</Link>
+              <Link href={`/empresas/${companyId}/conciliacion-saldos`}><span aria-hidden="true">⇄</span> Conciliar saldos</Link>
+              <Link href={`/empresas/${companyId}/conciliacion`}><span aria-hidden="true">⌘</span> Cruzar movimientos</Link></>
+          ) : null}
+          {company.permissions.includes('document.read') ? (
+            <Link href={`/empresas/${companyId}/documentos`}><span aria-hidden="true">▤</span> Documentos</Link>
+          ) : null}
+          <Link href={`/empresas/${companyId}/fuentes`}><span aria-hidden="true">⌁</span> Fuentes y cuentas</Link>
+      </nav>
 
-      <h2>Carga operativa</h2>
-      <section className="card" aria-label="Carga operativa de la empresa">
-        <p className="meta">
-          Conteos de actividad y vencimiento; no son saldos ni una conciliacion.
-        </p>
+      <details className="card access-details">
+        <summary>
+          <span>
+            <strong>Acceso de esta cuenta</strong>
+            <small>Roles, permisos y contexto tecnico</small>
+          </span>
+          <span aria-hidden="true" className="details-chevron">⌄</span>
+        </summary>
+        <div className="access-details__content">
+          <div>
+            <div className="meta">Roles en esta empresa</div>
+            <div className="tags">
+              {company.roles.map((role) => (
+                <span className="tag" key={role}>{role}</span>
+              ))}
+            </div>
+          </div>
+          <div>
+            <div className="meta">Permisos que concede el servidor</div>
+            <div className="tags">
+              {company.permissions.map((permission) => (
+                <span className="tag" key={permission}>{permission}</span>
+              ))}
+            </div>
+          </div>
+        </div>
+      </details>
+
+      <section className="workspace-section" aria-labelledby="operational-load">
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">Hoy</p>
+            <h2 id="operational-load">Carga operativa</h2>
+          </div>
+          <p>Conteos de actividad y vencimiento; no son saldos ni una conciliacion.</p>
+        </div>
         <dl className="metric-grid">
           <div>
             <dt>Documentos visibles</dt>
@@ -271,7 +283,13 @@ export default async function CompanyPage({
         </dl>
       </section>
 
-      <h2 id="carga-documentos">Documentos</h2>
+      <div className="section-heading">
+        <div>
+          <p className="eyebrow">Entrada de datos</p>
+          <h2 id="carga-documentos">Documentos</h2>
+        </div>
+        <Link href={`/empresas/${companyId}/documentos`}>Abrir centro de documentos →</Link>
+      </div>
       {uploadSourcesVisible ? (
         <div className="card">
           <UploadForm

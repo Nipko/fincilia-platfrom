@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 
+import { BrandMark } from '@/components/brand-mark';
+
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -15,11 +17,21 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <a className="skip-link" href="#main-content">
           Saltar al contenido principal
         </a>
+        <header className="product-bar">
+          <div className="product-bar__inner">
+            <BrandMark />
+            <span className="environment-badge">
+              <span aria-hidden="true" />
+              Entorno local
+            </span>
+          </div>
+        </header>
         <div className="shell" id="main-content" tabIndex={-1}>
           {children}
         </div>
         <footer className="ceiling">
-          Entorno local · datos sinteticos · sin proveedores externos
+          <strong>Fincilia</strong>
+          <span>Entorno local · datos sinteticos · sin proveedores externos</span>
         </footer>
       </body>
     </html>
