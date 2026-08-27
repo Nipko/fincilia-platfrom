@@ -11,6 +11,7 @@ import {
   type Source,
 } from '@/lib/api';
 import { readSession } from '@/lib/session';
+import { UploadForm } from '../upload';
 
 export const dynamic = 'force-dynamic';
 
@@ -221,6 +222,11 @@ export default async function DocumentCenterPage({
   }
 
   const resetHref = `/empresas/${companyId}/documentos`;
+  const activeSources = sources.filter((source) => source.status === 'active');
+  const uploadVisible = company.permissions.includes('document.upload') && sourcesVisible;
+  const initialSourceId = activeSources.some(
+    (source) => source.data_source_id === filters.dataSourceId,
+  ) ? filters.dataSourceId ?? '' : '';
   return (
     <main>
       <header className="bar">
@@ -232,10 +238,27 @@ export default async function DocumentCenterPage({
           </span>
         </div>
         <nav aria-label="Navegacion del centro de documentos">
-          <Link href={`/empresas/${companyId}#carga-documentos`}>Subir documento</Link>{' '}
+          {uploadVisible ? <><Link href="#cargar-documentos">Cargar archivos</Link>{' '}</> : null}
           <Link href={`/empresas/${companyId}/fuentes`}>Fuentes y cuentas</Link>
         </nav>
       </header>
+
+      {uploadVisible ? (
+        <section className="card document-upload-center" aria-labelledby="cargar-documentos">
+          <div className="document-upload-copy">
+            <h2 id="cargar-documentos">Cargar documentos</h2>
+            <p className="meta">
+              Elige una fuente y hasta 10 archivos. Cada recepcion se valida y
+              confirma por separado; un fallo no deshace las demas.
+            </p>
+          </div>
+          <UploadForm
+            companyId={companyId}
+            sources={activeSources}
+            initialSourceId={initialSourceId}
+          />
+        </section>
+      ) : null}
 
       <section className="card document-history-summary" aria-labelledby="document-summary">
         <h2 id="document-summary">Resultado de la consulta</h2>
@@ -299,7 +322,7 @@ export default async function DocumentCenterPage({
       {history.items.length === 0 ? (
         <p className="card" role="status">
           No hay recepciones visibles para estos filtros. Prueba limpiarlos o
-          carga un documento sintetico desde la pagina de la empresa.
+          carga documentos sinteticos desde esta misma pagina.
         </p>
       ) : (
         <div className="card scroll" tabIndex={0}

@@ -28,6 +28,7 @@ const mocks = vi.hoisted(() => {
 vi.mock('next/navigation', () => ({
   notFound: mocks.notFound,
   redirect: mocks.redirect,
+  useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
 }));
 vi.mock('@/lib/session', () => ({ readSession: mocks.readSession }));
 vi.mock('@/lib/api', () => ({
@@ -116,7 +117,10 @@ describe('DocumentCenterPage', () => {
     await renderPage();
 
     expect(screen.getByRole('heading', { name: 'Centro de documentos' })).toBeInTheDocument();
-    expect(screen.getAllByText('Extracto bancario sintetico')).toHaveLength(2);
+    expect(screen.getAllByText('Extracto bancario sintetico').length)
+      .toBeGreaterThanOrEqual(2);
+    expect(screen.getByRole('heading', { name: 'Cargar documentos' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Extracto o soporte')).toHaveAttribute('multiple');
     expect(screen.getByRole('link', { name: 'extracto-agosto.csv' })).toHaveAttribute(
       'href', `/empresas/${COMPANY}/documentos/${ARTIFACT}`,
     );
@@ -163,6 +167,21 @@ describe('DocumentCenterPage', () => {
     expect(screen.getByText(/no tener permiso no demuestra/i)).toBeInTheDocument();
     expect(mocks.fetchDocumentHistory).not.toHaveBeenCalled();
     expect(mocks.fetchSourcesFull).not.toHaveBeenCalled();
+  });
+
+  it('no ofrece carga sin document.upload aunque el historico sea visible', async () => {
+    mocks.fetchCompany.mockResolvedValue({
+      company_id: COMPANY,
+      legal_name: 'Espiga Sintetica SAS',
+      permissions: ['document.read'],
+    });
+    await renderPage();
+
+    expect(screen.queryByRole('heading', { name: 'Cargar documentos' }))
+      .not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Extracto o soporte')).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Centro de documentos' }))
+      .toBeInTheDocument();
   });
 
   it('ofrece restablecer cuando el servidor rechaza un cursor', async () => {
