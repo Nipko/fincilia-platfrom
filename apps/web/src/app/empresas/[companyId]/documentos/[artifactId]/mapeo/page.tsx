@@ -11,6 +11,7 @@ import {
   fetchDocument,
   fetchMapping,
   fetchMappings,
+  fetchMappingTemplates,
   fetchMovements,
   fetchOverrides,
   fetchPreview,
@@ -20,6 +21,7 @@ import {
   type CorrectionProposal,
   type MappingDetail,
   type MappingSummary,
+  type MappingTemplate,
   type Movement,
   type PreviewPage,
   type RowOverrideSummary,
@@ -163,6 +165,7 @@ export default async function MappingPage({
     mapeo?: string | string[];
     fuente?: string | string[];
     dataset?: string | string[];
+    plantilla?: string | string[];
   }>;
 }) {
   const session = await readSession();
@@ -374,6 +377,24 @@ export default async function MappingPage({
     requestedSource !== null &&
     mapping.data_source_id !== requestedSource.data_source_id;
   const dataSourceId = mapping?.data_source_id ?? requestedSource?.data_source_id ?? '';
+  let templates: MappingTemplate[] = [];
+  if (canMap && dataSourceId) {
+    const loaded = await loadAuthorized(
+      fetchMappingTemplates(
+        session.token, companyId, dataSourceId, artifactId),
+    );
+    if (!loaded.allowed) {
+      return <AccessDenied companyId={companyId} />;
+    }
+    templates = loaded.value;
+  }
+  const requestedTemplateId = singleQueryValue(query.plantilla);
+  const selectedTemplate = requestedTemplateId
+    ? templates.find((item) => item.mapping_id === requestedTemplateId) ?? null
+    : null;
+  const invalidTemplateRequested =
+    query.plantilla !== undefined &&
+    (requestedTemplateId === null || selectedTemplate === null);
   const flowContext = {
     documento: artifactId,
     // Una fuente no autorizada se explica, pero nunca se propaga a enlaces
@@ -383,6 +404,7 @@ export default async function MappingPage({
     dataset: datasetSelection.selectedId,
     pagina: page,
     movimientosPagina: movementPage,
+    plantilla: selectedTemplate?.mapping_id ?? null,
   };
 
   return (
@@ -563,6 +585,53 @@ export default async function MappingPage({
               contexto en silencio. Abre otra version o crea un mapeo nuevo.
             </p>
           ) : null}
+          {invalidTemplateRequested ? (
+            <p className="notice error" role="alert">
+              La plantilla indicada no pertenece a esta fuente o ya no esta
+              disponible. No se aplico otra en silencio.
+            </p>
+          ) : null}
+          {templates.length > 0 ? (
+            <nav className="card template-library" aria-label="Plantillas reutilizables">
+              <div>
+                <h3>Plantillas de esta fuente</h3>
+                <p className="meta">
+                  Aplicar una crea otra version. Nunca cambia datasets ni
+                  versiones anteriores.
+                </p>
+              </div>
+              <ul>
+                {templates.map((item) => (
+                  <li key={item.mapping_id}>
+                    {item.compatible ? (
+                      <Link
+                        href={withFlowContext(flowPath, {
+                          ...flowContext,
+                          mapeo: null,
+                          dataset: null,
+                          plantilla: item.mapping_id,
+                        })}
+                        aria-current={
+                          selectedTemplate?.mapping_id === item.mapping_id
+                            ? 'true'
+                            : undefined
+                        }
+                      >
+                        Usar {item.display_name} · v{item.version_number}
+                      </Link>
+                    ) : (
+                      <span>
+                        {item.display_name} · v{item.version_number}
+                      </span>
+                    )}{' '}
+                    <span className={item.compatible ? 'outcome' : 'notice'}>
+                      {item.compatible ? 'compatible' : 'estructura diferente'}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </nav>
+          ) : null}
           {mappings.length > 0 ? (
             <nav className="card" aria-label="Versiones de mapeo">
               <div className="meta">
@@ -656,7 +725,7 @@ export default async function MappingPage({
           <section className="card" aria-label="Asignar columnas">
             <h3>Asignar columnas</h3>
             <MappingForm
-              key={`${selectedId ?? 'nuevo'}:${dataSourceId}`}
+              key={`${selectedId ?? 'nuevo'}:${dataSourceId}:${selectedTemplate?.mapping_id ?? 'sin-plantilla'}`}
               companyId={companyId}
               artifactId={artifactId}
               sources={sourceRows.map((source) => ({
@@ -669,6 +738,7 @@ export default async function MappingPage({
               page={page}
               movementPage={movementPage}
               preview={preview}
+              template={selectedTemplate}
             />
           </section>
 

@@ -632,7 +632,47 @@ export type MappingDefinition = {
   direction_mode: string;
   header_row: number;
   first_data_row: number;
+  last_data_row: number | null;
   ignored_columns: number[];
+};
+
+export type MappingPreviewMovement = {
+  row_number: number;
+  occurred_on: string;
+  description: string;
+  reference: string;
+  amount: string;
+  currency: string;
+  direction: string;
+  source_column: Record<string, number>;
+};
+
+export type MappingPreview = {
+  header_row: number;
+  first_data_row: number;
+  last_data_row: number | null;
+  range_record_count: number;
+  sample_limit: number;
+  sampled_count: number;
+  sample_truncated: boolean;
+  blockers: Blocker[];
+  movements: MappingPreviewMovement[];
+  rejections: { record_ordinal: number; code: string; detail: string }[];
+};
+
+export type MappingTemplate = {
+  mapping_id: string;
+  display_name: string;
+  data_source_id: string;
+  mapping_version_id: string;
+  version_number: number;
+  artifact_id: string;
+  definition: MappingDefinition;
+  definition_digest: string;
+  source_schema_digest: string;
+  state: string;
+  created_at: string;
+  compatible: boolean;
 };
 
 export function fetchPreview(
@@ -691,6 +731,68 @@ export function createMapping(
     body: JSON.stringify(body),
     token,
   });
+}
+
+export function previewMapping(
+  token: string,
+  companyId: string,
+  artifactId: string,
+  body: MappingDefinition,
+): Promise<MappingPreview> {
+  const company = encodeURIComponent(companyId);
+  const artifact = encodeURIComponent(artifactId);
+  return request<MappingPreview>(
+    `/api/v1/companies/${company}/documents/${artifact}/mapping-preview?limit=10`,
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+      token,
+    },
+  );
+}
+
+export function fetchMappingTemplates(
+  token: string,
+  companyId: string,
+  dataSourceId: string,
+  artifactId: string,
+): Promise<MappingTemplate[]> {
+  const query = new URLSearchParams({
+    data_source_id: dataSourceId,
+    artifact_id: artifactId,
+  });
+  return request<MappingTemplate[]>(
+    `/api/v1/companies/${encodeURIComponent(companyId)}/mapping-templates?${query}`,
+    { token },
+  );
+}
+
+export function createMappingVersion(
+  token: string,
+  companyId: string,
+  mappingId: string,
+  body: MappingDefinition & { artifact_id: string },
+): Promise<{
+  mapping_version_id: string;
+  blockers: Blocker[];
+  replayed: boolean;
+}> {
+  const company = encodeURIComponent(companyId);
+  const mapping = encodeURIComponent(mappingId);
+  return request<{
+    mapping_version_id: string;
+    blockers: Blocker[];
+    replayed: boolean;
+  }>(
+    `/api/v1/companies/${company}/mapping-templates/${mapping}/versions`,
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+      token,
+    },
+  );
 }
 
 export function decideAmbiguity(

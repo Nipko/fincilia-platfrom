@@ -3,7 +3,13 @@
 import Link from 'next/link';
 import { useActionState, useState } from 'react';
 
-import type { Blocker, ColumnProfile, PreviewPage } from '@/lib/api';
+import type {
+  Blocker,
+  ColumnProfile,
+  MappingDefinition,
+  MappingTemplate,
+  PreviewPage,
+} from '@/lib/api';
 import { withFlowContext } from '@/lib/navigation';
 import {
   approveOverrideAction,
@@ -55,6 +61,9 @@ const MAPPING_INITIAL: MappingState = {
   error: null,
   mappingVersionId: null,
   blockers: [],
+  preview: null,
+  draft: null,
+  formRevision: 0,
 };
 const DECISION_INITIAL: DecisionState = { error: null, resolved: null };
 const CORRECTION_APPLICATION_INITIAL: CorrectionApplicationState = {
@@ -87,6 +96,7 @@ export function MappingForm({
   page,
   movementPage,
   preview,
+  template,
 }: {
   companyId: string;
   artifactId: string;
@@ -100,10 +110,16 @@ export function MappingForm({
   page: number;
   movementPage: number;
   preview: PreviewPage;
+  template: MappingTemplate | null;
 }) {
   const [state, action, pending] = useActionState(createMappingAction, MAPPING_INITIAL);
-  const [directionMode, setDirectionMode] = useState('signed_amount');
+  const [directionMode, setDirectionMode] = useState(
+    template?.definition.direction_mode ?? 'signed_amount',
+  );
   const [dataSourceId, setDataSourceId] = useState(selectedDataSourceId);
+  const defaults: Partial<MappingDefinition> =
+    state.draft?.definition ?? template?.definition ?? {};
+  const defaultColumns = defaults.columns ?? {};
 
   const columns: ColumnProfile[] = preview.columns.length
     ? preview.columns
@@ -120,9 +136,19 @@ export function MappingForm({
       }));
 
   return (
-    <form className="upload" action={action}>
+    <form
+      key={`mapping-form-${state.formRevision ?? 0}`}
+      className="upload"
+      action={action}
+    >
       <input type="hidden" name="companyId" value={companyId} />
       <input type="hidden" name="artifactId" value={artifactId} />
+      {template ? (
+        <>
+          <input type="hidden" name="templateMappingId" value={template.mapping_id} />
+          <input type="hidden" name="dataSourceId" value={dataSourceId} />
+        </>
+      ) : null}
 
       <label htmlFor="dataSourceId">
         Fuente de estos datos
@@ -131,6 +157,7 @@ export function MappingForm({
           name="dataSourceId"
           value={dataSourceId}
           onChange={(event) => setDataSourceId(event.target.value)}
+          disabled={template !== null}
           required
         >
           <option value="">elige una fuente</option>
@@ -155,16 +182,38 @@ export function MappingForm({
           name="displayName"
           type="text"
           maxLength={160}
-          defaultValue={`Mapeo de ${preview.header.join(', ').slice(0, 60)}`}
+          defaultValue={
+            state.draft?.displayName ??
+            template?.display_name ??
+            `Mapeo de ${preview.header.join(', ').slice(0, 60)}`
+          }
+          disabled={template !== null}
         />
       </label>
+      {template ? (
+        <>
+          <input type="hidden" name="displayName" value={template.display_name} />
+          <p className="notice ok" role="status">
+            Crearas la version {template.version_number + 1} de esta plantilla.
+            La version anterior y sus datasets no se modifican.
+          </p>
+        </>
+      ) : null}
 
       <fieldset>
         <legend>Que columna es cada cosa</legend>
         {FIELDS.map((field) => (
           <label key={field.id} htmlFor={`col_${field.id}`}>
             {field.label} <span className="meta">({field.hint})</span>
-            <select id={`col_${field.id}`} name={`col_${field.id}`} defaultValue="">
+            <select
+              id={`col_${field.id}`}
+              name={`col_${field.id}`}
+              defaultValue={
+                defaultColumns[field.id] === undefined
+                  ? ''
+                  : String(defaultColumns[field.id])
+              }
+            >
               <option value="">sin asignar</option>
               {columns.map((column) => (
                 <option key={column.index} value={column.index}>
@@ -181,7 +230,11 @@ export function MappingForm({
         <legend>Como se leen los valores</legend>
         <label htmlFor="dateFormat">
           Convenio de fecha
-          <select id="dateFormat" name="dateFormat" defaultValue="dmy">
+          <select
+            id="dateFormat"
+            name="dateFormat"
+            defaultValue={defaults.date_format ?? 'dmy'}
+          >
             <option value="dmy">dd/mm/aaaa</option>
             <option value="mdy">mm/dd/aaaa</option>
             <option value="iso">aaaa-mm-dd</option>
@@ -189,7 +242,11 @@ export function MappingForm({
         </label>
         <label htmlFor="decimalFormat">
           Convenio decimal
-          <select id="decimalFormat" name="decimalFormat" defaultValue="comma">
+          <select
+            id="decimalFormat"
+            name="decimalFormat"
+            defaultValue={defaults.decimal_format ?? 'comma'}
+          >
             <option value="comma">1.234,56</option>
             <option value="dot">1,234.56</option>
           </select>
@@ -202,7 +259,7 @@ export function MappingForm({
             type="text"
             maxLength={3}
             minLength={3}
-            defaultValue="COP"
+            defaultValue={defaults.currency ?? 'COP'}
             pattern="[A-Za-z]{3}"
             required
           />
@@ -240,7 +297,7 @@ export function MappingForm({
             name="headerRow"
             type="number"
             min={1}
-            defaultValue={preview.header_row}
+            defaultValue={defaults.header_row ?? preview.header_row}
           />
         </label>
         <label htmlFor="firstDataRow">
@@ -250,7 +307,19 @@ export function MappingForm({
             name="firstDataRow"
             type="number"
             min={1}
-            defaultValue={preview.first_data_row}
+            defaultValue={defaults.first_data_row ?? preview.first_data_row}
+          />
+        </label>
+        <label htmlFor="lastDataRow">
+          Ultima fila de datos <span className="meta">(opcional)</span>
+          <input
+            id="lastDataRow"
+            name="lastDataRow"
+            type="number"
+            min={1}
+            max={preview.total_records}
+            defaultValue={defaults.last_data_row ?? ''}
+            placeholder={`hasta ${preview.total_records}`}
           />
         </label>
       </fieldset>
@@ -268,6 +337,7 @@ export function MappingForm({
                 type="checkbox"
                 name="ignoredColumn"
                 value={column.index}
+                defaultChecked={(defaults.ignored_columns ?? []).includes(column.index)}
               />
               <span>
                 {column.index + 1}. {column.header}
@@ -278,9 +348,27 @@ export function MappingForm({
         </div>
       </fieldset>
 
-      <div>
-        <button type="submit" disabled={pending || sources.length === 0}>
-          {pending ? 'Guardando...' : 'Guardar mapeo'}
+      <div className="mapping-actions">
+        <button
+          type="submit"
+          name="intent"
+          value="preview"
+          className="quiet"
+          disabled={pending}
+        >
+          {pending ? 'Procesando...' : 'Vista procesada'}
+        </button>
+        <button
+          type="submit"
+          name="intent"
+          value="save"
+          disabled={pending || sources.length === 0}
+        >
+          {pending
+            ? 'Guardando...'
+            : template
+              ? 'Guardar nueva version'
+              : 'Guardar mapeo'}
         </button>
       </div>
 
@@ -288,6 +376,77 @@ export function MappingForm({
         <p className="notice error" role="alert">
           {state.error}
         </p>
+      ) : null}
+      {state.preview ? (
+        <section className="canonical-preview" aria-labelledby="vista-procesada">
+          <div className="bar">
+            <div>
+              <h4 id="vista-procesada">Vista procesada, aun sin guardar</h4>
+              <p className="meta">
+                {state.preview.range_record_count.toLocaleString('es-CO')} fila(s)
+                en el rango · muestra de {state.preview.sampled_count}
+                {state.preview.sample_truncated ? ' · hay mas filas' : ''}
+              </p>
+            </div>
+            <span className="outcome">solo lectura</span>
+          </div>
+          {state.preview.blockers.length > 0 ? (
+            <div className="notice error" role="status">
+              <strong>Esta configuracion aun no produce movimientos:</strong>
+              <ul>
+                {state.preview.blockers.map((blocker, index) => (
+                  <li key={`${blocker.code}-${blocker.location}-${index}`}>
+                    <code>{blocker.code}</code> · {blocker.detail}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : (
+            <>
+              <div className="scroll">
+                <table>
+                  <caption className="meta">
+                    Fechas e importes normalizados por el mismo dominio que prepara.
+                  </caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">Fila</th>
+                      <th scope="col">Fecha</th>
+                      <th scope="col">Descripcion</th>
+                      <th scope="col">Referencia</th>
+                      <th scope="col">Direccion</th>
+                      <th scope="col">Importe</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {state.preview.movements.map((movement) => (
+                      <tr key={movement.row_number}>
+                        <th scope="row">{movement.row_number}</th>
+                        <td>{movement.occurred_on}</td>
+                        <td>{movement.description}</td>
+                        <td>{movement.reference || '—'}</td>
+                        <td>{movement.direction === 'inflow' ? 'entrada' : 'salida'}</td>
+                        <td><code>{movement.amount} {movement.currency}</code></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {state.preview.rejections.length > 0 ? (
+                <div className="notice" role="status">
+                  <strong>Filas rechazadas en la muestra:</strong>
+                  <ul>
+                    {state.preview.rejections.map((rejection) => (
+                      <li key={`${rejection.record_ordinal}-${rejection.code}`}>
+                        fila {rejection.record_ordinal}: {rejection.detail}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+            </>
+          )}
+        </section>
       ) : null}
       {state.mappingVersionId ? (
         <p className="notice ok" role="status">

@@ -276,4 +276,30 @@ describe('POST upload BFF', () => {
     expect(signalAborted).toBe(true);
     await vi.waitFor(() => expect(sourceCancelled).toHaveBeenCalledOnce());
   });
+
+  it('no cancela directamente un cuerpo que fetch aun conserva bloqueado', async () => {
+    const forwarded: {
+      reader: ReadableStreamDefaultReader<Uint8Array> | null;
+    } = { reader: null };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (_url: unknown, init?: RequestInit) => {
+        forwarded.reader = (init?.body as ReadableStream<Uint8Array>).getReader();
+        return new Response(JSON.stringify({
+          artifact_id: ARTIFACT_ID,
+          filename: 'sintetico.csv',
+          byte_size: 20,
+          zone: 'quarantine',
+          status: 'quarantined',
+          already_present: false,
+        }), { status: 200, headers: { 'content-type': 'application/json' } });
+      }),
+    );
+
+    const response = await POST(request(), context());
+
+    expect(response.status).toBe(200);
+    expect(forwarded.reader).not.toBeNull();
+    forwarded.reader?.releaseLock();
+  });
 });

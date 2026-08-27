@@ -173,9 +173,76 @@ test('XLSX multihoja exige seleccion y ofrece limpieza visual antes de mapear', 
   await page.locator('#col_amount').selectOption('2');
   await page.locator('#dateFormat').selectOption('iso');
   await page.locator('#decimalFormat').selectOption('dot');
+  await page.getByLabel('Ultima fila de datos').fill('2');
   await page.getByRole('checkbox', { name: /4\. Moneda/ }).check();
   await page.getByRole('checkbox', { name: /5\. Nota auxiliar/ }).check();
+  await page.getByRole('button', { name: 'Vista procesada' }).click();
+  const processed = page.getByRole('region', {
+    name: 'Vista procesada, aun sin guardar',
+  });
+  await expect(processed).toContainText('1 fila(s) en el rango');
+  await expect(processed).toContainText(`Seleccion correcta XLSX ${marker}`);
+  await expect(processed).not.toContainText('Abono multihoja');
   await page.getByRole('button', { name: 'Guardar mapeo' }).click();
   await expect(page.getByText(/Mapeo guardado en borrador/)).toBeVisible();
   await expect(page.getByText(/No queda nada por resolver/)).toBeVisible();
+});
+
+test('una plantilla compatible se aplica como nueva version sin reconfigurar columnas', async ({
+  page,
+}) => {
+  test.setTimeout(180_000);
+  const marker = Date.now().toString(36);
+  await signIn(page);
+  await openSyntheticCompany(page);
+  const companyUrl = page.url();
+  await selectDemoSource(page);
+  await page.getByLabel('Extracto o soporte').setInputFiles({
+    name: `plantilla-origen-${marker}.xlsx`,
+    mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    buffer: syntheticXlsx(`${marker}-origen`),
+  });
+  await page.getByRole('button', { name: 'Subir' }).click();
+  await expect(page).toHaveURL(/\/documentos\/[0-9a-f-]+\?fuente=[0-9a-f-]+$/);
+  await waitForRenderedText(page, 'Perfil', 'hoja 1: Movimientos');
+  await page.getByRole('link', { name: 'Mapear y publicar' }).click();
+  await expect(page).toHaveURL(/\/documentos\/[0-9a-f-]+\/mapeo\?/);
+  await waitForRenderedText(page, 'Extraccion', 'Pago XLSX sintetico');
+  await page.locator('#col_occurred_on').selectOption('0');
+  await page.locator('#col_description').selectOption('1');
+  await page.locator('#col_amount').selectOption('2');
+  await page.locator('#dateFormat').selectOption('iso');
+  await page.locator('#decimalFormat').selectOption('dot');
+  await page.getByRole('checkbox', { name: /4\. Moneda/ }).check();
+  await page.getByRole('button', { name: 'Guardar mapeo' }).click();
+  await expect(page.getByText(/Mapeo guardado en borrador/)).toBeVisible();
+
+  await page.goto(companyUrl);
+  await selectDemoSource(page);
+  await page.getByLabel('Extracto o soporte').setInputFiles({
+    name: `plantilla-destino-${marker}.xlsx`,
+    mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    buffer: syntheticXlsx(`${marker}-destino`),
+  });
+  await page.getByRole('button', { name: 'Subir' }).click();
+  await expect(page).toHaveURL(/\/documentos\/[0-9a-f-]+\?fuente=[0-9a-f-]+$/);
+  await waitForRenderedText(page, 'Perfil', 'hoja 1: Movimientos');
+  await page.getByRole('link', { name: 'Mapear y publicar' }).click();
+  await expect(page).toHaveURL(/\/documentos\/[0-9a-f-]+\/mapeo\?/);
+  await waitForRenderedText(page, 'Extraccion', 'Pago XLSX sintetico');
+
+  const library = page.getByRole('navigation', { name: 'Plantillas reutilizables' });
+  await expect(library).toContainText('compatible');
+  await library.getByRole('link', { name: /Usar Mapeo de/ }).first().click();
+  await expect(page).toHaveURL(/plantilla=[0-9a-f-]+/);
+  await expect(page.getByText(/Crearas la version 2/)).toBeVisible();
+  await expect(page.locator('#col_occurred_on')).toHaveValue('0');
+  await expect(page.locator('#col_description')).toHaveValue('1');
+  await expect(page.locator('#col_amount')).toHaveValue('2');
+  await page.getByRole('button', { name: 'Vista procesada' }).click();
+  await expect(page.getByRole('region', {
+    name: 'Vista procesada, aun sin guardar',
+  })).toContainText(`Pago XLSX sintetico ${marker}-destino`);
+  await page.getByRole('button', { name: 'Guardar nueva version' }).click();
+  await expect(page.getByText(/Mapeo guardado en borrador/)).toBeVisible();
 });

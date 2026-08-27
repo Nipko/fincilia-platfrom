@@ -21,6 +21,7 @@ import {
   createBalanceReconciliationStatement,
   createCompletenessAssessment,
   createMapping,
+  createMappingVersion,
   createReconcilingItem,
   createSource,
   fetchDataset,
@@ -36,6 +37,7 @@ import {
   decideAmbiguity,
   decideReconcilingItem,
   prepareDataset,
+  previewMapping,
   publishDataset,
   provisionCompany,
   proposeReconciliationGroup,
@@ -49,6 +51,8 @@ import {
   signIn,
   triageQualityIssue,
   validateMapping,
+  type MappingDefinition,
+  type MappingPreview,
 } from '@/lib/api';
 import { clearSession, readSession, writeSession } from '@/lib/session';
 
@@ -856,6 +860,12 @@ export type MappingState = {
   error: string | null;
   mappingVersionId: string | null;
   blockers: Blocker[];
+  preview?: MappingPreview | null;
+  draft?: {
+    displayName: string;
+    definition: MappingDefinition;
+  } | null;
+  formRevision?: number;
 };
 
 /** Campos canonicos que la pantalla deja asignar a una columna. */
@@ -935,7 +945,7 @@ export async function selectSpreadsheetSheetAction(
 }
 
 export async function createMappingAction(
-  _previous: MappingState,
+  previous: MappingState,
   formData: FormData,
 ): Promise<MappingState> {
   const session = await readSession();
@@ -945,6 +955,8 @@ export async function createMappingAction(
   const companyId = String(formData.get('companyId') ?? '');
   const artifactId = String(formData.get('artifactId') ?? '');
   const dataSourceId = String(formData.get('dataSourceId') ?? '');
+  const templateMappingId = String(formData.get('templateMappingId') ?? '').trim();
+  const intent = String(formData.get('intent') ?? 'save');
   const columns = readColumns(formData);
   if (!columns.occurred_on && columns.occurred_on !== 0) {
     return {
@@ -961,6 +973,72 @@ export async function createMappingAction(
     };
   }
 
+  const headerRow = Number.parseInt(String(formData.get('headerRow') ?? '1'), 10);
+  const firstDataRow = Number.parseInt(
+    String(formData.get('firstDataRow') ?? '2'), 10);
+  const lastRaw = String(formData.get('lastDataRow') ?? '').trim();
+  const lastDataRow = lastRaw === '' ? null : Number.parseInt(lastRaw, 10);
+  if (
+    !Number.isInteger(headerRow) || headerRow < 1 ||
+    !Number.isInteger(firstDataRow) || firstDataRow <= headerRow ||
+    (lastDataRow !== null &&
+      (!Number.isInteger(lastDataRow) || lastDataRow < firstDataRow))
+  ) {
+    return {
+      error: 'Revisa el rango: los datos empiezan despues de la cabecera y el final no puede quedar antes.',
+      mappingVersionId: null,
+      blockers: [],
+      preview: null,
+    };
+  }
+  const definition: MappingDefinition = {
+    columns,
+    date_format: String(formData.get('dateFormat') ?? 'iso'),
+    decimal_format: String(formData.get('decimalFormat') ?? 'dot'),
+    currency: String(formData.get('currency') ?? 'COP').toUpperCase(),
+    direction_mode: String(formData.get('directionMode') ?? 'signed_amount'),
+    header_row: headerRow,
+    first_data_row: firstDataRow,
+    last_data_row: lastDataRow,
+    ignored_columns: readIgnoredColumns(formData),
+  };
+  // Una accion de formulario React reinicia los controles no controlados al
+  // resolverse. El preview no debe borrar justo la configuracion que acaba de
+  // verificar: se devuelve el borrador y se remonta el formulario con el.
+  const draft = {
+    displayName:
+      String(formData.get('displayName') ?? '').trim() || 'Mapeo sin nombre',
+    definition,
+  };
+  const formRevision = (previous.formRevision ?? 0) + 1;
+
+  if (intent === 'preview') {
+    try {
+      const preview = await previewMapping(
+        session.token, companyId, artifactId, definition);
+      return {
+        error: null,
+        mappingVersionId: null,
+        blockers: preview.blockers,
+        preview,
+        draft,
+        formRevision,
+      };
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401) redirect('/entrar');
+      return {
+        error: error instanceof ApiError
+          ? error.message
+          : 'No se pudo producir la vista procesada.',
+        mappingVersionId: null,
+        blockers: [],
+        preview: null,
+        draft,
+        formRevision,
+      };
+    }
+  }
+
   let created;
   try {
     const source = await fetchSource(
@@ -974,23 +1052,22 @@ export async function createMappingAction(
           'La fuente fue retirada antes de guardar. Elige una fuente activa y revisa el mapeo.',
         mappingVersionId: null,
         blockers: [],
+        draft,
+        formRevision,
       };
     }
-    created = await createMapping(session.token, companyId, {
-      artifact_id: artifactId,
-      data_source_id: dataSourceId,
-      display_name:
-        String(formData.get('displayName') ?? '').trim() || 'Mapeo sin nombre',
-      columns,
-      date_format: String(formData.get('dateFormat') ?? 'iso'),
-      decimal_format: String(formData.get('decimalFormat') ?? 'dot'),
-      currency: String(formData.get('currency') ?? 'COP').toUpperCase(),
-      direction_mode: String(formData.get('directionMode') ?? 'signed_amount'),
-      header_row: Number.parseInt(String(formData.get('headerRow') ?? '1'), 10) || 1,
-      first_data_row:
-        Number.parseInt(String(formData.get('firstDataRow') ?? '2'), 10) || 2,
-      ignored_columns: readIgnoredColumns(formData),
-    });
+    created = templateMappingId
+      ? await createMappingVersion(session.token, companyId, templateMappingId, {
+          artifact_id: artifactId,
+          ...definition,
+        })
+      : await createMapping(session.token, companyId, {
+          artifact_id: artifactId,
+          data_source_id: dataSourceId,
+          display_name:
+            String(formData.get('displayName') ?? '').trim() || 'Mapeo sin nombre',
+          ...definition,
+        });
   } catch (error) {
     if (error instanceof ApiError && error.status === 401) {
       redirect('/entrar');
@@ -1001,6 +1078,8 @@ export async function createMappingAction(
           'La fuente ya no esta disponible o este rol no puede mapear columnas.',
         mappingVersionId: null,
         blockers: [],
+        draft,
+        formRevision,
       };
     }
     if (error instanceof ApiError && error.status === 404) {
@@ -1008,6 +1087,19 @@ export async function createMappingAction(
         error: 'La fuente ya no esta disponible. Elige otra fuente activa.',
         mappingVersionId: null,
         blockers: [],
+        draft,
+        formRevision,
+      };
+    }
+    if (error instanceof ApiError && error.status === 409 && templateMappingId) {
+      return {
+        error:
+          'La estructura del documento cambio y esta plantilla ya no es compatible. Crea una nueva.',
+        mappingVersionId: null,
+        blockers: [],
+        preview: null,
+        draft,
+        formRevision,
       };
     }
     return {
@@ -1015,6 +1107,8 @@ export async function createMappingAction(
         error instanceof ApiError ? error.message : 'No se pudo guardar el mapeo.',
       mappingVersionId: null,
       blockers: [],
+      draft,
+      formRevision,
     };
   }
 
@@ -1023,6 +1117,9 @@ export async function createMappingAction(
     error: null,
     mappingVersionId: created.mapping_version_id,
     blockers: created.blockers,
+    preview: null,
+    draft: null,
+    formRevision,
   };
 }
 

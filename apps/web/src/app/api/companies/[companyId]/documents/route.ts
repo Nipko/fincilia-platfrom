@@ -134,17 +134,23 @@ export async function POST(
   );
 
   let upstream: Response;
-  const finish = (reason: string) => {
+  const finish = (reason: string, stopForwarding = true) => {
     // Una respuesta temprana del upstream no implica que Node deje de consumir
     // el request body. Abortar explicitamente cierra el reenvio antes de quitar
     // el deadline y el listener del cliente. Una razon previa nunca se pisa.
-    if (!upstreamController.signal.aborted) {
-      upstreamController.abort(reason);
-    }
-    try {
-      void counted.stream.cancel(reason);
-    } catch {
-      /* cancel del body es best-effort */
+    if (stopForwarding) {
+      if (!upstreamController.signal.aborted) {
+        upstreamController.abort(reason);
+      }
+      // `fetch` puede conservar el reader un tick despues de entregar la
+      // respuesta. `cancel()` sobre un stream aun bloqueado devuelve una promesa
+      // rechazada (no un throw sincrono). El AbortSignal ya avisa al consumidor;
+      // solo cancelamos directamente cuando el stream esta libre.
+      if (!counted.stream.locked) {
+        void counted.stream.cancel(reason).catch(() => {
+          /* cancel del body es best-effort */
+        });
+      }
     }
     clearTimeout(deadline);
     request.signal.removeEventListener('abort', clientAborted);
@@ -209,7 +215,10 @@ export async function POST(
     }
     return problem(502, 'invalid-upstream-response', 'La carga no se pudo confirmar.');
   }
-  finish('upload-complete');
+  // Una respuesta valida de la API implica que recibio el multipart completo.
+  // Abortar aqui cerraba el destino despues del exito y Next podia convertir la
+  // navegacion ya confirmada en "The destination stream closed early".
+  finish('upload-complete', false);
   if (artifact === null) {
     return problem(502, 'invalid-upstream-response', 'La carga no se pudo confirmar.');
   }

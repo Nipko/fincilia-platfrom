@@ -12,6 +12,7 @@ export type FlowContext = {
   dataset?: string | null;
   pagina?: number | null;
   movimientosPagina?: number | null;
+  plantilla?: string | null;
 };
 
 // Evita offsets absurdos y garantiza que incluso la pagina de movimientos
@@ -37,6 +38,7 @@ export function withFlowContext(pathname: string, context: FlowContext): string 
   const sourceId = nonEmpty(context.fuente);
   const mappingId = nonEmpty(context.mapeo);
   const datasetId = nonEmpty(context.dataset);
+  const templateId = nonEmpty(context.plantilla);
 
   if (artifactId) {
     query.set('documento', artifactId);
@@ -49,6 +51,9 @@ export function withFlowContext(pathname: string, context: FlowContext): string 
   }
   if (datasetId) {
     query.set('dataset', datasetId);
+  }
+  if (templateId) {
+    query.set('plantilla', templateId);
   }
   if (
     context.pagina !== null &&

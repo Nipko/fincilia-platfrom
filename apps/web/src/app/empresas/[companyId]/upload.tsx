@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { type FormEvent, useRef, useState } from 'react';
+import { type FormEvent, useRef, useState, useSyncExternalStore } from 'react';
 
 import { isAllowedFileSize } from '@/lib/upload-policy';
 
@@ -18,6 +18,7 @@ type UploadReply = {
 };
 
 const ACCEPTED_EXTENSIONS = '.csv,.pdf,.xlsx,.ods,.zip';
+const subscribeToHydration = () => () => undefined;
 
 function safeDetail(value: unknown, fallback: string): string {
   return typeof value === 'string' && value.length <= 240 ? value : fallback;
@@ -37,6 +38,14 @@ export function UploadForm({
   const [sourceId, setSourceId] = useState(initialSourceId);
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  // Sin hidratacion no existe el manejador que transmite el stream con limite.
+  // Mantener el submit deshabilitado en el HTML inicial evita que una persona
+  // rapida haga un GET nativo y pierda silenciosamente el fichero seleccionado.
+  const ready = useSyncExternalStore(
+    subscribeToHydration,
+    () => true,
+    () => false,
+  );
 
   async function submit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
@@ -144,7 +153,7 @@ export function UploadForm({
         Maximo 25 MiB. La validacion definitiva se hace mientras se recibe.
       </p>
       <div>
-        <button type="submit" disabled={pending || sources.length === 0}>
+        <button type="submit" disabled={!ready || pending || sources.length === 0}>
           {pending ? 'Subiendo...' : 'Subir'}
         </button>{' '}
         {pending ? (

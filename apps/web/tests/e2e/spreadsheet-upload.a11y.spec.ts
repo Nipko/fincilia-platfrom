@@ -33,6 +33,21 @@ test('la ficha perfilada de un XLSX seguro no tiene violaciones Axe', async ({ p
 
   const results = await new AxeBuilder({ page }).analyze();
   expect(results.violations).toEqual([]);
+
+  await page.getByRole('link', { name: 'Mapear y publicar' }).click();
+  await waitForRenderedText(page, 'Extraccion', 'Pago XLSX sintetico');
+  await page.locator('#col_occurred_on').selectOption('0');
+  await page.locator('#col_description').selectOption('1');
+  await page.locator('#col_amount').selectOption('2');
+  await page.locator('#dateFormat').selectOption('iso');
+  await page.locator('#decimalFormat').selectOption('dot');
+  await page.getByRole('checkbox', { name: /4\. Moneda/ }).check();
+  await page.getByRole('button', { name: 'Vista procesada' }).click();
+  await expect(page.getByRole('region', {
+    name: 'Vista procesada, aun sin guardar',
+  })).toBeVisible();
+  const mappingResults = await new AxeBuilder({ page }).analyze();
+  expect(mappingResults.violations).toEqual([]);
 });
 
 test('el selector multihoja y su estado pendiente no tienen violaciones Axe', async ({ page }) => {

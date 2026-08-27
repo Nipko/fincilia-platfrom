@@ -26,6 +26,8 @@ const mocks = vi.hoisted(() => {
     decideReconciliationReview: vi.fn(),
     reviewCorrection: vi.fn(),
     createMapping: vi.fn(),
+    createMappingVersion: vi.fn(),
+    previewMapping: vi.fn(),
     createAccountBalance: vi.fn(),
     createBalanceReconciliationStatement: vi.fn(),
     createCompletenessAssessment: vi.fn(),
@@ -67,6 +69,7 @@ vi.mock('@/lib/api', () => ({
   createCompletenessAssessment: mocks.createCompletenessAssessment,
   createReconcilingItem: mocks.createReconcilingItem,
   createMapping: mocks.createMapping,
+  createMappingVersion: mocks.createMappingVersion,
   fetchMapping: mocks.fetchMapping,
   fetchOverrides: mocks.fetchOverrides,
   createSource: vi.fn(),
@@ -77,6 +80,7 @@ vi.mock('@/lib/api', () => ({
   grantMemberRole: mocks.grantMemberRole,
   linkAccount: vi.fn(),
   prepareDataset: vi.fn(),
+  previewMapping: mocks.previewMapping,
   publishDataset: vi.fn(),
   proposeCorrection: mocks.proposeCorrection,
   proposeReconciliationReview: mocks.proposeReconciliationReview,
@@ -277,6 +281,73 @@ describe('createMappingAction', () => {
     );
 
     expect(result.error).toContain('ya no esta disponible');
+    expect(mocks.createMapping).not.toHaveBeenCalled();
+  });
+
+  it('produce la vista canonica sin consultar ni crear la fuente', async () => {
+    const form = mappingForm();
+    form.set('intent', 'preview');
+    form.set('col_amount', '3');
+    form.set('headerRow', '1');
+    form.set('firstDataRow', '2');
+    form.set('lastDataRow', '3');
+    mocks.previewMapping.mockResolvedValue({
+      header_row: 1,
+      first_data_row: 2,
+      last_data_row: 3,
+      range_record_count: 2,
+      sample_limit: 10,
+      sampled_count: 2,
+      sample_truncated: false,
+      blockers: [],
+      movements: [],
+      rejections: [],
+    });
+
+    const result = await createMappingAction(
+      { error: null, mappingVersionId: null, blockers: [], preview: null },
+      form,
+    );
+
+    expect(result.preview?.range_record_count).toBe(2);
+    expect(result.draft?.definition).toMatchObject({
+      columns: expect.objectContaining({
+        occurred_on: 0,
+        description: 1,
+        amount: 3,
+      }),
+      last_data_row: 3,
+    });
+    expect(result.formRevision).toBe(1);
+    expect(mocks.previewMapping).toHaveBeenCalledWith(
+      'token-sintetico',
+      '5f0f7b18-0a7a-5c8e-9d2c-6a1f2b3c4d5e',
+      '6f0f7b18-0a7a-5c8e-9d2c-6a1f2b3c4d5f',
+      expect.objectContaining({ last_data_row: 3 }),
+    );
+    expect(mocks.fetchSource).not.toHaveBeenCalled();
+    expect(mocks.createMapping).not.toHaveBeenCalled();
+  });
+
+  it('guarda una nueva version cuando se eligio una plantilla compatible', async () => {
+    const form = mappingForm();
+    form.set('intent', 'save');
+    form.set('templateMappingId', '8f0f7b18-0a7a-5c8e-9d2c-6a1f2b3c4d70');
+    mocks.fetchSource.mockResolvedValue({ status: 'active' });
+    mocks.createMappingVersion.mockResolvedValue({
+      mapping_version_id: '9f0f7b18-0a7a-5c8e-9d2c-6a1f2b3c4d80',
+      blockers: [],
+      replayed: false,
+    });
+
+    const result = await createMappingAction(
+      { error: null, mappingVersionId: null, blockers: [], preview: null },
+      form,
+    );
+
+    expect(result.mappingVersionId).toBe(
+      '9f0f7b18-0a7a-5c8e-9d2c-6a1f2b3c4d80');
+    expect(mocks.createMappingVersion).toHaveBeenCalledOnce();
     expect(mocks.createMapping).not.toHaveBeenCalled();
   });
 });

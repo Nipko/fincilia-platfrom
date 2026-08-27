@@ -1907,6 +1907,24 @@ ul {
 .sheet-option small,
 .column-cleaner small { color: var(--ink-soft); display: block; margin-top: .2rem; }
 
+.mapping-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: .75rem;
+}
+.canonical-preview {
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: .8rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+}
+.canonical-preview h4,
+.template-library h3 { margin: 0; }
+.template-library { border-inline-start: 4px solid var(--accent); }
+.template-library ul { display: grid; gap: .55rem; padding-left: 1.25rem; }
+
 @media (max-width: 64rem) {
   .reconciliation-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .reconciliation-equation { grid-template-columns: 1fr 1fr; }

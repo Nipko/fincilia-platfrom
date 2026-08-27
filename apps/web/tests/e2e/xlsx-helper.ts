@@ -169,13 +169,14 @@ function syntheticWorkbook(
   return storedZip(parts.sort((left, right) => left.name.localeCompare(right.name)));
 }
 
-export function syntheticXlsx(): Buffer {
+export function syntheticXlsx(marker = ''): Buffer {
+  const suffix = marker ? ` ${marker}` : '';
   return syntheticWorkbook([{
     name: 'Movimientos',
     rows: [
       ['Fecha', 'Descripcion', 'Importe', 'Moneda'],
-      ['2026-08-01', 'Pago XLSX sintetico', -1250, 'COP'],
-      ['2026-08-02', 'Abono XLSX sintetico', 3400, 'COP'],
+      ['2026-08-01', `Pago XLSX sintetico${suffix}`, -1250, 'COP'],
+      ['2026-08-02', `Abono XLSX sintetico${suffix}`, 3400, 'COP'],
     ],
   }]);
 }
