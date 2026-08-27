@@ -32,7 +32,7 @@ gates ni el alcance sintetico del entorno local.
 
 - `apps/web/src/app/**`
 - `apps/web/src/components/**`
-- `apps/web/e2e/**`
+- `apps/web/tests/e2e/**`
 - `apps/web/src/**/__tests__/**`
 - `docs/implementation/tasks/FNC-WEB-004.md`
 - `docs/implementation/handoffs/FNC-WEB-004.md`
