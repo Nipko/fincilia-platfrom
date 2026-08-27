@@ -229,6 +229,10 @@ export function MappingForm({
 
       <fieldset>
         <legend>Donde empieza la tabla</legend>
+        <p className="meta">
+          Esta limpieza cambia la vista procesada, no el archivo original. Las
+          coordenadas fisicas siguen disponibles en el linaje.
+        </p>
         <label htmlFor="headerRow">
           Fila de la cabecera
           <input
@@ -249,6 +253,29 @@ export function MappingForm({
             defaultValue={preview.first_data_row}
           />
         </label>
+      </fieldset>
+
+      <fieldset>
+        <legend>Columnas que no pertenecen al movimiento</legend>
+        <p className="meta">
+          Marca notas, saldos auxiliares o columnas vacias que deben quedar fuera
+          del dataset. No marques una columna que hayas asignado arriba.
+        </p>
+        <div className="column-cleaner">
+          {columns.map((column) => (
+            <label key={column.index}>
+              <input
+                type="checkbox"
+                name="ignoredColumn"
+                value={column.index}
+              />
+              <span>
+                {column.index + 1}. {column.header}
+                <small>{column.inferred_type}</small>
+              </span>
+            </label>
+          ))}
+        </div>
       </fieldset>
 
       <div>

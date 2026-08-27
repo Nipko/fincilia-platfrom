@@ -103,12 +103,7 @@ function letters(column: number): string {
   return result;
 }
 
-export function syntheticXlsx(): Buffer {
-  const rows: Array<Array<string | number>> = [
-    ['Fecha', 'Descripcion', 'Importe', 'Moneda'],
-    ['2026-08-01', 'Pago XLSX sintetico', -1250, 'COP'],
-    ['2026-08-02', 'Abono XLSX sintetico', 3400, 'COP'],
-  ];
+function worksheet(rows: Array<Array<string | number>>): string {
   const sheetRows = rows.map((row, rowIndex) => {
     const cells = row.map((value, columnIndex) => {
       const reference = `${letters(columnIndex + 1)}${rowIndex + 1}`;
@@ -118,7 +113,21 @@ export function syntheticXlsx(): Buffer {
     });
     return `<row r="${rowIndex + 1}">${cells.join('')}</row>`;
   });
+  return '<?xml version="1.0" encoding="UTF-8"?>' +
+    '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
+    `<sheetData>${sheetRows.join('')}</sheetData></worksheet>`;
+}
+
+function syntheticWorkbook(
+  sheets: { name: string; rows: Array<Array<string | number>> }[],
+): Buffer {
   const text = (value: string): Buffer => Buffer.from(value, 'utf8');
+  const workbookSheets = sheets.map((sheet, index) =>
+    `<sheet name="${xml(sheet.name)}" sheetId="${index + 1}" r:id="rId${index + 1}"/>`,
+  ).join('');
+  const relationships = sheets.map((_, index) =>
+    `<Relationship Id="rId${index + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${index + 1}.xml"/>`,
+  ).join('');
   const parts: Part[] = [
     {
       name: '[Content_Types].xml',
@@ -140,22 +149,50 @@ export function syntheticXlsx(): Buffer {
       name: 'xl/_rels/workbook.xml.rels',
       payload: text('<?xml version="1.0" encoding="UTF-8"?>' +
         '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
-        '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>' +
+        relationships +
         '</Relationships>'),
     },
     {
       name: 'xl/workbook.xml',
       payload: text('<?xml version="1.0" encoding="UTF-8"?>' +
         '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">' +
-        '<sheets><sheet name="Movimientos" sheetId="1" r:id="rId1"/></sheets>' +
+        `<sheets>${workbookSheets}</sheets>` +
         '</workbook>'),
     },
-    {
-      name: 'xl/worksheets/sheet1.xml',
-      payload: text('<?xml version="1.0" encoding="UTF-8"?>' +
-        '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
-        `<sheetData>${sheetRows.join('')}</sheetData></worksheet>`),
-    },
   ];
+  for (const [index, sheet] of sheets.entries()) {
+    parts.push({
+      name: `xl/worksheets/sheet${index + 1}.xml`,
+      payload: text(worksheet(sheet.rows)),
+    });
+  }
   return storedZip(parts.sort((left, right) => left.name.localeCompare(right.name)));
+}
+
+export function syntheticXlsx(): Buffer {
+  return syntheticWorkbook([{
+    name: 'Movimientos',
+    rows: [
+      ['Fecha', 'Descripcion', 'Importe', 'Moneda'],
+      ['2026-08-01', 'Pago XLSX sintetico', -1250, 'COP'],
+      ['2026-08-02', 'Abono XLSX sintetico', 3400, 'COP'],
+    ],
+  }]);
+}
+
+export function syntheticMultiSheetXlsx(marker = 'base'): Buffer {
+  return syntheticWorkbook([
+    {
+      name: 'Resumen',
+      rows: [['Resumen'], [`NO PROCESAR ESTA HOJA ${marker}`]],
+    },
+    {
+      name: 'Movimientos del mes',
+      rows: [
+        ['Fecha', 'Descripcion', 'Importe', 'Moneda', 'Nota auxiliar'],
+        ['2026-08-03', `Seleccion correcta XLSX ${marker}`, -2700, 'COP', 'descartar'],
+        ['2026-08-04', 'Abono multihoja', 4800, 'COP', 'descartar'],
+      ],
+    },
+  ]);
 }

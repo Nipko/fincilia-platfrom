@@ -31,6 +31,7 @@ import {
   generateExpectations,
   linkAccount,
   setCycle,
+  selectSpreadsheetSheet,
   updateAccount,
   decideAmbiguity,
   decideReconcilingItem,
@@ -885,6 +886,54 @@ function readColumns(formData: FormData): Record<string, number> {
   return columns;
 }
 
+function readIgnoredColumns(formData: FormData): number[] {
+  return [...new Set(formData.getAll('ignoredColumn').map((value) =>
+    Number.parseInt(String(value), 10)).filter((value) =>
+    Number.isInteger(value) && value >= 0))].sort((left, right) => left - right);
+}
+
+export type SpreadsheetSelectionState = {
+  error: string | null;
+  selected: string | null;
+};
+
+export async function selectSpreadsheetSheetAction(
+  _previous: SpreadsheetSelectionState,
+  formData: FormData,
+): Promise<SpreadsheetSelectionState> {
+  const session = await readSession();
+  if (!session) {
+    redirect('/entrar');
+  }
+  const companyId = String(formData.get('companyId') ?? '');
+  const artifactId = String(formData.get('artifactId') ?? '');
+  const sheetIdentity = String(formData.get('sheetIdentity') ?? '');
+  if (!/^[0-9a-f]{64}$/.test(sheetIdentity)) {
+    return { error: 'Elige una hoja visible del libro.', selected: null };
+  }
+  try {
+    const selected = await selectSpreadsheetSheet(
+      session.token, companyId, artifactId, sheetIdentity);
+    revalidatePath(`/empresas/${companyId}/documentos/${artifactId}`);
+    revalidatePath(`/empresas/${companyId}/documentos/${artifactId}/mapeo`);
+    return { error: null, selected: selected.sheet_name };
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) {
+      redirect('/entrar');
+    }
+    if (error instanceof ApiError && error.status === 403) {
+      return { error: 'Este rol no puede seleccionar ni procesar la hoja.', selected: null };
+    }
+    if (error instanceof ApiError && error.status === 409) {
+      return { error: 'La hoja ya fue fijada o el libro aun no esta listo.', selected: null };
+    }
+    return {
+      error: error instanceof ApiError ? error.message : 'No se pudo seleccionar la hoja.',
+      selected: null,
+    };
+  }
+}
+
 export async function createMappingAction(
   _previous: MappingState,
   formData: FormData,
@@ -940,7 +989,7 @@ export async function createMappingAction(
       header_row: Number.parseInt(String(formData.get('headerRow') ?? '1'), 10) || 1,
       first_data_row:
         Number.parseInt(String(formData.get('firstDataRow') ?? '2'), 10) || 2,
-      ignored_columns: [],
+      ignored_columns: readIgnoredColumns(formData),
     });
   } catch (error) {
     if (error instanceof ApiError && error.status === 401) {

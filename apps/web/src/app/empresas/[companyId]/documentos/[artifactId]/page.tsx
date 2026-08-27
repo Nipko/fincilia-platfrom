@@ -15,11 +15,14 @@ import {
 } from '@/lib/navigation';
 import { readSession } from '@/lib/session';
 import { isUuid } from '@/lib/upload-policy';
+import { SheetSelector } from './sheet-selector';
 
 export const dynamic = 'force-dynamic';
 
 const PROMOTION_REASONS: Record<string, string> = {
   content_inspected: 'contenido inspeccionado por completo',
+  content_inspected_selection_required:
+    'contenido inspeccionado; falta elegir la hoja que se procesara',
   sensitive_content: 'se detecto informacion sensible',
   no_scanner_for_format: 'todavia no hay analizador seguro para este formato',
   macro_enabled_archive: 'el libro contiene macros',
@@ -126,8 +129,11 @@ export default async function DocumentPage({
     movimientosPagina: pageFromQuery(query.movimientosPagina),
   };
 
-  const run = document.runs.find((item) => item.kind === 'profile');
+  const run = [...document.runs].reverse().find((item) => item.kind === 'profile');
   const profile = run?.status === 'succeeded' ? asProfile(run.result) : null;
+  const pendingSheetSelection = Boolean(
+    document.spreadsheet?.requires_selection && !document.spreadsheet.selection,
+  );
 
   return (
     <main>
@@ -140,14 +146,18 @@ export default async function DocumentPage({
           </span>
         </div>
         <nav aria-label="Navegacion del documento">
-          <Link
-            href={withFlowContext(
-              `/empresas/${companyId}/documentos/${artifactId}/mapeo`,
-              flowContext,
-            )}
-          >
-            Mapear y publicar
-          </Link>{' '}
+          {!pendingSheetSelection ? (
+            <>
+              <Link
+                href={withFlowContext(
+                  `/empresas/${companyId}/documentos/${artifactId}/mapeo`,
+                  flowContext,
+                )}
+              >
+                Mapear y publicar
+              </Link>{' '}
+            </>
+          ) : null}
           <Link href={withFlowContext(`/empresas/${companyId}`, flowContext)}>
             Volver
           </Link>
@@ -223,8 +233,38 @@ export default async function DocumentPage({
         </>
       ) : null}
 
+      {document.spreadsheet?.requires_selection ? (
+        <>
+          <h2>Hoja de trabajo</h2>
+          {document.spreadsheet.selection ? (
+            <section className="card">
+              <strong>{document.spreadsheet.selection.sheet_name}</strong>
+              <p className="meta">
+                Hoja {document.spreadsheet.selection.sheet_ordinal} seleccionada.
+                La evidencia original conserva todas las hojas; perfil, vista previa
+                y mapeo usan solo esta identidad.
+              </p>
+            </section>
+          ) : (
+            <section className="card spreadsheet-workbench">
+              <SheetSelector
+                companyId={companyId}
+                artifactId={artifactId}
+                workspace={document.spreadsheet}
+              />
+            </section>
+          )}
+        </>
+      ) : null}
+
       <h2>Perfil</h2>
-      {!run ? (
+      {pendingSheetSelection ? (
+        <p className="card">
+          El libro ya paso la inspeccion completa. El perfil y la extraccion no
+          empiezan hasta que elijas una hoja visible: escogerla automaticamente
+          podria mezclar resumenes, movimientos o periodos distintos.
+        </p>
+      ) : !run ? (
         <p className="card">
           Este documento no tiene perfilado, y no lo tendra mientras siga en
           cuarentena: perfilar es leer el fichero entero, y eso no se hace sobre

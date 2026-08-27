@@ -283,9 +283,10 @@ export default async function CompanyPage({
           <p className="meta">
             Todo lo que se sube entra en <strong>cuarentena</strong>. Sale de ahi
             cuando su contenido se ha inspeccionado entero y no aparece nada
-            sensible. Hoy se sabe hacer con CSV y con XLSX de una sola hoja sin
-            formulas ni contenido activo; los demas formatos se quedan en
-            cuarentena, y se dice por que.
+            sensible. Hoy se sabe hacer con CSV y con XLSX sin formulas ni
+            contenido activo; si tiene varias hojas, eliges una de forma
+            explicita antes de perfilar o extraer. Los demas formatos se quedan
+            en cuarentena, y se dice por que.
           </p>
         </div>
       ) : null}

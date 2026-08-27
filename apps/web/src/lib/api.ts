@@ -246,7 +246,35 @@ export type ProcessingRun = {
   error_code: string | null;
 };
 
-export type ArtifactDetail = ArtifactSummary & { runs: ProcessingRun[] };
+export type SpreadsheetSheet = {
+  sheet_identity: string;
+  name: string;
+  ordinal: number;
+  state: string;
+};
+
+export type SpreadsheetSelection = {
+  selection_id: string;
+  workbook_identity: string;
+  sheet_identity: string;
+  sheet_name: string;
+  sheet_ordinal: number;
+  selected_by: string;
+  selected_at: string;
+};
+
+export type SpreadsheetWorkspace = {
+  workbook_identity: string;
+  sheet_count: number;
+  sheets: SpreadsheetSheet[];
+  requires_selection: boolean;
+  selection: SpreadsheetSelection | null;
+};
+
+export type ArtifactDetail = ArtifactSummary & {
+  runs: ProcessingRun[];
+  spreadsheet: SpreadsheetWorkspace | null;
+};
 
 export type ColumnProfile = {
   index: number;
@@ -285,6 +313,25 @@ export function fetchDocument(
   return request<ArtifactDetail>(
     `/api/v1/companies/${company}/documents/${artifact}`,
     { token },
+  );
+}
+
+export function selectSpreadsheetSheet(
+  token: string,
+  companyId: string,
+  artifactId: string,
+  sheetIdentity: string,
+): Promise<SpreadsheetSelection & { created: boolean }> {
+  const company = encodeURIComponent(companyId);
+  const artifact = encodeURIComponent(artifactId);
+  return request<SpreadsheetSelection & { created: boolean }>(
+    `/api/v1/companies/${company}/documents/${artifact}/spreadsheet-selection`,
+    {
+      method: 'POST',
+      token,
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ sheet_identity: sheetIdentity }),
+    },
   );
 }
 

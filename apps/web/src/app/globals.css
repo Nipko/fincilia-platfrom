@@ -1880,6 +1880,33 @@ ul {
 .reconciliation-item-amount { font-family: var(--mono); font-size: 1.35rem; font-weight: 850; }
 .reconciliation-decisions { align-items: center; display: flex; flex-wrap: wrap; gap: .6rem; }
 
+/* Seleccion XLSX y limpieza visual: controles reconocibles sin copiar celdas. */
+.sheet-selector { display: grid; gap: 1rem; }
+.sheet-selector fieldset { border: 0; margin: 0; padding: 0; }
+.sheet-grid,
+.column-cleaner {
+  display: grid;
+  gap: .65rem;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  margin-block: 1rem;
+}
+.sheet-option,
+.column-cleaner label {
+  align-items: start;
+  background: var(--ground);
+  border: 1px solid var(--line);
+  border-radius: .7rem;
+  cursor: pointer;
+  display: grid;
+  gap: .7rem;
+  grid-template-columns: auto 1fr;
+  padding: .8rem;
+}
+.sheet-option:has(input:checked),
+.column-cleaner label:has(input:checked) { border-color: var(--accent); }
+.sheet-option small,
+.column-cleaner small { color: var(--ink-soft); display: block; margin-top: .2rem; }
+
 @media (max-width: 64rem) {
   .reconciliation-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .reconciliation-equation { grid-template-columns: 1fr 1fr; }

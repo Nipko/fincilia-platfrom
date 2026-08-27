@@ -1,6 +1,10 @@
 import { expect, test, type Page } from '@playwright/test';
 
-import { syntheticXlsx, waitForRenderedText } from './xlsx-helper';
+import {
+  syntheticMultiSheetXlsx,
+  syntheticXlsx,
+  waitForRenderedText,
+} from './xlsx-helper';
 
 const MAX_UPLOAD_FILE_BYTES = 25 * 1024 * 1024;
 const COMPANY_URL = /\/empresas\/[0-9a-f-]+$/;
@@ -136,4 +140,42 @@ test('XLSX seguro de una hoja llega a perfil y vista previa con fila exacta', as
   await expect(page).toHaveURL(/\/documentos\/[0-9a-f-]+\/mapeo\?/);
   await waitForRenderedText(page, 'Extraccion', 'Pago XLSX sintetico');
   await expect(page.getByRole('rowheader', { name: '2' })).toBeVisible();
+});
+
+test('XLSX multihoja exige seleccion y ofrece limpieza visual antes de mapear', async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  const marker = Date.now().toString(36);
+  await signIn(page);
+  await openSyntheticCompany(page);
+  await selectDemoSource(page);
+  await page.getByLabel('Extracto o soporte').setInputFiles({
+    name: 'multihoja-sintetica.xlsx',
+    mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    buffer: syntheticMultiSheetXlsx(marker),
+  });
+  await page.getByRole('button', { name: 'Subir' }).click();
+  await expect(page).toHaveURL(/\/documentos\/[0-9a-f-]+\?fuente=[0-9a-f-]+$/);
+
+  await waitForRenderedText(page, 'Hoja de trabajo', 'Movimientos del mes');
+  await expect(page.getByRole('link', { name: 'Mapear y publicar' })).toHaveCount(0);
+  await page.getByLabel(/Movimientos del mes/).check();
+  await page.getByRole('button', { name: 'Usar esta hoja' }).click();
+  await waitForRenderedText(page, 'Perfil', 'hoja 2: Movimientos del mes');
+
+  await page.getByRole('link', { name: 'Mapear y publicar' }).click();
+  await expect(page).toHaveURL(/\/documentos\/[0-9a-f-]+\/mapeo\?/);
+  await waitForRenderedText(page, 'Extraccion', `Seleccion correcta XLSX ${marker}`);
+  await expect(page.getByText('NO PROCESAR ESTA HOJA')).toHaveCount(0);
+  await page.locator('#col_occurred_on').selectOption('0');
+  await page.locator('#col_description').selectOption('1');
+  await page.locator('#col_amount').selectOption('2');
+  await page.locator('#dateFormat').selectOption('iso');
+  await page.locator('#decimalFormat').selectOption('dot');
+  await page.getByRole('checkbox', { name: /4\. Moneda/ }).check();
+  await page.getByRole('checkbox', { name: /5\. Nota auxiliar/ }).check();
+  await page.getByRole('button', { name: 'Guardar mapeo' }).click();
+  await expect(page.getByText(/Mapeo guardado en borrador/)).toBeVisible();
+  await expect(page.getByText(/No queda nada por resolver/)).toBeVisible();
 });

@@ -1,7 +1,11 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
 
-import { syntheticXlsx, waitForRenderedText } from './xlsx-helper';
+import {
+  syntheticMultiSheetXlsx,
+  syntheticXlsx,
+  waitForRenderedText,
+} from './xlsx-helper';
 
 test('la ficha perfilada de un XLSX seguro no tiene violaciones Axe', async ({ page }) => {
   test.setTimeout(120_000);
@@ -26,6 +30,32 @@ test('la ficha perfilada de un XLSX seguro no tiene violaciones Axe', async ({ p
   await page.getByRole('button', { name: 'Subir' }).click();
   await expect(page).toHaveURL(/\/documentos\/[0-9a-f-]+\?fuente=[0-9a-f-]+$/);
   await waitForRenderedText(page, 'Perfil', 'hoja 1: Movimientos');
+
+  const results = await new AxeBuilder({ page }).analyze();
+  expect(results.violations).toEqual([]);
+});
+
+test('el selector multihoja y su estado pendiente no tienen violaciones Axe', async ({ page }) => {
+  test.setTimeout(120_000);
+  const marker = Date.now().toString(36);
+  await page.goto('/entrar');
+  await page.getByLabel('Usuario').fill('ana@demo.local');
+  await page.getByLabel('Contrasena').fill('fincilia-demo-only');
+  await page.getByRole('button', { name: 'Entrar' }).click();
+  await page.getByRole('link', { name: /Panaderia La Espiga SAS/ }).click();
+  const source = page.getByLabel('Fuente del documento');
+  const sourceId = await source.locator('option').filter({
+    hasText: 'Extracto bancario (demo)',
+  }).getAttribute('value');
+  await source.selectOption(sourceId!);
+  await page.getByLabel('Extracto o soporte').setInputFiles({
+    name: 'multihoja-accesible.xlsx',
+    mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    buffer: syntheticMultiSheetXlsx(marker),
+  });
+  await page.getByRole('button', { name: 'Subir' }).click();
+  await expect(page).toHaveURL(/\/documentos\/[0-9a-f-]+\?fuente=[0-9a-f-]+$/);
+  await waitForRenderedText(page, 'Hoja de trabajo', 'Movimientos del mes');
 
   const results = await new AxeBuilder({ page }).analyze();
   expect(results.violations).toEqual([]);
