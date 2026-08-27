@@ -141,14 +141,18 @@ secreto no puede consistir en copiarlo a un sitio con menos protección.
 decisión aparte, que toma un trabajo de escaneo y que queda escrita.
 
 Se promueve a la zona de evidencia lo que se ha podido **inspeccionar de principio
-a fin**, y hoy eso es CSV y nada más. Un PDF o un libro de cálculo se quedan en
-cuarentena con el motivo `no_scanner_for_format`, y la web lo dice. Prometer que
-están soportados sería peor que decir que no lo están.
+a fin**. Hoy eso incluye CSV y el subconjunto seguro de XLSX: una sola hoja
+visible, sin fórmulas, macros, objetos embebidos, conexiones o enlaces externos.
+Un PDF, XLS binario, ODS o libro fuera de ese subconjunto permanece en cuarentena
+con un motivo explícito. Prometer soporte parcial sería peor que decir que falta
+una selección o revisión humana.
 
-Un ZIP se identifica por su manifiesto, no por la extensión: `xl/workbook.xml` lo
-hace un `xlsx`, la entrada `mimetype` lo hace un `ods`, y un ZIP cualquiera se
-queda en ZIP. Un libro con `xl/vbaProject.bin` se rechaza en la puerta: una macro
-es código.
+Un ZIP se identifica por su manifiesto, no por la extensión: `xl/workbook.xml` y
+el tipo OPC esperado lo hacen un `xlsx`, la entrada `mimetype` lo hace un `ods`,
+y un ZIP cualquiera se queda en ZIP. Un libro con `xl/vbaProject.bin` se rechaza
+en la puerta: una macro es código. Las fórmulas no se ejecutan; el libro queda en
+cuarentena hasta que exista un flujo explícito de revisión. Más de una hoja exige
+una selección que esta rebanada todavía no ofrece.
 
 Lo que trae una tarjeta que pasa Luhn, una clave privada o una credencial se queda
 con `sensitive_content`. El hallazgo dice **qué tipo** y **en qué línea**, jamás el
@@ -191,9 +195,11 @@ opuestas. Perfilar mide sin transcribir; extraer transcribe con coordenadas.
 Que una falle no impide la otra.
 
 La extracción guarda cada registro del fichero —membrete y cabecera incluidos—
-con su tramo exacto de bytes. Decidir cuáles son datos es del mapeo, y guardar
-sólo los que hoy parecen datos obligaría a releer la evidencia en cuanto alguien
-moviera la cabecera.
+con su coordenada exacta. En CSV es el tramo de bytes; en XLSX es la identidad del
+libro y de la hoja, su ordinal y el número de fila 1-based. La columna versionada
+del mapeo permite reconstruir una celda A1 sin aceptar esa coordenada del cliente.
+Decidir cuáles son datos es del mapeo, y guardar sólo los que hoy parecen datos
+obligaría a releer la evidencia en cuanto alguien moviera la cabecera.
 
 Esos valores **no** salen por la página del documento. Van a `raw_record`, que
 exige contexto de empresa, y se leen por un endpoint aparte que pide
@@ -407,6 +413,7 @@ docker compose -f infra/local/compose.yaml -p fincilia-local --profile test \
 | `/health/ready` dice `schema: down` | falta migrar, o la imagen espera otra cabeza que la base |
 | `401` con token recién emitido | los permisos de esa empresa cambiaron después de emitirlo; vuelve a entrar |
 | un documento en `quarantine` con `no_scanner_for_format` | es correcto: todavía no hay analizador seguro para ese formato |
+| un XLSX queda en cuarentena | mira el motivo: fórmulas, varias hojas o estructura no segura exigen un flujo explícito |
 | un trabajo en `failed` con `attempts_exhausted` | mira `dead_letter_item`: agotó sus intentos y espera a una persona |
 | un trabajo en `failed` con `authorization_changed` | los permisos de la empresa cambiaron mientras estaba en cola |
 | un documento sin perfil | mira su ejecución: `queued` es que el worker no ha llegado, `failed` trae el motivo |

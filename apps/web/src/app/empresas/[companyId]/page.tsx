@@ -26,6 +26,10 @@ const PROMOTION_REASONS: Record<string, string> = {
   sensitive_content: 'se detecto informacion sensible',
   no_scanner_for_format: 'todavia no hay analizador seguro para este formato',
   macro_enabled_archive: 'el libro contiene macros',
+  active_workbook_content: 'el libro contiene objetos activos o enlaces externos',
+  formula_review_required: 'el libro contiene formulas y requiere revision explicita',
+  worksheet_selection_required: 'el libro requiere elegir una hoja de forma explicita',
+  unsafe_or_malformed_workbook: 'el libro esta danado o usa una estructura no segura',
   unscannable: 'no se pudo examinar',
 };
 
@@ -279,9 +283,9 @@ export default async function CompanyPage({
           <p className="meta">
             Todo lo que se sube entra en <strong>cuarentena</strong>. Sale de ahi
             cuando su contenido se ha inspeccionado entero y no aparece nada
-            sensible. Hoy eso solo se sabe hacer con CSV: un PDF o un libro de
-            calculo se quedan en cuarentena, y se dice por que. Prometer que estan
-            soportados seria peor que decir que no lo estan.
+            sensible. Hoy se sabe hacer con CSV y con XLSX de una sola hoja sin
+            formulas ni contenido activo; los demas formatos se quedan en
+            cuarentena, y se dice por que.
           </p>
         </div>
       ) : null}

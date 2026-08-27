@@ -23,6 +23,10 @@ const PROMOTION_REASONS: Record<string, string> = {
   sensitive_content: 'se detecto informacion sensible',
   no_scanner_for_format: 'todavia no hay analizador seguro para este formato',
   macro_enabled_archive: 'el libro contiene macros',
+  active_workbook_content: 'el libro contiene objetos activos o enlaces externos',
+  formula_review_required: 'el libro contiene formulas y requiere revision explicita',
+  worksheet_selection_required: 'el libro requiere elegir una hoja de forma explicita',
+  unsafe_or_malformed_workbook: 'el libro esta danado o usa una estructura no segura',
   unscannable: 'no se pudo examinar',
 };
 
@@ -240,6 +244,9 @@ export default async function DocumentPage({
               {profile.row_count.toLocaleString('es-CO')} filas ·{' '}
               {profile.column_count} columnas · separador{' '}
               <code>{profile.delimiter || 'ninguno'}</code> · {profile.encoding}
+              {profile.sheet_name
+                ? ` · hoja ${profile.sheet_ordinal ?? 1}: ${profile.sheet_name}`
+                : ''}
               {profile.has_header ? ' · con cabecera' : ' · sin cabecera'}
               {profile.ragged_rows > 0
                 ? ` · ${profile.ragged_rows} filas irregulares`

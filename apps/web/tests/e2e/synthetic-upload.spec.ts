@@ -1,5 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
+import { syntheticXlsx, waitForRenderedText } from './xlsx-helper';
+
 const MAX_UPLOAD_FILE_BYTES = 25 * 1024 * 1024;
 const COMPANY_URL = /\/empresas\/[0-9a-f-]+$/;
 
@@ -110,4 +112,28 @@ test('el BFF conserva el 413 de la API ante un cliente que omite el precheck', a
 
   expect(response.status()).toBe(413);
   await expect(response.json()).resolves.toMatchObject({ code: 'file-too-large' });
+});
+
+test('XLSX seguro de una hoja llega a perfil y vista previa con fila exacta', async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  await signIn(page);
+  await openSyntheticCompany(page);
+  await selectDemoSource(page);
+  await page.getByLabel('Extracto o soporte').setInputFiles({
+    name: 'movimientos-sinteticos.xlsx',
+    mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    buffer: syntheticXlsx(),
+  });
+  await page.getByRole('button', { name: 'Subir' }).click();
+  await expect(page).toHaveURL(/\/documentos\/[0-9a-f-]+\?fuente=[0-9a-f-]+$/);
+
+  await waitForRenderedText(page, 'Perfil', 'hoja 1: Movimientos');
+  await expect(page.getByRole('rowheader', { name: 'Descripcion' })).toBeVisible();
+
+  await page.getByRole('link', { name: 'Mapear y publicar' }).click();
+  await expect(page).toHaveURL(/\/documentos\/[0-9a-f-]+\/mapeo\?/);
+  await waitForRenderedText(page, 'Extraccion', 'Pago XLSX sintetico');
+  await expect(page.getByRole('rowheader', { name: '2' })).toBeVisible();
 });

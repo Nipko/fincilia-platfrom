@@ -261,8 +261,11 @@ export type ColumnProfile = {
 };
 
 export type TableProfile = {
+  technical_format?: string;
   encoding: string;
   delimiter: string;
+  sheet_name?: string;
+  sheet_ordinal?: number;
   has_header: boolean;
   row_count: number;
   column_count: number;
