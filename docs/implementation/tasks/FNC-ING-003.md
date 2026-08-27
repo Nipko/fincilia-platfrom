@@ -1,7 +1,7 @@
 ---
 id: FNC-ING-003
 title: Ingesta ligada a fuente y centro historico de documentos
-status: in_progress
+status: review_pending
 implementer: Codex principal dev + Integration Steward
 base_sha: 454da9db893c6974b246cfa94137896c69488b4e
 gate: S1-READY
