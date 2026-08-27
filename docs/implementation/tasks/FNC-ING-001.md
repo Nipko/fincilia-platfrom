@@ -1,7 +1,7 @@
 ---
 id: FNC-ING-001
 title: Ingesta segura de XLSX sintetico de una sola hoja
-status: in_progress
+status: review_pending
 implementer: Codex principal dev + Integration Steward
 base_sha: e3b37b40d482b92e415691623c31718ccd445e6c
 gate: S1-READY

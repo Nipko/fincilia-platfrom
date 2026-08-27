@@ -54,31 +54,5 @@
       "agent_may_accept": false
     }
   ],
-  "active_reservations": [
-    {
-      "task": "FNC-ING-001",
-      "holder": "Codex principal dev + Integration Steward",
-      "paths": [
-        "packages/contracts/python/fincilia_contracts/ingestion.py",
-        "packages/contracts/python/fincilia_contracts/profiling.py",
-        "packages/contracts/python/fincilia_contracts/extraction.py",
-        "packages/contracts/python/fincilia_contracts/lineage.py",
-        "packages/contracts/python/fincilia_contracts/spreadsheet.py",
-        "packages/contracts/python/tests",
-        "workers/document/src/fincilia_worker/jobs.py",
-        "workers/document/src/fincilia_worker/main.py",
-        "workers/document/tests",
-        "db/migrations/V0036__spreadsheet_origin_locator.sql",
-        "db/tests",
-        "apps/api/src/fincilia_api/datasets.py",
-        "apps/api/src/fincilia_api/routes.py",
-        "apps/api/tests",
-        "apps/web/src/app/empresas/[companyId]/documentos",
-        "apps/web/src/app/empresas/[companyId]/page.tsx",
-        "apps/web/src/lib/api.ts",
-        "apps/web/tests/e2e",
-        "docs/platform/LOCAL_DEVELOPMENT.md"
-      ]
-    }
-  ]
+  "active_reservations": []
 }
