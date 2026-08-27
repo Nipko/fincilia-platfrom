@@ -54,5 +54,17 @@
       "agent_may_accept": false
     }
   ],
-  "active_reservations": []
+  "active_reservations": [
+    {
+      "task": "FNC-WEB-004",
+      "holder": "Codex principal dev + Integration Steward",
+      "paths": [
+        "apps/web/src/app",
+        "apps/web/src/components",
+        "apps/web/e2e",
+        "docs/implementation/tasks/FNC-WEB-004.md",
+        "docs/implementation/handoffs/FNC-WEB-004.md"
+      ]
+    }
+  ]
 }

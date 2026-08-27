@@ -112,6 +112,7 @@ Hasta S1-READY solo se admite scaffolding, automatización, pruebas, documentaci
 | FNC-API-001 | Creacion atomica y segura de mapeos | Review pending | Codex + Integration Steward | rutas/dominio API de mapeos, prueba PostgreSQL y handoff |
 | FNC-WEB-002 | Puesto web de revision y excepciones de dataset | Review pending | Codex + Integration Steward | readiness API, overrides/rechazo web, pruebas PostgreSQL y web |
 | FNC-WEB-003 | Portafolio multiempresa e historico operativo web | Review pending | Codex + Integration Steward | portafolio, vencimientos, volumenes e historico de datasets web |
+| FNC-WEB-004 | Sistema visual y navegacion contextual web | In progress | Codex + Integration Steward | shell visual, menus jerarquicos, vistas clave y responsive sin cambiar semantica financiera |
 | FNC-CLN-001 | Propuestas tipadas de correccion por fila | Review pending | Codex + Integration Steward | overlay tipado, revision SoD, blockers, PostgreSQL y web |
 | FNC-CLN-002 | Aplicacion reproducible de correcciones aprobadas | Review pending | Codex + Integration Steward | V0023/V0024, version derivada, manifest, linaje digest-only, API/web, PostgreSQL y recorrido visual sintetico |
 | FNC-CLN-003 | Aplicabilidad de correcciones ligada al plan de linaje | Review pending | Codex + Integration Steward | targets dinámicos, rechazo fail-closed, 117 API, 10 PostgreSQL y recorrido visual sintético |
