@@ -115,6 +115,7 @@ Hasta S1-READY solo se admite scaffolding, automatización, pruebas, documentaci
 | FNC-CLN-001 | Propuestas tipadas de correccion por fila | Review pending | Codex + Integration Steward | overlay tipado, revision SoD, blockers, PostgreSQL y web |
 | FNC-CLN-002 | Aplicacion reproducible de correcciones aprobadas | Review pending | Codex + Integration Steward | V0023/V0024, version derivada, manifest, linaje digest-only, API/web, PostgreSQL y recorrido visual sintetico |
 | FNC-CLN-003 | Aplicabilidad de correcciones ligada al plan de linaje | Review pending | Codex + Integration Steward | targets dinámicos, rechazo fail-closed, 117 API, 10 PostgreSQL y recorrido visual sintético |
+| FNC-CLN-004 | Rango, preview canonico y plantillas de limpieza reutilizables | In progress | Codex + Integration Steward | dominio, API, web y pruebas reservados; solo datos sinteticos |
 | FNC-QA-006 | Aceptacion web integral y arranque local coherente | Review pending | Codex + Integration Steward | bootstrap local, contrato ejecutable y E2E de roles/tenancy |
 | FNC-QA-007 | Administracion final de usuarios y roles por empresa | Review pending | Codex + Integration Steward | API member.manage, revocacion/versionado, web equipo y pruebas PostgreSQL/E2E |
 | FNC-QA-008 | Regresion web repetible sobre runtime persistente | Review pending | Codex + Integration Steward | 26 Chromium dos veces y 15 Axe verdes; fixtures compartidos seriales y expedientes append-only localizados por pagina exacta |
