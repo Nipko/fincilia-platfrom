@@ -32,9 +32,11 @@ test('Ana ve solamente sus dos empresas y capacidades de preparacion', async ({
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(
     'Panaderia La Espiga SAS',
   );
-  await expect(page.getByText('preparer', { exact: true })).toBeVisible();
-  await expect(page.getByText('dataset.map', { exact: true })).toBeVisible();
-  await expect(page.getByText('dataset.publish', { exact: true })).toHaveCount(0);
+  const access = page.locator('details.access-details');
+  await access.getByText('Acceso de esta cuenta', { exact: true }).click();
+  await expect(access.getByText('preparer', { exact: true })).toBeVisible();
+  await expect(access.getByText('dataset.map', { exact: true })).toBeVisible();
+  await expect(access.getByText('dataset.publish', { exact: true })).toHaveCount(0);
   await expect(page.getByLabel('Extracto o soporte')).toBeVisible();
 });
 
@@ -49,10 +51,11 @@ test('Beto ve una empresa, capacidades de revision y ninguna carga', async ({
   await expect(page.getByText('Transportes Andinos SAS', { exact: true })).toHaveCount(0);
 
   await page.getByRole('link', { name: 'Abrir Panaderia La Espiga SAS' }).click();
-  const grants = page.locator('section.card').first();
-  await expect(page.getByText('reviewer', { exact: true })).toBeVisible();
-  await expect(grants.getByText('dataset.publish', { exact: true })).toBeVisible();
-  await expect(grants.getByText('dataset.map', { exact: true })).toHaveCount(0);
+  const access = page.locator('details.access-details');
+  await access.getByText('Acceso de esta cuenta', { exact: true }).click();
+  await expect(access.getByText('reviewer', { exact: true })).toBeVisible();
+  await expect(access.getByText('dataset.publish', { exact: true })).toBeVisible();
+  await expect(access.getByText('dataset.map', { exact: true })).toHaveCount(0);
   await expect(page.getByLabel('Extracto o soporte')).toHaveCount(0);
 });
 

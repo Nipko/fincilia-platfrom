@@ -8,7 +8,7 @@ test('el centro documental vacio o poblado no introduce violaciones Axe', async 
   await page.getByRole('button', { name: 'Entrar' }).click();
   await page.getByRole('link', { name: /Panaderia La Espiga SAS/ }).click();
   await expect(page).toHaveURL(/\/empresas\/[0-9a-f-]+$/);
-  await page.getByRole('link', { name: 'Documentos' }).click();
+  await page.getByRole('link', { name: 'Documentos', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Centro de documentos' })).toBeVisible();
 
   const results = await new AxeBuilder({ page }).analyze();
