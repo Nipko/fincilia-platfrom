@@ -54,5 +54,21 @@
       "agent_may_accept": false
     }
   ],
-  "active_reservations": []
+  "active_reservations": [
+    {
+      "task": "FNC-ING-004",
+      "owner": "Codex + Integration Steward",
+      "base_sha": "8aaaca645ee0b33884a202971a5c09a2d7dbbdbe",
+      "paths": [
+        "apps/web/src/app/empresas/[companyId]/upload.tsx",
+        "apps/web/src/app/empresas/[companyId]/__tests__/upload.test.tsx",
+        "apps/web/src/app/empresas/[companyId]/documentos/page.tsx",
+        "apps/web/src/app/empresas/[companyId]/documentos/__tests__/page.test.tsx",
+        "apps/web/src/app/globals.css",
+        "apps/web/tests/e2e",
+        "docs/implementation/tasks/FNC-ING-004.md",
+        "docs/implementation/handoffs/FNC-ING-004.md"
+      ]
+    }
+  ]
 }
