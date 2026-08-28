@@ -38,7 +38,17 @@ BEGIN
 END
 $bootstrap_dispatch$;
 
+DO $bootstrap_identity$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'fincilia_identity') THEN
+    CREATE ROLE fincilia_identity NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE
+      NOINHERIT NOBYPASSRLS;
+  END IF;
+END
+$bootstrap_identity$;
+
 GRANT fincilia_dispatch TO fincilia_migrator;
+GRANT fincilia_identity TO fincilia_migrator;
 
 DO $grant_create$
 BEGIN

@@ -256,6 +256,16 @@
       "reason": "materializar desde el trigger los dos miembros exactos de una confirmacion sin conceder INSERT directo a la API; la clave primaria serializa conflictos concurrentes por movimiento bajo RLS",
       "gate": "DB-G03",
       "human_review_state": "pending"
+    },
+    {
+      "function": "fincilia.register_local_account",
+      "owner_role": "fincilia_identity",
+      "granted_to": [
+        "fincilia_app"
+      ],
+      "reason": "crear sujeto, binding, credencial sintetica, firma y membership owner en una transaccion sin conceder a la API escritura directa sobre identidad; el dominio demo.local y el proveedor local prohibido con datos reales acotan el efecto",
+      "gate": "DB-G03",
+      "human_review_state": "pending"
     }
   ]
 }

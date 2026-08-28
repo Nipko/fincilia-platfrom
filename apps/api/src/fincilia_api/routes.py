@@ -30,7 +30,8 @@ from fincilia_platform.tokens import issue
 
 from . import (access, audit as audit_query, balance_reconciliation, balances,
                close_readiness, close_review, datasets, exports, financial_lineage,
-               onboarding, operations, quality, reconciliation, reports, repository)
+               onboarding, operations, quality, reconciliation, registration,
+               reports, repository)
 from . import company_onboarding
 from .issued_contexts import issue_context
 from .security import (Principal, ProblemError, company_context, current_principal,
@@ -53,6 +54,14 @@ class SessionResponse(BaseModel):
     expires_at: int
     subject_id: str
     display_name: str
+
+
+class RegistrationRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    username: str = Field(min_length=3, max_length=120)
+    secret: str = Field(min_length=1, max_length=128)
+    display_name: str = Field(min_length=2, max_length=200)
+    firm_name: str = Field(min_length=2, max_length=300)
 
 
 class CompanySummary(BaseModel):
@@ -296,6 +305,68 @@ def open_session(request: Request, body: SessionRequest) -> SessionResponse:
     return SessionResponse(token=token, expires_at=now + settings.auth_token_ttl_seconds,
                            subject_id=subject.subject_id,
                            display_name=subject.display_name)
+
+
+def _registration_problem(error: registration.RegistrationError) -> ProblemError:
+    return ProblemError(problem(
+        error.code, "Registration rejected", error.status, error.detail))
+
+
+@router.post("/auth/registration", response_model=SessionResponse,
+             status_code=201, tags=["identity"])
+def register_account(request: Request, body: RegistrationRequest) -> SessionResponse:
+    """Crea la identidad sintetica y abre su primera sesion corta."""
+    settings = request.app.state.settings
+    database = request.app.state.database
+    throttle = request.app.state.throttle
+    throttle_key = f"registration:{body.username.strip().lower()}"
+
+    if throttle.exhausted(throttle_key):
+        raise ProblemError(problem(
+            "too-many-attempts", "Too many attempts", 429,
+            "too many registration attempts; try again later"))
+
+    try:
+        with database.session() as connection:
+            registered = registration.register_local_account(
+                connection, username=body.username, secret=body.secret,
+                display_name=body.display_name, firm_name=body.firm_name,
+                real_data_enabled=settings.real_data_enabled,
+            )
+            # La sesion empezo sin sujeto porque aun no existia. La funcion
+            # privilegiada devuelve el identificador que acaba de crear; fijar
+            # ese valor server-side habilita exclusivamente la politica RLS del
+            # evento de plataforma. Sin este paso la auditoria falla cerrada y
+            # revierte correctamente toda el alta.
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT set_config('fincilia.subject_id', %s, true)",
+                    (registered.subject_id,),
+                )
+            repository.record_audit(
+                connection, subject_id=registered.subject_id, company_id=None,
+                action="auth.account.register", resource_kind="subject",
+                resource_ref=registered.subject_id, outcome="allowed",
+                detail={"issuer": "local", "firm_created": True},
+            )
+    except registration.RegistrationError as error:
+        throttle.record_failure(throttle_key)
+        logger.warning("synthetic registration rejected: %s", error.code)
+        raise _registration_problem(error) from None
+
+    throttle.clear(throttle_key)
+    now = int(time.time())
+    token = issue(
+        registered.subject_id, key=settings.auth_signing_key,
+        issuer=settings.auth_issuer, audience=settings.auth_audience,
+        issued_at=now, ttl_seconds=settings.auth_token_ttl_seconds,
+    )
+    return SessionResponse(
+        token=token,
+        expires_at=now + settings.auth_token_ttl_seconds,
+        subject_id=registered.subject_id,
+        display_name=registered.display_name,
+    )
 
 
 def _my_companies(request: Request, principal: Principal) -> list[CompanySummary]:
