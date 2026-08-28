@@ -30,7 +30,7 @@ from fincilia_platform.tokens import issue
 
 from . import (access, audit as audit_query, balance_reconciliation, balances,
                close_readiness, close_review, datasets, exports, financial_lineage,
-               onboarding, operations, quality, reconciliation, registration,
+               onboarding, oidc, operations, quality, reconciliation, registration,
                reports, repository)
 from . import company_onboarding
 from .issued_contexts import issue_context
@@ -63,6 +63,15 @@ class RegistrationRequest(BaseModel):
     display_name: str = Field(min_length=2, max_length=200)
     firm_name: str = Field(min_length=2, max_length=300)
     invite_code: str | None = Field(default=None, min_length=24, max_length=128)
+
+
+class OidcExchangeRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    code: str = Field(min_length=16, max_length=2048)
+    verifier: str = Field(min_length=43, max_length=128)
+    nonce: str = Field(min_length=24, max_length=128)
+    invite_code: str | None = Field(default=None, min_length=24, max_length=128)
+    firm_name: str | None = Field(default=None, min_length=2, max_length=300)
 
 
 class CompanySummary(BaseModel):
@@ -269,6 +278,10 @@ def principal_dependency(request: Request) -> Principal:
 @router.post("/auth/session", response_model=SessionResponse, tags=["identity"])
 def open_session(request: Request, body: SessionRequest) -> SessionResponse:
     settings = request.app.state.settings
+    if settings.oidc_enabled:
+        raise ProblemError(problem(
+            "managed-sign-in-required", "Managed sign-in required", 404,
+            "use the configured identity provider"))
     database = request.app.state.database
     provider = request.app.state.identity_provider
     throttle = request.app.state.throttle
@@ -318,6 +331,10 @@ def _registration_problem(error: registration.RegistrationError) -> ProblemError
 def register_account(request: Request, body: RegistrationRequest) -> SessionResponse:
     """Crea la identidad sintetica y abre su primera sesion corta."""
     settings = request.app.state.settings
+    if settings.oidc_enabled:
+        raise ProblemError(problem(
+            "managed-sign-in-required", "Managed sign-in required", 404,
+            "use the configured identity provider"))
     database = request.app.state.database
     throttle = request.app.state.throttle
     throttle_key = f"registration:{body.username.strip().lower()}"
@@ -369,6 +386,70 @@ def register_account(request: Request, body: RegistrationRequest) -> SessionResp
         expires_at=now + settings.auth_token_ttl_seconds,
         subject_id=registered.subject_id,
         display_name=registered.display_name,
+    )
+
+
+@router.post("/auth/oidc/exchange", response_model=SessionResponse,
+             tags=["identity"])
+def exchange_managed_identity(request: Request,
+                              body: OidcExchangeRequest) -> SessionResponse:
+    """Canje server-side de Code+PKCE; nunca acepta claims del navegador."""
+    settings = request.app.state.settings
+    if not settings.oidc_enabled:
+        raise ProblemError(problem(
+            "managed-sign-in-unavailable", "Managed sign-in unavailable", 404,
+            "managed identity is not configured"))
+
+    throttle = request.app.state.throttle
+    throttle_key = "oidc:" + hashlib.sha256(body.code.encode("utf-8")).hexdigest()
+    if throttle.exhausted(throttle_key):
+        raise ProblemError(problem(
+            "too-many-attempts", "Too many attempts", 429,
+            "too many sign-in attempts; try again later"))
+
+    try:
+        identity = oidc.exchange_code(
+            settings=settings, code=body.code, verifier=body.verifier,
+            nonce=body.nonce)
+        database = request.app.state.database
+        with database.session() as connection:
+            account = oidc.resolve_account(connection, identity)
+            if account is None:
+                account = oidc.register_account(
+                    connection, identity=identity, invite_code=body.invite_code,
+                    firm_name=body.firm_name or "")
+            if not account.active:
+                raise oidc.OidcError()
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT set_config('fincilia.subject_id', %s, true)",
+                    (account.subject_id,),
+                )
+            repository.record_audit(
+                connection, subject_id=account.subject_id, company_id=None,
+                action="auth.session.open", resource_kind="session",
+                resource_ref=account.subject_id, outcome="allowed",
+                detail={"issuer": "managed_oidc"},
+            )
+    except oidc.OidcError as error:
+        throttle.record_failure(throttle_key)
+        logger.warning("managed sign-in rejected: %s", error.code)
+        raise ProblemError(problem(
+            error.code, "Managed sign-in rejected", error.status,
+            "managed sign-in could not be completed")) from None
+
+    throttle.clear(throttle_key)
+    now = int(time.time())
+    token = issue(
+        account.subject_id, key=settings.auth_signing_key,
+        issuer=settings.auth_issuer, audience=settings.auth_audience,
+        issued_at=now, ttl_seconds=settings.auth_token_ttl_seconds,
+    )
+    return SessionResponse(
+        token=token,
+        expires_at=now + settings.auth_token_ttl_seconds,
+        subject_id=account.subject_id,
+        display_name=account.display_name,
     )
 
 

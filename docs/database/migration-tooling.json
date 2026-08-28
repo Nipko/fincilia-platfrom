@@ -276,6 +276,26 @@
       "reason": "bloquear y consumir el digest de una invitacion de un solo uso en la misma transaccion que crea el sujeto sintetico, sin conceder a la API lectura o escritura directa sobre identidad o invitaciones",
       "gate": "DB-G03",
       "human_review_state": "pending"
+    },
+    {
+      "function": "fincilia.resolve_external_identity",
+      "owner_role": "fincilia_identity",
+      "granted_to": [
+        "fincilia_app"
+      ],
+      "reason": "resolver un binding OIDC exacto sin devolver a la API lectura global sobre identidad o permitir que claims externos concedan empresa y rol",
+      "gate": "DB-G03",
+      "human_review_state": "pending"
+    },
+    {
+      "function": "fincilia.register_external_account_with_invite",
+      "owner_role": "fincilia_identity",
+      "granted_to": [
+        "fincilia_app"
+      ],
+      "reason": "consumir una invitacion nominal ligada al HMAC del correo verificado en el mismo commit que sujeto binding firma y membresia owner",
+      "gate": "DB-G03",
+      "human_review_state": "pending"
     }
   ]
 }

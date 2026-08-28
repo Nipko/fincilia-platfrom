@@ -72,6 +72,8 @@ def expected_schema_head() -> str | None:
 
 def build_identity_provider(settings: ApiSettings, database: Database):
     """Proveedor local tras la interfaz. Sustituirlo no toca dominio ni rutas."""
+    if settings.oidc_enabled:
+        return None
     def lookup(username: str) -> Credential | None:
         with database.session() as connection:
             return repository.find_credential(connection, username)

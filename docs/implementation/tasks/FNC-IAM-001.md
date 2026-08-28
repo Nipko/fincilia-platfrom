@@ -24,7 +24,9 @@ fail-closed cuando no hay configuración o DRG-00 no autoriza identidad real.
    `subject_id` interno; empresas y roles continúan resolviéndose server-side.
 4. Tokens de Google/Cognito, códigos, correo y secretos no aparecen en URLs
    propias, logs, auditoría, errores o base en claro.
-5. Solo se piden `openid email profile`; no Drive, Gmail ni refresh token.
+5. Solo se piden `openid email profile`; no Drive ni Gmail. El refresh token
+   que Cognito emite obligatoriamente en Authorization Code se descarta en
+   memoria: Fincilia no lo usa, registra, devuelve ni persiste.
 6. Cuenta nueva completa firma y primera empresa; cuenta existente es idempotente.
 7. State/nonce inválidos, token vencido, issuer/audience incorrectos y correo no
    verificado fallan cerrados y no crean filas.
