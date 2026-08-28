@@ -1,9 +1,9 @@
 ---
 id: FNC-LEG-002
 title: Centro legal público de Fincilia
-status: in_progress
+status: review_pending
 implementer: Codex principal dev + Integration Steward
-base_sha: 93dac84
+base_sha: 60fb0a0
 gate: BETA-01
 gate_effect: evidence_only
 data_ceiling: synthetic_only
