@@ -6,7 +6,15 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from .model import CONTRACT_PATH, load_json, validate, validate_contract, validate_plan, validate_sources
+from .model import (
+    CONTRACT_PATH,
+    T0_SOURCE_ROOTS,
+    load_json,
+    validate,
+    validate_contract,
+    validate_plan,
+    validate_sources,
+)
 
 
 def valid_plan(resource_type: str = "aws_vpc") -> dict:
@@ -75,6 +83,26 @@ class ContractTests(unittest.TestCase):
         value = copy.deepcopy(self.contract)
         value["apply_scope"]["allowed_resource_types"].append("aws_instance")
         self.assertTrue(validate_contract(value))
+
+    def test_sibling_runtime_module_does_not_contaminate_t0_sources(self) -> None:
+        sibling_source = Path(__file__).resolve().parents[2] / "infra" / "aws" / "t1" / "compute.tf"
+        self.assertIn('resource "aws_instance"', sibling_source.read_text(encoding="utf-8"))
+        self.assertEqual([], validate_sources())
+
+    def test_forbidden_resource_inside_explicit_t0_root_still_fails(self) -> None:
+        canonical = "\n".join(
+            source.read_text(encoding="utf-8")
+            for root in T0_SOURCE_ROOTS
+            for source in sorted(root.rglob("*.tf"))
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "main.tf"
+            source.write_text(
+                canonical + '\nresource "aws_instance" "forbidden" {}\n',
+                encoding="utf-8",
+            )
+            errors = validate_sources(Path(directory))
+        self.assertTrue(any("EC2" in error for error in errors))
 
 
 class PlanTests(unittest.TestCase):

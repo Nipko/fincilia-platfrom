@@ -8,6 +8,10 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[2]
 CONTRACT_PATH = ROOT / "docs" / "platform" / "aws-t0-deployment.json"
 INFRA_ROOT = ROOT / "infra" / "aws"
+T0_SOURCE_ROOTS = (
+    INFRA_ROOT / "bootstrap",
+    INFRA_ROOT / "t0",
+)
 
 REQUIRED_TAGS = {
     "Project": "Fincilia",
@@ -83,9 +87,10 @@ def validate_contract(contract: dict[str, Any]) -> list[str]:
     return errors
 
 
-def validate_sources(root: Path = INFRA_ROOT) -> list[str]:
+def validate_sources(root: Path | None = None) -> list[str]:
     errors: list[str] = []
-    sources = sorted(root.rglob("*.tf"))
+    roots = (root,) if root is not None else T0_SOURCE_ROOTS
+    sources = sorted(path for source_root in roots for path in source_root.rglob("*.tf"))
     if not sources:
         return ["no se encontraron fuentes OpenTofu"]
     merged = "\n".join(path.read_text(encoding="utf-8") for path in sources)
