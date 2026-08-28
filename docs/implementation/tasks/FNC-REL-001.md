@@ -5,7 +5,7 @@ epic: FNC-EP-PLATFORM
 phase: F0
 iteration: E1
 type: implementation
-status: in_progress
+status: review_pending
 priority: P0
 accountable_owner: FOUNDER-01
 agent_lane: Platform/SRE
@@ -148,6 +148,17 @@ texto; ningún dato ni artefacto productivo requiere transformación.
 - Pruebas negativas de tamper y redacción.
 - Builds/smoke de API, worker y web.
 - CI verde y handoff con gaps de firma/procedencia aún abiertos.
+
+# Evidencia obtenida
+
+- Bundle íntegro y fuente verificados desde Windows/WSL contra el candidato
+  construido en Linux para `bb89829ebb6e8e6aaff5a66e1192ed1d1347bd87`.
+- Workflow manual `33189803442`: build de API, worker y web, ejecución dentro
+  de imágenes, smoke web, doble generación determinista y artefacto preservado.
+- 19 pruebas del generador/verificador, 6 de observabilidad, 156 de API y 20 de
+  worker; quality gate del índice sin hallazgos.
+- CI general `33189792888` quedó verde sobre el mismo SHA, incluidos PostgreSQL,
+  API, worker, recorrido web Chromium y WCAG 2.2 AA automatizado.
 
 # Handoff al siguiente agente
 

@@ -147,7 +147,7 @@ Hasta S1-READY solo se admite scaffolding, automatización, pruebas, documentaci
 | FNC-SEC-005 | Trabajos durables vinculados a autorizacion emitida | Review pending | Codex + Integration Steward | V0022, productor API, despacho y vallado por lote; compatibilidad expand-only y revision independiente pendientes |
 | FNC-AUD-001 | Centro web company-scoped de accesos y auditoria | Review pending | Codex + Integration Steward | API keyset, actor, filtros cerrados, portafolio company-by-company y estados parciales; revision independiente pendiente |
 | FNC-PLT-009 | Runtime local persistente de Docker Engine en Windows/WSL | Review pending | Codex + Integration Steward | wrapper oculto y reversible, lifecycle completo, contrato ejecutable y persistencia de datos verificada; revision independiente pendiente |
-| FNC-REL-001 | Candidato de release reproducible y baseline operativo | In progress | Codex + Integration Steward | bundle SPDX, manifiesto fail-closed, observabilidad segura, workflow manual y smoke sin habilitar producción |
+| FNC-REL-001 | Candidato de release reproducible y baseline operativo | Review pending | Codex + Integration Steward | bundle SPDX cross-platform, manifiesto fail-closed, observabilidad segura, workflow manual y CI 33189792888 verdes; revisión Security/QA/Architecture pendiente |
 
 Solo el Integration Steward modifica esta tabla.
 
