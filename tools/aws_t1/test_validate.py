@@ -80,6 +80,29 @@ class PlanTests(unittest.TestCase):
     def test_delete_bites(self) -> None:
         self.assertTrue(self.mutate(["resource_changes", 0, "change", "actions"], ["delete"]))
 
+    def test_control_preserving_instance_replacement_is_allowed(self) -> None:
+        candidate = plan()
+        candidate["resource_changes"][0]["change"]["actions"] = ["delete", "create"]
+        self.assertEqual([], self.errors(candidate))
+
+    def test_control_losing_instance_replacement_bites(self) -> None:
+        candidate = plan()
+        candidate["resource_changes"][0]["change"]["actions"] = ["delete", "create"]
+        candidate["resource_changes"][0]["change"]["after"]["metadata_options"][0]["http_tokens"] = "optional"
+        self.assertTrue(self.errors(candidate))
+
+    def test_s3_update_is_allowed_but_delete_is_not(self) -> None:
+        candidate = plan()
+        candidate["resource_changes"].append({
+            "address": "aws_s3_object.runtime[\"bootstrap.sql\"]",
+            "mode": "managed",
+            "type": "aws_s3_object",
+            "change": {"actions": ["update"], "after": {}},
+        })
+        self.assertEqual([], self.errors(candidate))
+        candidate["resource_changes"][1]["change"]["actions"] = ["delete"]
+        self.assertTrue(self.errors(candidate))
+
     def test_ec2_size_bites(self) -> None:
         self.assertTrue(self.mutate(["resource_changes", 0, "change", "after", "instance_type"], "t3.medium"))
 

@@ -15,7 +15,10 @@ aws s3 cp '${bundle_uri}/' /opt/fincilia/ --recursive --only-show-errors
 cd /opt/fincilia
 sha256sum -c manifest.sha256
 chmod 0700 up.sh
-chmod 0600 bootstrap.sql
+# La imagen oficial ejecuta los scripts de init como el usuario postgres. El
+# fichero solo contiene credenciales sinteticas versionadas; debe ser legible
+# dentro del bind mount, mientras runtime.env conserva los secretos 0600.
+chmod 0444 bootstrap.sql
 install -m 0644 fincilia-t1.service /etc/systemd/system/fincilia-t1.service
 install -m 0644 fincilia-t1-autostop.service /etc/systemd/system/fincilia-t1-autostop.service
 install -m 0644 fincilia-t1-autostop.timer /etc/systemd/system/fincilia-t1-autostop.timer

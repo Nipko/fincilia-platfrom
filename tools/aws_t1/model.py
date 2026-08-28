@@ -79,6 +79,7 @@ def validate_sources() -> list[str]:
         'volume_size           = 16',
         'encrypted             = true',
         'OnBootSec=4h',
+        'chmod 0444 bootstrap.sql',
         'FINCILIA_REAL_DATA_ENABLED=false',
         '127.0.0.1:53000:3000',
     )
@@ -91,6 +92,7 @@ def validate_sources() -> list[str]:
         'resource "aws_ecs_', 'resource "aws_kms_key"',
         'resource "aws_secretsmanager_secret"', 'resource "aws_ssm_parameter"',
         'key_name =', '0.0.0.0:53000', 'FINCILIA_REAL_DATA_ENABLED=true',
+        'chmod 0600 bootstrap.sql',
     )
     for token in forbidden:
         if token in sources:
@@ -114,7 +116,13 @@ def validate_plan(plan: dict[str, Any], model: dict[str, Any]) -> list[str]:
         after = item.get("change", {}).get("after") or {}
         if resource_type not in allowed or resource_type in forbidden:
             errors.append(f"{address}: tipo no permitido {resource_type}")
-        if actions not in (["create"], ["no-op"]):
+        allowed_actions = {
+            "aws_instance": (["create"], ["no-op"], ["delete", "create"]),
+            "aws_s3_object": (["create"], ["no-op"], ["update"], ["delete", "create"]),
+            "aws_iam_role_policy": (["create"], ["no-op"], ["update"]),
+            "terraform_data": (["create"], ["no-op"], ["delete", "create"]),
+        }
+        if actions not in allowed_actions.get(resource_type, ()):
             errors.append(f"{address}: acciones no permitidas {actions}")
         if resource_type == "aws_instance":
             instances += 1
