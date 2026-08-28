@@ -11,6 +11,8 @@ test.describe('recorrido publico sin secretos', () => {
     await expect(page.getByLabel('Contrasena')).toHaveAttribute('type', 'password');
     await expect(page.getByRole('link', { name: 'Crear una cuenta' }))
       .toHaveAttribute('href', '/registro');
+    await expect(page.getByRole('link', { name: 'terminos de la beta' }))
+      .toHaveAttribute('href', '/terminos');
 
     await page.keyboard.press('Tab');
     const skipLink = page.getByRole('link', {
@@ -37,6 +39,26 @@ test.describe('recorrido publico sin secretos', () => {
       .toHaveAttribute('type', 'password');
     await expect(page.getByRole('link', { name: 'Volver a entrar' }))
       .toHaveAttribute('href', '/entrar');
+    await expect(page.getByLabel(/solo puedo usar nombres/)).toHaveAttribute('required', '');
+    await expect(page.getByLabel(/Acepto los terminos/)).toHaveAttribute('required', '');
+  });
+
+  test('la portada y el centro legal son publicos y transparentes', async ({ page }) => {
+    await page.goto('/');
+
+    await expect(page.getByRole('heading', {
+      level: 1,
+      name: 'De documentos dispersos a diferencias explicables.',
+    })).toBeVisible();
+    await expect(page.getByText('Beta cerrada · solo datos inventados'))
+      .toBeVisible();
+    await page.getByRole('link', { name: 'Leer política de privacidad' }).click();
+
+    await expect(page).toHaveURL(/\/privacidad$/);
+    await expect(page.getByRole('heading', { level: 1, name: 'Política de privacidad' }))
+      .toBeVisible();
+    await expect(page.getByText('Borrador de preproducción')).toBeVisible();
+    await expect(page.getByText(/support@parallext.com/).first()).toBeVisible();
   });
 
   test('una ruta protegida sin sesion vuelve al ingreso', async ({ page }) => {

@@ -35,6 +35,22 @@ test('TST-A11Y-001: ingreso publico sin hallazgos serios o criticos', async ({
   await expectNoSeriousOrCriticalViolations(page);
 });
 
+test('TST-A11Y-001: portada publica sin hallazgos serios o criticos', async ({
+  page,
+}) => {
+  await page.goto('/');
+
+  await expectNoSeriousOrCriticalViolations(page);
+});
+
+test('TST-A11Y-001: privacidad publica sin hallazgos serios o criticos', async ({
+  page,
+}) => {
+  await page.goto('/privacidad');
+
+  await expectNoSeriousOrCriticalViolations(page);
+});
+
 test('TST-REG-005: registro publico sintetico sin hallazgos serios o criticos', async ({
   page,
 }) => {

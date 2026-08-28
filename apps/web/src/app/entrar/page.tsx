@@ -63,6 +63,11 @@ export default function SignInPage() {
           <Link className="button-link" href="/registro">Crear una cuenta</Link>
         </div>
 
+        <p className="auth-legal">
+          Al continuar aceptas los <Link href="/terminos">terminos de la beta</Link> y
+          reconoces nuestra <Link href="/privacidad">politica de privacidad</Link>.
+        </p>
+
         <details className="demo-access">
           <summary>Ver cuentas de demostracion</summary>
           <p className="hint">

@@ -20,6 +20,8 @@ test('TST-REG-005/006: una persona crea cuenta y primer espacio sin semillas', a
   await page.getByLabel('Correo sintetico').fill(username);
   await page.getByLabel('Contrasena', { exact: true }).fill(password);
   await page.getByLabel('Confirma la contrasena').fill(password);
+  await page.getByLabel(/solo puedo usar nombres/).check();
+  await page.getByLabel(/Acepto los terminos/).check();
   await page.getByRole('button', { name: 'Crear cuenta y configurar empresa' }).click();
 
   await expect(page).toHaveURL(/\/empresas\/nueva\?inicio=registro$/);

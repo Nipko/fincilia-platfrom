@@ -68,6 +68,23 @@ export default function RegistrationPage() {
             Entre 14 y 128 caracteres, con mayuscula, minuscula, numero y simbolo.
             El navegador nunca recibe el token de sesion.
           </p>
+          <fieldset className="registration-consent">
+            <legend>Condiciones de esta beta</legend>
+            <label>
+              <input name="acceptSynthetic" type="checkbox" value="yes" required />
+              <span>
+                Entiendo que solo puedo usar nombres, correos, empresas, documentos
+                y movimientos completamente inventados.
+              </span>
+            </label>
+            <label>
+              <input name="acceptTerms" type="checkbox" value="yes" required />
+              <span>
+                Acepto los <Link href="/terminos">terminos de la beta</Link> y he
+                leido la <Link href="/privacidad">politica de privacidad</Link>.
+              </span>
+            </label>
+          </fieldset>
           {state.error ? <p className="notice error" role="alert">{state.error}</p> : null}
           <button type="submit" disabled={pending}>
             {pending ? 'Creando cuenta…' : 'Crear cuenta y configurar empresa'}

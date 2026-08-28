@@ -70,9 +70,16 @@ export async function registerAccountAction(
   const username = String(formData.get('username') ?? '').trim().toLowerCase();
   const secret = String(formData.get('secret') ?? '');
   const confirmation = String(formData.get('secretConfirmation') ?? '');
+  const acceptedSyntheticOnly = formData.get('acceptSynthetic') === 'yes';
+  const acceptedTerms = formData.get('acceptTerms') === 'yes';
 
   if (!displayName || !firmName || !username || !secret || !confirmation) {
     return { error: 'Completa todos los campos.' };
+  }
+  if (!acceptedSyntheticOnly || !acceptedTerms) {
+    return {
+      error: 'Confirma el uso exclusivo de datos sinteticos y acepta los terminos de la beta.',
+    };
   }
   if (!username.endsWith('@demo.local')) {
     return { error: 'En este laboratorio usa una direccion terminada en @demo.local.' };

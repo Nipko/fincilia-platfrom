@@ -3,9 +3,9 @@ import Link from 'next/link';
 export function BrandMark() {
   return (
     <Link
-      aria-label="Fincilia, ir al portafolio"
+      aria-label="Fincilia, ir al inicio"
       className="brand-lockup"
-      href="/empresas"
+      href="/"
     >
       <svg
         aria-hidden="true"

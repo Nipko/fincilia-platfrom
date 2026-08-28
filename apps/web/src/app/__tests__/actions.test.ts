@@ -23,6 +23,7 @@ const mocks = vi.hoisted(() => {
     proposeCorrection: vi.fn(),
     proposeReconciliationReview: vi.fn(),
     provisionCompany: vi.fn(),
+    registerAccount: vi.fn(),
     decideReconciliationReview: vi.fn(),
     reviewCorrection: vi.fn(),
     createMapping: vi.fn(),
@@ -85,6 +86,7 @@ vi.mock('@/lib/api', () => ({
   proposeCorrection: mocks.proposeCorrection,
   proposeReconciliationReview: mocks.proposeReconciliationReview,
   provisionCompany: mocks.provisionCompany,
+  registerAccount: mocks.registerAccount,
   decideReconciliationReview: mocks.decideReconciliationReview,
   rejectDataset: mocks.rejectDataset,
   reviewCorrection: mocks.reviewCorrection,
@@ -119,7 +121,54 @@ import {
   evaluateBalanceReconciliationAction,
   proposeReconcilingItemAction,
   decideReconcilingItemAction,
+  registerAccountAction,
 } from '../actions';
+
+function registrationForm(): FormData {
+  const form = new FormData();
+  form.set('displayName', 'Persona Sintetica');
+  form.set('firmName', 'Firma Sintetica');
+  form.set('username', 'persona@demo.local');
+  form.set('secret', 'Registro-Demo-2026!');
+  form.set('secretConfirmation', 'Registro-Demo-2026!');
+  return form;
+}
+
+describe('registration action', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('rechaza en servidor un registro sin aceptar los limites de la beta', async () => {
+    const result = await registerAccountAction({ error: null }, registrationForm());
+
+    expect(result.error).toContain('datos sinteticos');
+    expect(mocks.registerAccount).not.toHaveBeenCalled();
+  });
+
+  it('crea la sesion solo tras aceptar ambos controles', async () => {
+    const form = registrationForm();
+    form.set('acceptSynthetic', 'yes');
+    form.set('acceptTerms', 'yes');
+    mocks.registerAccount.mockResolvedValue({
+      token: 'token-sintetico',
+      display_name: 'Persona Sintetica',
+      expires_at: '2026-08-28T18:00:00Z',
+    });
+
+    await expect(registerAccountAction({ error: null }, form))
+      .rejects.toThrow('NEXT_REDIRECT');
+    expect(mocks.registerAccount).toHaveBeenCalledWith({
+      username: 'persona@demo.local',
+      secret: 'Registro-Demo-2026!',
+      display_name: 'Persona Sintetica',
+      firm_name: 'Firma Sintetica',
+    });
+    expect(mocks.writeSession).toHaveBeenCalledWith(
+      'token-sintetico', 'Persona Sintetica', '2026-08-28T18:00:00Z',
+    );
+  });
+});
 
 function mappingForm(): FormData {
   const form = new FormData();
