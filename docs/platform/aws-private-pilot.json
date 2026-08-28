@@ -1,0 +1,106 @@
+{
+  "schema_version": "1.0.0",
+  "task_id": "FNC-PLT-012",
+  "status": "in_progress",
+  "gate": "DRG-01",
+  "region": "sa-east-1",
+  "data_ceiling": "synthetic_only_until_DRG-01",
+  "real_data_authorized": false,
+  "deployment_authorized": false,
+  "external_ai_authorized": false,
+  "architecture": {
+    "vpc": "dedicated_private_pilot",
+    "availability_zones": 2,
+    "public_entry": "alb_https_acm_waf",
+    "application_runtime": "ecs_fargate_private",
+    "worker_runtime": "ecs_fargate_isolated_no_default_route",
+    "database": "rds_postgresql_17_single_az_private",
+    "cache": "elasticache_valkey_ephemeral_private",
+    "object_store": "four_private_s3_zones",
+    "operator_access": "ecs_exec_via_ssm_no_ssh",
+    "dns": "external_operator_record"
+  },
+  "network": {
+    "alb_public_subnet_count": 2,
+    "application_private_subnet_count": 2,
+    "worker_isolated_subnet_count": 1,
+    "data_private_subnet_count": 2,
+    "application_nat_count": 1,
+    "worker_has_default_route": false,
+    "assign_public_ip": false,
+    "public_tcp_ports": [80, 443],
+    "ssh_enabled": false
+  },
+  "data_stores": {
+    "s3_zones": ["quarantine", "raw", "derived", "exports"],
+    "kms_key_classes": ["quarantine", "evidence", "audit", "database"],
+    "bucket_versioning": true,
+    "bucket_public_access_block": true,
+    "bucket_tls_required": true,
+    "rds_publicly_accessible": false,
+    "rds_storage_encrypted": true,
+    "rds_deletion_protection": true,
+    "rds_backup_retention_days": 14,
+    "valkey_transit_encryption": true,
+    "valkey_at_rest_encryption": true
+  },
+  "identity": {
+    "provider": "Amazon Cognito federated with Google",
+    "authorization_source": "PostgreSQL server-side memberships and roles",
+    "registration": "named_one_use_invitation",
+    "mfa": "required_by_user_pool",
+    "oauth_flow": "authorization_code_pkce_s256",
+    "scopes": ["openid", "email", "profile"],
+    "google_secret_in_iac": false,
+    "known_users_seeded": false
+  },
+  "secrets": {
+    "store": "AWS Secrets Manager",
+    "values_created_out_of_band": true,
+    "values_in_iac_state": false,
+    "rds_master_password_managed_by_rds": true,
+    "application_static_aws_credentials": false
+  },
+  "runtime_activation": {
+    "initial_desired_count": 0,
+    "real_data_flag_in_iac": false,
+    "kms_signed_DRG00_required_for_identity": true,
+    "kms_signed_DRG01_required_for_real_data": true,
+    "human_gate_remains_external": true
+  },
+  "disabled_capabilities": [
+    "external_ai", "payments", "email_ingest", "sftp", "api_connectors",
+    "webhooks", "automatic_close"
+  ],
+  "observability": {
+    "waf": true,
+    "cloudtrail": true,
+    "encrypted_log_groups": true,
+    "alb_access_logs": true,
+    "budget_alert": true,
+    "budget_is_hard_cap": false
+  },
+  "required_resource_types": [
+    "aws_acm_certificate", "aws_budgets_budget", "aws_cloudtrail",
+    "aws_cloudwatch_log_group", "aws_cognito_user_pool",
+    "aws_cognito_user_pool_client", "aws_cognito_user_pool_domain",
+    "aws_db_instance", "aws_db_subnet_group", "aws_ecr_repository",
+    "aws_ecs_cluster", "aws_ecs_service", "aws_ecs_task_definition",
+    "aws_elasticache_replication_group", "aws_elasticache_subnet_group",
+    "aws_iam_role", "aws_kms_key", "aws_lb", "aws_lb_listener",
+    "aws_lb_target_group", "aws_nat_gateway", "aws_s3_bucket",
+    "aws_s3_bucket_public_access_block", "aws_s3_bucket_server_side_encryption_configuration",
+    "aws_s3_bucket_versioning", "aws_secretsmanager_secret", "aws_security_group",
+    "aws_subnet", "aws_vpc", "aws_vpc_endpoint", "aws_wafv2_web_acl",
+    "aws_wafv2_web_acl_association"
+  ],
+  "forbidden_resource_types": [
+    "aws_instance", "aws_internet_gateway_attachment", "aws_key_pair",
+    "aws_lightsail_instance", "aws_rds_cluster", "aws_route53_record"
+  ],
+  "gate_claims": [
+    {"id": "DRG-00", "status": "not_met"},
+    {"id": "DRG-01", "status": "not_met"},
+    {"id": "GA-01", "status": "not_met"}
+  ]
+}
