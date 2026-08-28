@@ -1,0 +1,71 @@
+{
+  "schema_version": "1.0.0",
+  "task_id": "FNC-PRV-002",
+  "status": "review_pending",
+  "data_ceiling": "synthetic_only",
+  "real_data_authorized": false,
+  "source_contract": {
+    "path": "docs/privacy/privacy-map.json",
+    "canonical_sha256": "2ecd70a9aa4311c95350db60a6af353d543072e9250873c1c30fd335db7b7097",
+    "selector": "retention_policies[*]"
+  },
+  "decision_contract": {
+    "duration_unit": "calendar_days",
+    "minimum_days": 1,
+    "maximum_days": 36500,
+    "clock_start_source": "privacy-map.retention_policies[*].computation_start",
+    "policy_facts_source": "privacy-map.retention_policies[*]",
+    "adjudication_requires_all_rows": true,
+    "partial_adjudication_authorizes_nothing": true
+  },
+  "policy_decisions": [
+    {"policy_id": "L-01-IDENTITY", "decision_state": "pending_human", "retention_days": null, "legal_basis_ref": null, "contract_ref": null, "exceptions_ref": null, "effective_at": null, "review_evidence_ref": null},
+    {"policy_id": "L-01-QUARANTINE", "decision_state": "pending_human", "retention_days": null, "legal_basis_ref": null, "contract_ref": null, "exceptions_ref": null, "effective_at": null, "review_evidence_ref": null},
+    {"policy_id": "L-01-RAW", "decision_state": "pending_human", "retention_days": null, "legal_basis_ref": null, "contract_ref": null, "exceptions_ref": null, "effective_at": null, "review_evidence_ref": null},
+    {"policy_id": "L-01-DERIVED", "decision_state": "pending_human", "retention_days": null, "legal_basis_ref": null, "contract_ref": null, "exceptions_ref": null, "effective_at": null, "review_evidence_ref": null},
+    {"policy_id": "L-01-FINANCIAL", "decision_state": "pending_human", "retention_days": null, "legal_basis_ref": null, "contract_ref": null, "exceptions_ref": null, "effective_at": null, "review_evidence_ref": null},
+    {"policy_id": "L-01-CLOSE", "decision_state": "pending_human", "retention_days": null, "legal_basis_ref": null, "contract_ref": null, "exceptions_ref": null, "effective_at": null, "review_evidence_ref": null},
+    {"policy_id": "L-01-EXPORT", "decision_state": "pending_human", "retention_days": null, "legal_basis_ref": null, "contract_ref": null, "exceptions_ref": null, "effective_at": null, "review_evidence_ref": null},
+    {"policy_id": "L-01-SOURCE-EVENT", "decision_state": "pending_human", "retention_days": null, "legal_basis_ref": null, "contract_ref": null, "exceptions_ref": null, "effective_at": null, "review_evidence_ref": null},
+    {"policy_id": "L-01-AUDIT", "decision_state": "pending_human", "retention_days": null, "legal_basis_ref": null, "contract_ref": null, "exceptions_ref": null, "effective_at": null, "review_evidence_ref": null},
+    {"policy_id": "L-01-DELETE-LEDGER", "decision_state": "pending_human", "retention_days": null, "legal_basis_ref": null, "contract_ref": null, "exceptions_ref": null, "effective_at": null, "review_evidence_ref": null},
+    {"policy_id": "L-01-PRIVACY-REQUEST", "decision_state": "pending_human", "retention_days": null, "legal_basis_ref": null, "contract_ref": null, "exceptions_ref": null, "effective_at": null, "review_evidence_ref": null},
+    {"policy_id": "L-01-AUTHORIZATION", "decision_state": "pending_human", "retention_days": null, "legal_basis_ref": null, "contract_ref": null, "exceptions_ref": null, "effective_at": null, "review_evidence_ref": null},
+    {"policy_id": "L-01-AUDITABLE-DECISION", "decision_state": "pending_human", "retention_days": null, "legal_basis_ref": null, "contract_ref": null, "exceptions_ref": null, "effective_at": null, "review_evidence_ref": null},
+    {"policy_id": "L-02-AI-CALL", "decision_state": "pending_human", "retention_days": null, "legal_basis_ref": null, "contract_ref": null, "exceptions_ref": null, "effective_at": null, "review_evidence_ref": null},
+    {"policy_id": "L-01-NOTIFICATION", "decision_state": "pending_human", "retention_days": null, "legal_basis_ref": null, "contract_ref": null, "exceptions_ref": null, "effective_at": null, "review_evidence_ref": null},
+    {"policy_id": "L-01-BILLING", "decision_state": "pending_human", "retention_days": null, "legal_basis_ref": null, "contract_ref": null, "exceptions_ref": null, "effective_at": null, "review_evidence_ref": null},
+    {"policy_id": "L-01-BACKUP", "decision_state": "pending_human", "retention_days": null, "legal_basis_ref": null, "contract_ref": null, "exceptions_ref": null, "effective_at": null, "review_evidence_ref": null},
+    {"policy_id": "L-01-TELEMETRY", "decision_state": "pending_human", "retention_days": null, "legal_basis_ref": null, "contract_ref": null, "exceptions_ref": null, "effective_at": null, "review_evidence_ref": null},
+    {"policy_id": "L-01-DEVICE", "decision_state": "pending_human", "retention_days": null, "legal_basis_ref": null, "contract_ref": null, "exceptions_ref": null, "effective_at": null, "review_evidence_ref": null}
+  ],
+  "deletion_guards": {
+    "scope_resolution": "authoritative_per_company_never_from_cache",
+    "tombstone_before_active_purge": true,
+    "derived_inventory_required": true,
+    "ephemeral_exports_in_inventory": true,
+    "legal_hold_requires_documented_basis": true,
+    "silent_legal_hold_forbidden": true,
+    "restore_requires_tombstone_reapplication_before_service_reopen": true,
+    "completion_requires_reconciled_inventory": true,
+    "delete_ledger_must_exceed_longest_backup_window": true
+  },
+  "human_review": {
+    "state": "pending_distinct_reviewers",
+    "legal_reviewer_id": null,
+    "competence_ref": null,
+    "decision_ref": null,
+    "approved_at": null
+  },
+  "required_signoffs": [
+    {"role": "Legal", "reviewer_id": null, "state": "pending", "evidence_ref": null},
+    {"role": "Privacy", "reviewer_id": null, "state": "pending", "evidence_ref": null},
+    {"role": "Security", "reviewer_id": null, "state": "pending", "evidence_ref": null},
+    {"role": "Accounting", "reviewer_id": null, "state": "pending", "evidence_ref": null}
+  ],
+  "gate_claims": [
+    {"id": "L-01", "status": "not_met", "authorized": false},
+    {"id": "DRG-00", "status": "not_met", "authorized": false},
+    {"id": "DRG-01", "status": "not_met", "authorized": false}
+  ]
+}
