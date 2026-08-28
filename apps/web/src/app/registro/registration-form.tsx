@@ -10,7 +10,17 @@ import {
 
 const INITIAL: RegistrationState = { error: null };
 
-export function RegistrationForm({ inviteRequired }: { inviteRequired: boolean }) {
+type RegistrationFormProps = {
+  inviteRequired: boolean;
+  managedIdentity: boolean;
+  managedError: boolean;
+};
+
+export function RegistrationForm({
+  inviteRequired,
+  managedIdentity,
+  managedError,
+}: RegistrationFormProps) {
   const [state, action, pending] = useActionState(registerAccountAction, INITIAL);
 
   return (
@@ -31,13 +41,55 @@ export function RegistrationForm({ inviteRequired }: { inviteRequired: boolean }
 
       <section className="signin-panel card" aria-labelledby="registration-form-title">
         <div>
-          <p className="eyebrow">Laboratorio sintetico</p>
-          <h2 id="registration-form-title">Datos de acceso</h2>
+          <p className="eyebrow">{managedIdentity ? 'Beta privada' : 'Laboratorio sintetico'}</p>
+          <h2 id="registration-form-title">
+            {managedIdentity ? 'Activa tu invitacion' : 'Datos de acceso'}
+          </h2>
           <p className="meta">
-            Usa nombres inventados y un correo terminado en <code>@demo.local</code>.
+            {managedIdentity
+              ? 'El correo y nombre se verifican con Google; Fincilia no recibe tu contrasena.'
+              : <>Usa nombres inventados y un correo terminado en <code>@demo.local</code>.</>}
           </p>
         </div>
 
+        {managedIdentity ? (
+          <form className="signin" method="post" action="/api/auth/oidc/start">
+            <input type="hidden" name="mode" value="register" />
+            <label>
+              Codigo de invitacion
+              <input name="inviteCode" minLength={24} maxLength={128} required
+                     autoComplete="off" spellCheck={false} />
+            </label>
+            <p className="field-help">
+              Esta ligado al correo Google invitado y funciona una sola vez.
+            </p>
+            <label>
+              Nombre de tu firma o equipo
+              <input name="firmName" minLength={2} maxLength={300} required
+                     autoComplete="organization" placeholder="Firma Horizonte" />
+            </label>
+            <fieldset className="registration-consent">
+              <legend>Condiciones del piloto</legend>
+              <label>
+                <input name="acceptTerms" type="checkbox" value="yes" required />
+                <span>
+                  Acepto los <Link href="/terminos">terminos</Link>, he leido la{' '}
+                  <Link href="/privacidad">politica de privacidad</Link> y usare solo
+                  los tipos de datos autorizados para mi invitacion.
+                </span>
+              </label>
+            </fieldset>
+            {managedError ? (
+              <p className="notice error" role="alert">
+                La invitacion o la cuenta Google no pudieron validarse. Solicita una nueva invitacion.
+              </p>
+            ) : null}
+            <button type="submit" className="google-button">
+              <span aria-hidden="true" className="google-mark">G</span>
+              Crear cuenta con Google
+            </button>
+          </form>
+        ) : (
         <form className="signin" action={action} aria-describedby="registration-secret-help">
           <label>
             Código de invitación
@@ -107,6 +159,7 @@ export function RegistrationForm({ inviteRequired }: { inviteRequired: boolean }
             {pending ? 'Creando cuenta…' : 'Crear cuenta y configurar empresa'}
           </button>
         </form>
+        )}
 
         <div className="auth-switch">
           <span>¿Ya tienes una cuenta?</span>

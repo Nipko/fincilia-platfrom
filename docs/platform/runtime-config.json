@@ -346,6 +346,13 @@
       "safe_example": "disabled"
     },
     {
+      "class": "secret_reference",
+      "name": "FINCILIA_OAUTH_TRANSACTION_KEY",
+      "owner": "Security",
+      "required": false,
+      "safe_example": "set_in_untracked_local_env"
+    },
+    {
       "class": "plain",
       "name": "FINCILIA_RELEASE_ID",
       "owner": "Platform",
@@ -362,6 +369,13 @@
     {
       "class": "plain",
       "name": "FINCILIA_OIDC_CLIENT_ID",
+      "owner": "Security",
+      "required": false,
+      "safe_example": "disabled"
+    },
+    {
+      "class": "optional_endpoint",
+      "name": "FINCILIA_OIDC_AUTHORIZE_ENDPOINT",
       "owner": "Security",
       "required": false,
       "safe_example": "disabled"
@@ -407,6 +421,13 @@
       "owner": "Legal",
       "required": false,
       "safe_example": "false"
+    },
+    {
+      "class": "optional_endpoint",
+      "name": "FINCILIA_PUBLIC_ORIGIN",
+      "owner": "Platform",
+      "required": false,
+      "safe_example": "disabled"
     },
     {
       "class": "plain",

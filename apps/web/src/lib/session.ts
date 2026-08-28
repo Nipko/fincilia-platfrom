@@ -7,6 +7,7 @@
  */
 
 import { cookies } from 'next/headers';
+import type { NextResponse } from 'next/server';
 
 export const SESSION_COOKIE = 'fincilia_session';
 
@@ -45,6 +46,27 @@ export async function writeSession(
   // El nombre visible no es un secreto y se guarda aparte para no tener que
   // abrir el token en el servidor solo para saludar a alguien.
   store.set(`${SESSION_COOKIE}_name`, displayName, { ...common, httpOnly: false });
+}
+
+export function writeSessionToResponse(
+  response: NextResponse,
+  token: string,
+  displayName: string,
+  expiresAt: number,
+): void {
+  const maxAge = Math.max(0, expiresAt - Math.floor(Date.now() / 1000));
+  const common = {
+    httpOnly: true,
+    sameSite: 'strict',
+    secure: process.env.FINCILIA_WEB_SECURE_COOKIES === 'true',
+    path: '/',
+    maxAge,
+  } as const;
+  response.cookies.set(SESSION_COOKIE, token, common);
+  response.cookies.set(`${SESSION_COOKIE}_name`, displayName, {
+    ...common,
+    httpOnly: false,
+  });
 }
 
 export async function clearSession(): Promise<void> {

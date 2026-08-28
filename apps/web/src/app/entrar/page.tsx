@@ -1,15 +1,23 @@
-'use client';
-
-import { useActionState } from 'react';
-
 import Link from 'next/link';
 
-import { signInAction, type SignInState } from '../actions';
+import { managedOidcEnabled } from '@/lib/managed-oidc';
 
-const INITIAL: SignInState = { error: null };
+import { LocalSignInForm } from './local-signin-form';
 
-export default function SignInPage() {
-  const [state, action, pending] = useActionState(signInAction, INITIAL);
+type SignInPageProps = {
+  searchParams: Promise<{ error?: string | string[] }>;
+};
+
+const ERROR_MESSAGES: Record<string, string> = {
+  'managed-rejected': 'No pudimos completar el ingreso. Reintenta con la cuenta invitada.',
+  'managed-unavailable': 'El ingreso esta temporalmente fuera de servicio.',
+};
+
+export default async function SignInPage({ searchParams }: SignInPageProps) {
+  const managed = managedOidcEnabled();
+  const supplied = (await searchParams).error;
+  const errorCode = Array.isArray(supplied) ? supplied[0] : supplied;
+  const error = errorCode ? ERROR_MESSAGES[errorCode] : undefined;
 
   return (
     <main className="signin-page">
@@ -23,7 +31,7 @@ export default function SignInPage() {
         <ul className="signin-benefits">
           <li>Varias empresas, una sola vista de trabajo</li>
           <li>Evidencia y linaje visibles en cada decision</li>
-          <li>Datos sinteticos y aislamiento activo en este entorno</li>
+          <li>Aislamiento por empresa y acceso nominal</li>
         </ul>
       </section>
 
@@ -31,32 +39,21 @@ export default function SignInPage() {
         <div>
           <p className="eyebrow">Bienvenido</p>
           <h2 id="signin-form-title">Entra a tu espacio</h2>
-          <p className="meta">Usa una cuenta local para continuar.</p>
+          <p className="meta">
+            {managed ? 'Usa la cuenta Google que recibio la invitacion.' :
+              'Usa una cuenta local para continuar.'}
+          </p>
         </div>
-        <form className="signin" action={action}>
-          <label>
-            Usuario
-            <input
-              name="username"
-              type="text"
-              autoComplete="username"
-              defaultValue="ana@demo.local"
-              required
-            />
-          </label>
-          <label>
-            Contrasena
-            <input name="secret" type="password" autoComplete="current-password" required />
-          </label>
-          {state.error ? (
-            <p className="notice error" role="alert">
-              {state.error}
-            </p>
-          ) : null}
-          <button type="submit" disabled={pending}>
-            {pending ? 'Entrando...' : 'Entrar'}
-          </button>
-        </form>
+        {error ? <p className="notice error" role="alert">{error}</p> : null}
+        {managed ? (
+          <form method="post" action="/api/auth/oidc/start" className="managed-signin">
+            <input type="hidden" name="mode" value="login" />
+            <button type="submit" className="google-button">
+              <span aria-hidden="true" className="google-mark">G</span>
+              Continuar con Google
+            </button>
+          </form>
+        ) : <LocalSignInForm />}
 
         <div className="auth-switch">
           <span>¿Es tu primera vez?</span>
@@ -68,14 +65,6 @@ export default function SignInPage() {
           reconoces nuestra <Link href="/privacidad">politica de privacidad</Link>.
         </p>
 
-        <details className="demo-access">
-          <summary>Ver cuentas de demostracion</summary>
-          <p className="hint">
-            <code>ana@demo.local</code>, <code>beto@demo.local</code>,{' '}
-            <code>carla@demo.local</code> y <code>sofia@demo.local</code>. La contrasena
-            sintetica se crea en <code>db/seed/local.py</code>.
-          </p>
-        </details>
       </section>
     </main>
   );

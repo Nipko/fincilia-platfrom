@@ -45,6 +45,11 @@ FINCILIA_E2E_BASE_URL=http://127.0.0.1:53000 npm run test:a11y
 |---|---|
 | `FINCILIA_API_BASE_URL` | base de la API; sin ella el proceso no arranca, en vez de adivinar un `localhost` que en un contenedor no existe |
 | `FINCILIA_WEB_SECURE_COOKIES` | `true` solo con origen https; una cookie `secure` sobre http no se guarda |
+| `FINCILIA_PUBLIC_ORIGIN` | origen HTTPS exacto de la web; obligatorio para identidad administrada |
+| `FINCILIA_OIDC_AUTHORIZE_ENDPOINT` | endpoint `/oauth2/authorize` exacto del dominio Cognito |
+| `FINCILIA_OIDC_CLIENT_ID` | app client publico de Cognito, sin client secret |
+| `FINCILIA_OIDC_REDIRECT_URI` | callback HTTPS exacto de esta web |
+| `FINCILIA_OAUTH_TRANSACTION_KEY` | clave AES-256 dedicada para la cookie OAuth transitoria; solo Secrets Manager |
 
 ## Que se puede hacer hoy
 
