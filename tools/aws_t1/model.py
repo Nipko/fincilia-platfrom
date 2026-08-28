@@ -131,7 +131,9 @@ def validate_plan(plan: dict[str, Any], model: dict[str, Any]) -> list[str]:
                 errors.append(f"{address}: instance_type debe ser t3.small")
             if after.get("ami") != "ami-0ae4c9718ffae6ca6":
                 errors.append(f"{address}: AMI no fijada")
-            if after.get("key_name") is not None:
+            # The AWS provider normalizes an absent key pair to an empty string
+            # when rendering a no-op plan, while a create plan uses null.
+            if after.get("key_name") not in (None, ""):
                 errors.append(f"{address}: key pair prohibido")
             if after.get("monitoring") is not False:
                 errors.append(f"{address}: detailed monitoring no autorizado")

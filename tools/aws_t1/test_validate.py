@@ -92,6 +92,12 @@ class PlanTests(unittest.TestCase):
     def test_valid_plan(self) -> None:
         self.assertEqual([], self.errors(plan()))
 
+    def test_noop_plan_accepts_provider_empty_key_name(self) -> None:
+        candidate = plan()
+        candidate["resource_changes"][0]["change"]["actions"] = ["no-op"]
+        candidate["resource_changes"][0]["change"]["after"]["key_name"] = ""
+        self.assertEqual([], self.errors(candidate))
+
     def mutate(self, path: list, value) -> list[str]:
         candidate = plan(); target = candidate
         for key in path[:-1]: target = target[key]
