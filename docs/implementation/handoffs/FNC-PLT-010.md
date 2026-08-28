@@ -3,7 +3,7 @@ task_id: FNC-PLT-010
 status: REVIEW_PENDING
 base_sha: c1ef454
 implementation_sha: 0a531c0
-integration_sha: pending_evidence_commit
+integration_sha: 2fa832c
 data_ceiling: synthetic_only
 implemented_by: Codex principal dev + Integration Steward
 independent_reviewers: [Security, Architecture, Platform, QA]
