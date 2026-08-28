@@ -1,0 +1,101 @@
+{
+  "schema_version": "1.0.0",
+  "task_id": "FNC-PLT-010",
+  "status": "authorized_control_plane_only",
+  "authorized_at": "2026-08-28",
+  "data_ceiling": "synthetic_only",
+  "real_data_authorized": false,
+  "external_ai_authorized": false,
+  "provider": "AWS",
+  "region": "sa-east-1",
+  "account_evidence": {
+    "account_id_versioned": false,
+    "plan_type": "FREE",
+    "plan_status": "ACTIVE",
+    "remaining_credits_usd_observed": 100,
+    "plan_expiration_observed": "2027-02-28T17:34:28.105000+00:00",
+    "profile": "fincilia-sandbox",
+    "principal_kind": "iam_user_non_root",
+    "long_lived_access_key": false
+  },
+  "toolchain": {
+    "opentofu_version": "1.12.6",
+    "aws_provider_version": "6.59.0",
+    "authentication": "aws_login_temporary_credentials",
+    "state_backend": "s3_sse_s3_versioned_native_lockfile",
+    "bootstrap_state": "local_outside_repository_no_secrets"
+  },
+  "apply_scope": {
+    "authorized": true,
+    "expires_at": "2026-09-27",
+    "allowed_resource_types": [
+      "aws_budgets_budget",
+      "aws_cloudtrail",
+      "aws_cognito_user_pool",
+      "aws_cognito_user_pool_client",
+      "aws_cognito_user_pool_domain",
+      "aws_ecr_lifecycle_policy",
+      "aws_ecr_repository",
+      "aws_iam_instance_profile",
+      "aws_iam_role",
+      "aws_iam_role_policy",
+      "aws_iam_role_policy_attachment",
+      "aws_internet_gateway",
+      "aws_route",
+      "aws_route_table",
+      "aws_route_table_association",
+      "aws_s3_bucket",
+      "aws_s3_bucket_lifecycle_configuration",
+      "aws_s3_bucket_ownership_controls",
+      "aws_s3_bucket_policy",
+      "aws_s3_bucket_public_access_block",
+      "aws_s3_bucket_server_side_encryption_configuration",
+      "aws_s3_bucket_versioning",
+      "aws_security_group",
+      "aws_subnet",
+      "aws_vpc",
+      "aws_vpc_endpoint",
+      "terraform_data"
+    ],
+    "forbidden_resource_types": [
+      "aws_instance",
+      "aws_db_instance",
+      "aws_nat_gateway",
+      "aws_lb",
+      "aws_ecs_cluster",
+      "aws_ecs_service",
+      "aws_ecs_task_definition",
+      "aws_kms_key",
+      "aws_secretsmanager_secret"
+    ],
+    "runtime_enabled": false
+  },
+  "required_controls": [
+    "expected_account_guard",
+    "region_guard",
+    "default_tags_synthetic_only",
+    "s3_public_access_block",
+    "s3_tls_only",
+    "s3_versioning",
+    "ecr_immutable_and_scan",
+    "cognito_admin_create_only",
+    "cloudtrail_log_validation",
+    "gross_cost_budget",
+    "no_ingress_runtime_security_group",
+    "no_NAT_ALB_Fargate_EC2_RDS"
+  ],
+  "cost_control": {
+    "cash_charge_possible_on_free_plan": false,
+    "credits_are_finite": true,
+    "gross_monthly_budget_usd": 5,
+    "automatic_free_tier_alerts": true,
+    "organizations_forbidden": true,
+    "control_tower_forbidden": true
+  },
+  "gate_claims": [
+    {"id": "A-02", "status": "not_met"},
+    {"id": "S-01", "status": "not_met"},
+    {"id": "DRG-00", "status": "not_met"},
+    {"id": "DRG-01", "status": "not_met"}
+  ]
+}

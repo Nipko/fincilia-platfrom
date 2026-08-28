@@ -101,5 +101,6 @@
 | TST-SCH-001 | Esquema desconocido o incompatible no produce efecto | FNC-ARC-004 |
 | TST-TEN-002 | Evento o dead letter no puede cruzar empresa | FNC-ARC-004 |
 | TST-MUT-001 | Mutación contractual debe producir exactamente los hallazgos esperados | FNC-QA-005 |
+| TST-AWS-001 | Plan T0 rechaza runtime, datos reales, cuenta o región inesperada y acciones fuera de allowlist | FNC-PLT-010 |
 
 Los tests todavía son especificaciones. Un ID solo cambia a Implemented cuando existe un comando reproducible y evidencia en CI.

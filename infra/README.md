@@ -7,7 +7,8 @@ El entorno local previsto utilizará Docker Compose y servicios ligados a 127.0.
 
 No crear todavía:
 
-- Recursos cloud productivos.
+- Recursos cloud productivos. El unico cloud permitido es el spike sintetico T0 de
+  `infra/aws`, gobernado por FNC-PLT-010 y sin runtime en su primer apply.
 - Egress hacia IA.
 - Conectores reales.
 - Puertos publicados en 0.0.0.0 sin decisión.
