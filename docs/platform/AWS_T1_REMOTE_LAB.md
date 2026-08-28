@@ -19,6 +19,27 @@ aws ssm start-session \
 Mientras la sesion esta abierta, la web se visita en <http://127.0.0.1:53000>. La API
 puede tunelizarse por separado desde el puerto remoto 58080.
 
+La sesion termina con `Ctrl+C`; cerrar el tunel no detiene la instancia. El host se
+detiene por sus dos guardas de cuatro horas o mediante una operacion AWS explicita.
+
+## Estado verificado — 2026-08-28
+
+El release `a710c9e421852a54e35613de81f025fe3c533efc` se desplego por digest y completo
+`cloud-init`. PostgreSQL, Valkey, MinIO, API, worker y web quedaron saludables; el
+esquema alcanzo `V0038` y la API devolvio `ready`.
+
+Con datos exclusivamente sinteticos se demostraron:
+
+- autenticacion de dos identidades y portafolios de dos y una empresas;
+- denegacion `403` al intentar cruzar la frontera de empresa;
+- resolucion de fuente, carga, cuarentena y promocion del documento;
+- backup y restore en una base independiente con conteos equivalentes;
+- web HTTP 200 por un tunel SSM ligado a loopback;
+- plan posterior `No changes`, sin key pair y con cero reglas de ingress.
+
+Estas evidencias habilitan pruebas humanas sinteticas del laboratorio, no DRG-00 ni
+DRG-01. ADR-030 y las revisiones independientes permanecen pendientes.
+
 ## Limites operativos
 
 - El primer boot programa `shutdown --poweroff +240` antes de tocar red, S3 o Docker.

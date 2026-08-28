@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "task_id": "FNC-PLT-011",
-  "status": "implementation_in_progress",
+  "status": "review_pending",
   "data_ceiling": "synthetic_only",
   "real_data_authorized": false,
   "external_ai_authorized": false,

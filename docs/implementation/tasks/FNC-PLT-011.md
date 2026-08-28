@@ -1,7 +1,7 @@
 ---
 task: FNC-PLT-011
 title: Laboratorio remoto AWS T1 con runtime sintetico
-status: in_progress
+status: review_pending
 implementer: Integration Steward
 base_sha: 6a6822b
 gate: T1-SYNTHETIC-RUNTIME
@@ -55,3 +55,18 @@ El laboratorio no se presenta como staging ni produccion y no habilita DRG-00/DR
 - IdP Cognito en la aplicacion; el laboratorio usa las identidades sinteticas existentes.
 - Alta disponibilidad, dominio, HTTPS publico, WAF, RDS o produccion.
 - Aceptar ADR-030 o superar S1-READY, DRG-00, DRG-01 o GA-01.
+
+## Evidencia de implementacion
+
+- Release remoto ejercido: `a710c9e421852a54e35613de81f025fe3c533efc`.
+- OpenTofu posterior al despliegue: `No changes`; contrato del plan valido.
+- Runtime completo saludable, esquema PostgreSQL en `V0038` y cuatro buckets internos.
+- Smoke y E2E sinteticos: readiness, autenticacion, portafolio 2/1, fuente activa,
+  carga, cuarentena, promocion y denegacion cross-company `403`.
+- Backup `pg_dump` restaurado en una base independiente con conteos identicos.
+- EC2 observado sin key pair ni ingress, IMDSv2 obligatorio, hop limit 1 y EBS cifrado.
+- Apagado nativo y timer de cuatro horas demostrados antes de completar bootstrap.
+- Web accesible exclusivamente mediante SSM a `127.0.0.1:53000`.
+
+La implementacion queda en `review_pending`: faltan las revisiones independientes
+Security, Architecture, Platform y QA. No se autoriza ningun dato real.
