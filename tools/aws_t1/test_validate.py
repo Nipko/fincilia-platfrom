@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import unittest
+from pathlib import Path
 
 from .model import CONTRACT_PATH, load_json, validate, validate_contract, validate_plan, validate_sources
 
@@ -59,6 +60,15 @@ class ContractTests(unittest.TestCase):
     def test_hard_cap_claim_bites(self) -> None:
         value = copy.deepcopy(self.model); value["cost_model"]["hard_cost_cap"] = True
         self.assertTrue(validate_contract(value))
+
+    def test_autostop_is_armed_before_application_start(self) -> None:
+        source = (
+            Path(__file__).resolve().parents[2]
+            / "infra" / "aws" / "t1" / "runtime" / "cloud-init.sh.tftpl"
+        ).read_text(encoding="utf-8")
+        timer = "systemctl enable --now fincilia-t1-autostop.timer"
+        application = "systemctl enable --now fincilia-t1.service"
+        self.assertLess(source.index(timer), source.index(application))
 
 
 class PlanTests(unittest.TestCase):

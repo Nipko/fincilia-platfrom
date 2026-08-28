@@ -28,5 +28,6 @@ aws ecr get-login-password --region sa-east-1 | \
 docker compose --env-file /dev/null -f /opt/fincilia/compose.yaml pull
 
 systemctl daemon-reload
-systemctl enable --now fincilia-t1.service
+# El limite de costo debe quedar armado aunque el servicio de aplicacion falle.
 systemctl enable --now fincilia-t1-autostop.timer
+systemctl enable --now fincilia-t1.service
