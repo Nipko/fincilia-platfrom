@@ -83,17 +83,22 @@ class S3ObjectStore:
             "derived": settings.object_bucket_derived,
             "exports": settings.object_bucket_exports,
         }
+        credentials: dict[str, str] = {}
+        if settings.object_credentials_source == "local_static":
+            credentials = {
+                "aws_access_key_id": settings.object_access_key or "",
+                "aws_secret_access_key": settings.object_secret_key or "",
+            }
         self._client = boto3.client(
             "s3",
             endpoint_url=settings.object_store_endpoint,
-            aws_access_key_id=settings.object_access_key,
-            aws_secret_access_key=settings.object_secret_key,
             region_name=settings.object_region,
             config=BotoConfig(signature_version="s3v4",
                               s3={"addressing_style": "path"},
                               connect_timeout=CONNECT_TIMEOUT_SECONDS,
                               read_timeout=READ_TIMEOUT_SECONDS,
                               retries={"max_attempts": 2, "mode": "standard"}),
+            **credentials,
         )
 
     def bucket(self, zone: str) -> str:

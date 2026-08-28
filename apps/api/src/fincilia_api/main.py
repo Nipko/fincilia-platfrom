@@ -21,6 +21,7 @@ import valkey
 
 from fincilia_platform.db import Database
 from fincilia_platform.identity import Credential, LocalIdentityProvider
+from fincilia_platform.gates import verify_configured_gate
 from fincilia_platform.objects import S3ObjectStore
 from fincilia_platform.settings import ApiSettings, get_api_settings
 from fincilia_platform.probes import Probe, build_probes, ensure_buckets
@@ -80,6 +81,12 @@ def build_identity_provider(settings: ApiSettings, database: Database):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings: ApiSettings = app.state.settings
+    if settings.oidc_enabled:
+        app.state.identity_gate = verify_configured_gate(
+            settings, required_gate="DRG-00")
+    if settings.real_data_enabled:
+        app.state.real_data_gate = verify_configured_gate(
+            settings, required_gate="DRG-01")
     configure_observability(settings.service_name, settings.log_level)
     log_event(logger, logging.INFO, "api.starting", environment=settings.env,
               release_id=settings.release_id, revision=settings.build_revision)
@@ -186,7 +193,9 @@ def create_app(settings: ApiSettings | None = None,
         """
         return {
             "environment": resolved.env,
-            "data_ceiling": "synthetic_only",
+            "data_ceiling": (
+                "private_pilot_real_data" if resolved.real_data_enabled
+                else "synthetic_only"),
             "capabilities": {
                 "real_data_enabled": resolved.real_data_enabled,
                 "ai_gateway_enabled": resolved.ai_gateway_enabled,

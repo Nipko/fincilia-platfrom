@@ -30,6 +30,7 @@ sys.path.insert(0, "/app/src")
 
 from fincilia_contracts.release import digest_of  # noqa: E402
 from fincilia_platform.db import Database  # noqa: E402
+from fincilia_platform.gates import verify_configured_gate  # noqa: E402
 from fincilia_platform.objects import ObjectStoreError, S3ObjectStore  # noqa: E402
 from fincilia_platform.observability import (  # noqa: E402
     configure as configure_observability,
@@ -76,6 +77,8 @@ def beat() -> None:
 
 def main() -> int:
     settings = load_settings()
+    if settings.real_data_enabled:
+        verify_configured_gate(settings, required_gate="DRG-01")
     configure_observability(settings.service_name, settings.log_level)
     signal.signal(signal.SIGTERM, _stop)
     signal.signal(signal.SIGINT, _stop)

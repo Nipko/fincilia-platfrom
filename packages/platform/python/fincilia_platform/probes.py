@@ -153,16 +153,21 @@ class ObjectStoreProbe:
 
     def client(self):
         settings = self._settings
+        credentials: dict[str, str] = {}
+        if settings.object_credentials_source == "local_static":
+            credentials = {
+                "aws_access_key_id": settings.object_access_key or "",
+                "aws_secret_access_key": settings.object_secret_key or "",
+            }
         return boto3.client(
             "s3",
             endpoint_url=settings.object_store_endpoint,
             region_name=settings.object_region,
-            aws_access_key_id=settings.object_access_key,
-            aws_secret_access_key=settings.object_secret_key,
             config=BotoConfig(signature_version="s3v4",
                               connect_timeout=int(PROBE_TIMEOUT_SECONDS),
                               read_timeout=int(PROBE_TIMEOUT_SECONDS),
                               retries={"max_attempts": 1}),
+            **credentials,
         )
 
     def probe(self) -> ProbeResult:

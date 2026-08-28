@@ -16,6 +16,13 @@
       "secret_provider": "ephemeral_ci_only"
     },
     {
+      "data_ceiling": "none_until_DRG00_DRG01",
+      "enabled": false,
+      "id": "pilot",
+      "network": "private_aws_deny_by_default",
+      "secret_provider": "aws_secrets_manager"
+    },
+    {
       "data_ceiling": "none_until_A02_L01",
       "enabled": false,
       "id": "staging",
@@ -138,6 +145,27 @@
       "safe_example": "900"
     },
     {
+      "class": "secret_reference",
+      "name": "FINCILIA_DATA_GATE_ATTESTATION",
+      "owner": "Security",
+      "required": false,
+      "safe_example": "set_in_untracked_local_env"
+    },
+    {
+      "class": "plain",
+      "name": "FINCILIA_DATA_GATE_KMS_KEY_ID",
+      "owner": "Security",
+      "required": false,
+      "safe_example": "disabled"
+    },
+    {
+      "class": "secret_reference",
+      "name": "FINCILIA_DATA_GATE_SIGNATURE",
+      "owner": "Security",
+      "required": false,
+      "safe_example": "set_in_untracked_local_env"
+    },
+    {
       "class": "plain",
       "name": "FINCILIA_CACHE_URL",
       "owner": "Platform",
@@ -210,6 +238,34 @@
       "safe_example": "set_in_untracked_local_env"
     },
     {
+      "class": "secret_reference",
+      "name": "FINCILIA_IDENTITY_BINDING_HMAC_KEY",
+      "owner": "Security",
+      "required": false,
+      "safe_example": "set_in_untracked_local_env"
+    },
+    {
+      "class": "secret_reference",
+      "name": "FINCILIA_IDENTITY_GATE_ATTESTATION",
+      "owner": "Security",
+      "required": false,
+      "safe_example": "set_in_untracked_local_env"
+    },
+    {
+      "class": "plain",
+      "name": "FINCILIA_IDENTITY_GATE_KMS_KEY_ID",
+      "owner": "Security",
+      "required": false,
+      "safe_example": "disabled"
+    },
+    {
+      "class": "secret_reference",
+      "name": "FINCILIA_IDENTITY_GATE_SIGNATURE",
+      "owner": "Security",
+      "required": false,
+      "safe_example": "set_in_untracked_local_env"
+    },
+    {
       "class": "public_config",
       "name": "FINCILIA_LOG_LEVEL",
       "owner": "Platform",
@@ -225,6 +281,13 @@
       "owner": "Security",
       "required": true,
       "safe_example": "set_in_untracked_local_env"
+    },
+    {
+      "class": "plain",
+      "name": "FINCILIA_OBJECT_CREDENTIALS_SOURCE",
+      "owner": "Platform",
+      "required": false,
+      "safe_example": "local_static"
     },
     {
       "class": "plain",
@@ -298,6 +361,48 @@
     },
     {
       "class": "plain",
+      "name": "FINCILIA_OIDC_CLIENT_ID",
+      "owner": "Security",
+      "required": false,
+      "safe_example": "disabled"
+    },
+    {
+      "class": "feature_gate",
+      "name": "FINCILIA_OIDC_ENABLED",
+      "owner": "Security",
+      "required": false,
+      "safe_example": "false"
+    },
+    {
+      "class": "optional_endpoint",
+      "name": "FINCILIA_OIDC_ISSUER",
+      "owner": "Security",
+      "required": false,
+      "safe_example": "disabled"
+    },
+    {
+      "class": "optional_endpoint",
+      "name": "FINCILIA_OIDC_REDIRECT_URI",
+      "owner": "Security",
+      "required": false,
+      "safe_example": "disabled"
+    },
+    {
+      "class": "optional_endpoint",
+      "name": "FINCILIA_OIDC_TOKEN_ENDPOINT",
+      "owner": "Security",
+      "required": false,
+      "safe_example": "disabled"
+    },
+    {
+      "class": "optional_endpoint",
+      "name": "FINCILIA_OIDC_USERINFO_ENDPOINT",
+      "owner": "Security",
+      "required": false,
+      "safe_example": "disabled"
+    },
+    {
+      "class": "plain",
       "name": "FINCILIA_REAL_DATA_ENABLED",
       "owner": "Legal",
       "required": false,
@@ -316,6 +421,13 @@
       "owner": "Platform",
       "required": false,
       "safe_example": "fincilia-api"
+    },
+    {
+      "class": "plain",
+      "name": "FINCILIA_SECRET_SOURCE",
+      "owner": "Security",
+      "required": false,
+      "safe_example": "local_env"
     },
     {
       "class": "plain",

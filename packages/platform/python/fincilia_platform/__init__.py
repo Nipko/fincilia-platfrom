@@ -14,6 +14,7 @@ __all__ = [
     "CacheProbe", "DatabaseProbe", "ObjectStoreProbe", "Probe", "ProbeResult",
     "build_probes", "probe_all", "GATED_CAPABILITIES", "Settings", "get_settings",
     "ApiSettings", "WorkerSettings", "get_api_settings", "get_worker_settings",
+    "GateAttestation", "GateVerificationError", "verify_configured_gate",
 ]
 
 _PROBES = frozenset({
@@ -24,6 +25,9 @@ _SETTINGS = frozenset({
     "GATED_CAPABILITIES", "Settings", "get_settings", "ApiSettings",
     "WorkerSettings", "get_api_settings", "get_worker_settings",
 })
+_GATES = frozenset({
+    "GateAttestation", "GateVerificationError", "verify_configured_gate",
+})
 
 
 def __getattr__(name: str):
@@ -31,4 +35,6 @@ def __getattr__(name: str):
         return getattr(import_module("fincilia_platform.probes"), name)
     if name in _SETTINGS:
         return getattr(import_module("fincilia_platform.settings"), name)
+    if name in _GATES:
+        return getattr(import_module("fincilia_platform.gates"), name)
     raise AttributeError(name)

@@ -7,7 +7,7 @@ class ConfigTest(unittest.TestCase):
  def test_valid(self):r,f=validate_repository();self.assertEqual([],f);self.assertFalse(r["production_enabled"])
  def test_production(self):m=copy.deepcopy(M);m["production_enabled"]=True;self.bite(m,"CFG-GATE")
  def test_ai(self):m=copy.deepcopy(M);m["external_ai_enabled"]=True;self.bite(m,"CFG-GATE")
- def test_env(self):m=copy.deepcopy(M);m["environments"][3]["enabled"]=True;self.bite(m,"CFG-ENV")
+ def test_env(self):m=copy.deepcopy(M);next(x for x in m["environments"] if x["id"]=="pilot")["enabled"]=True;self.bite(m,"CFG-ENV")
  def test_name(self):m=copy.deepcopy(M);m["variables"][0]["name"]="DATABASE";self.bite(m,"CFG-NAME")
  def secret_index(self,m):return next(i for i,v in enumerate(m["variables"]) if v["class"]=="secret_reference")
  def test_secret(self):m=copy.deepcopy(M);m["variables"][self.secret_index(m)]["safe_example"]="password";self.bite(m,"CFG-SECRET")

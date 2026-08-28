@@ -22,10 +22,10 @@ import functools
 import re
 from typing import Literal
 
-from pydantic import Field, PostgresDsn, ValidationInfo, field_validator
+from pydantic import Field, PostgresDsn, ValidationInfo, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-GATED_CAPABILITIES = ("real_data_enabled", "ai_gateway_enabled", "payments_enabled")
+GATED_CAPABILITIES = ("ai_gateway_enabled", "payments_enabled")
 
 # Nombres que no nombran una version. El contrato de linaje los lista uno a uno.
 FLOATING_TOKENS = frozenset({"latest", "main", "head", "stable", "current"})
@@ -42,8 +42,8 @@ class Settings(BaseSettings):
         case_sensitive=False,
     )
 
-    env: Literal["local", "test"] = Field(
-        description="Solo local o test. Produccion no es una variable de entorno.")
+    env: Literal["local", "test", "pilot"] = Field(
+        description="Pilot requiere una atestacion KMS; el nombre no autoriza datos.")
     service_name: str = Field(default="fincilia-api", min_length=3)
     log_level: Literal["debug", "info", "warning", "error"] = Field(default="info")
     build_revision: str = Field(
@@ -55,6 +55,9 @@ class Settings(BaseSettings):
     otel_endpoint: str = Field(
         default="disabled",
         description="`disabled` mientras no exista colector local.")
+    secret_source: Literal["local_env", "aws_secrets_manager"] = Field(
+        default="local_env",
+        description="Procedencia de secretos; pilot nunca acepta local_env.")
 
     database_url: PostgresDsn = Field(
         description="DSN del rol runtime, nunca del propietario del esquema.")
@@ -65,10 +68,12 @@ class Settings(BaseSettings):
     cache_url: str = Field(
         description="Valkey. Cache y progreso efimero; nunca autoridad financiera.")
 
-    object_store_endpoint: str = Field(description="Endpoint S3 compatible local.")
+    object_store_endpoint: str = Field(description="Endpoint S3 compatible o AWS S3.")
     object_region: str = Field(default="us-east-1", min_length=2)
-    object_access_key: str = Field(min_length=3)
-    object_secret_key: str = Field(min_length=8)
+    object_credentials_source: Literal["local_static", "aws_workload_identity"] = Field(
+        default="local_static")
+    object_access_key: str | None = Field(default=None, min_length=3)
+    object_secret_key: str | None = Field(default=None, min_length=8)
     object_bucket_quarantine: str = Field(default="fincilia-quarantine", min_length=3)
     object_bucket_raw: str = Field(default="fincilia-raw", min_length=3)
     object_bucket_derived: str = Field(default="fincilia-derived", min_length=3)
@@ -109,6 +114,19 @@ class Settings(BaseSettings):
     registration_invite_required: bool = Field(
         default=False,
         description="Exige una invitacion de un uso en la beta cerrada sintetica.")
+    oidc_enabled: bool = Field(default=False)
+    oidc_issuer: str = Field(default="disabled")
+    oidc_client_id: str = Field(default="disabled")
+    oidc_token_endpoint: str = Field(default="disabled")
+    oidc_userinfo_endpoint: str = Field(default="disabled")
+    oidc_redirect_uri: str = Field(default="disabled")
+    identity_binding_hmac_key: str | None = Field(default=None)
+    identity_gate_attestation: str = Field(default="disabled")
+    identity_gate_signature: str = Field(default="disabled")
+    identity_gate_kms_key_id: str = Field(default="disabled")
+    data_gate_attestation: str = Field(default="disabled")
+    data_gate_signature: str = Field(default="disabled")
+    data_gate_kms_key_id: str = Field(default="disabled")
 
     @field_validator("cache_url")
     @classmethod
@@ -140,6 +158,85 @@ class Settings(BaseSettings):
                 f"{info.field_name} is gated: enabling it needs a human-approved gate "
                 "(DRG-00, DRG-01 or L-02), not an environment variable")
         return value
+
+    @field_validator("real_data_enabled")
+    @classmethod
+    def _real_data_needs_pilot_and_kms(cls, value: bool,
+                                       info: ValidationInfo) -> bool:
+        if value and (
+            info.data.get("env") != "pilot"
+            or info.data.get("secret_source") != "aws_secrets_manager"
+        ):
+            raise ValueError("real data requires pilot plus AWS Secrets Manager and a KMS gate")
+        return value
+
+    @field_validator("oidc_enabled")
+    @classmethod
+    def _oidc_needs_pilot(cls, value: bool, info: ValidationInfo) -> bool:
+        if value and (
+            info.data.get("env") != "pilot"
+            or info.data.get("secret_source") != "aws_secrets_manager"
+        ):
+            raise ValueError("OIDC with personal data requires the gated pilot environment")
+        return value
+
+    @field_validator("identity_binding_hmac_key")
+    @classmethod
+    def _identity_binding_key(cls, value: str | None,
+                              info: ValidationInfo) -> str | None:
+        if info.data.get("oidc_enabled") and (value is None or len(value) < 32):
+            raise ValueError("OIDC needs a dedicated identity binding HMAC key")
+        if value and value in {
+            info.data.get("auth_signing_key"),
+            info.data.get("identifier_tokenization_key"),
+            info.data.get("authorization_context_hmac_key"),
+        }:
+            raise ValueError("the identity binding key must not be reused")
+        return value
+
+    @model_validator(mode="after")
+    def _environment_boundary(self) -> "Settings":
+        """Comprueba campos relacionados despues de aplicar los defaults."""
+        if self.object_credentials_source == "local_static":
+            if not self.object_access_key or not self.object_secret_key:
+                raise ValueError("local object storage needs explicit credentials")
+        elif self.object_access_key or self.object_secret_key:
+            raise ValueError(
+                "AWS workload identity must not receive static object credentials")
+
+        if self.env == "pilot":
+            if self.secret_source != "aws_secrets_manager":
+                raise ValueError("pilot secrets must come from AWS Secrets Manager")
+            if self.object_credentials_source != "aws_workload_identity":
+                raise ValueError("pilot object storage requires AWS workload identity")
+
+        if self.real_data_enabled and any(value == "disabled" for value in (
+                self.data_gate_attestation,
+                self.data_gate_signature,
+                self.data_gate_kms_key_id)):
+            raise ValueError("real data needs a configured KMS gate attestation")
+
+        if self.oidc_enabled:
+            if self.registration_invite_required is not True:
+                raise ValueError("pilot OIDC registration must remain invite-only")
+            if not self.identity_binding_hmac_key or len(self.identity_binding_hmac_key) < 32:
+                raise ValueError("OIDC needs a dedicated identity binding HMAC key")
+            for name, value in (
+                ("issuer", self.oidc_issuer),
+                ("token endpoint", self.oidc_token_endpoint),
+                ("userinfo endpoint", self.oidc_userinfo_endpoint),
+                ("redirect URI", self.oidc_redirect_uri),
+            ):
+                if not value.startswith("https://"):
+                    raise ValueError(f"OIDC {name} must be an exact HTTPS URL")
+            if self.oidc_client_id == "disabled" or len(self.oidc_client_id) < 8:
+                raise ValueError("OIDC client identifier is missing")
+            if any(value == "disabled" for value in (
+                    self.identity_gate_attestation,
+                    self.identity_gate_signature,
+                    self.identity_gate_kms_key_id)):
+                raise ValueError("OIDC needs a configured DRG-00 KMS attestation")
+        return self
 
     @field_validator("engine_release_key")
     @classmethod
@@ -181,7 +278,8 @@ class Settings(BaseSettings):
         # Fail-closed fuera del entorno local. Hoy `env` solo admite `local` y
         # `test`, asi que esto no se puede alcanzar: es la trampa que salta el dia
         # que alguien anada `staging` sin haber decidido Vault o KMS.
-        if info.data.get("env") not in ("local", "test"):
+        if (info.data.get("env") not in ("local", "test")
+                and info.data.get("secret_source") != "aws_secrets_manager"):
             raise ValueError(
                 "outside local and test this key must come from a key manager, "
                 "not from an environment variable")
@@ -200,7 +298,8 @@ class Settings(BaseSettings):
             raise ValueError(
                 "the authorization context key must not be reused for signing "
                 "or identifier tokenization")
-        if info.data.get("env") not in ("local", "test"):
+        if (info.data.get("env") not in ("local", "test")
+                and info.data.get("secret_source") != "aws_secrets_manager"):
             raise ValueError(
                 "outside local and test this key must come from a key manager")
         return value
@@ -240,6 +339,12 @@ class ApiSettings(Settings):
         min_length=32,
         description="Clave HMAC exclusiva de capabilities persistentes. "
                     "Sintetica en local; Vault/KMS fuera de local.")
+
+    @model_validator(mode="after")
+    def _real_api_requires_managed_identity(self) -> "ApiSettings":
+        if self.real_data_enabled and not self.oidc_enabled:
+            raise ValueError("real data API requires nominal managed identity")
+        return self
 
 
 class WorkerSettings(Settings):

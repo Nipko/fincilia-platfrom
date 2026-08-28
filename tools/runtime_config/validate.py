@@ -13,7 +13,7 @@ def validate_model(m:dict[str,Any],root:Path=ROOT):
  if set(m)!=keys:return [Finding("CFG-SCHEMA","model","unexpected keys")]
  if m["active_environment"]!="local" or m["production_enabled"] is not False or m["external_ai_enabled"] is not False or m["real_data_enabled"] is not False:f.append(Finding("CFG-GATE","model","unsafe capability enabled"))
  envs={x.get("id"):x for x in m["environments"]}
- if set(envs)!={"local","ci","staging","production"} or envs.get("staging",{}).get("enabled") is not False or envs.get("production",{}).get("enabled") is not False:f.append(Finding("CFG-ENV","environments","environment drift"))
+ if set(envs)!={"local","ci","pilot","staging","production"} or any(envs.get(x,{}).get("enabled") is not False for x in ("pilot","staging","production")):f.append(Finding("CFG-ENV","environments","environment drift"))
  names=[x.get("name") for x in m["variables"]]
  if len(names)!=len(set(names)) or any(not re.fullmatch(r"FINCILIA_[A-Z0-9_]+",str(x)) for x in names):f.append(Finding("CFG-NAME","variables","invalid/duplicate variable"))
  for v in m["variables"]:
