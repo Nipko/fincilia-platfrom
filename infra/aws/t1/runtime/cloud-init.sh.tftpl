@@ -23,11 +23,13 @@ install -m 0644 fincilia-t1.service /etc/systemd/system/fincilia-t1.service
 install -m 0644 fincilia-t1-autostop.service /etc/systemd/system/fincilia-t1-autostop.service
 install -m 0644 fincilia-t1-autostop.timer /etc/systemd/system/fincilia-t1-autostop.timer
 
+systemctl daemon-reload
+# El limite de costo se arma antes de cualquier descarga de imagen o arranque
+# de aplicacion: un registry lento o caido no puede dejar la maquina sin techo.
+systemctl enable --now fincilia-t1-autostop.timer
+
 aws ecr get-login-password --region sa-east-1 | \
   docker login --username AWS --password-stdin '${registry}'
 docker compose --env-file /dev/null -f /opt/fincilia/compose.yaml pull
 
-systemctl daemon-reload
-# El limite de costo debe quedar armado aunque el servicio de aplicacion falle.
-systemctl enable --now fincilia-t1-autostop.timer
 systemctl enable --now fincilia-t1.service

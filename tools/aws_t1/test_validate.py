@@ -67,7 +67,9 @@ class ContractTests(unittest.TestCase):
             / "infra" / "aws" / "t1" / "runtime" / "cloud-init.sh.tftpl"
         ).read_text(encoding="utf-8")
         timer = "systemctl enable --now fincilia-t1-autostop.timer"
+        image_pull = "docker compose --env-file /dev/null -f /opt/fincilia/compose.yaml pull"
         application = "systemctl enable --now fincilia-t1.service"
+        self.assertLess(source.index(timer), source.index(image_pull))
         self.assertLess(source.index(timer), source.index(application))
 
 
