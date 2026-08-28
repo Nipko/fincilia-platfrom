@@ -33,7 +33,7 @@
   },
   "data_stores": {
     "s3_zones": ["quarantine", "raw", "derived", "exports"],
-    "kms_key_classes": ["quarantine", "evidence", "audit", "database"],
+    "kms_key_classes": ["quarantine", "evidence", "audit", "database", "gate_sign_verify"],
     "bucket_versioning": true,
     "bucket_public_access_block": true,
     "bucket_tls_required": true,
@@ -77,12 +77,14 @@
     "cloudtrail": true,
     "encrypted_log_groups": true,
     "alb_access_logs": true,
+    "alb_access_log_encryption": "SSE-S3_AWS_ALB_constraint",
+    "audit_evidence_encryption": "SSE-KMS_customer_managed",
     "budget_alert": true,
     "budget_is_hard_cap": false
   },
   "required_resource_types": [
     "aws_acm_certificate", "aws_budgets_budget", "aws_cloudtrail",
-    "aws_cloudwatch_log_group", "aws_cognito_user_pool",
+    "aws_cloudwatch_log_group", "aws_cloudwatch_metric_alarm", "aws_cognito_user_pool",
     "aws_cognito_user_pool_client", "aws_cognito_user_pool_domain",
     "aws_db_instance", "aws_db_subnet_group", "aws_ecr_repository",
     "aws_ecs_cluster", "aws_ecs_service", "aws_ecs_task_definition",

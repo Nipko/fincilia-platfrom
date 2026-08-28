@@ -431,6 +431,13 @@
     },
     {
       "class": "plain",
+      "name": "FINCILIA_PUBLIC_STAGE",
+      "owner": "Product",
+      "required": false,
+      "safe_example": "local"
+    },
+    {
+      "class": "plain",
       "name": "FINCILIA_REGISTRATION_INVITE_REQUIRED",
       "owner": "Product",
       "required": false,

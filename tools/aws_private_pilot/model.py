@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -116,6 +117,16 @@ def validate_contract(model: dict[str, Any]) -> list[str]:
     if not required_disabled.issubset(disabled):
         errors.append("faltan capacidades prohibidas del piloto")
 
+    observability = model.get("observability", {})
+    if observability.get("alb_access_logs") is not True:
+        errors.append("ALB access logs son obligatorios")
+    if observability.get("alb_access_log_encryption") != \
+            "SSE-S3_AWS_ALB_constraint":
+        errors.append("ALB access logs deben declarar la restriccion SSE-S3 de AWS")
+    if observability.get("audit_evidence_encryption") != \
+            "SSE-KMS_customer_managed":
+        errors.append("la evidencia de auditoria debe usar CMK")
+
     required = set(model.get("required_resource_types", []))
     forbidden = set(model.get("forbidden_resource_types", []))
     if not required or not forbidden or required & forbidden:
@@ -126,6 +137,76 @@ def validate_contract(model: dict[str, Any]) -> list[str]:
     for gate in ("DRG-00", "DRG-01", "GA-01"):
         if gates.get(gate) != "not_met":
             errors.append(f"{gate} debe permanecer not_met")
+    return errors
+
+
+def source_text() -> str:
+    return "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in sorted(INFRA_ROOT.glob("*.tf"))
+    )
+
+
+def validate_sources(sources: str | None = None) -> list[str]:
+    sources = source_text() if sources is None else sources
+    errors: list[str] = []
+    required = (
+        'required_version = "= 1.12.6"',
+        'version = "= 6.59.0"',
+        'key          = "fincilia/private-pilot/foundation.tfstate"',
+        'vpc_cidr = "10.60.0.0/16"',
+        'worker-no-default-route',
+        'for_each = toset(["ecr.api", "ecr.dkr", "kms", "logs", "secretsmanager", "ssmmessages"])',
+        'assign_public_ip = false',
+        'condition     = var.service_desired_count == 0',
+        'manage_master_user_password   = true',
+        'publicly_accessible    = false',
+        'deletion_protection       = true',
+        'backup_retention_period    = 14',
+        'key_usage                = "SIGN_VERIFY"',
+        'customer_master_key_spec = "RSA_2048"',
+        'FINCILIA_OBJECT_CREDENTIALS_SOURCE", value = "aws_workload_identity"',
+        'FINCILIA_OIDC_ENABLED", value = "true"',
+        'allowed_oauth_flows                  = ["code"]',
+        'allowed_oauth_scopes                 = ["openid", "email", "profile"]',
+        'data "aws_iam_policy_document" "alb_logs"',
+        'sse_algorithm = "AES256"',
+        'resource "aws_wafv2_web_acl_association" "pilot"',
+        'resource "aws_cloudtrail" "pilot"',
+    )
+    for token in required:
+        if token not in sources:
+            errors.append(f"fuente no contiene control: {token}")
+    if sources.count('FINCILIA_REAL_DATA_ENABLED", value = "false"') != 3:
+        errors.append("API, worker y migrator deben declarar datos reales apagados")
+    if sources.count('assign_public_ip = false') != 2:
+        errors.append("app y worker deben declarar assign_public_ip=false")
+    forbidden = (
+        'FINCILIA_REAL_DATA_ENABLED", value = "true"',
+        'FINCILIA_AI_GATEWAY_ENABLED", value = "true"',
+        'FINCILIA_PAYMENTS_ENABLED", value = "true"',
+        'FINCILIA_OBJECT_ACCESS_KEY',
+        'FINCILIA_OBJECT_SECRET_KEY',
+        'aws_access_key_id',
+        'secret_string',
+        'secret_binary',
+        'resource "aws_cognito_identity_provider"',
+        'resource "aws_instance"',
+        'resource "aws_key_pair"',
+        'assign_public_ip = true',
+        'from_port = 22',
+        'from_port   = 22',
+    )
+    for token in forbidden:
+        if token in sources:
+            errors.append(f"fuente contiene patron prohibido: {token}")
+    if re.search(
+        r'resource\s+"aws_route"\s+"(?:worker|data)[^"]*"\s*\{[^}]*'
+        r'destination_cidr_block\s*=\s*"0\.0\.0\.0/0"',
+        sources,
+        re.DOTALL,
+    ):
+        errors.append("worker/data no pueden recibir default route")
     return errors
 
 
@@ -175,19 +256,65 @@ def validate_plan(plan: dict[str, Any], model: dict[str, Any]) -> list[str]:
             if after.get("force_destroy") is not False:
                 errors.append(f"{address}: bucket no puede usar force_destroy")
         elif resource_type == "aws_kms_key":
-            if after.get("enable_key_rotation") is not True:
-                errors.append(f"{address}: KMS debe rotar")
+            if after.get("key_usage", "ENCRYPT_DECRYPT") == "SIGN_VERIFY":
+                if after.get("customer_master_key_spec") != "RSA_2048":
+                    errors.append(f"{address}: gate KMS debe usar RSA_2048")
+                if after.get("enable_key_rotation") is not False:
+                    errors.append(
+                        f"{address}: KMS asimetrica no admite rotacion automatica")
+            elif after.get("enable_key_rotation") is not True:
+                errors.append(f"{address}: KMS simetrica debe rotar")
             if after.get("deletion_window_in_days", 0) < 30:
                 errors.append(f"{address}: KMS requiere ventana de borrado >= 30")
         elif resource_type == "aws_secretsmanager_secret":
             if "secret_string" in after or "secret_binary" in after:
                 errors.append(f"{address}: valor de secreto no puede entrar al plan")
+        elif resource_type == "aws_lb":
+            if after.get("internal") is not False or \
+                    after.get("load_balancer_type") != "application":
+                errors.append(f"{address}: entrada debe ser ALB publico")
+            if after.get("enable_deletion_protection") is not True:
+                errors.append(f"{address}: ALB debe proteger borrado")
+            if len(after.get("subnets") or []) != 2:
+                errors.append(f"{address}: ALB requiere dos subredes")
+            logs = (after.get("access_logs") or [{}])[0]
+            if logs.get("enabled") is not True:
+                errors.append(f"{address}: ALB access logs son obligatorios")
+        elif resource_type == "aws_cognito_user_pool":
+            if after.get("mfa_configuration") != "ON":
+                errors.append(f"{address}: Cognito debe exigir MFA")
+            if after.get("deletion_protection") != "ACTIVE":
+                errors.append(f"{address}: Cognito debe proteger borrado")
+        elif resource_type == "aws_cognito_user_pool_client":
+            if after.get("generate_secret") is not False:
+                errors.append(f"{address}: el cliente PKCE no lleva secreto en IaC")
+            if after.get("allowed_oauth_flows") != ["code"] or \
+                    after.get("allowed_oauth_scopes") != ["openid", "email", "profile"]:
+                errors.append(f"{address}: flujo/scopes OIDC no son minimos")
+        elif resource_type == "aws_vpc":
+            if after.get("cidr_block") != "10.60.0.0/16":
+                errors.append(f"{address}: VPC no es la frontera dedicada")
+        elif resource_type == "aws_subnet":
+            if after.get("map_public_ip_on_launch") is not False:
+                errors.append(f"{address}: subnet no puede autoasignar IP publica")
+        elif resource_type == "aws_route":
+            if ("worker" in address or "data" in address) and \
+                    after.get("destination_cidr_block") == "0.0.0.0/0":
+                errors.append(f"{address}: segmento aislado no admite default route")
+        elif resource_type == "aws_vpc_security_group_ingress_rule":
+            if after.get("cidr_ipv4") == "0.0.0.0/0" and (
+                    after.get("from_port") not in (80, 443)
+                    or after.get("to_port") != after.get("from_port")
+                    or "alb" not in address):
+                errors.append(f"{address}: ingress publico fuera de ALB 80/443")
     return errors
 
 
 def validate(plan_path: Path | None = None) -> dict[str, Any]:
     model = load_json(CONTRACT_PATH)
-    errors = validate_contract(model)
+    contract_errors = validate_contract(model)
+    source_errors = validate_sources()
+    errors = contract_errors + source_errors
     if plan_path is not None:
         try:
             errors.extend(validate_plan(load_json(plan_path), model))
@@ -197,7 +324,8 @@ def validate(plan_path: Path | None = None) -> dict[str, Any]:
         "ok": not errors,
         "errors": errors,
         "report": {
-            "contract_valid": not validate_contract(model),
+            "contract_valid": not contract_errors,
+            "sources_valid": not source_errors,
             "deployment_authorized": False,
             "real_data_authorized": False,
         },

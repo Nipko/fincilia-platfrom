@@ -3,7 +3,14 @@ from __future__ import annotations
 import copy
 import unittest
 
-from .model import CONTRACT_PATH, load_json, validate_contract, validate_plan
+from .model import (
+    CONTRACT_PATH,
+    load_json,
+    source_text,
+    validate_contract,
+    validate_plan,
+    validate_sources,
+)
 
 
 class PrivatePilotContractTests(unittest.TestCase):
@@ -20,6 +27,7 @@ class PrivatePilotContractTests(unittest.TestCase):
 
     def test_repository_contract_is_valid_but_not_authorized(self) -> None:
         self.assertEqual([], validate_contract(self.model))
+        self.assertEqual([], validate_sources())
         self.assertFalse(self.model["deployment_authorized"])
         self.assertFalse(self.model["real_data_authorized"])
 
@@ -56,6 +64,11 @@ class PrivatePilotContractTests(unittest.TestCase):
             "secrets", "values_in_iac_state", value=True))
         self.assertTrue(any("fuera de IaC" in item for item in errors))
 
+    def test_alb_encryption_constraint_cannot_be_hidden(self) -> None:
+        errors = validate_contract(self.mutate(
+            "observability", "alb_access_log_encryption", value="SSE-KMS"))
+        self.assertTrue(any("restriccion SSE-S3" in item for item in errors))
+
     def test_gate_cannot_be_self_promoted(self) -> None:
         candidate = copy.deepcopy(self.model)
         candidate["gate_claims"][1]["status"] = "met"
@@ -82,7 +95,27 @@ class PrivatePilotContractTests(unittest.TestCase):
                 after = {"force_destroy": False}
             elif resource_type == "aws_kms_key":
                 after = {"enable_key_rotation": True,
-                         "deletion_window_in_days": 30}
+                         "deletion_window_in_days": 30,
+                         "key_usage": "ENCRYPT_DECRYPT"}
+            elif resource_type == "aws_lb":
+                after = {
+                    "internal": False, "load_balancer_type": "application",
+                    "enable_deletion_protection": True,
+                    "subnets": ["subnet-a", "subnet-b"],
+                    "access_logs": [{"enabled": True}],
+                }
+            elif resource_type == "aws_cognito_user_pool":
+                after = {"mfa_configuration": "ON", "deletion_protection": "ACTIVE"}
+            elif resource_type == "aws_cognito_user_pool_client":
+                after = {
+                    "generate_secret": False,
+                    "allowed_oauth_flows": ["code"],
+                    "allowed_oauth_scopes": ["openid", "email", "profile"],
+                }
+            elif resource_type == "aws_vpc":
+                after = {"cidr_block": "10.60.0.0/16"}
+            elif resource_type == "aws_subnet":
+                after = {"map_public_ip_on_launch": False}
             changes.append({
                 "address": f"{resource_type}.fixture_{index}",
                 "mode": "managed", "type": resource_type,
@@ -118,6 +151,19 @@ class PrivatePilotContractTests(unittest.TestCase):
         self.assertTrue(any("valor de secreto" in item
                             for item in validate_plan(plan, self.model)))
 
+    def test_asymmetric_gate_key_requires_rsa_and_no_rotation(self) -> None:
+        plan = self.valid_plan()
+        key = next(item for item in plan["resource_changes"]
+                   if item["type"] == "aws_kms_key")
+        key["change"]["after"].update({
+            "key_usage": "SIGN_VERIFY",
+            "customer_master_key_spec": "ECC_NIST_P256",
+            "enable_key_rotation": True,
+        })
+        errors = validate_plan(plan, self.model)
+        self.assertTrue(any("RSA_2048" in item for item in errors))
+        self.assertTrue(any("no admite rotacion" in item for item in errors))
+
     def test_plan_with_forbidden_instance_dies(self) -> None:
         plan = self.valid_plan()
         plan["resource_changes"].append({
@@ -133,6 +179,29 @@ class PrivatePilotContractTests(unittest.TestCase):
         plan["resource_changes"][0]["change"]["actions"] = ["delete"]
         self.assertTrue(any("borrado sin reemplazo" in item
                             for item in validate_plan(plan, self.model)))
+
+    def test_source_mutation_enabling_real_data_dies(self) -> None:
+        candidate = source_text().replace(
+            'FINCILIA_REAL_DATA_ENABLED", value = "false"',
+            'FINCILIA_REAL_DATA_ENABLED", value = "true"', 1)
+        self.assertTrue(any("patron prohibido" in item
+                            for item in validate_sources(candidate)))
+
+    def test_source_mutation_adding_static_aws_key_dies(self) -> None:
+        self.assertTrue(any("patron prohibido" in item for item in
+                            validate_sources(source_text() + "\naws_access_key_id\n")))
+
+    def test_source_mutation_adding_google_secret_to_iac_dies(self) -> None:
+        candidate = source_text() + '\nresource "aws_cognito_identity_provider" "google" {}\n'
+        self.assertTrue(any("patron prohibido" in item
+                            for item in validate_sources(candidate)))
+
+    def test_source_mutation_worker_default_route_dies(self) -> None:
+        candidate = source_text() + (
+            '\nresource "aws_route" "worker_internet" {\n'
+            ' destination_cidr_block = "0.0.0.0/0"\n}\n')
+        self.assertTrue(any("default route" in item
+                            for item in validate_sources(candidate)))
 
 
 if __name__ == "__main__":

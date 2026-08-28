@@ -4,6 +4,7 @@ import Link from 'next/link';
 
 import { BrandMark } from '@/components/brand-mark';
 import { GlobalNavigation } from '@/components/global-navigation';
+import { publicStage } from '@/lib/public-stage';
 import { readSession } from '@/lib/session';
 
 import './globals.css';
@@ -15,7 +16,7 @@ export const metadata: Metadata = {
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
   const session = await readSession();
-  const closedBeta = process.env.FINCILIA_PUBLIC_STAGE === 'closed_beta';
+  const stage = publicStage(process.env.FINCILIA_PUBLIC_STAGE);
 
   return (
     <html lang="es">
@@ -29,7 +30,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
             <GlobalNavigation authenticated={session !== null} />
             <span className="environment-badge">
               <span aria-hidden="true" />
-              {closedBeta ? 'Beta cerrada' : 'Entorno local'}
+              {stage.badge}
             </span>
           </div>
         </header>
@@ -48,7 +49,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
             <Link href="/seguridad">Seguridad</Link>
             <Link href="/eliminar-cuenta">Eliminar cuenta</Link>
           </nav>
-          <span>{closedBeta ? 'Beta cerrada' : 'Entorno local'} · datos sintéticos</span>
+          <span>{stage.footer}</span>
         </footer>
       </body>
     </html>
