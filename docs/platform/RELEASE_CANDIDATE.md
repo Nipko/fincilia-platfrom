@@ -11,6 +11,9 @@ imágenes construidas y tres inventarios SPDX 2.3 derivados de los lockfiles.
 - API, worker y web tienen identidades distintas y no flotantes.
 - Los locks Python contienen versiones y hashes; npm aporta `integrity`.
 - El commit, los inputs y la cabeza de migraciones son reproducibles.
+- Los digests de fuente y locks se calculan sobre blobs Git, por lo que un
+  checkout limpio con CRLF en Windows verifica el mismo commit construido con
+  LF en Linux; el bundle no confunde filtros locales con código distinto.
 - La evidencia se generó para el techo `synthetic_only`.
 
 ## Qué no demuestra

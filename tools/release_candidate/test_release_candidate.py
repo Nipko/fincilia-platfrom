@@ -89,6 +89,7 @@ class RepositoryFixture:
         }
         write(self.root / "docs/platform/release-candidate.json",
               json.dumps(contract(), sort_keys=True))
+        write(self.root / ".gitattributes", "* text=auto eol=lf\n")
         for path in ("apps/api/Dockerfile", "apps/web/Dockerfile",
                      "workers/document/Dockerfile"):
             write(self.root / path, "FROM scratch@sha256:" + "c" * 64 + "\n")
@@ -102,6 +103,7 @@ class RepositoryFixture:
             write(self.root / path, "synthetic = True\n")
         write(self.root / "db/migrations/V0001__initial.sql", "SELECT 1;\n")
         git(self.root, "init", "-q")
+        git(self.root, "config", "core.autocrlf", "true")
         git(self.root, "add", ".")
         fixed = {**os.environ, "GIT_AUTHOR_DATE": "2026-08-28T00:00:00Z",
                  "GIT_COMMITTER_DATE": "2026-08-28T00:00:00Z"}
@@ -275,6 +277,19 @@ class ReleaseBundleTests(unittest.TestCase):
             "-c", "user.email=synthetic@demo.local", "commit", "-qm", "changed")
         with self.assertRaisesRegex(ReleaseError, "requested revision"):
             verify_source(self.fixture.root, self.bundle)
+
+    def test_release_identity_survives_clean_checkout_line_endings(self) -> None:
+        manifest = self.fixture.create(self.bundle)
+        source = self.fixture.root / "apps/api/src/main.py"
+        source.write_bytes(source.read_bytes().replace(b"\n", b"\r\n"))
+        git(self.fixture.root, "add", "apps/api/src/main.py")
+        self.assertEqual(git(self.fixture.root, "status", "--porcelain=v1"), "")
+        self.assertEqual(verify_source(self.fixture.root, self.bundle), manifest)
+
+        second = self.base / "bundle-crlf"
+        self.fixture.create(second)
+        for name in EXPECTED_FILES:
+            self.assertEqual((self.bundle / name).read_bytes(), (second / name).read_bytes())
 
     def test_spdx_overclaim_is_rejected_even_with_recomputed_checksums(self) -> None:
         self.fixture.create(self.bundle)

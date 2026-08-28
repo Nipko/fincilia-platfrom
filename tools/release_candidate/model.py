@@ -72,6 +72,24 @@ def _run_git(root: Path, *args: str) -> str:
     return result.stdout.strip()
 
 
+def _git_blob(root: Path, relative: str) -> bytes:
+    """Read the committed bytes, independent of checkout line-ending filters.
+
+    Release identity belongs to the Git object selected by ``HEAD``. Reading the
+    worktree here makes the same clean commit hash differently on Windows when
+    Git materialises CRLF, even though the index and the Linux release build use
+    the canonical LF blob.
+    """
+    _safe_relative(relative)
+    try:
+        result = subprocess.run(
+            ["git", "cat-file", "blob", f"HEAD:{relative}"], cwd=root,
+            check=True, capture_output=True)
+    except (OSError, subprocess.CalledProcessError) as error:
+        raise ReleaseError(f"tracked release input has no Git blob: {relative}") from error
+    return result.stdout
+
+
 def clean_git_state(root: Path, expected_revision: str | None = None) -> GitState:
     revision = _run_git(root, "rev-parse", "HEAD")
     if not REVISION.fullmatch(revision):
@@ -161,7 +179,7 @@ def digest_source_input(root: Path, relative: str) -> tuple[str, int]:
     files = _tracked_files(root, relative)
     digest = hashlib.sha256()
     for item in files:
-        raw = _resolved(root, item).read_bytes()
+        raw = _git_blob(root, item)
         digest.update(item.encode("utf-8"))
         digest.update(b"\0")
         digest.update(hashlib.sha256(raw).digest())
@@ -340,7 +358,7 @@ def create_bundle(root: Path, output: Path, images: dict[str, str], *,
     sbom_digests: dict[str, str] = {}
     for scope, relative in sorted(locks.items()):
         lock_path = _resolved(root, relative)
-        lock_digest = _file_digest(lock_path)
+        lock_digest = _sha256(_git_blob(root, relative))
         packages = (npm_packages(lock_path) if scope == "web"
                     else python_packages(lock_path, scope))
         if not packages:
