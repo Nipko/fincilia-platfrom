@@ -54,18 +54,5 @@
       "agent_may_accept": false
     }
   ],
-  "active_reservations": [
-    {
-      "task": "FNC-PRV-002",
-      "holder": "Codex principal dev + Integration Steward",
-      "paths": [
-        "docs/privacy/retention-deletion-matrix.json",
-        "docs/privacy/RETENTION_DELETION_MATRIX.md",
-        "tools/retention_matrix",
-        "docs/implementation/tasks/FNC-PRV-002.md",
-        "docs/implementation/handoffs/FNC-PRV-002.md",
-        "docs/implementation/decision_requests/FNC-PRV-002-L01-REVIEW.md"
-      ]
-    }
-  ]
+  "active_reservations": []
 }

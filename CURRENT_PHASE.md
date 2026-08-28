@@ -149,7 +149,7 @@ Hasta S1-READY solo se admite scaffolding, automatización, pruebas, documentaci
 | FNC-PLT-009 | Runtime local persistente de Docker Engine en Windows/WSL | Review pending | Codex + Integration Steward | wrapper oculto y reversible, lifecycle completo, contrato ejecutable y persistencia de datos verificada; revision independiente pendiente |
 | FNC-REL-001 | Candidato de release reproducible y baseline operativo | Review pending | Codex + Integration Steward | bundle SPDX cross-platform, manifiesto fail-closed, observabilidad segura, workflow manual y CI 33189792888 verdes; revisión Security/QA/Architecture pendiente |
 | FNC-LEG-001 | Plantilla ejecutable de tratamiento para corpus real | Review pending | Codex + Integration Steward | 11 actividades dinámicas, 16 secciones y 26 pruebas; paquete listo para abogado independiente, sin autorizar datos reales ni mover DRG-00 |
-| FNC-PRV-002 | Matriz ejecutable L-01 de retención y borrado | In progress | Codex + Integration Steward | derivación dinámica de 19 políticas, adjudicación humana fail-closed y controles de backup/restore; sólo sintético |
+| FNC-PRV-002 | Matriz ejecutable L-01 de retención y borrado | Review pending | Codex + Integration Steward | 19 políticas frescas por digest, dos estados fail-closed y 29 pruebas; plazos y cuatro revisores humanos permanecen pendientes |
 
 Solo el Integration Steward modifica esta tabla.
 
