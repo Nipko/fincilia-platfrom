@@ -151,7 +151,7 @@ dependencias de `FNC-GAT-002` ni afirmar que Sprint 1 está habilitado.
 | FNC-ONB-001 | A5/A6 | PLT-008, QA-007, P3.5 | Review pending | Alta atomica de empresa, engagement y configuracion inicial desde la web; solo sintetico mientras DRG-00 siga cerrado |
 | FNC-ONB-002 | A3/A5/A6 | ONB-001, SEC-001, PLT-011 | In progress | Registro web sintetico crea sujeto, firma y owner sin semillas; proveedor local prohibido con datos reales e IdP administrado pendiente |
 | FNC-BET-001 | A2/A3/A6 | ONB-002, PLT-011, REL-001 | In progress | Beta cerrada con dominio HTTPS y datos exclusivamente sintéticos; no mueve DRG-00/01 |
-| FNC-PLT-012 | A2/A3/A4 | GAT-005, ARC-003, SEC-003, REL-001 | Proposed | Entorno AWS separado para piloto real; no se aplica antes de DRG-00/01 |
+| FNC-PLT-012 | A2/A3/A4 | GAT-005, ARC-003, SEC-003, REL-001 | In progress | Foundation separada integrada; plan/apply y activación continúan bloqueados por DRG-00/01 |
 | FNC-IAM-001 | A3/A6 | ONB-002, SEC-001, LEG-002 | In progress | Google OIDC/Cognito con PKCE preparado; activación real bloqueada por DRG-00 |
 | FNC-LEG-002 | A3/A6 | PRV-001, LEG-001 | In progress | Centro legal público Fincilia desarrollado por Parallext.com; textos sujetos a revisión jurídica |
 | FNC-SEC-004 | A3/A5 | SEC-001, PLT-005, DB-002 | Review pending | Contexto durable company-scoped con emision idempotente, revalidacion online, revocacion append-only, HMAC y V0021; sin consumidor artificial ni datos reales |

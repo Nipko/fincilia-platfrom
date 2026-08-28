@@ -48,3 +48,11 @@ firmada en KMS que el binario verifica al arrancar.
 
 Aplicar recursos, validar el dominio, cargar secretos, federar Google, aprobar
 DRG-00/01, ejecutar pentest, emitir concepto legal o cargar un documento real.
+
+# Evidencia integrada
+
+- Contrato ejecutable: `04bf2bc`.
+- Foundation OpenTofu, validadores y estado visual web: `5b88ea2`.
+- Handoff: `docs/implementation/handoffs/FNC-PLT-012.md`.
+- Estado: implementación lista para revisión; plan/apply, evidencia runtime y
+  revisiones independientes permanecen pendientes.
