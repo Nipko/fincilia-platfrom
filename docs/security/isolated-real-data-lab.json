@@ -1,0 +1,110 @@
+{
+  "schema_version": "1.0.0",
+  "task_id": "FNC-SEC-003",
+  "status": "design_review_pending",
+  "data_ceiling": "synthetic_only",
+  "real_data_authorized": false,
+  "deployment_enabled": false,
+  "source_contracts": [
+    {"id": "THREAT", "path": "docs/security/threat-model.json", "canonical_sha256": "dbc91a086f0fddac5b0935a719b7c8fb9141c1c7db73ed0585ab26832039d1ba"},
+    {"id": "PRIVACY", "path": "docs/privacy/privacy-map.json", "canonical_sha256": "2ecd70a9aa4311c95350db60a6af353d543072e9250873c1c30fd335db7b7097"},
+    {"id": "REGION", "path": "docs/architecture/region-transmission-decision.json", "canonical_sha256": "378d769c00a6c280c7fe3b21c4f0837d482c8c48fbaa68d3c4ad589526b99ea2"},
+    {"id": "RETENTION", "path": "docs/privacy/retention-deletion-matrix.json", "canonical_sha256": "71f13848245ca34241f7439698d727391bb4cdbce802bde410213c16f0480523"}
+  ],
+  "unresolved_selection": {
+    "provider": null,
+    "region": null,
+    "managed_idp": null,
+    "kms_or_hsm": null,
+    "secrets_manager": null,
+    "private_endpoints": [],
+    "egress_allowlist": []
+  },
+  "trust_zones": [
+    {"id": "Z-IN", "purpose": "controlled_intake", "public_ip": false, "ingress": "broker_only", "egress": "deny_all", "persistent_data": false},
+    {"id": "Z-Q", "purpose": "untrusted_quarantine", "public_ip": false, "ingress": "intake_capability_only", "egress": "deny_all", "persistent_data": true},
+    {"id": "Z-P", "purpose": "isolated_processing", "public_ip": false, "ingress": "dispatcher_capability_only", "egress": "deny_all", "persistent_data": false},
+    {"id": "Z-E", "purpose": "accepted_evidence", "public_ip": false, "ingress": "private_workload_identity_only", "egress": "deny_all", "persistent_data": true},
+    {"id": "Z-C", "purpose": "control_plane", "public_ip": false, "ingress": "audited_management_broker_only", "egress": "deny_all", "persistent_data": true},
+    {"id": "Z-A", "purpose": "security_archive_delete_ledger", "public_ip": false, "ingress": "append_or_reconcile_capability_only", "egress": "deny_all", "persistent_data": true}
+  ],
+  "control_catalog": [
+    {"id": "IAM-01", "domain": "identity", "requirement": "managed_idp_required_no_local_password_authority_for_real_data", "implemented": false, "evidence_state": "not_run"},
+    {"id": "IAM-02", "domain": "identity", "requirement": "named_human_subjects_only_no_shared_accounts", "implemented": false, "evidence_state": "not_run"},
+    {"id": "IAM-03", "domain": "identity", "requirement": "phishing_resistant_mfa_required", "implemented": false, "evidence_state": "not_run"},
+    {"id": "IAM-04", "domain": "identity", "requirement": "aal3_step_up_for_approval_export_delete_and_break_glass", "implemented": false, "evidence_state": "not_run"},
+    {"id": "IAM-05", "domain": "identity", "requirement": "jit_privilege_maximum_60_minutes", "implemented": false, "evidence_state": "not_run"},
+    {"id": "IAM-06", "domain": "identity", "requirement": "short_lived_workload_identity_no_static_credentials", "implemented": false, "evidence_state": "not_run"},
+    {"id": "IAM-07", "domain": "identity", "requirement": "break_glass_requires_dual_control_and_post_review", "implemented": false, "evidence_state": "not_run"},
+    {"id": "NET-01", "domain": "network", "requirement": "no_public_endpoint_or_public_ip", "implemented": false, "evidence_state": "not_run"},
+    {"id": "NET-02", "domain": "network", "requirement": "ingress_default_deny", "implemented": false, "evidence_state": "not_run"},
+    {"id": "NET-03", "domain": "network", "requirement": "egress_default_deny", "implemented": false, "evidence_state": "not_run"},
+    {"id": "NET-04", "domain": "network", "requirement": "quarantine_and_processing_have_zero_external_egress", "implemented": false, "evidence_state": "not_run"},
+    {"id": "NET-05", "domain": "network", "requirement": "stores_and_control_plane_use_private_endpoints_only", "implemented": false, "evidence_state": "not_run"},
+    {"id": "NET-06", "domain": "network", "requirement": "dns_and_egress_allowlists_are_empty_until_a02", "implemented": false, "evidence_state": "not_run"},
+    {"id": "NET-07", "domain": "network", "requirement": "management_uses_audited_identity_aware_broker", "implemented": false, "evidence_state": "not_run"},
+    {"id": "CMP-01", "domain": "compute", "requirement": "signed_pinned_image_and_verified_provenance", "implemented": false, "evidence_state": "not_run"},
+    {"id": "CMP-02", "domain": "compute", "requirement": "non_root_read_only_root_filesystem", "implemented": false, "evidence_state": "not_run"},
+    {"id": "CMP-03", "domain": "compute", "requirement": "no_privileged_mode_host_mount_or_host_namespace", "implemented": false, "evidence_state": "not_run"},
+    {"id": "CMP-04", "domain": "compute", "requirement": "no_dynamic_package_install_or_network_fallback", "implemented": false, "evidence_state": "not_run"},
+    {"id": "CMP-05", "domain": "compute", "requirement": "encrypted_ephemeral_scratch_destroyed_after_run", "implemented": false, "evidence_state": "not_run"},
+    {"id": "CMP-06", "domain": "compute", "requirement": "per_run_company_capability_and_authorization_revalidation", "implemented": false, "evidence_state": "not_run"},
+    {"id": "DAT-01", "domain": "data", "requirement": "approved_manifest_and_gate_evidence_required_before_intake", "implemented": false, "evidence_state": "not_run"},
+    {"id": "DAT-02", "domain": "data", "requirement": "opaque_object_key_and_quarantine_before_any_parser", "implemented": false, "evidence_state": "not_run"},
+    {"id": "DAT-03", "domain": "data", "requirement": "fail_closed_malware_active_content_pan_and_prohibited_content_scan", "implemented": false, "evidence_state": "not_run"},
+    {"id": "DAT-04", "domain": "data", "requirement": "accepted_raw_version_is_immutable_and_never_overwritten", "implemented": false, "evidence_state": "not_run"},
+    {"id": "DAT-05", "domain": "data", "requirement": "company_scoped_storage_and_forced_rls", "implemented": false, "evidence_state": "not_run"},
+    {"id": "DAT-06", "domain": "data", "requirement": "derived_output_has_complete_digest_lineage", "implemented": false, "evidence_state": "not_run"},
+    {"id": "DAT-07", "domain": "data", "requirement": "external_ai_ocr_and_unselected_providers_forbidden", "implemented": false, "evidence_state": "not_run"},
+    {"id": "STO-01", "domain": "storage", "requirement": "separate_keys_and_access_paths_per_data_plane", "implemented": false, "evidence_state": "not_run"},
+    {"id": "STO-02", "domain": "storage", "requirement": "security_archive_and_delete_ledger_outside_ordinary_restore", "implemented": false, "evidence_state": "not_run"},
+    {"id": "STO-03", "domain": "storage", "requirement": "backup_region_and_window_blocked_until_a02_and_l01", "implemented": false, "evidence_state": "not_run"},
+    {"id": "STO-04", "domain": "storage", "requirement": "restore_reapplies_tombstones_and_reconciles_before_reopen", "implemented": false, "evidence_state": "not_run"},
+    {"id": "OBS-01", "domain": "observability", "requirement": "structured_allowlist_metadata_only", "implemented": false, "evidence_state": "not_run"},
+    {"id": "OBS-02", "domain": "observability", "requirement": "no_payload_amount_account_tax_id_filename_token_or_document_content", "implemented": false, "evidence_state": "not_run"},
+    {"id": "OPS-01", "domain": "operations", "requirement": "time_bounded_lab_with_destroy_and_inventory_reconciliation", "implemented": false, "evidence_state": "not_run"},
+    {"id": "OPS-02", "domain": "operations", "requirement": "incident_response_and_revocation_drill_before_intake", "implemented": false, "evidence_state": "not_run"},
+    {"id": "OPS-03", "domain": "operations", "requirement": "evidence_export_is_digest_only_and_independently_reviewed", "implemented": false, "evidence_state": "not_run"},
+    {"id": "OPS-04", "domain": "operations", "requirement": "support_access_disabled_unless_jit_dual_control", "implemented": false, "evidence_state": "not_run"}
+  ],
+  "threat_coverage": [
+    {"threat_id": "TM-005", "control_ids": ["DAT-01", "DAT-02", "DAT-03", "DAT-04", "CMP-01", "CMP-04", "NET-04", "OBS-02"], "evidence_state": "not_run"},
+    {"threat_id": "TM-014", "control_ids": ["STO-02", "STO-03", "STO-04", "OPS-01", "OPS-03"], "evidence_state": "not_run"}
+  ],
+  "acceptance_tests": [
+    {"id": "LAB-T01", "assertion": "public_ingress_and_public_ips_absent", "state": "not_run"},
+    {"id": "LAB-T02", "assertion": "quarantine_cannot_resolve_or_reach_external_endpoint", "state": "not_run"},
+    {"id": "LAB-T03", "assertion": "processing_cannot_reach_external_endpoint", "state": "not_run"},
+    {"id": "LAB-T04", "assertion": "hostile_active_or_pan_fixture_never_reaches_raw", "state": "not_run"},
+    {"id": "LAB-T05", "assertion": "cross_company_read_write_and_object_key_access_denied", "state": "not_run"},
+    {"id": "LAB-T06", "assertion": "revoked_user_session_job_and_download_fail", "state": "not_run"},
+    {"id": "LAB-T07", "assertion": "shared_account_static_key_and_password_only_login_fail", "state": "not_run"},
+    {"id": "LAB-T08", "assertion": "logs_and_errors_contain_only_allowlisted_metadata", "state": "not_run"},
+    {"id": "LAB-T09", "assertion": "restore_reapplies_tombstones_before_health_ready", "state": "not_run"},
+    {"id": "LAB-T10", "assertion": "lab_destroy_reconciles_all_active_derived_and_backup_inventory", "state": "not_run"},
+    {"id": "LAB-T11", "assertion": "unsigned_or_unprovenanced_image_cannot_start", "state": "not_run"},
+    {"id": "LAB-T12", "assertion": "break_glass_requires_two_distinct_humans_and_post_review", "state": "not_run"}
+  ],
+  "prerequisites": [
+    {"id": "FNC-LEG-001", "state": "review_pending", "satisfied": false},
+    {"id": "L-01", "state": "not_met", "satisfied": false},
+    {"id": "A-02", "state": "not_met", "satisfied": false},
+    {"id": "S-01", "state": "not_met", "satisfied": false},
+    {"id": "SUPPLY-CHAIN", "state": "not_met", "satisfied": false},
+    {"id": "FNC-PLT-004", "state": "not_started", "satisfied": false},
+    {"id": "FNC-QA-001", "state": "not_started", "satisfied": false}
+  ],
+  "human_review": {
+    "state": "pending_independent_review",
+    "security_reviewer_id": null,
+    "privacy_reviewer_id": null,
+    "architecture_reviewer_id": null,
+    "evidence_ref": null,
+    "reviewed_at": null
+  },
+  "gate_claims": [
+    {"id": "S-01", "status": "not_met", "authorized": false},
+    {"id": "DRG-00", "status": "not_met", "authorized": false},
+    {"id": "DRG-01", "status": "not_met", "authorized": false}
+  ]
+}
