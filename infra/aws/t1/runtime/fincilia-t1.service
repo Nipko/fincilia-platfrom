@@ -1,0 +1,14 @@
+[Unit]
+Description=Fincilia T1 synthetic remote lab
+After=docker.service network-online.target
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/fincilia/up.sh
+RemainAfterExit=yes
+TimeoutStartSec=900
+
+[Install]
+WantedBy=multi-user.target

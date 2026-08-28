@@ -1,0 +1,10 @@
+[Unit]
+Description=Four hour maximum runtime for Fincilia T1
+
+[Timer]
+OnBootSec=4h
+AccuracySec=1min
+Unit=fincilia-t1-autostop.service
+
+[Install]
+WantedBy=timers.target

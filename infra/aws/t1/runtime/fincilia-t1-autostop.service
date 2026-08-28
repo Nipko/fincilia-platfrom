@@ -1,0 +1,6 @@
+[Unit]
+Description=Stop Fincilia T1 after bounded test session
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/systemctl poweroff

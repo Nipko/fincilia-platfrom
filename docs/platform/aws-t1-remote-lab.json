@@ -1,0 +1,83 @@
+{
+  "schema_version": "1.0.0",
+  "task_id": "FNC-PLT-011",
+  "status": "implementation_in_progress",
+  "data_ceiling": "synthetic_only",
+  "real_data_authorized": false,
+  "external_ai_authorized": false,
+  "region": "sa-east-1",
+  "runtime": {
+    "instance_count": 1,
+    "instance_type": "t3.small",
+    "architecture": "x86_64",
+    "ami_id": "ami-0ae4c9718ffae6ca6",
+    "ami_name_observed": "al2023-ami-2023.12.20260817.0-kernel-6.18-x86_64",
+    "root_volume_type": "gp3",
+    "root_volume_gib": 16,
+    "root_volume_encrypted": true,
+    "cpu_credits": "standard",
+    "instance_shutdown_behavior": "stop",
+    "max_session_hours": 4,
+    "public_ipv4": "ephemeral_while_running",
+    "ingress_rules": 0,
+    "access": "ssm_port_forwarding_only"
+  },
+  "container_runtime": {
+    "docker_compose_version": "5.5.0",
+    "docker_compose_sha256": "c57ab918abd5b05ca7e7d0f275875dd1330a695074f309dc9eab1b49efafcd4b",
+    "application_images": ["api", "web", "worker"],
+    "application_images_require_digest": true,
+    "database": "postgresql_17_local_container",
+    "cache": "valkey_8_ephemeral_container",
+    "object_store": "minio_synthetic_container"
+  },
+  "cost_model": {
+    "ec2_on_demand_usd_per_hour_observed": 0.0336,
+    "observation_date": "2026-08-28",
+    "planned_hours_per_session": 4,
+    "planned_sessions_per_month": 22,
+    "planned_ec2_monthly_usd": 2.9568,
+    "root_ebs_and_public_ipv4_additional": true,
+    "gross_budget_alert_usd": 5,
+    "hard_cost_cap": false
+  },
+  "allowed_resource_types": [
+    "aws_iam_role_policy",
+    "aws_instance",
+    "aws_s3_object",
+    "terraform_data"
+  ],
+  "forbidden_resource_types": [
+    "aws_db_instance",
+    "aws_eip",
+    "aws_lb",
+    "aws_nat_gateway",
+    "aws_ecs_cluster",
+    "aws_ecs_service",
+    "aws_ecs_task_definition",
+    "aws_kms_key",
+    "aws_secretsmanager_secret",
+    "aws_ssm_parameter"
+  ],
+  "required_controls": [
+    "expected_account_guard",
+    "region_guard",
+    "exact_ami_and_instance_type",
+    "encrypted_bounded_gp3",
+    "imdsv2_required",
+    "no_key_pair",
+    "no_ingress",
+    "ssm_only",
+    "standard_cpu_credits",
+    "four_hour_autostop",
+    "images_by_digest",
+    "secrets_generated_only_on_host",
+    "real_data_disabled"
+  ],
+  "gate_claims": [
+    {"id": "A-02", "status": "not_met"},
+    {"id": "S-01", "status": "not_met"},
+    {"id": "DRG-00", "status": "not_met"},
+    {"id": "DRG-01", "status": "not_met"}
+  ]
+}
