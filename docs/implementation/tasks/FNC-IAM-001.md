@@ -37,3 +37,11 @@ fail-closed cuando no hay configuración o DRG-00 no autoriza identidad real.
 
 Acceso a APIs de Google, importación de Drive/Gmail, MFA propio, identidad como
 fuente de autorización financiera o activar OAuth real antes de DRG-00.
+
+# Evidencia integrada
+
+- Backend y persistencia: `3ec2893`.
+- BFF, PKCE y experiencia web: `99c9445`.
+- Handoff reproducible: `docs/implementation/handoffs/FNC-IAM-001.md`.
+- Estado: implementación lista para revisión; configuración externa, DRG-00 y
+  revisores independientes continúan pendientes.
