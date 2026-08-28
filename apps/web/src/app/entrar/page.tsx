@@ -2,6 +2,8 @@
 
 import { useActionState } from 'react';
 
+import Link from 'next/link';
+
 import { signInAction, type SignInState } from '../actions';
 
 const INITIAL: SignInState = { error: null };
@@ -55,6 +57,11 @@ export default function SignInPage() {
             {pending ? 'Entrando...' : 'Entrar'}
           </button>
         </form>
+
+        <div className="auth-switch">
+          <span>¿Es tu primera vez?</span>
+          <Link className="button-link" href="/registro">Crear una cuenta</Link>
+        </div>
 
         <details className="demo-access">
           <summary>Ver cuentas de demostracion</summary>

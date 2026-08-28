@@ -40,6 +40,7 @@ import {
   previewMapping,
   publishDataset,
   provisionCompany,
+  registerAccount,
   proposeReconciliationGroup,
   proposeReconciliationReview,
   proposeCorrection,
@@ -57,6 +58,55 @@ import {
 import { clearSession, readSession, writeSession } from '@/lib/session';
 
 export type SignInState = { error: string | null };
+
+export type RegistrationState = { error: string | null };
+
+export async function registerAccountAction(
+  _previous: RegistrationState,
+  formData: FormData,
+): Promise<RegistrationState> {
+  const displayName = String(formData.get('displayName') ?? '').trim();
+  const firmName = String(formData.get('firmName') ?? '').trim();
+  const username = String(formData.get('username') ?? '').trim().toLowerCase();
+  const secret = String(formData.get('secret') ?? '');
+  const confirmation = String(formData.get('secretConfirmation') ?? '');
+
+  if (!displayName || !firmName || !username || !secret || !confirmation) {
+    return { error: 'Completa todos los campos.' };
+  }
+  if (!username.endsWith('@demo.local')) {
+    return { error: 'En este laboratorio usa una direccion terminada en @demo.local.' };
+  }
+  if (secret !== confirmation) {
+    return { error: 'Las contrasenas no coinciden.' };
+  }
+
+  let session;
+  try {
+    session = await registerAccount({
+      username,
+      secret,
+      display_name: displayName,
+      firm_name: firmName,
+    });
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 429) {
+      return { error: 'Demasiados intentos. Espera unos minutos.' };
+    }
+    if (error instanceof ApiError && error.status === 409) {
+      return { error: 'No pudimos crear la cuenta con esos datos. Prueba otra direccion.' };
+    }
+    if (error instanceof ApiError && error.status === 422) {
+      return {
+        error: 'Revisa el correo sintetico y usa una contrasena de 14 caracteres con mayuscula, minuscula, numero y simbolo.',
+      };
+    }
+    return { error: 'No se pudo crear la cuenta. Intenta de nuevo.' };
+  }
+
+  await writeSession(session.token, session.display_name, session.expires_at);
+  redirect('/empresas/nueva?inicio=registro');
+}
 
 export async function signInAction(
   _previous: SignInState,

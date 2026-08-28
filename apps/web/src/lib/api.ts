@@ -71,6 +71,13 @@ export type Session = {
   display_name: string;
 };
 
+export type RegistrationInput = {
+  username: string;
+  secret: string;
+  display_name: string;
+  firm_name: string;
+};
+
 export type ManagedFirm = {
   firm_id: string;
   legal_name: string;
@@ -180,6 +187,14 @@ export function signIn(username: string, secret: string): Promise<Session> {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ username, secret }),
+  });
+}
+
+export function registerAccount(input: RegistrationInput): Promise<Session> {
+  return request<Session>('/api/v1/auth/registration', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(input),
   });
 }
 

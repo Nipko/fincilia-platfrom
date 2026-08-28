@@ -35,6 +35,14 @@ test('TST-A11Y-001: ingreso publico sin hallazgos serios o criticos', async ({
   await expectNoSeriousOrCriticalViolations(page);
 });
 
+test('TST-REG-005: registro publico sintetico sin hallazgos serios o criticos', async ({
+  page,
+}) => {
+  await page.goto('/registro');
+
+  await expectNoSeriousOrCriticalViolations(page);
+});
+
 test('TST-A11Y-001: no encontrado conserva la misma base accesible', async ({
   page,
 }) => {
