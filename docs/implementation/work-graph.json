@@ -54,17 +54,5 @@
       "agent_may_accept": false
     }
   ],
-  "active_reservations": [
-    {
-      "task": "FNC-LEG-001",
-      "holder": "Codex principal dev + Integration Steward",
-      "paths": [
-        "docs/legal",
-        "tools/legal_treatment",
-        "docs/implementation/tasks/FNC-LEG-001.md",
-        "docs/implementation/handoffs/FNC-LEG-001.md",
-        "docs/implementation/decision_requests/FNC-LEG-001-LEGAL-REVIEW.md"
-      ]
-    }
-  ]
+  "active_reservations": []
 }

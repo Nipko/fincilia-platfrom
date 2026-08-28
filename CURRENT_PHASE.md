@@ -148,7 +148,7 @@ Hasta S1-READY solo se admite scaffolding, automatización, pruebas, documentaci
 | FNC-AUD-001 | Centro web company-scoped de accesos y auditoria | Review pending | Codex + Integration Steward | API keyset, actor, filtros cerrados, portafolio company-by-company y estados parciales; revision independiente pendiente |
 | FNC-PLT-009 | Runtime local persistente de Docker Engine en Windows/WSL | Review pending | Codex + Integration Steward | wrapper oculto y reversible, lifecycle completo, contrato ejecutable y persistencia de datos verificada; revision independiente pendiente |
 | FNC-REL-001 | Candidato de release reproducible y baseline operativo | Review pending | Codex + Integration Steward | bundle SPDX cross-platform, manifiesto fail-closed, observabilidad segura, workflow manual y CI 33189792888 verdes; revisión Security/QA/Architecture pendiente |
-| FNC-LEG-001 | Plantilla ejecutable de tratamiento para corpus real | In progress | Codex + Integration Steward | contrato fail-closed, cobertura dinámica de privacy-map y revisión de abogado nominal; sólo sintético |
+| FNC-LEG-001 | Plantilla ejecutable de tratamiento para corpus real | Review pending | Codex + Integration Steward | 11 actividades dinámicas, 16 secciones y 26 pruebas; paquete listo para abogado independiente, sin autorizar datos reales ni mover DRG-00 |
 
 Solo el Integration Steward modifica esta tabla.
 

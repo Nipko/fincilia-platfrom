@@ -5,7 +5,7 @@ epic: FNC-EP-002
 phase: F0
 iteration: E1
 type: legal_readiness
-status: in_progress
+status: review_pending
 priority: P0
 accountable_owner: FOUNDER-01
 agent_lane: Legal/Privacy
