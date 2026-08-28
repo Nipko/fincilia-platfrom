@@ -39,6 +39,7 @@ owners nominales, revisión independiente ni el gate S1-READY.
 | [029](ADR-029-opentofu-aws-t0.md) | Control plane AWS T0 con OpenTofu | Proposed; laboratorio sintetico aplicado, revision pendiente |
 | [030](ADR-030-aws-t1-remote-lab.md) | Host unico SSM para laboratorio AWS T1 | Proposed; laboratorio sintetico aplicado, revision pendiente |
 | [031](ADR-031-closed-synthetic-beta.md) | Beta cerrada sintetica antes de DRG-01 | Proposed; BETA-01 condicionado a evidencia y revision independiente |
+| [032](ADR-032-aws-private-real-data-pilot.md) | Entorno AWS separado para piloto privado real | Proposed; bloqueado por DRG-00/01 y revisión independiente |
 
 ## Estados
 

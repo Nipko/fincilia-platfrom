@@ -1,0 +1,57 @@
+{
+  "schema_version": "1.0.0",
+  "task_id": "FNC-GAT-005",
+  "status": "in_progress",
+  "target": "founder_private_real_data_pilot",
+  "data_ceiling": "synthetic_only",
+  "real_data_authorized": false,
+  "pilot_scope": {
+    "operator_mode": "founder_first_named_users_only",
+    "maximum_companies": 1,
+    "maximum_users": 3,
+    "allowed_document_types": ["csv", "xlsx", "pdf"],
+    "allowed_data_categories": ["financial_account", "transaction", "invoice", "counterparty_contact"],
+    "prohibited_data_categories": ["payment_card", "payroll", "government_identity", "health", "credentials"],
+    "disabled_capabilities": ["external_ai", "email_ingest", "sftp", "api_connectors", "webhooks", "automatic_close"],
+    "invite_only": true
+  },
+  "selected_architecture": {
+    "provider": "AWS",
+    "primary_region": "sa-east-1",
+    "selection_state": "founder_direction_pending_independent_review",
+    "public_web_entry": "https_only_with_waf",
+    "data_stores": "private_subnets_and_customer_managed_kms",
+    "management": "ssm_only_no_ssh",
+    "external_ai": "disabled"
+  },
+  "controls": [
+    {"id":"G00-LEGAL","gate":"DRG-00","domain":"legal","kind":"human","owner_role":"Legal","reviewer_roles":["Privacy"],"state":"pending","evidence_refs":[],"reviewer_id":null,"reviewed_at":null},
+    {"id":"G00-RETENTION","gate":"DRG-00","domain":"privacy","kind":"human","owner_role":"Privacy","reviewer_roles":["Legal","Accounting"],"state":"pending","evidence_refs":[],"reviewer_id":null,"reviewed_at":null},
+    {"id":"G00-REGION","gate":"DRG-00","domain":"architecture","kind":"human","owner_role":"Architecture","reviewer_roles":["Legal","Privacy"],"state":"pending","evidence_refs":[],"reviewer_id":null,"reviewed_at":null},
+    {"id":"G00-ISOLATED-ENV","gate":"DRG-00","domain":"platform","kind":"automated","owner_role":"Platform","reviewer_roles":["Security"],"state":"pending","evidence_refs":[],"reviewer_id":null,"reviewed_at":null},
+    {"id":"G00-INVENTORY","gate":"DRG-00","domain":"data","kind":"automated","owner_role":"Data","reviewer_roles":["Privacy"],"state":"pending","evidence_refs":[],"reviewer_id":null,"reviewed_at":null},
+    {"id":"G00-DELETE","gate":"DRG-00","domain":"privacy","kind":"automated","owner_role":"Privacy","reviewer_roles":["Platform"],"state":"pending","evidence_refs":[],"reviewer_id":null,"reviewed_at":null},
+    {"id":"G00-DRILL","gate":"DRG-00","domain":"qa","kind":"automated","owner_role":"QA","reviewer_roles":["Security"],"state":"pending","evidence_refs":[],"reviewer_id":null,"reviewed_at":null},
+    {"id":"G00-INDEPENDENT-REVIEW","gate":"DRG-00","domain":"governance","kind":"human","owner_role":"Product","reviewer_roles":["Legal","Security"],"state":"pending","evidence_refs":[],"reviewer_id":null,"reviewed_at":null},
+
+    {"id":"D01-DRG00","gate":"DRG-01","domain":"governance","kind":"prerequisite","owner_role":"Integration Steward","reviewer_roles":["Legal","Security","Product"],"state":"pending","evidence_refs":[],"reviewer_id":null,"reviewed_at":null},
+    {"id":"D01-IDENTITY","gate":"DRG-01","domain":"identity","kind":"automated","owner_role":"Security","reviewer_roles":["Privacy","QA"],"state":"pending","evidence_refs":[],"reviewer_id":null,"reviewed_at":null},
+    {"id":"D01-XTENANT","gate":"DRG-01","domain":"security","kind":"automated","owner_role":"Security","reviewer_roles":["Database","QA"],"state":"pending","evidence_refs":[],"reviewer_id":null,"reviewed_at":null},
+    {"id":"D01-INGRESS","gate":"DRG-01","domain":"ingestion","kind":"automated","owner_role":"Security","reviewer_roles":["Data","QA"],"state":"pending","evidence_refs":[],"reviewer_id":null,"reviewed_at":null},
+    {"id":"D01-CHANNELS","gate":"DRG-01","domain":"integrations","kind":"automated","owner_role":"Architecture","reviewer_roles":["Security"],"state":"pending","evidence_refs":[],"reviewer_id":null,"reviewed_at":null},
+    {"id":"D01-CLOUD-CONTROLS","gate":"DRG-01","domain":"platform","kind":"automated","owner_role":"Platform","reviewer_roles":["Security"],"state":"pending","evidence_refs":[],"reviewer_id":null,"reviewed_at":null},
+    {"id":"D01-RESTORE","gate":"DRG-01","domain":"resilience","kind":"automated","owner_role":"Platform","reviewer_roles":["Privacy","Security"],"state":"pending","evidence_refs":[],"reviewer_id":null,"reviewed_at":null},
+    {"id":"D01-PCI","gate":"DRG-01","domain":"legal_security","kind":"human","owner_role":"Security","reviewer_roles":["Qualified adviser","Legal"],"state":"pending","evidence_refs":[],"reviewer_id":null,"reviewed_at":null},
+    {"id":"D01-RIGHTS-IR","gate":"DRG-01","domain":"privacy_operations","kind":"automated","owner_role":"Privacy","reviewer_roles":["Security","QA"],"state":"pending","evidence_refs":[],"reviewer_id":null,"reviewed_at":null},
+    {"id":"D01-PENTEST","gate":"DRG-01","domain":"security","kind":"human","owner_role":"Security","reviewer_roles":["Independent pentester"],"state":"pending","evidence_refs":[],"reviewer_id":null,"reviewed_at":null},
+    {"id":"D01-DPA-SUBPROCESSORS","gate":"DRG-01","domain":"legal_privacy","kind":"human","owner_role":"Legal","reviewer_roles":["Privacy","Security"],"state":"pending","evidence_refs":[],"reviewer_id":null,"reviewed_at":null},
+    {"id":"D01-SUPPLY-CHAIN","gate":"DRG-01","domain":"security","kind":"automated","owner_role":"Security","reviewer_roles":["Platform","QA"],"state":"pending","evidence_refs":[],"reviewer_id":null,"reviewed_at":null},
+    {"id":"D01-INDEPENDENT-REVIEW","gate":"DRG-01","domain":"governance","kind":"human","owner_role":"Product","reviewer_roles":["Legal","Security","Platform","QA"],"state":"pending","evidence_refs":[],"reviewer_id":null,"reviewed_at":null}
+  ],
+  "gate_claims": [
+    {"id":"DRG-00","status":"not_met","authorized":false},
+    {"id":"DRG-01","status":"not_met","authorized":false}
+  ],
+  "human_acceptance": "pending_independent_review",
+  "founder_is_independent_reviewer": false
+}

@@ -489,6 +489,31 @@
         "QA"
       ],
       "scope": "closed_synthetic_beta_only"
+    },
+    {
+      "blockers": [
+        "DRG-00",
+        "DRG-01",
+        "independent_legal_security_platform_qa_review"
+      ],
+      "evidence": [
+        "docs/implementation/tasks/FNC-GAT-005.md",
+        "docs/security/drg01-readiness.json",
+        "docs/security/DRG01_READINESS.md"
+      ],
+      "id": "ADR-032",
+      "owners": [
+        "Architecture",
+        "Platform"
+      ],
+      "path": "docs/adr/ADR-032-aws-private-real-data-pilot.md",
+      "readiness": "blocked",
+      "reviewers": [
+        "Security",
+        "Privacy",
+        "QA"
+      ],
+      "scope": "private_real_data_pilot_only"
     }
   ],
   "agent_may_accept": false,
