@@ -50,6 +50,7 @@
 | TST-DRG-001 | Egress IA denegado, acceso auditado y purga reconciliada | FNC-QA-001 |
 | TST-A11Y-001 | Teclado, foco, encabezados y estados no solo por color | FNC-UX-001 |
 | TST-A02-001 | Región, transmisión, stores, gates y selección permanecen fail-closed | FNC-ARC-003 |
+| TST-A02-002 | Free Tier solo habilita un spike sintético; gasto, DRG-00 y producción permanecen bloqueados | FNC-ARC-003 |
 | TST-AI-001 | Redacción fail-closed, abstención, rollback y presupuesto | Fase 4 |
 | TST-DB-001 | Roles runtime sin superusuario/BYPASSRLS y tablas sensibles con FORCE RLS | FNC-PLT-005 |
 | TST-BAL-001 | Ecuación de saldo conserva moneda, signo y periodo | FNC-DOM-003 |

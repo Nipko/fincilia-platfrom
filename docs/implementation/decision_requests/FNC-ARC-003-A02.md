@@ -5,7 +5,7 @@
 - Tareas bloqueadas: FNC-ARC-003, FNC-SEC-003, FNC-PLT-004 y DRG-01
 - Owners requeridos: Architecture y Legal
 - Gate afectado: A-02
-- Estado: Proposed
+- Estado: Founder direction recorded; A-02 remains Proposed
 
 ## Incertidumbre
 
@@ -22,15 +22,27 @@ de compute sería incompleto.
 | México/Estados Unidos | Cobertura/competencia potencial | Mayor distancia y análisis internacional | Media |
 | Colombia dedicado/híbrido | Residencia física local potencial | Operación, disponibilidad, costo y portabilidad | Alta |
 
-## Recomendación del agente
+## Dirección provisional aprobada por el Founder
 
-Cotizar y comprobar Brasil y Chile en paralelo. No puntuar ni elegir hasta cerrar
-`A02-G01..G06`; luego medir costo, latencia y salida. Mantener local sintético mientras tanto.
+El 2026-08-28 el Founder autorizó priorizar **AWS `sa-east-1`** para la evaluación técnica
+y económica inicial, con Cognito por invitación. El alcance de esta dirección es preparar y
+validar el candidato; no equivale a aceptar A-02, no autoriza despliegue, gasto ni datos
+reales y no elimina ninguno de los gates `A02-G01..G10`.
+
+La primera etapa propuesta es un spike AWS aislado, temporal y exclusivamente sintético.
+La viabilidad del Free Tier y sus límites se documentan en
+`docs/architecture/aws-free-tier-evaluation.json`.
+
+## Recomendación vigente del agente
+
+Profundizar primero AWS São Paulo sin descartar formalmente Brasil/Chile de los demás
+proveedores hasta cerrar `A02-G01..G06`; luego medir costo, latencia y salida. Mantener
+local sintético y no crear recursos cloud mientras el tope autorizado siga en USD 0.
 
 ## Decisión humana
 
-- Estado: Proposed
-- Aprobadores: UNASSIGNED
-- Fecha: UNASSIGNED
+- Estado: Preferred candidate for evaluation; final decision Proposed
+- Dirección provisional: `FOUNDER-01`
+- Fecha de dirección provisional: 2026-08-28
+- Aprobadores finales: Architecture + Legal independientes, pendientes
 - ADR: ADR-020 permanece Proposed
-

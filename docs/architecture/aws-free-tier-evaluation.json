@@ -1,0 +1,261 @@
+{
+  "schema_version": "1.0.0",
+  "task_id": "FNC-ARC-003",
+  "revision": "R1",
+  "evidence_as_of": "2026-08-28",
+  "status": "technical_cost_evaluation_complete_human_gates_pending",
+  "founder_direction": {
+    "preferred_provider_for_evaluation": "AWS",
+    "preferred_region_for_evaluation": "sa-east-1",
+    "scope": "technical_and_cost_validation_only",
+    "final_a02_selection": false,
+    "cloud_spend_authorized_usd": 0,
+    "deployment_authorized": false,
+    "real_data_authorized": false
+  },
+  "free_tier_program": {
+    "new_program_effective_date": "2025-07-15",
+    "free_plan_duration_months_max": 6,
+    "free_plan_ends_when_credits_depleted": true,
+    "signup_credits_usd": 100,
+    "additional_earnable_credits_usd_max": 100,
+    "credit_expiry_months_after_account_creation": 12,
+    "joining_aws_organizations_ends_free_plan": true,
+    "control_tower_ends_free_plan": true,
+    "account_creation_date": null,
+    "account_plan": null,
+    "eligibility_state": "unknown_requires_account_evidence",
+    "source_ids": ["AWS-FREE", "AWS-FREE-FAQ"]
+  },
+  "fincilia_workload": {
+    "runtime_components": ["nextjs_web", "fastapi_api", "document_worker"],
+    "authoritative_store": "postgresql_17",
+    "object_planes": ["quarantine", "raw", "derived", "exports", "security_archive"],
+    "ephemeral_cache": "valkey_non_authoritative",
+    "containerized": true,
+    "arm64_compatibility_verified": false,
+    "measured_cloud_memory_profile": false,
+    "initial_research_file_limit": 10,
+    "max_file_bytes": 26214400,
+    "maximum_initial_input_bytes": 262144000,
+    "formats_allowed_for_initial_research": ["csv", "xlsx"],
+    "formats_forbidden_for_initial_research": ["pdf"],
+    "external_ai_enabled": false
+  },
+  "service_assessments": [
+    {
+      "id": "COGNITO",
+      "aws_service": "Amazon Cognito user pools Essentials",
+      "role": "invitation_only_managed_identity",
+      "free_character": "always_free_within_direct_or_social_mau_allowance",
+      "documented_allowance": "10000_MAU_per_month",
+      "fit": "conditional",
+      "conditions": ["self_registration_disabled", "admin_created_users", "passkeys_enabled", "separate_application_roles_server_side"],
+      "gaps": ["passkey_attestation_enforcement_not_supported", "aal3_step_up_not_yet_evidenced"],
+      "source_ids": ["AWS-COGNITO-PRICE", "AWS-COGNITO-ADMIN", "AWS-COGNITO-PASSKEY"]
+    },
+    {
+      "id": "S3",
+      "aws_service": "Amazon S3",
+      "role": "object_evidence_planes",
+      "free_character": "free_allowance_or_credit_backed_subject_to_account_program",
+      "documented_allowance": "5_GB_storage_20000_GET_2000_PUT",
+      "fit": "yes_for_initial_synthetic_volume",
+      "conditions": ["separate_buckets_or_prefix_policies", "versioning", "block_public_access", "lifecycle_pending_L01"],
+      "gaps": ["customer_managed_key_cost_not_free", "retention_days_pending_legal"],
+      "source_ids": ["AWS-S3-FREE", "AWS-KMS-PRICE"]
+    },
+    {
+      "id": "RDS",
+      "aws_service": "Amazon RDS for PostgreSQL",
+      "role": "authoritative_financial_database",
+      "free_character": "free_allowance_or_credit_backed_subject_to_account_program",
+      "documented_allowance": "750_Single_AZ_hours_20_GB_gp2_20_GB_backup",
+      "fit": "yes_for_synthetic_spike_not_production",
+      "conditions": ["eligible_micro_class", "single_AZ", "restore_drill", "no_CPU_credit_overage"],
+      "gaps": ["no_Multi_AZ_in_free_allowance", "single_point_of_failure", "production_capacity_unproven"],
+      "source_ids": ["AWS-RDS-PRICE"]
+    },
+    {
+      "id": "EC2",
+      "aws_service": "Amazon EC2",
+      "role": "single_container_host_for_synthetic_spike",
+      "free_character": "credit_backed_for_new_program_not_an_indefinite_zero_cost_claim",
+      "documented_allowance": "depends_on_account_program_and_eligible_instance",
+      "fit": "unproven_until_load_test",
+      "conditions": ["one_host", "worker_on_demand", "no_real_data", "measured_memory_before_selection"],
+      "gaps": ["three_runtime_components_may_not_fit_micro", "single_host", "public_ingress_design_not_valid_for_DRG00"],
+      "source_ids": ["AWS-FREE", "AWS-EC2-FREE"]
+    },
+    {
+      "id": "ECR",
+      "aws_service": "Amazon ECR private",
+      "role": "container_registry",
+      "free_character": "limited_free_storage_then_paid_or_credit_backed",
+      "documented_allowance": "500_MB_per_month_for_one_year_for_new_ECR_customers",
+      "fit": "conditional",
+      "conditions": ["measure_compressed_images", "immutable_digest_deployments", "lifecycle_policy"],
+      "gaps": ["three_images_may_exceed_500_MB"],
+      "source_ids": ["AWS-ECR-PRICE"]
+    },
+    {
+      "id": "CLOUDTRAIL",
+      "aws_service": "AWS CloudTrail",
+      "role": "control_plane_audit",
+      "free_character": "first_management_event_history_and_first_trail_copy_free_with_storage_charges",
+      "documented_allowance": "90_day_event_history_and_one_management_event_copy",
+      "fit": "yes_for_baseline",
+      "conditions": ["one_trail", "S3_storage_budgeted", "data_events_selected_deliberately"],
+      "gaps": ["S3_data_events_and_additional_copies_are_paid"],
+      "source_ids": ["AWS-CLOUDTRAIL-PRICE"]
+    },
+    {
+      "id": "S3_GATEWAY_ENDPOINT",
+      "aws_service": "Amazon VPC gateway endpoint for S3",
+      "role": "private_S3_path",
+      "free_character": "no_additional_charge",
+      "documented_allowance": "no_hourly_or_data_processing_endpoint_charge",
+      "fit": "yes",
+      "conditions": ["route_table_and_bucket_policy_restricted"],
+      "gaps": [],
+      "source_ids": ["AWS-S3-GATEWAY-ENDPOINT"]
+    },
+    {
+      "id": "KMS",
+      "aws_service": "AWS KMS customer managed keys",
+      "role": "separate_data_plane_keys",
+      "free_character": "paid_from_first_customer_managed_key",
+      "documented_allowance": "20000_symmetric_requests_free_but_key_storage_1_USD_per_key_month",
+      "fit": "required_for_real_data_not_cash_zero",
+      "conditions": ["key_count_minimized_without_collapsing_required_separation", "rotation_policy"],
+      "gaps": ["recurring_key_storage_cost"],
+      "source_ids": ["AWS-KMS-PRICE"]
+    },
+    {
+      "id": "SECRETS_MANAGER",
+      "aws_service": "AWS Secrets Manager",
+      "role": "rotatable_runtime_secrets",
+      "free_character": "paid_per_secret_and_API_calls",
+      "documented_allowance": "0.40_USD_per_secret_month_reference_price",
+      "fit": "required_where_rotation_is_needed_not_cash_zero",
+      "conditions": ["no_secret_in_images_or_IaC_state", "cache_retrievals", "managed_KMS_key_where_appropriate"],
+      "gaps": ["recurring_secret_cost"],
+      "source_ids": ["AWS-SECRETS-PRICE"]
+    },
+    {
+      "id": "FARGATE",
+      "aws_service": "AWS Fargate",
+      "role": "managed_container_compute_candidate",
+      "free_character": "paid_for_requested_vCPU_memory_and_storage",
+      "documented_allowance": "no_indefinite_free_compute_allowance",
+      "fit": "not_for_cash_zero_spike",
+      "conditions": [],
+      "gaps": ["continuous_runtime_consumes_credits_quickly"],
+      "source_ids": ["AWS-FARGATE-PRICE"]
+    },
+    {
+      "id": "NAT_GATEWAY",
+      "aws_service": "Amazon VPC NAT Gateway",
+      "role": "private_subnet_egress_candidate",
+      "free_character": "paid_hourly_and_per_GB",
+      "documented_allowance": "none",
+      "fit": "prohibited_in_cash_zero_spike",
+      "conditions": [],
+      "gaps": ["fixed_hourly_cost", "data_processing_cost"],
+      "source_ids": ["AWS-NAT-PRICE"]
+    },
+    {
+      "id": "ALB",
+      "aws_service": "Application Load Balancer",
+      "role": "managed_ingress_candidate",
+      "free_character": "paid_per_hour_and_LCU",
+      "documented_allowance": "none",
+      "fit": "prohibited_in_cash_zero_spike",
+      "conditions": [],
+      "gaps": ["fixed_hourly_cost"],
+      "source_ids": ["AWS-ALB-PRICE"]
+    }
+  ],
+  "launch_tiers": [
+    {
+      "id": "TIER-0-SYNTHETIC",
+      "name": "AWS standalone synthetic cloud spike",
+      "cash_zero_feasible": "conditional_on_account_eligibility_and_credit_balance",
+      "duration_days_max": 30,
+      "data_ceiling": "synthetic_only",
+      "account_topology": "standalone_not_in_Organizations",
+      "services": ["COGNITO", "S3", "RDS", "EC2", "ECR", "CLOUDTRAIL", "S3_GATEWAY_ENDPOINT"],
+      "forbidden_services": ["FARGATE", "NAT_GATEWAY", "ALB"],
+      "billable_security_controls_deferred": ["KMS", "SECRETS_MANAGER"],
+      "purpose": ["validate_IaC", "validate_Cognito_OIDC", "validate_S3_adapter", "validate_RDS_migrations_RLS", "measure_container_memory_and_latency"],
+      "not_evidence_for": ["DRG-00", "DRG-01", "production_availability", "legal_suitability", "real_data_security"]
+    },
+    {
+      "id": "TIER-1-DRG00",
+      "name": "isolated limited real-data research lab",
+      "cash_zero_feasible": "no",
+      "duration_days_max": null,
+      "data_ceiling": "real_research_only_after_DRG00",
+      "account_topology": "paid_governed_account",
+      "services": ["COGNITO", "S3", "RDS", "EC2_or_FARGATE", "ECR", "CLOUDTRAIL", "KMS", "SECRETS_MANAGER", "private_service_paths"],
+      "forbidden_services": [],
+      "billable_security_controls_deferred": [],
+      "purpose": ["one_SME_limited_research_corpus"],
+      "not_evidence_for": ["DRG-01", "production_availability", "general_customer_onboarding"]
+    },
+    {
+      "id": "TIER-2-PRODUCTION",
+      "name": "production baseline",
+      "cash_zero_feasible": "no",
+      "duration_days_max": null,
+      "data_ceiling": "production_only_after_all_gates",
+      "account_topology": "multi_account_governed_paid",
+      "services": ["multi_AZ_database", "redundant_compute", "managed_ingress", "WAF", "KMS", "secrets_rotation", "backup_restore", "monitoring_and_incident_response"],
+      "forbidden_services": [],
+      "billable_security_controls_deferred": [],
+      "purpose": ["resilient_customer_workload"],
+      "not_evidence_for": []
+    }
+  ],
+  "cost_control": {
+    "current_spend_authorization_usd": 0,
+    "calculator_quote_required_before_deployment": true,
+    "monthly_estimate_usd": null,
+    "estimate_state": "blocked_by_account_eligibility_and_measured_sizing",
+    "required_before_any_paid_plan": [
+      "account_creation_date_and_plan",
+      "credit_balance_and_expiry",
+      "measured_image_sizes_and_memory",
+      "AWS_Pricing_Calculator_export_for_sa_east_1",
+      "Founder_monthly_hard_cap",
+      "budget_alerts_and_cost_anomaly_detection",
+      "resource_expiry_tags_and_destroy_runbook"
+    ],
+    "cost_traps": ["NAT_GATEWAY", "ALB", "interface_VPC_endpoints_per_AZ", "FARGATE_24x7", "Multi_AZ_RDS", "CloudWatch_log_retention", "S3_data_events", "public_IP_charges", "cross_region_or_internet_egress"]
+  },
+  "verdict": {
+    "can_start_on_aws_free_tier": true,
+    "scope": "synthetic_cloud_spike_only",
+    "can_run_DRG00_entirely_on_always_free_allowances": false,
+    "can_run_production_entirely_on_free_tier": false,
+    "recommended_sequence": ["TIER-0-SYNTHETIC", "close_A02_S01_L01_and_independent_reviews", "TIER-1-DRG00_paid_time_bounded", "TIER-2-PRODUCTION"]
+  },
+  "sources": [
+    {"id": "AWS-FREE", "authority": "AWS", "url": "https://aws.amazon.com/free/"},
+    {"id": "AWS-FREE-FAQ", "authority": "AWS", "url": "https://aws.amazon.com/free/free-tier-faqs/"},
+    {"id": "AWS-EC2-FREE", "authority": "AWS", "url": "https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-free-tier-usage.html"},
+    {"id": "AWS-RDS-PRICE", "authority": "AWS", "url": "https://aws.amazon.com/rds/postgresql/pricing/"},
+    {"id": "AWS-S3-FREE", "authority": "AWS", "url": "https://docs.aws.amazon.com/hands-on/latest/backup-files-to-amazon-s3/backup-files-to-amazon-s3.html"},
+    {"id": "AWS-ECR-PRICE", "authority": "AWS", "url": "https://aws.amazon.com/ecr/pricing/"},
+    {"id": "AWS-COGNITO-PRICE", "authority": "AWS", "url": "https://aws.amazon.com/cognito/pricing/"},
+    {"id": "AWS-COGNITO-ADMIN", "authority": "AWS", "url": "https://docs.aws.amazon.com/cognito/latest/developerguide/how-to-create-user-accounts.html"},
+    {"id": "AWS-COGNITO-PASSKEY", "authority": "AWS", "url": "https://docs.aws.amazon.com/cognito/latest/developerguide/amazon-cognito-user-pools-authentication-flow-methods.html"},
+    {"id": "AWS-S3-GATEWAY-ENDPOINT", "authority": "AWS", "url": "https://docs.aws.amazon.com/vpc/latest/privatelink/gateway-endpoints.html"},
+    {"id": "AWS-KMS-PRICE", "authority": "AWS", "url": "https://aws.amazon.com/kms/pricing/"},
+    {"id": "AWS-SECRETS-PRICE", "authority": "AWS", "url": "https://aws.amazon.com/secrets-manager/pricing/"},
+    {"id": "AWS-FARGATE-PRICE", "authority": "AWS", "url": "https://aws.amazon.com/fargate/pricing/"},
+    {"id": "AWS-NAT-PRICE", "authority": "AWS", "url": "https://aws.amazon.com/vpc/pricing/"},
+    {"id": "AWS-ALB-PRICE", "authority": "AWS", "url": "https://aws.amazon.com/elasticloadbalancing/pricing/"},
+    {"id": "AWS-CLOUDTRAIL-PRICE", "authority": "AWS", "url": "https://aws.amazon.com/cloudtrail/pricing/"}
+  ]
+}

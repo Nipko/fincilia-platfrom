@@ -90,7 +90,7 @@ Hasta S1-READY solo se admite scaffolding, automatización, pruebas, documentaci
 | FNC-GOV-003 | Grafo ejecutable de trabajo y reservas | Review pending | Integration Steward | docs/implementation/WORK_GRAPH.md, work-graph.json, tools/work_graph, CI, handoff |
 | FNC-PLT-002 | Entorno local mínimo y lifecycle reproducible | Review pending | Integration Steward | infra/local, tools/local_stack, CI, evidencia, handoff |
 | FNC-UX-001 | Arquitectura de información y prototipo accesible | Review pending | Integration Steward | docs/ux, tools/ux_contract, CI, handoff |
-| FNC-ARC-003 | Paquete A-02 de región, transmisión y subencargados | Review pending | Integration Steward | docs/architecture/REGION_TRANSMISSION_DECISION.md, ADR-020, tools/region_decision, handoff |
+| FNC-ARC-003 | Paquete A-02 de región, transmisión y subencargados | Review pending | Integration Steward | AWS `sa-east-1` priorizada solo para evaluación; Free Tier viable únicamente para spike sintético; gasto, despliegue, A-02 y datos reales siguen bloqueados |
 | FNC-ARC-006 | Readiness ejecutable de ADR bloqueantes | Review pending | Integration Steward | docs/architecture/ADR_READINESS.md, adr-readiness.json, tools/adr_readiness, handoff |
 | FNC-INT-001 | Due diligence y RFQ de conectividad read-only | Review pending | Integration Steward | docs/integrations, tools/provider_evaluation, handoff |
 | FNC-FIN-001 | Presupuesto ejecutable F0–F2 y runway | Review pending | Integration Steward | docs/business/BUDGET_F0_F2.md, budget-f0-f2.json, tools/budget_model, handoff |

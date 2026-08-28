@@ -1,12 +1,14 @@
 # A-02 — región, transmisión y subencargados
 
-Estado: **decisión humana pendiente** · Tarea: `FNC-ARC-003` · Evidencia revisada: 2026-08-21.
+Estado: **AWS São Paulo priorizada para evaluación; decisión A-02 pendiente** · Tarea:
+`FNC-ARC-003` · Evidencia regional: 2026-08-21 · Evidencia Free Tier: 2026-08-28.
 
 ## Veredicto actual
 
-No hay base para elegir proveedor o región todavía. El único resultado seguro es un
-shortlist técnico para due diligence en Brasil y Chile y una postura `deny` para cloud,
-egress y datos reales hasta completar la matriz legal, contractual y servicio por servicio.
+El Founder priorizó AWS `sa-east-1` para la evaluación técnica y económica inicial. No hay
+base todavía para convertir esa preferencia en selección A-02. Se conserva el shortlist de
+Brasil y Chile y la postura `deny` para despliegue, gasto, egress y datos reales hasta
+completar la matriz legal, contractual y servicio por servicio.
 
 Las fuentes oficiales revisadas muestran regiones completas candidatas en São Paulo para
 AWS, Brasil/Chile para Azure y Brasil/Chile para Google Cloud. No evidencian una región
@@ -54,6 +56,10 @@ Fuentes de infraestructura: [AWS Regions](https://docs.aws.amazon.com/global-inf
 No se asignan puntos: antes de los gates legales, seguridad y localización de servicios, un
 score produciría falsa precisión.
 
+La evaluación separada del programa gratuito concluye que AWS puede alojar un spike
+sintético temporal, pero que ni DRG-00 ni producción deben prometerse como gratuitos. Véase
+[AWS_FREE_TIER_EVALUATION.md](AWS_FREE_TIER_EVALUATION.md).
+
 ## 3. Matriz obligatoria por plano
 
 Para PostgreSQL, cada zona de objetos, security archive/delete ledger, backups/WAL,
@@ -94,4 +100,3 @@ Esta topología es una hipótesis reversible para cotizar y probar, no autorizac
 8. Owners humanos firman proveedor, región y riesgos residuales.
 
 Hasta completar los diez gates de `region-transmission-decision.json`, A-02 permanece abierta.
-
