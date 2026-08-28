@@ -72,6 +72,15 @@ class ContractTests(unittest.TestCase):
         self.assertLess(source.index(timer), source.index(image_pull))
         self.assertLess(source.index(timer), source.index(application))
 
+    def test_native_shutdown_is_scheduled_before_network_or_package_work(self) -> None:
+        source = (
+            Path(__file__).resolve().parents[2]
+            / "infra" / "aws" / "t1" / "runtime" / "cloud-init.sh.tftpl"
+        ).read_text(encoding="utf-8")
+        native_guard = '/usr/sbin/shutdown --poweroff +240'
+        self.assertLess(source.index(native_guard), source.index("dnf install"))
+        self.assertLess(source.index(native_guard), source.index("aws s3 cp"))
+
 
 class PlanTests(unittest.TestCase):
     def setUp(self) -> None:

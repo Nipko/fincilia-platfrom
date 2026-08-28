@@ -21,7 +21,9 @@ puede tunelizarse por separado desde el puerto remoto 58080.
 
 ## Limites operativos
 
-- Cada boot programa `poweroff` a las cuatro horas; EC2 interpreta el shutdown como stop.
+- El primer boot programa `shutdown --poweroff +240` antes de tocar red, S3 o Docker.
+- Un timer persistente vuelve a programar `poweroff` a las cuatro horas de cada boot;
+  EC2 interpreta ambos shutdown como stop.
 - No existe Elastic IP: el egress usa una IP publica efimera y no hay inbound.
 - El root EBS cifrado persiste al detener, pero se elimina al terminar la instancia.
 - Los secretos sinteticos se generan en `/opt/fincilia/runtime.env` modo 0600.

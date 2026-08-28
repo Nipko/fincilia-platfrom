@@ -74,6 +74,7 @@ def validate_sources() -> list[str]:
         'ami                                  = "ami-0ae4c9718ffae6ca6"',
         'cpu_credits = "standard"',
         'instance_initiated_shutdown_behavior = "stop"',
+        '/usr/sbin/shutdown --poweroff +240',
         'http_tokens                 = "required"',
         'http_put_response_hop_limit = 1',
         'volume_size           = 16',

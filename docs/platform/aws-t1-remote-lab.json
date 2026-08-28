@@ -69,6 +69,7 @@
     "no_ingress",
     "ssm_only",
     "standard_cpu_credits",
+    "native_shutdown_before_network_io",
     "four_hour_autostop",
     "images_by_digest",
     "secrets_generated_only_on_host",

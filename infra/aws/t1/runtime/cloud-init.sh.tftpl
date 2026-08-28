@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Primera defensa de costo: no depende de red, S3, Docker ni del bundle. En el
+# primer boot, el shutdown de la instancia se traduce en stop, nunca terminate.
+/usr/sbin/shutdown --poweroff +240 "Fincilia T1 bounded session"
+
 dnf install -y docker openssl
 systemctl enable --now docker
 
