@@ -1,0 +1,213 @@
+{
+  "schema_version": "1.0.0",
+  "task_id": "FNC-LEG-001",
+  "status": "review_pending",
+  "data_ceiling": "synthetic_only",
+  "real_data_authorized": false,
+  "legal_advice": false,
+  "purpose": "Estructurar la revisión jurídica previa al primer corpus real de investigación sin adjudicar roles, bases, proveedores, regiones ni plazos.",
+  "source_contract": {
+    "path": "docs/privacy/privacy-map.json",
+    "activity_selector": "target_gate in [DRG-00, DRG-01]",
+    "decision_selector": "id in [UD-A-02, UD-L-01, UD-ROLE, UD-PROVIDERS]"
+  },
+  "official_sources": [
+    {
+      "id": "SRC-LEG-001",
+      "authority": "SUIN",
+      "kind": "statute",
+      "title": "Ley 1581 de 2012",
+      "url": "https://www.suin-juriscol.gov.co/viewDocument.asp?ruta=Leyes%2F1684507",
+      "consulted_at": "2026-08-28",
+      "use": "Definiciones, principios y deberes sujetos a interpretación del abogado revisor."
+    },
+    {
+      "id": "SRC-LEG-002",
+      "authority": "SIC",
+      "kind": "official_guidance",
+      "title": "Política de Tratamiento de Datos Personales de la SIC",
+      "url": "https://sedeelectronica.sic.gov.co/politica-de-tratamiento-de-datos-personales",
+      "consulted_at": "2026-08-28",
+      "use": "Ejemplo oficial de alcance, actividades, obligaciones y garantías de seguridad en transmisión."
+    },
+    {
+      "id": "SRC-LEG-003",
+      "authority": "SIC",
+      "kind": "official_guidance",
+      "title": "Diferencia entre transferencia y transmisión de datos personales",
+      "url": "https://www.sic.gov.co/content/%C2%BFen-qu%C3%A9-consiste-la-transferencia-y-transmisi%C3%B3n-de-datos-personales",
+      "consulted_at": "2026-08-28",
+      "use": "Pregunta de calificación por actividad y rol; no adjudica la operación de Fincilia."
+    },
+    {
+      "id": "SRC-LEG-004",
+      "authority": "SIC",
+      "kind": "official_concept",
+      "title": "Alcance de la Circular 002 de 2025 sobre transferencias internacionales",
+      "url": "https://sedeelectronica.sic.gov.co/publicaciones/boletin-juridico/concepto/alcance-de-la-circular-002-de-2025-sobre-transferencias-internacionales-de-datos",
+      "consulted_at": "2026-08-28",
+      "use": "Revisión de transmisión internacional, contratos y responsabilidad demostrada."
+    }
+  ],
+  "required_sections": [
+    {
+      "id": "SEC-PARTIES",
+      "title": "Partes, capacidad y documentos relacionados",
+      "owner": "Legal",
+      "state": "pending_legal",
+      "prompt": "Identificar entidades, representación, políticas incorporadas y precedencia contractual sin usar datos reales en el repositorio."
+    },
+    {
+      "id": "SEC-ROLES",
+      "title": "Rol por actividad",
+      "owner": "Legal",
+      "state": "pending_legal",
+      "prompt": "Determinar Responsable, Encargado u otra postura actividad por actividad; no por marca de proveedor."
+    },
+    {
+      "id": "SEC-INSTRUCTIONS",
+      "title": "Instrucciones documentadas",
+      "owner": "Legal",
+      "state": "pending_legal",
+      "prompt": "Definir canal, autoridad, versión, cambio y rechazo de instrucciones incompatibles."
+    },
+    {
+      "id": "SEC-SCOPE",
+      "title": "Alcance, finalidades y operaciones",
+      "owner": "Legal",
+      "state": "pending_legal",
+      "prompt": "Delimitar finalidad, duración, recolección, almacenamiento, uso, circulación, consulta, inferencia y supresión."
+    },
+    {
+      "id": "SEC-DATA",
+      "title": "Titulares y categorías de datos",
+      "owner": "Privacy",
+      "state": "pending_legal",
+      "prompt": "Confirmar categorías de titulares, datos personales y datos de terceros presentes en evidencia financiera."
+    },
+    {
+      "id": "SEC-MINIMIZATION",
+      "title": "Minimización y contenido prohibido",
+      "owner": "Privacy",
+      "state": "pending_legal",
+      "prompt": "Definir necesidad, pertinencia y rechazo de credenciales, CVV, contraseñas y otros datos no requeridos."
+    },
+    {
+      "id": "SEC-CONFIDENTIALITY",
+      "title": "Confidencialidad y personal autorizado",
+      "owner": "Legal",
+      "state": "pending_legal",
+      "prompt": "Definir deberes, capacitación, acceso mínimo y supervivencia de la confidencialidad."
+    },
+    {
+      "id": "SEC-SECURITY",
+      "title": "Medidas técnicas y organizativas",
+      "owner": "Security",
+      "state": "pending_legal",
+      "prompt": "Anexar controles verificables de identidad, RLS, cifrado, egress, auditoría, continuidad y pruebas."
+    },
+    {
+      "id": "SEC-INCIDENTS",
+      "title": "Incidentes y cooperación",
+      "owner": "Security",
+      "state": "pending_legal",
+      "prompt": "Definir detección, preservación, escalamiento, decisión de notificación, contenido y relojes sin inventar plazo legal."
+    },
+    {
+      "id": "SEC-RIGHTS",
+      "title": "Derechos, consultas y reclamos",
+      "owner": "Privacy",
+      "state": "pending_legal",
+      "prompt": "Definir recepción, verificación, enrutamiento, soporte, prueba de autorización, respuesta y apelación."
+    },
+    {
+      "id": "SEC-RECIPIENTS",
+      "title": "Receptores, subencargados y circulación internacional",
+      "owner": "Legal",
+      "state": "pending_legal",
+      "prompt": "Exigir autorización, inventario, cambio, objeción, país, soporte privilegiado, contrato y mecanismo aplicable."
+    },
+    {
+      "id": "SEC-RETENTION",
+      "title": "Retención, hold, devolución y supresión",
+      "owner": "Legal",
+      "state": "pending_legal",
+      "prompt": "Fijar eventos de inicio y plazos sólo después de L-01; cubrir derivados, exports, cachés y legal hold."
+    },
+    {
+      "id": "SEC-RESTORE",
+      "title": "Backups, restore y delete ledger",
+      "owner": "Privacy",
+      "state": "pending_legal",
+      "prompt": "Definir cuándo hay supresión completa y cómo los tombstones sobreviven y se reaplican al restore."
+    },
+    {
+      "id": "SEC-AUDIT",
+      "title": "Auditoría y responsabilidad demostrada",
+      "owner": "Security",
+      "state": "pending_legal",
+      "prompt": "Acordar evidencias, frecuencia, alcance, acceso, remediación y límites de auditoría."
+    },
+    {
+      "id": "SEC-TERM",
+      "title": "Vigencia, terminación, portabilidad y supervivencia",
+      "owner": "Legal",
+      "state": "pending_legal",
+      "prompt": "Definir transición, revocación, devolución, destrucción, export, obligaciones supervivientes y evidencia final."
+    },
+    {
+      "id": "SEC-SIGNATURES",
+      "title": "Aprobaciones, anexos y firmas",
+      "owner": "Legal",
+      "state": "pending_legal",
+      "prompt": "Registrar versión, anexos, excepciones, responsables nominales, revisión independiente, fecha y firma."
+    }
+  ],
+  "activity_coverage": [
+    {"activity_id": "PA-03", "target_gate": "DRG-01", "contract_applicability": "pending_legal", "fincilia_role": "not_determined_pending_legal"},
+    {"activity_id": "PA-04", "target_gate": "DRG-00", "contract_applicability": "pending_legal", "fincilia_role": "not_determined_pending_legal"},
+    {"activity_id": "PA-05", "target_gate": "DRG-00", "contract_applicability": "pending_legal", "fincilia_role": "not_determined_pending_legal"},
+    {"activity_id": "PA-08", "target_gate": "DRG-01", "contract_applicability": "pending_legal", "fincilia_role": "not_determined_pending_legal"},
+    {"activity_id": "PA-10", "target_gate": "DRG-01", "contract_applicability": "pending_legal", "fincilia_role": "not_determined_pending_legal"},
+    {"activity_id": "PA-13", "target_gate": "DRG-01", "contract_applicability": "pending_legal", "fincilia_role": "not_determined_pending_legal"},
+    {"activity_id": "PA-15", "target_gate": "DRG-00", "contract_applicability": "pending_legal", "fincilia_role": "not_determined_pending_legal"},
+    {"activity_id": "PA-16", "target_gate": "DRG-01", "contract_applicability": "pending_legal", "fincilia_role": "not_determined_pending_legal"},
+    {"activity_id": "PA-17", "target_gate": "DRG-01", "contract_applicability": "pending_legal", "fincilia_role": "not_determined_pending_legal"},
+    {"activity_id": "PA-22", "target_gate": "DRG-00", "contract_applicability": "pending_legal", "fincilia_role": "not_determined_pending_legal"},
+    {"activity_id": "PA-23", "target_gate": "DRG-00", "contract_applicability": "pending_legal", "fincilia_role": "not_determined_pending_legal"}
+  ],
+  "blocking_decisions": [
+    {"id": "UD-A-02", "state": "open", "selected_value": null},
+    {"id": "UD-L-01", "state": "open", "selected_value": null},
+    {"id": "UD-ROLE", "state": "open", "selected_value": null},
+    {"id": "UD-PROVIDERS", "state": "open", "selected_value": null}
+  ],
+  "legal_decisions": {
+    "fincilia_role": null,
+    "legal_basis": null,
+    "controller_party": null,
+    "processor_party": null,
+    "region": null,
+    "provider": null,
+    "subprocessors": [],
+    "retention_durations": {}
+  },
+  "human_review": {
+    "state": "pending_distinct_lawyer",
+    "reviewer_id": null,
+    "professional_basis": null,
+    "approved_at": null,
+    "approval_evidence_ref": null
+  },
+  "required_signoffs": [
+    {"role": "Legal", "reviewer_id": null, "state": "pending"},
+    {"role": "Privacy", "reviewer_id": null, "state": "pending"},
+    {"role": "Security", "reviewer_id": null, "state": "pending"}
+  ],
+  "gate_claims": [
+    {"id": "A-02", "status": "not_met", "authorized": false},
+    {"id": "L-01", "status": "not_met", "authorized": false},
+    {"id": "DRG-00", "status": "not_met", "authorized": false},
+    {"id": "DRG-01", "status": "not_met", "authorized": false}
+  ]
+}
