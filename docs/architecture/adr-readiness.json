@@ -213,6 +213,27 @@
     },
     {
       "blockers": [
+        "DRG-00",
+        "managed_idp_security_privacy_review"
+      ],
+      "evidence": [
+        "docs/implementation/tasks/FNC-ONB-002.md",
+        "docs/implementation/tasks/FNC-IAM-001.md"
+      ],
+      "id": "ADR-012",
+      "owners": [
+        "Architecture"
+      ],
+      "path": "docs/adr/ADR-012-idp-subject-assurance.md",
+      "readiness": "blocked",
+      "reviewers": [
+        "Security",
+        "Privacy"
+      ],
+      "scope": "synthetic_identity_adapter_only"
+    },
+    {
+      "blockers": [
         "named_owner_assignment",
         "accounting_review"
       ],
@@ -401,6 +422,73 @@
         "QA"
       ],
       "scope": "reconciliation_group_proposals"
+    },
+    {
+      "blockers": [
+        "independent_platform_security_review",
+        "production_tooling_decision"
+      ],
+      "evidence": [
+        "docs/implementation/tasks/FNC-PLT-010.md",
+        "docs/implementation/handoffs/FNC-PLT-010.md"
+      ],
+      "id": "ADR-029",
+      "owners": [
+        "Platform"
+      ],
+      "path": "docs/adr/ADR-029-opentofu-aws-t0.md",
+      "readiness": "blocked",
+      "reviewers": [
+        "Security",
+        "Architecture"
+      ],
+      "scope": "reversible_aws_t0_spike_only"
+    },
+    {
+      "blockers": [
+        "independent_security_architecture_review",
+        "production_persistence_decision"
+      ],
+      "evidence": [
+        "docs/implementation/tasks/FNC-PLT-011.md",
+        "docs/implementation/handoffs/FNC-PLT-011.md"
+      ],
+      "id": "ADR-030",
+      "owners": [
+        "Platform"
+      ],
+      "path": "docs/adr/ADR-030-aws-t1-remote-lab.md",
+      "readiness": "blocked",
+      "reviewers": [
+        "Security",
+        "Architecture"
+      ],
+      "scope": "reversible_synthetic_remote_lab_only"
+    },
+    {
+      "blockers": [
+        "BETA-01",
+        "independent_security_platform_privacy_qa_review",
+        "domain_https_backup_restore_evidence"
+      ],
+      "evidence": [
+        "docs/implementation/tasks/FNC-BET-001.md",
+        "docs/platform/aws-closed-beta.json",
+        "docs/platform/AWS_CLOSED_BETA.md"
+      ],
+      "id": "ADR-031",
+      "owners": [
+        "Product",
+        "Platform"
+      ],
+      "path": "docs/adr/ADR-031-closed-synthetic-beta.md",
+      "readiness": "blocked",
+      "reviewers": [
+        "Security",
+        "Privacy",
+        "QA"
+      ],
+      "scope": "closed_synthetic_beta_only"
     }
   ],
   "agent_may_accept": false,

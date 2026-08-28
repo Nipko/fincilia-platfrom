@@ -147,6 +147,7 @@ class MigrationTest(unittest.TestCase):
                     "fincilia.finish_run","fincilia.hold_processing_lease",
                     "fincilia.record_overlay_application_run",
                     "fincilia.register_local_account",
+                    "fincilia.register_local_account_with_invite",
                     "fincilia.reserve_confirmed_match_members",
                     "fincilia.send_to_dead_letter"],names)
  def test_no_definer_is_owned_by_the_schema_owner(self):

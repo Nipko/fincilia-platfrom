@@ -23,11 +23,14 @@ class AdrReadinessTest(unittest.TestCase):
         report, findings = validate_repository()
         self.assertEqual([], findings)
         self.assertEqual("not_met", report["gate"])
-        # ADR-020, ADR-026, ADR-027 y ADR-028 siguen en `Proposed`. Una ADR
-        # propuesta tiene que registrarse `blocked`: el validador lo exige, y
-        # es lo que impide que una propuesta cuente como decision tomada.
+        # Toda ADR que sigue en `Proposed` tiene que registrarse `blocked`: el
+        # validador lo exige y evita que un spike o una beta condicionada
+        # cuenten como decision de produccion.
         self.assertEqual(
-            ["ADR-020", "ADR-026", "ADR-027", "ADR-028"],
+            [
+                "ADR-012", "ADR-020", "ADR-026", "ADR-027", "ADR-028",
+                "ADR-029", "ADR-030", "ADR-031",
+            ],
             report["blocked"],
         )
 
