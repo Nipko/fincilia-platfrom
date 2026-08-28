@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "task_id": "FNC-PLT-010",
-  "status": "authorized_control_plane_only",
+  "status": "applied_control_plane_review_pending",
   "authorized_at": "2026-08-28",
   "data_ceiling": "synthetic_only",
   "real_data_authorized": false,
@@ -91,6 +91,43 @@
     "automatic_free_tier_alerts": true,
     "organizations_forbidden": true,
     "control_tower_forbidden": true
+  },
+  "deployment_evidence": {
+    "observed_at": "2026-08-28T18:36:00Z",
+    "bootstrap_managed_resources": 8,
+    "control_plane_managed_resources": 45,
+    "bootstrap_post_apply_plan": "no_changes",
+    "control_plane_post_apply_plan": "no_changes",
+    "remote_state": {
+      "present": true,
+      "versioned": true,
+      "encryption": "AES256",
+      "native_lockfile": true
+    },
+    "cloudtrail": {
+      "logging": true,
+      "latest_delivery_error": false,
+      "latest_digest_delivery_error": false
+    },
+    "cognito": {
+      "mfa": "ON",
+      "admin_create_only": true,
+      "user_count": 0
+    },
+    "ecr": {
+      "repository_count": 3,
+      "immutable": true,
+      "scan_on_push": true,
+      "encryption": "AES256"
+    },
+    "runtime_inventory": {
+      "ec2_instances": 0,
+      "rds_instances": 0,
+      "nat_gateways": 0,
+      "load_balancers": 0,
+      "ecs_clusters": 0
+    },
+    "account_or_resource_ids_versioned": false
   },
   "gate_claims": [
     {"id": "A-02", "status": "not_met"},

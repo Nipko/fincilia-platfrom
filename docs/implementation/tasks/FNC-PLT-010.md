@@ -1,7 +1,7 @@
 ---
 task: FNC-PLT-010
 title: Control plane AWS T0 exclusivamente sintetico
-status: in_progress
+status: review_pending
 implementer: Integration Steward
 base_sha: c1ef454
 gate: T0-SYNTHETIC
@@ -50,6 +50,20 @@ y control de costos sin desplegar EC2, RDS, NAT, ALB, Fargate ni informacion rea
    IA, conectores o recursos multi-region.
 10. El plan se inspecciona como JSON antes de aplicar y solo permite creaciones allowlisted.
 11. El apply deja evidencia reproducible y el destroy queda ensayable, sin ejecutarlo.
+
+## Evidencia de implementacion
+
+- Bootstrap: 8 recursos administrados, plan allowlisted, apply completo y plan posterior
+  sin cambios.
+- Control plane: 45 recursos administrados, plan allowlisted, apply completo y plan
+  posterior sin cambios.
+- Estado: objeto S3 con version, `AES256` y locking nativo; estado bootstrap fuera del
+  repositorio con permisos `0600`.
+- Controles efectivos: CloudTrail activo sin error de entrega; Cognito con MFA, alta solo
+  administrativa y cero usuarios; tres repositorios ECR inmutables con scan on push.
+- Ausencia de runtime comprobada: cero EC2, RDS, NAT Gateway, load balancers y clusters ECS.
+- Pruebas del validador: 22, OK; quality gate sobre el indice: OK.
+- Evidencia detallada: `docs/implementation/handoffs/FNC-PLT-010.md`.
 
 ## Fuera de alcance
 

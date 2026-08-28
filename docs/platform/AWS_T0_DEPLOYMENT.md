@@ -1,6 +1,6 @@
 # AWS T0 — control plane sintetico
 
-Estado: **autorizado solo para control plane** · Tarea `FNC-PLT-010` · Región
+Estado: **aplicado; revisión independiente pendiente** · Tarea `FNC-PLT-010` · Región
 `sa-east-1` · Expira 2026-09-27.
 
 ## Alcance del primer apply
@@ -30,6 +30,23 @@ objeto y tag declara `synthetic_only`; no habilita DRG-00 ni modifica los gates 
 6. Ejecutar `python -m tools.aws_t0.validate --plan <plan.json>`.
 7. Aplicar exactamente el plan validado; nunca ejecutar `tofu apply` sin archivo de plan.
 8. Inventariar y registrar consumo/credits después del apply.
+
+## Resultado del 2026-08-28
+
+- Bootstrap: 8 recursos creados y plan posterior sin cambios.
+- Control plane: 45 recursos creados y plan posterior sin cambios.
+- CloudTrail registra management events, valida logs y no reporta error de entrega.
+- Cognito exige MFA, impide autorregistro y conserva cero usuarios hasta el enrolamiento.
+- Los tres repositorios ECR usan tags inmutables, AES-256 y scan on push.
+- El bucket de objetos y el de auditoría son privados, versionados, cifrados y tienen
+  lifecycle acotado; el estado principal existe versionado y cifrado en S3.
+- El presupuesto bruto mensual es USD 5 y excluye créditos del cálculo para revelar el
+  consumo real antes del beneficio promocional.
+- Inventario negativo directo: 0 EC2, 0 RDS, 0 NAT Gateway, 0 load balancers y 0 ECS.
+
+No se versionan account ID, ARNs, IDs de recursos, outputs locales ni estado. La evidencia
+reproducible está en el handoff, mientras que los valores operativos permanecen en el
+backend de OpenTofu y en AWS.
 
 ## Paso posterior, no incluido
 
