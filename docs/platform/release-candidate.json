@@ -1,0 +1,43 @@
+{
+  "allowed_data": "synthetic_only",
+  "artifact_names": [
+    "api",
+    "worker",
+    "web"
+  ],
+  "claims": {
+    "approved": false,
+    "production_authorized": false,
+    "provenance_verified": false,
+    "published": false,
+    "signed": false
+  },
+  "dependency_locks": {
+    "api": "apps/api/requirements.txt",
+    "web": "apps/web/package-lock.json",
+    "worker": "workers/document/requirements.txt"
+  },
+  "schema_version": "1.0.0",
+  "source_inputs": [
+    "apps/api/Dockerfile",
+    "apps/api/requirements.txt",
+    "apps/api/src",
+    "apps/web/Dockerfile",
+    "apps/web/package-lock.json",
+    "apps/web/src",
+    "db/migrations",
+    "packages/contracts/python",
+    "packages/platform/python",
+    "workers/document/Dockerfile",
+    "workers/document/requirements.txt",
+    "workers/document/src"
+  ],
+  "state": "review_pending",
+  "task": "FNC-REL-001",
+  "workflow": {
+    "external_publish": false,
+    "manual_only": true,
+    "real_data": false,
+    "signing": "pending_human_root_of_trust"
+  }
+}
