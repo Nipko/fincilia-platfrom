@@ -105,6 +105,8 @@ services:
     environment:
       FINCILIA_ENV: local
       FINCILIA_LOG_LEVEL: ${FINCILIA_LOG_LEVEL:-info}
+      FINCILIA_BUILD_REVISION: ${FINCILIA_BUILD_REVISION:-development}
+      FINCILIA_RELEASE_ID: ${FINCILIA_RELEASE_ID:-unreleased}
       FINCILIA_OTEL_ENDPOINT: disabled
       FINCILIA_DATABASE_URL: postgresql://${FINCILIA_LOCAL_DB_APP_USER:-fincilia_app}:${FINCILIA_LOCAL_APP_PASSWORD:-fincilia_local_app_only}@postgres:5432/${FINCILIA_LOCAL_DB_NAME:-fincilia_local}
       FINCILIA_CACHE_URL: redis://valkey:6379/0
@@ -192,6 +194,8 @@ services:
       FINCILIA_ENV: local
       FINCILIA_LOG_LEVEL: ${FINCILIA_LOG_LEVEL:-info}
       FINCILIA_SERVICE_NAME: fincilia-worker
+      FINCILIA_BUILD_REVISION: ${FINCILIA_BUILD_REVISION:-development}
+      FINCILIA_RELEASE_ID: ${FINCILIA_RELEASE_ID:-unreleased}
       # Rol propio, no el de la API. El worker no lee identidad ni credenciales, y
       # no escribe en la cola mas que por sus dos funciones.
       FINCILIA_DATABASE_URL: postgresql://${FINCILIA_LOCAL_DB_WORKER_USER:-fincilia_worker}:${FINCILIA_LOCAL_WORKER_PASSWORD:-fincilia_local_worker_only}@postgres:5432/${FINCILIA_LOCAL_DB_NAME:-fincilia_local}

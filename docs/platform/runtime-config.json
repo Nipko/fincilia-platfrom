@@ -73,6 +73,13 @@
   "task": "FNC-CFG-001",
   "variables": [
     {
+      "class": "plain",
+      "name": "FINCILIA_BUILD_REVISION",
+      "owner": "Platform",
+      "required": false,
+      "safe_example": "development"
+    },
+    {
       "class": "feature_gate",
       "name": "FINCILIA_AI_GATEWAY_ENABLED",
       "owner": "Security",
@@ -274,6 +281,13 @@
       "owner": "Platform",
       "required": [],
       "safe_example": "disabled"
+    },
+    {
+      "class": "plain",
+      "name": "FINCILIA_RELEASE_ID",
+      "owner": "Platform",
+      "required": false,
+      "safe_example": "unreleased"
     },
     {
       "class": "plain",

@@ -19,6 +19,7 @@ Tres decisiones que valen mas que su tamano:
 from __future__ import annotations
 
 import functools
+import re
 from typing import Literal
 
 from pydantic import Field, PostgresDsn, ValidationInfo, field_validator
@@ -45,6 +46,12 @@ class Settings(BaseSettings):
         description="Solo local o test. Produccion no es una variable de entorno.")
     service_name: str = Field(default="fincilia-api", min_length=3)
     log_level: Literal["debug", "info", "warning", "error"] = Field(default="info")
+    build_revision: str = Field(
+        default="development",
+        description="SHA Git completo de la imagen o development en local.")
+    release_id: str = Field(
+        default="unreleased",
+        description="Identificador inmutable del candidato; no implica aprobacion.")
     otel_endpoint: str = Field(
         default="disabled",
         description="`disabled` mientras no exista colector local.")
@@ -139,6 +146,21 @@ class Settings(BaseSettings):
         if value.strip().lower() in FLOATING_TOKENS:
             raise ValueError(
                 f"{value!r} is a floating token, not a reproducible release")
+        return value
+
+    @field_validator("build_revision")
+    @classmethod
+    def _build_revision_is_exact(cls, value: str) -> str:
+        if value != "development" and not re.fullmatch(r"[0-9a-f]{40}", value):
+            raise ValueError("build_revision must be a full Git SHA or development")
+        return value
+
+    @field_validator("release_id")
+    @classmethod
+    def _release_id_is_canonical(cls, value: str) -> str:
+        if value != "unreleased" and not re.fullmatch(
+                r"fnc-[a-z0-9][a-z0-9.-]{2,79}", value):
+            raise ValueError("release_id must be immutable and canonical")
         return value
 
     @field_validator("identifier_tokenization_key")

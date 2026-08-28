@@ -9,6 +9,8 @@ puede atender trafico ahora.
 from __future__ import annotations
 
 import logging
+import time
+import uuid
 from contextlib import asynccontextmanager
 from typing import Any
 
@@ -22,6 +24,12 @@ from fincilia_platform.identity import Credential, LocalIdentityProvider
 from fincilia_platform.objects import S3ObjectStore
 from fincilia_platform.settings import ApiSettings, get_api_settings
 from fincilia_platform.probes import Probe, build_probes, ensure_buckets
+from fincilia_platform.observability import (
+    correlation,
+    configure as configure_observability,
+    log_event,
+    valid_correlation_id,
+)
 from fincilia_contracts.errors import ProblemDetail, problem
 
 from . import repository
@@ -34,6 +42,7 @@ API_VERSION = "0.1.0"
 PROBLEM_MEDIA_TYPE = "application/problem+json"
 
 logger = logging.getLogger("fincilia.api")
+REQUEST_ID_HEADER = "X-Request-ID"
 
 
 def _problem_response(detail: ProblemDetail) -> JSONResponse:
@@ -71,9 +80,9 @@ def build_identity_provider(settings: ApiSettings, database: Database):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings: ApiSettings = app.state.settings
-    logging.basicConfig(level=settings.log_level.upper(),
-                        format="%(asctime)s %(levelname)s %(name)s %(message)s")
-    logger.info("starting %s in %s", settings.service_name, settings.env)
+    configure_observability(settings.service_name, settings.log_level)
+    log_event(logger, logging.INFO, "api.starting", environment=settings.env,
+              release_id=settings.release_id, revision=settings.build_revision)
     database = Database(settings)
     app.state.database = database
     app.state.identity_provider = build_identity_provider(settings, database)
@@ -91,7 +100,7 @@ async def lifespan(app: FastAPI):
         yield
     finally:
         database.close()
-        logger.info("stopping %s", settings.service_name)
+        log_event(logger, logging.INFO, "api.stopping")
 
 
 def create_app(settings: ApiSettings | None = None,
@@ -110,6 +119,30 @@ def create_app(settings: ApiSettings | None = None,
     if probes is not None:
         app.state.probes = probes
 
+    @app.middleware("http")
+    async def request_observability(request: Request, call_next):
+        supplied = request.headers.get(REQUEST_ID_HEADER)
+        request_id = supplied if valid_correlation_id(supplied) else uuid.uuid4().hex
+        started = time.perf_counter()
+        status_code = 500
+        with correlation(request_id):
+            try:
+                response = await call_next(request)
+                status_code = response.status_code
+                response.headers[REQUEST_ID_HEADER] = request_id
+                return response
+            finally:
+                route = request.scope.get("route")
+                template = getattr(route, "path", "unmatched")
+                log_event(
+                    logger, logging.INFO, "http.request.completed",
+                    request_id=request_id,
+                    method=request.method,
+                    route=template,
+                    status_code=status_code,
+                    duration_ms=round((time.perf_counter() - started) * 1000, 3),
+                )
+
     @app.exception_handler(ProblemError)
     async def _problem_error(_request: Request, error: ProblemError) -> JSONResponse:
         return _problem_response(error.problem)
@@ -124,7 +157,9 @@ def create_app(settings: ApiSettings | None = None,
     @app.get("/health/live", tags=["health"])
     async def live() -> dict[str, Any]:
         return {"status": "alive", "service": resolved.service_name,
-                "version": API_VERSION, "environment": resolved.env}
+                "version": API_VERSION, "environment": resolved.env,
+                "release_id": resolved.release_id,
+                "revision": resolved.build_revision}
 
     # `def`, no `async def`: las sondas son bloqueantes y en el bucle de eventos
     # dejarian sin atender al resto mientras esperan.
@@ -136,6 +171,8 @@ def create_app(settings: ApiSettings | None = None,
             "status": "ready" if healthy else "degraded",
             "service": resolved.service_name,
             "version": API_VERSION,
+            "release_id": resolved.release_id,
+            "revision": resolved.build_revision,
             "dependencies": [result.as_dict() for result in results],
         }
         return JSONResponse(status_code=200 if healthy else 503, content=payload)
@@ -158,6 +195,8 @@ def create_app(settings: ApiSettings | None = None,
             "buckets": list(resolved.buckets),
             "auth_issuer": resolved.auth_issuer,
             "auth_token_ttl_seconds": resolved.auth_token_ttl_seconds,
+            "release_id": resolved.release_id,
+            "revision": resolved.build_revision,
         }
 
     app.include_router(router)

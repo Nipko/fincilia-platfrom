@@ -73,9 +73,13 @@ revisión independiente continúan bloqueantes.
 - `apps/api/tests/test_api.py`
 - `packages/platform/python/fincilia_platform/**`
 - `packages/platform/python/tests/**`
+- `docs/platform/runtime-config.json`
+- `.env.example`
+- `infra/local/compose.yaml`
 - `workers/document/src/fincilia_worker/main.py`
 - `workers/document/tests/**`
 - `.github/workflows/release-candidate.yml`
+- `.github/workflows/ci.yml`
 - `docs/implementation/tasks/FNC-REL-001.md`
 - `docs/implementation/handoffs/FNC-REL-001.md`
 - registros centrales por Integration Steward.
@@ -84,7 +88,7 @@ revisión independiente continúan bloqueantes.
 
 - Migraciones, seed y esquema canónico.
 - Autorización, RLS, SoD, semántica financiera y linaje.
-- Compose local, lockfiles y dependencias nuevas.
+- Lockfiles y dependencias nuevas.
 - Configuración que permita producción o datos reales.
 - Estados humanos, gates y decisiones aún no aceptadas.
 

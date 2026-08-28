@@ -1,0 +1,120 @@
+name: fincilia-release-candidate
+
+on:
+  workflow_dispatch:
+    inputs:
+      classification:
+        description: Efecto esperado del candidato sobre resultados
+        required: true
+        default: neutral
+        type: choice
+        options:
+          - neutral
+          - affects_results
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fincilia-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  candidate:
+    name: Build and verify unpublished candidate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      RELEASE_CLASSIFICATION: ${{ inputs.classification }}
+      FINCILIA_BUILD_REVISION: ${{ github.sha }}
+      FINCILIA_RELEASE_ID: fnc-candidate-${{ github.sha }}
+    steps:
+      - name: Checkout the exact revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up the exact Python runtime
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Refuse policy drift before building
+        run: |
+          python -m tools.quality_gate.cli
+          python -m tools.runtime_config.validate
+          python -m unittest tools.release_candidate.test_release_candidate -v
+          python -m unittest discover -s packages/platform/python -t packages/platform/python -v
+
+      - name: Build API, worker and web without publishing
+        run: |
+          docker build -f apps/api/Dockerfile -t "fincilia-api:${GITHUB_SHA}" .
+          docker build -f workers/document/Dockerfile -t "fincilia-worker:${GITHUB_SHA}" .
+          docker build -f apps/web/Dockerfile -t "fincilia-web:${GITHUB_SHA}" .
+
+      - name: Record exact local image identities and non-root users
+        run: |
+          api_id="$(docker image inspect --format '{{.Id}}' "fincilia-api:${GITHUB_SHA}")"
+          worker_id="$(docker image inspect --format '{{.Id}}' "fincilia-worker:${GITHUB_SHA}")"
+          web_id="$(docker image inspect --format '{{.Id}}' "fincilia-web:${GITHUB_SHA}")"
+          test "$(docker image inspect --format '{{.Config.User}}' "fincilia-api:${GITHUB_SHA}")" = "10001"
+          test "$(docker image inspect --format '{{.Config.User}}' "fincilia-worker:${GITHUB_SHA}")" = "10002"
+          test "$(docker image inspect --format '{{.Config.User}}' "fincilia-web:${GITHUB_SHA}")" = "10002"
+          printf 'API_IMAGE_ID=%s\nWORKER_IMAGE_ID=%s\nWEB_IMAGE_ID=%s\n' \
+            "$api_id" "$worker_id" "$web_id" >> "$GITHUB_ENV"
+
+      - name: Exercise API and worker code inside their candidate images
+        run: |
+          docker run --rm --entrypoint python "fincilia-api:${GITHUB_SHA}" \
+            -m unittest discover -s /app/tests -t /app/tests
+          docker run --rm --entrypoint python "fincilia-worker:${GITHUB_SHA}" \
+            -m unittest discover -s /app/tests -t /app/tests
+
+      - name: Smoke the web runtime as shipped
+        run: |
+          docker run -d --rm --name fincilia-release-web \
+            -p 127.0.0.1:33000:3000 \
+            -e FINCILIA_API_BASE_URL=http://127.0.0.1:9 \
+            -e FINCILIA_WEB_SECURE_COOKIES=false \
+            "fincilia-web:${GITHUB_SHA}"
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:33000/entrar | grep -q Fincilia; then
+              exit 0
+            fi
+            sleep 1
+          done
+          docker logs fincilia-release-web
+          exit 1
+
+      - name: Build the deterministic evidence bundle twice
+        env:
+          CI_RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          python -m tools.release_candidate.cli create \
+            --root . --output "$RUNNER_TEMP/fincilia-release" \
+            --revision "$GITHUB_SHA" --classification "$RELEASE_CLASSIFICATION" \
+            --api-image-id "$API_IMAGE_ID" \
+            --worker-image-id "$WORKER_IMAGE_ID" \
+            --web-image-id "$WEB_IMAGE_ID" --ci-run-url "$CI_RUN_URL"
+          python -m tools.release_candidate.cli create \
+            --root . --output "$RUNNER_TEMP/fincilia-release-replay" \
+            --revision "$GITHUB_SHA" --classification "$RELEASE_CLASSIFICATION" \
+            --api-image-id "$API_IMAGE_ID" \
+            --worker-image-id "$WORKER_IMAGE_ID" \
+            --web-image-id "$WEB_IMAGE_ID" --ci-run-url "$CI_RUN_URL"
+          diff -ru "$RUNNER_TEMP/fincilia-release" "$RUNNER_TEMP/fincilia-release-replay"
+          python -m tools.release_candidate.cli verify \
+            --bundle "$RUNNER_TEMP/fincilia-release"
+          python -m tools.release_candidate.cli verify-source \
+            --root . --bundle "$RUNNER_TEMP/fincilia-release"
+
+      - name: Preserve the unpublished evidence bundle
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: fincilia-release-${{ github.sha }}
+          path: ${{ runner.temp }}/fincilia-release
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Cleanup candidate runtime
+        if: always()
+        run: docker rm -f fincilia-release-web 2>/dev/null || true

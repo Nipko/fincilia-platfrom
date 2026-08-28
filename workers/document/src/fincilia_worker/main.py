@@ -31,6 +31,11 @@ sys.path.insert(0, "/app/src")
 from fincilia_contracts.release import digest_of  # noqa: E402
 from fincilia_platform.db import Database  # noqa: E402
 from fincilia_platform.objects import ObjectStoreError, S3ObjectStore  # noqa: E402
+from fincilia_platform.observability import (  # noqa: E402
+    configure as configure_observability,
+    correlation,
+    log_event,
+)
 from fincilia_worker import jobs  # noqa: E402
 from fincilia_worker.config import WorkerSettings, load_settings  # noqa: E402
 from fincilia_worker.probes import probe_all  # noqa: E402
@@ -71,12 +76,13 @@ def beat() -> None:
 
 def main() -> int:
     settings = load_settings()
-    logging.basicConfig(level=settings.log_level.upper(),
-                        format="%(asctime)s %(levelname)s %(name)s %(message)s")
+    configure_observability(settings.service_name, settings.log_level)
     signal.signal(signal.SIGTERM, _stop)
     signal.signal(signal.SIGINT, _stop)
 
-    logger.info("starting %s in %s", settings.service_name, settings.env)
+    log_event(logger, logging.INFO, "worker.starting",
+              environment=settings.env, release_id=settings.release_id,
+              revision=settings.build_revision)
     if not wait_for_dependencies(settings,
                                  deadline=time.monotonic() + STARTUP_GRACE_SECONDS):
         logger.error("dependencies did not become ready; refusing to report healthy")
@@ -100,7 +106,7 @@ def main() -> int:
     finally:
         database.close()
 
-    logger.info("stopped cleanly")
+    log_event(logger, logging.INFO, "worker.stopped", outcome="clean")
     return 0
 
 
@@ -121,6 +127,13 @@ def process_one(database: Database, store, identity: str) -> bool:
         return False
     if claim is None:
         return False
+
+    with correlation(claim.run_id):
+        return _process_claim(database, store, claim)
+
+
+def _process_claim(database: Database, store, claim: "jobs.Claim") -> bool:
+    """Procesa un claim bajo su correlation ID y lo libera al terminar."""
 
     result: dict | None = None
     error_code: str | None = None

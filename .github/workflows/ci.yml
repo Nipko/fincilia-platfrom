@@ -54,6 +54,7 @@ jobs:
           tools.provider_evaluation.test_validate
           tools.quality_strategy.test_validate
           tools.region_decision.test_validate
+          tools.release_candidate.test_release_candidate
           tools.research_protocol.test_validate
           tools.runtime_config.test_validate
           tools.s1_readiness.test_validate
@@ -70,6 +71,10 @@ jobs:
         run: >-
           python -m unittest discover
           -s packages/contracts/python -t packages/contracts/python
+      - name: Shared platform controls
+        run: >-
+          python -m unittest discover
+          -s packages/platform/python -t packages/platform/python
       - name: Validate executable architecture model
         run: python -m tools.architecture_model.validate
       - name: Validate ADR readiness packet

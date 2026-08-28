@@ -114,6 +114,21 @@ class SettingsTests(unittest.TestCase):
         self.assertEqual(settings.engine_release_key, "fnc-p3-mapping-0.1.0")
         self.assertEqual(settings.identifier_key_version, 1)
 
+    def test_build_metadata_is_exact_or_explicitly_local(self) -> None:
+        local = api_settings()
+        self.assertEqual((local.build_revision, local.release_id),
+                         ("development", "unreleased"))
+        revision = "a" * 40
+        candidate = api_settings(
+            build_revision=revision, release_id="fnc-candidate-a1b2c3d4e5f6")
+        self.assertEqual(candidate.build_revision, revision)
+        for value in ("abc123", "A" * 40, "latest", "main"):
+            with self.subTest(revision=value), self.assertRaises(ValidationError):
+                api_settings(build_revision=value)
+        for value in ("release one", "latest", "FNC-candidate"):
+            with self.subTest(release=value), self.assertRaises(ValidationError):
+                api_settings(release_id=value)
+
     def test_production_is_not_an_environment_value(self) -> None:
         for value in ("production", "prod", "staging"):
             with self.subTest(value=value), self.assertRaises(ValidationError):
@@ -189,6 +204,31 @@ class HealthTests(unittest.TestCase):
         response = client([Exploding()]).get("/health/live")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["status"], "alive")
+
+    def test_request_id_is_returned_and_invalid_input_is_replaced(self) -> None:
+        accepted = client(self.all_up()).get(
+            "/health/live", headers={"X-Request-ID": "request-12345678"})
+        self.assertEqual(accepted.headers["X-Request-ID"], "request-12345678")
+        for supplied in ("short", "bad\nvalue", "x" * 65):
+            with self.subTest(supplied=supplied):
+                # HTTP clients reject CR/LF before the application. A tab reaches
+                # the middleware and exercises the same invalid-character path.
+                transmitted = supplied.replace("\n", "\t")
+                response = client(self.all_up()).get(
+                    "/health/live", headers={"X-Request-ID": transmitted})
+                generated = response.headers["X-Request-ID"]
+                self.assertRegex(generated, r"^[0-9a-f]{32}$")
+                self.assertNotEqual(generated, transmitted)
+
+    def test_health_exposes_non_secret_build_identity(self) -> None:
+        settings = api_settings(
+            build_revision="b" * 40, release_id="fnc-candidate-bbbbbbbbbbbb")
+        app = TestClient(create_app(settings, tuple(self.all_up())))
+        for path in ("/health/live", "/health/ready", "/health/config"):
+            with self.subTest(path=path):
+                body = app.get(path).json()
+                self.assertEqual(body["release_id"], "fnc-candidate-bbbbbbbbbbbb")
+                self.assertEqual(body["revision"], "b" * 40)
 
     def test_ready_is_200_when_every_dependency_answers(self) -> None:
         response = client(self.all_up()).get("/health/ready")
