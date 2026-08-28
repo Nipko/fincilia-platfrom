@@ -103,5 +103,11 @@
 | TST-MUT-001 | Mutación contractual debe producir exactamente los hallazgos esperados | FNC-QA-005 |
 | TST-AWS-001 | Plan T0 rechaza runtime, datos reales, cuenta o región inesperada y acciones fuera de allowlist | FNC-PLT-010 |
 | TST-AWS-002 | Plan T1 exige un host acotado, SSM-only, EBS cifrado, IMDSv2, apagado y cero servicios productivos | FNC-PLT-011 |
+| TST-REG-001 | Registro crea sujeto, binding, credencial, firma y owner en una transaccion | FNC-ONB-002 |
+| TST-REG-002 | Duplicado o fallo intermedio no enumera ni deja estado parcial | FNC-ONB-002 |
+| TST-REG-003 | Registro local rechaza dominio no sintetico, password debil y datos reales | FNC-ONB-002 |
+| TST-REG-004 | API y PUBLIC no escriben credenciales ni amplian la funcion privilegiada | FNC-ONB-002 |
+| TST-REG-005 | La web crea cuenta, inicia sesion y conduce al alta de empresa | FNC-ONB-002 |
+| TST-REG-006 | Una cuenta nueva completa empresa, cuenta, fuente y ciclo sin semillas | FNC-ONB-002 |
 
 Los tests todavía son especificaciones. Un ID solo cambia a Implemented cuando existe un comando reproducible y evidencia en CI.

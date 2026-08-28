@@ -19,7 +19,7 @@ owners nominales, revisión independiente ni el gate S1-READY.
 | [009](ADR-009-ai-gateway.md) | AI Gateway y prohibiciones | Accepted |
 | [010](ADR-010-web-mobile-boundary.md) | Responsabilidades web/móvil | Accepted |
 | 011 | Metering SRP/OCR/empresa | Planned |
-| 012 | IdP, subject y assurance | Planned |
+| [012](ADR-012-idp-subject-assurance.md) | IdP, subject, assurance y registro por adaptador | Proposed; adaptador sintetico autorizado, IdP real pendiente |
 | 013 | RBAC/ABAC/SoD | Planned |
 | [014](ADR-014-completeness-balances.md) | Completitud y saldos | Accepted |
 | [015](ADR-015-safe-deduplication.md) | Dedupe cross-source seguro | Accepted |
@@ -36,6 +36,8 @@ owners nominales, revisión independiente ni el gate S1-READY.
 | [026](ADR-026-staged-field-overlay.md) | Overlay tipado por etapas | Proposed; revisión Accounting/Security/Database pendiente |
 | [027](ADR-027-reconciliation-review-ledger.md) | Ledger de propuesta y decision humana de conciliacion | Proposed; revisión Accounting/Security/Database/Architecture pendiente |
 | [028](ADR-028-reconciliation-group-proposals.md) | Propuestas manuales agrupadas sin asignaciones | Proposed; revisión Accounting/Security/Database/Architecture/Product pendiente |
+| [029](ADR-029-opentofu-aws-t0.md) | Control plane AWS T0 con OpenTofu | Proposed; laboratorio sintetico aplicado, revision pendiente |
+| [030](ADR-030-aws-t1-remote-lab.md) | Host unico SSM para laboratorio AWS T1 | Proposed; laboratorio sintetico aplicado, revision pendiente |
 
 ## Estados
 
