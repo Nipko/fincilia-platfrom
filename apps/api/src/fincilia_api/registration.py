@@ -19,6 +19,7 @@ from fincilia_platform.identity import ALGORITHM, ITERATIONS, hash_secret, new_s
 
 USERNAME = re.compile(r"^[a-z0-9][a-z0-9._+-]{1,90}@demo[.]local$")
 CONTROL = re.compile(r"[\x00-\x1f\x7f]")
+INVITE_CODE = re.compile(r"^[A-Za-z0-9_-]{24,128}$")
 
 
 class RegistrationError(Exception):
@@ -77,9 +78,20 @@ def validate_secret(secret: str) -> None:
         )
 
 
+def invitation_digest(value: str | None) -> str:
+    code = (value or "").strip()
+    if not INVITE_CODE.fullmatch(code):
+        raise RegistrationError(
+            "registration-unavailable",
+            "a valid invitation is required for this closed beta",
+        )
+    return "sha256:" + hashlib.sha256(code.encode("utf-8")).hexdigest()
+
+
 def register_local_account(
         connection: psycopg.Connection, *, username: str, secret: str,
         display_name: str, firm_name: str, real_data_enabled: bool,
+        invite_code: str | None = None, invite_required: bool = False,
         ) -> RegisteredAccount:
     if real_data_enabled:
         raise RegistrationError(
@@ -101,20 +113,29 @@ def register_local_account(
     secret_hash = hash_secret(secret, salt=salt, iterations=ITERATIONS)
     identity_ref = "sha256:" + hashlib.sha256(
         canonical_username.encode("utf-8")).hexdigest()
+    invite_code_digest = invitation_digest(invite_code) if invite_required else None
 
     try:
         # Savepoint: una colision revierte los cinco INSERT y deja utilizable la
         # transaccion externa para que la ruta devuelva un error generico.
         with connection.transaction(), connection.cursor() as cursor:
-            cursor.execute(
-                "SELECT fincilia.register_local_account(" 
-                "%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
-                (
-                    subject_id, membership_id, firm_id, canonical_username,
-                    identity_ref, canonical_display_name, canonical_firm_name,
-                    ALGORITHM, ITERATIONS, salt, secret_hash,
-                ),
+            arguments = (
+                subject_id, membership_id, firm_id, canonical_username,
+                identity_ref, canonical_display_name, canonical_firm_name,
+                ALGORITHM, ITERATIONS, salt, secret_hash,
             )
+            if invite_code_digest is None:
+                cursor.execute(
+                    "SELECT fincilia.register_local_account("
+                    "%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                    arguments,
+                )
+            else:
+                cursor.execute(
+                    "SELECT fincilia.register_local_account_with_invite("
+                    "%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                    (invite_code_digest, *arguments),
+                )
     except psycopg.errors.UniqueViolation:
         raise RegistrationError(
             "registration-unavailable",
@@ -125,6 +146,11 @@ def register_local_account(
         raise RegistrationError(
             "invalid-registration-profile",
             "the account could not be created with the supplied profile",
+        ) from None
+    except psycopg.errors.InvalidParameterValue:
+        raise RegistrationError(
+            "registration-unavailable",
+            "the account could not be created with the supplied invitation",
         ) from None
 
     return RegisteredAccount(subject_id, firm_id, canonical_display_name)

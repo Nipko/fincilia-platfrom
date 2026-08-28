@@ -106,6 +106,9 @@ class Settings(BaseSettings):
     real_data_enabled: bool = Field(default=False)
     ai_gateway_enabled: bool = Field(default=False)
     payments_enabled: bool = Field(default=False)
+    registration_invite_required: bool = Field(
+        default=False,
+        description="Exige una invitacion de un uso en la beta cerrada sintetica.")
 
     @field_validator("cache_url")
     @classmethod

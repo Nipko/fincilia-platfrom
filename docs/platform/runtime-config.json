@@ -305,6 +305,13 @@
     },
     {
       "class": "plain",
+      "name": "FINCILIA_REGISTRATION_INVITE_REQUIRED",
+      "owner": "Product",
+      "required": false,
+      "safe_example": "false"
+    },
+    {
+      "class": "plain",
       "name": "FINCILIA_SERVICE_NAME",
       "owner": "Platform",
       "required": false,

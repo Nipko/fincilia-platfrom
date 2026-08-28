@@ -62,6 +62,7 @@ class RegistrationRequest(BaseModel):
     secret: str = Field(min_length=1, max_length=128)
     display_name: str = Field(min_length=2, max_length=200)
     firm_name: str = Field(min_length=2, max_length=300)
+    invite_code: str | None = Field(default=None, min_length=24, max_length=128)
 
 
 class CompanySummary(BaseModel):
@@ -332,6 +333,8 @@ def register_account(request: Request, body: RegistrationRequest) -> SessionResp
                 connection, username=body.username, secret=body.secret,
                 display_name=body.display_name, firm_name=body.firm_name,
                 real_data_enabled=settings.real_data_enabled,
+                invite_code=body.invite_code,
+                invite_required=settings.registration_invite_required,
             )
             # La sesion empezo sin sujeto porque aun no existia. La funcion
             # privilegiada devuelve el identificador que acaba de crear; fijar

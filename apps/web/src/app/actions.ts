@@ -70,6 +70,7 @@ export async function registerAccountAction(
   const username = String(formData.get('username') ?? '').trim().toLowerCase();
   const secret = String(formData.get('secret') ?? '');
   const confirmation = String(formData.get('secretConfirmation') ?? '');
+  const inviteCode = String(formData.get('inviteCode') ?? '').trim();
   const acceptedSyntheticOnly = formData.get('acceptSynthetic') === 'yes';
   const acceptedTerms = formData.get('acceptTerms') === 'yes';
 
@@ -80,6 +81,9 @@ export async function registerAccountAction(
     return {
       error: 'Confirma el uso exclusivo de datos sinteticos y acepta los terminos de la beta.',
     };
+  }
+  if (process.env.FINCILIA_REGISTRATION_INVITE_REQUIRED === 'true' && !inviteCode) {
+    return { error: 'Escribe el codigo de invitacion de esta beta cerrada.' };
   }
   if (!username.endsWith('@demo.local')) {
     return { error: 'En este laboratorio usa una direccion terminada en @demo.local.' };
@@ -95,6 +99,7 @@ export async function registerAccountAction(
       secret,
       display_name: displayName,
       firm_name: firmName,
+      ...(inviteCode ? { invite_code: inviteCode } : {}),
     });
   } catch (error) {
     if (error instanceof ApiError && error.status === 429) {

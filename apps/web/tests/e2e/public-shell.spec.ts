@@ -33,6 +33,7 @@ test.describe('recorrido publico sin secretos', () => {
       .toBeVisible();
     await expect(page.getByLabel('Correo sintetico'))
       .toHaveAttribute('type', 'email');
+    await expect(page.getByLabel('Código de invitación')).toBeVisible();
     await expect(page.getByLabel('Contrasena', { exact: true }))
       .toHaveAttribute('autocomplete', 'new-password');
     await expect(page.getByLabel('Confirma la contrasena'))

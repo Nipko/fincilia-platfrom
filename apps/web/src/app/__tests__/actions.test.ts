@@ -137,6 +137,7 @@ function registrationForm(): FormData {
 describe('registration action', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.unstubAllEnvs();
   });
 
   it('rechaza en servidor un registro sin aceptar los limites de la beta', async () => {
@@ -167,6 +168,18 @@ describe('registration action', () => {
     expect(mocks.writeSession).toHaveBeenCalledWith(
       'token-sintetico', 'Persona Sintetica', '2026-08-28T18:00:00Z',
     );
+  });
+
+  it('exige invitacion en servidor cuando la beta cerrada esta activa', async () => {
+    vi.stubEnv('FINCILIA_REGISTRATION_INVITE_REQUIRED', 'true');
+    const form = registrationForm();
+    form.set('acceptSynthetic', 'yes');
+    form.set('acceptTerms', 'yes');
+
+    const result = await registerAccountAction({ error: null }, form);
+
+    expect(result.error).toContain('codigo de invitacion');
+    expect(mocks.registerAccount).not.toHaveBeenCalled();
   });
 });
 

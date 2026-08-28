@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import unittest
 import uuid
 
@@ -34,6 +35,7 @@ class SelfServiceRegistrationTests(unittest.TestCase):
         self.firm_name = f"Firma Registro Sintetica {self.marker[:8]}"
         self.subject_ids: set[str] = set()
         self.company_ids: set[str] = set()
+        self.invitation_ids: set[str] = set()
 
     def tearDown(self) -> None:
         with psycopg.connect(MIGRATOR_DSN, autocommit=True) as connection:
@@ -69,6 +71,14 @@ class SelfServiceRegistrationTests(unittest.TestCase):
                         "DELETE FROM fincilia.company WHERE company_id = %s",
                         (company_id,),
                     )
+                if self.invitation_ids:
+                    cursor.execute("SET ROLE fincilia_identity")
+                    cursor.execute(
+                        "DELETE FROM fincilia.beta_invitation "
+                        "WHERE invitation_id = ANY(%s::uuid[])",
+                        (list(self.invitation_ids),),
+                    )
+                    cursor.execute("RESET ROLE")
                 for subject_id in self.subject_ids:
                     cursor.execute(
                         "SELECT set_config('fincilia.subject_id', %s, false)",
@@ -264,6 +274,17 @@ class SelfServiceRegistrationTests(unittest.TestCase):
                     "(SELECT rolcanlogin FROM pg_roles WHERE rolname='fincilia_identity')")
                 self.assertEqual((False, True, False, False), cursor.fetchone())
 
+                cursor.execute(
+                    "SELECT "
+                    "has_table_privilege('fincilia_app', "
+                    "'fincilia.beta_invitation', 'SELECT,INSERT,UPDATE,DELETE'), "
+                    "has_function_privilege('public', "
+                    "'fincilia.register_local_account_with_invite(text,uuid,uuid,uuid,text,text,text,text,text,integer,text,text)', 'EXECUTE'), "
+                    "has_function_privilege('fincilia_app', "
+                    "'fincilia.register_local_account_with_invite(text,uuid,uuid,uuid,text,text,text,text,text,integer,text,text)', 'EXECUTE')"
+                )
+                self.assertEqual((False, False, True), cursor.fetchone())
+
         with psycopg.connect(RUNTIME_DSN, autocommit=False) as connection:
             with self.assertRaises(psycopg.errors.InsufficientPrivilege):
                 with connection.transaction(), connection.cursor() as cursor:
@@ -273,6 +294,61 @@ class SelfServiceRegistrationTests(unittest.TestCase):
                         "VALUES (%s, %s, 'pbkdf2_sha256', 240000, %s, %s)",
                         (str(uuid.uuid4()), self.username, "0" * 32, "0" * 64),
                     )
+
+    def test_closed_beta_invitation_is_atomic_one_time_and_redacted(self) -> None:
+        code = f"Beta_{self.marker}_Invite"
+        invitation_id = str(uuid.uuid4())
+        digest = "sha256:" + hashlib.sha256(code.encode("utf-8")).hexdigest()
+        self.invitation_ids.add(invitation_id)
+        with psycopg.connect(MIGRATOR_DSN, autocommit=True) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute("SET ROLE fincilia_identity")
+                cursor.execute(
+                    "INSERT INTO fincilia.beta_invitation "
+                    "(invitation_id, code_digest, expires_at) "
+                    "VALUES (%s, %s, clock_timestamp() + interval '1 hour')",
+                    (invitation_id, digest),
+                )
+                cursor.execute("RESET ROLE")
+
+        settings = build_settings().model_copy(
+            update={"registration_invite_required": True})
+        with TestClient(create_app(settings)) as client:
+            missing = client.post(
+                "/api/v1/auth/registration", json=self.payload())
+            self.assertEqual(422, missing.status_code, missing.text)
+
+            created = client.post(
+                "/api/v1/auth/registration",
+                json=self.payload(invite_code=code),
+            )
+            self.assertEqual(201, created.status_code, created.text)
+            self.assertNotIn(code, created.text)
+            self.assertNotIn(digest, created.text)
+            self.subject_ids.add(created.json()["subject_id"])
+
+            replay = client.post(
+                "/api/v1/auth/registration",
+                json=self.payload(
+                    username=f"otro.{self.marker}@demo.local",
+                    invite_code=code,
+                ),
+            )
+            self.assertEqual(422, replay.status_code, replay.text)
+            self.assertNotIn(code, replay.text)
+
+        with psycopg.connect(MIGRATOR_DSN, autocommit=True) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute("SET ROLE fincilia_identity")
+                cursor.execute(
+                    "SELECT consumed_at IS NOT NULL, consumed_by::text "
+                    "FROM fincilia.beta_invitation WHERE invitation_id = %s",
+                    (invitation_id,),
+                )
+                consumed, subject_id = cursor.fetchone()
+                cursor.execute("RESET ROLE")
+        self.assertTrue(consumed)
+        self.assertEqual(created.json()["subject_id"], subject_id)
 
 
 if __name__ == "__main__":

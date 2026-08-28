@@ -76,6 +76,7 @@ export type RegistrationInput = {
   secret: string;
   display_name: string;
   firm_name: string;
+  invite_code?: string;
 };
 
 export type ManagedFirm = {
