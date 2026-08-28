@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+dnf install -y docker openssl
+systemctl enable --now docker
+
+# El host tiene 2 GiB para contener costo. El swap vive sobre el EBS cifrado y
+# evita que una compilacion o restore transitorio mate PostgreSQL por OOM.
+if ! swapon --show=NAME --noheadings | grep -qx /swapfile; then
+  fallocate -l 2G /swapfile
+  chmod 0600 /swapfile
+  mkswap /swapfile
+  swapon /swapfile
+  grep -q '^/swapfile ' /etc/fstab || printf '/swapfile none swap sw 0 0\n' >> /etc/fstab
+fi
+
+install -d -m 0755 /usr/local/lib/docker/cli-plugins
+curl -fsSLo /usr/local/lib/docker/cli-plugins/docker-compose \
+  https://github.com/docker/compose/releases/download/v${compose_version}/docker-compose-linux-x86_64
+printf '%s  %s\n' '${compose_sha256}' /usr/local/lib/docker/cli-plugins/docker-compose | sha256sum -c -
+chmod 0755 /usr/local/lib/docker/cli-plugins/docker-compose
+
+install -d -m 0700 /opt/fincilia
+aws s3 cp '${bundle_uri}/' /opt/fincilia/ --recursive --only-show-errors
+cd /opt/fincilia
+sha256sum -c manifest.sha256
+chmod 0700 up.sh invite.sh backup.sh restore-check.sh
+chmod 0444 bootstrap.sh Caddyfile nginx.conf compose.yaml
+
+cat > /opt/fincilia/deployment.env <<'EOF'
+FINCILIA_BACKUP_BUCKET=${backup_bucket}
+FINCILIA_BACKUP_PREFIX=${backup_prefix}
+FINCILIA_RELEASE_SHA=${release_sha}
+FINCILIA_REGISTRY=${registry}
+FINCILIA_RUNTIME_PARAMETER=/fincilia/closed-beta/runtime-env-v1
+EOF
+chmod 0600 /opt/fincilia/deployment.env
+
+for unit in \
+  fincilia-beta.service \
+  fincilia-beta-backup.service \
+  fincilia-beta-backup.timer \
+  fincilia-beta-restore-check.service \
+  fincilia-beta-restore-check.timer; do
+  install -m 0644 "/opt/fincilia/$unit" "/etc/systemd/system/$unit"
+done
+
+aws ecr get-login-password --region sa-east-1 | \
+  docker login --username AWS --password-stdin '${registry}'
+
+systemctl daemon-reload
+systemctl enable --now fincilia-beta.service
+systemctl enable --now fincilia-beta-backup.timer
+systemctl enable --now fincilia-beta-restore-check.timer

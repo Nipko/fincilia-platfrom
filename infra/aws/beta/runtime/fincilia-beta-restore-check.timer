@@ -1,0 +1,11 @@
+[Unit]
+Description=Weekly restore verification for Fincilia closed beta
+
+[Timer]
+OnCalendar=Sun *-*-* 05:00:00 UTC
+RandomizedDelaySec=20m
+Persistent=true
+Unit=fincilia-beta-restore-check.service
+
+[Install]
+WantedBy=timers.target

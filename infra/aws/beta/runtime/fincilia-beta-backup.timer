@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily bounded backup for Fincilia closed beta
+
+[Timer]
+OnCalendar=*-*-* 03:30:00 UTC
+RandomizedDelaySec=10m
+Persistent=true
+Unit=fincilia-beta-backup.service
+
+[Install]
+WantedBy=timers.target

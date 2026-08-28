@@ -1,0 +1,11 @@
+[Unit]
+Description=Fincilia closed beta disposable restore check
+After=fincilia-beta.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/fincilia/restore-check.sh
+TimeoutStartSec=1200
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7

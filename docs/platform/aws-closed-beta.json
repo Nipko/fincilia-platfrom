@@ -1,0 +1,122 @@
+{
+  "schema_version": "1.0.0",
+  "task_id": "FNC-BET-001",
+  "status": "in_progress",
+  "gate": "BETA-01",
+  "data_ceiling": "synthetic_only",
+  "real_data_authorized": false,
+  "external_ai_authorized": false,
+  "google_oidc_enabled": false,
+  "region": "sa-east-1",
+  "public_entry": {
+    "domain_source": "required_operator_input",
+    "dns_management": "external_to_module",
+    "address": "elastic_ipv4",
+    "ingress_tcp_ports": [80, 443],
+    "http_behavior": "permanent_redirect_to_https",
+    "tls": "automatic_acme_with_persistent_state",
+    "admin_access": "ssm_only",
+    "ssh_enabled": false
+  },
+  "runtime": {
+    "instance_count": 1,
+    "instance_type": "t3.small",
+    "architecture": "x86_64",
+    "ami_id": "ami-0ae4c9718ffae6ca6",
+    "root_volume_type": "gp3",
+    "root_volume_gib": 24,
+    "root_volume_encrypted": true,
+    "swap_gib_on_encrypted_root": 2,
+    "cpu_credits": "standard",
+    "database": "postgresql_17_single_host",
+    "cache": "valkey_8_ephemeral",
+    "object_store": "minio_single_host",
+    "availability": "best_effort_closed_beta"
+  },
+  "isolation": {
+    "public_container": "caddy_only",
+    "reverse_proxy_chain": ["caddy", "nginx", "web"],
+    "private_services": ["api", "worker", "postgres", "valkey", "objectstore"],
+    "database_public": false,
+    "cache_public": false,
+    "object_store_public": false,
+    "api_public": false,
+    "ssh_public": false
+  },
+  "identity": {
+    "registration": "one_use_invitation",
+    "invitation_storage": "sha256_digest_only",
+    "invitation_creator": "human_operator_over_ssm",
+    "known_demo_users_seeded": false,
+    "google_oidc": "disabled_until_DRG-00"
+  },
+  "secrets": {
+    "generated_on_instance": true,
+    "file_mode": "0600",
+    "stored_in_git": false,
+    "stored_in_terraform_state": false,
+    "recovery_store": "ssm_secure_string_created_by_host",
+    "recovery_parameter_value_in_iac": false,
+    "rotation_requires_operator_runbook": true
+  },
+  "backups": {
+    "schedule": "daily",
+    "write_quiescence": true,
+    "database_format": "pg_dump_custom",
+    "object_archive": "tar_gzip",
+    "checksums": "sha256",
+    "storage": "encrypted_s3_exact_prefix",
+    "retention_source": "t0_bucket_35_day_lifecycle",
+    "restore_check": "weekly_disposable_postgresql",
+    "rpo_hours": 24,
+    "rto_target_hours": 4
+  },
+  "observability": {
+    "bounded_container_logs": true,
+    "status_check_alarm": true,
+    "backup_freshness_alarm": true,
+    "restore_check_alarm": true,
+    "contains_personal_notification_target": false,
+    "operator_console_review_required": true,
+    "monthly_budget_usd_default": 35,
+    "budget_is_hard_cap": false
+  },
+  "cost_estimate": {
+    "basis_date": "2026-08-28",
+    "estimated_monthly_usd_before_credits": 35,
+    "credits_may_offset_cost": true,
+    "free_tier_guaranteed": false
+  },
+  "allowed_resource_types": [
+    "aws_budgets_budget",
+    "aws_cloudwatch_metric_alarm",
+    "aws_eip",
+    "aws_eip_association",
+    "aws_iam_instance_profile",
+    "aws_iam_role",
+    "aws_iam_role_policy",
+    "aws_iam_role_policy_attachment",
+    "aws_instance",
+    "aws_s3_object",
+    "aws_security_group",
+    "terraform_data"
+  ],
+  "forbidden_resource_types": [
+    "aws_db_instance",
+    "aws_ecs_cluster",
+    "aws_ecs_service",
+    "aws_elasticache_cluster",
+    "aws_kms_key",
+    "aws_lb",
+    "aws_nat_gateway",
+    "aws_route53_record",
+    "aws_secretsmanager_secret",
+    "aws_ssm_parameter"
+  ],
+  "gate_claims": [
+    {"id": "BETA-01", "status": "not_met"},
+    {"id": "DRG-00", "status": "not_met"},
+    {"id": "DRG-01", "status": "not_met"},
+    {"id": "GA-01", "status": "not_met"}
+  ]
+}

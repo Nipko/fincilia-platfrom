@@ -42,3 +42,21 @@ personales o financieros reales y sin presentar el entorno como producción.
 
 DRG-00, DRG-01, datos reales, producción, GA, billing, SLA, conectores, OCR/IA
 externa o aprobación jurídica definitiva.
+
+# Punto de control 2026-08-28
+
+- El registro cerrado usa invitaciones criptográficas de un solo uso; PostgreSQL
+  conserva solo el digest y la consume atómicamente con el alta.
+- `infra/aws/beta` materializa un entorno separado con EIP, 80/443, Caddy,
+  Nginx, SSM sin SSH, redes Docker privadas y secretos generados en el host.
+- La semilla de beta no crea personas, credenciales, firmas ni empresas.
+- Backup diario y restore-check semanal publican métricas sin guardar un correo
+  personal en IaC, S3 o estado antes de DRG-00.
+- Contrato, mutaciones, OpenTofu, Compose, proxies y bootstrap PostgreSQL están
+  verificados localmente. No se ha ejecutado `plan` ni `apply` del entorno beta.
+
+# Pendiente para aplicar
+
+Dominio exacto, control del DNS, release por digest de estos commits, plan
+adjudicado, apply, registro A, evidencia HTTPS/E2E/backup/restore y las cuatro
+revisiones independientes. BETA-01 y DRG-01 permanecen `not_met`.

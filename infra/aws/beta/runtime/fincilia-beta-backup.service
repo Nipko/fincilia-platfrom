@@ -1,0 +1,11 @@
+[Unit]
+Description=Fincilia closed beta synthetic backup
+After=fincilia-beta.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/fincilia/backup.sh
+TimeoutStartSec=900
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
