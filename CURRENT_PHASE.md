@@ -150,7 +150,7 @@ Hasta S1-READY solo se admite scaffolding, automatización, pruebas, documentaci
 | FNC-REL-001 | Candidato de release reproducible y baseline operativo | Review pending | Codex + Integration Steward | bundle SPDX cross-platform, manifiesto fail-closed, observabilidad segura, workflow manual y CI 33189792888 verdes; revisión Security/QA/Architecture pendiente |
 | FNC-LEG-001 | Plantilla ejecutable de tratamiento para corpus real | Review pending | Codex + Integration Steward | 11 actividades dinámicas, 16 secciones y 26 pruebas; paquete listo para abogado independiente, sin autorizar datos reales ni mover DRG-00 |
 | FNC-PRV-002 | Matriz ejecutable L-01 de retención y borrado | Review pending | Codex + Integration Steward | 19 políticas frescas por digest, dos estados fail-closed y 29 pruebas; plazos y cuatro revisores humanos permanecen pendientes |
-| FNC-SEC-003 | Diseño ejecutable del laboratorio aislado para corpus real | In progress | Codex + Integration Steward | identidad administrada, acceso mínimo, cuarentena y egress deny-by-default; diseño sintético sin despliegue ni autorización |
+| FNC-SEC-003 | Diseño ejecutable del laboratorio aislado para corpus real | Review pending | Codex + Integration Steward | 37 controles, 6 zonas, 12 casos y 34 pruebas; IdP/proveedor/región/despliegue/evidencia siguen pendientes y datos reales prohibidos |
 
 Solo el Integration Steward modifica esta tabla.
 

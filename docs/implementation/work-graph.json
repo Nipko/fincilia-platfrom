@@ -54,18 +54,5 @@
       "agent_may_accept": false
     }
   ],
-  "active_reservations": [
-    {
-      "task": "FNC-SEC-003",
-      "holder": "Codex principal dev + Integration Steward",
-      "paths": [
-        "docs/security/isolated-real-data-lab.json",
-        "docs/security/ISOLATED_REAL_DATA_LAB.md",
-        "tools/isolated_lab",
-        "docs/implementation/tasks/FNC-SEC-003.md",
-        "docs/implementation/handoffs/FNC-SEC-003.md",
-        "docs/implementation/decision_requests/FNC-SEC-003-S01-REVIEW.md"
-      ]
-    }
-  ]
+  "active_reservations": []
 }
