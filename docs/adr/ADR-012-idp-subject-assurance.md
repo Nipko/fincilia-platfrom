@@ -34,6 +34,9 @@ DDL, declarada para revision bajo DB-G03.
 - Ninguna cuenta creada por el adaptador local es portable a un entorno real.
 - Cognito T0 continua `admin_create_user_only` hasta que otra tarea implemente y
   revise callback OIDC, verificacion, MFA, recuperacion y proteccion contra abuso.
+- FNC-IAM-001 prepara Google mediante Cognito con Authorization Code + PKCE y
+  scopes mínimos. Su activación real permanece bloqueada por DRG-00 y revisión
+  independiente; BETA-01 no la habilita porque nombre y correo son PII.
 - Activar datos reales mantiene bloqueado el proveedor local por construccion.
 - Security y Architecture deben revisar el IdP definitivo antes de DRG-00.
 

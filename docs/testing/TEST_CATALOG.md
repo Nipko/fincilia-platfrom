@@ -109,5 +109,10 @@
 | TST-REG-004 | API y PUBLIC no escriben credenciales ni amplian la funcion privilegiada | FNC-ONB-002 |
 | TST-REG-005 | La web crea cuenta, inicia sesion y conduce al alta de empresa | FNC-ONB-002 |
 | TST-REG-006 | Una cuenta nueva completa empresa, cuenta, fuente y ciclo sin semillas | FNC-ONB-002 |
+| TST-OIDC-001 | Inicio Google usa state, nonce, PKCE S256 y callback exacto | FNC-IAM-001 |
+| TST-OIDC-002 | Token/issuer/audience/correo inválidos no crean identidad ni sesión | FNC-IAM-001 |
+| TST-OIDC-003 | Cuenta federada nueva se enlaza una vez y la existente es idempotente | FNC-IAM-001 |
+| TST-LEG-001 | Inicio y centro legal son públicos, enlazados y accesibles | FNC-LEG-002 |
+| TST-BETA-001 | Beta expone solo HTTPS/web y conserva el techo synthetic_only | FNC-BET-001 |
 
 Los tests todavía son especificaciones. Un ID solo cambia a Implemented cuando existe un comando reproducible y evidencia en CI.

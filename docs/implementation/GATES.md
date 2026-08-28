@@ -26,6 +26,19 @@ Habilita exclusivamente corpus real de investigación:
 - Matriz L-01.
 - Firmas humanas de Legal, Security y Product.
 
+## BETA-01
+
+Habilita únicamente una beta cerrada de usabilidad con datos inventados:
+
+- Dominio HTTPS, cookies seguras y superficie pública limitada.
+- Aviso y aceptación explícita de `solo datos sintéticos`.
+- Registro, aislamiento, rate limiting, auditoría y E2E verificados.
+- Backup/restore sintético, monitoreo, presupuesto y rollback operables.
+- Revisión independiente de Security, Platform, Privacy y QA.
+- Google real, PII, documentos reales, conectores e IA externa deshabilitados.
+
+No habilita corpus real, piloto financiero, producción ni venta general.
+
 ## DRG-01
 
 Habilita piloto con datos financieros:
@@ -47,4 +60,3 @@ Habilita venta general:
 - Portabilidad, facturación propia, SLO y DR operables.
 
 Ningún agente firma gates legales, contables, de seguridad o negocio por sí mismo.
-
