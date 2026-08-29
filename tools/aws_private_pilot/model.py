@@ -173,6 +173,10 @@ def validate_sources(sources: str | None = None) -> list[str]:
         'sse_algorithm = "AES256"',
         'resource "aws_wafv2_web_acl_association" "pilot"',
         'resource "aws_cloudtrail" "pilot"',
+        'variable "budget_alert_email"',
+        'notification_type          = "ACTUAL"',
+        'notification_type          = "FORECASTED"',
+        'subscriber_email_addresses = [var.budget_alert_email]',
     )
     for token in required:
         if token not in sources:
@@ -313,6 +317,23 @@ def validate_plan(plan: dict[str, Any], model: dict[str, Any]) -> list[str]:
             if after.get("allowed_oauth_flows") != ["code"] or \
                     len(scopes) != 3 or set(scopes) != {"openid", "email", "profile"}:
                 errors.append(f"{address}: flujo/scopes OIDC no son minimos")
+        elif resource_type == "aws_budgets_budget":
+            if after.get("cost_filter"):
+                errors.append(
+                    f"{address}: el presupuesto bruto no puede depender de tags")
+            notifications = after.get("notification") or []
+            kinds = {entry.get("notification_type") for entry in notifications}
+            subscribers = [
+                mailbox
+                for entry in notifications
+                for mailbox in (entry.get("subscriber_email_addresses") or [])
+            ]
+            if kinds != {"ACTUAL", "FORECASTED"} or len(notifications) != 2:
+                errors.append(
+                    f"{address}: faltan alertas ACTUAL y FORECASTED")
+            if len(subscribers) != 2 or any(
+                    not isinstance(item, str) or not item for item in subscribers):
+                errors.append(f"{address}: las alertas no tienen destinatario")
         elif resource_type == "aws_vpc":
             if after.get("cidr_block") != "10.60.0.0/16":
                 errors.append(f"{address}: VPC no es la frontera dedicada")

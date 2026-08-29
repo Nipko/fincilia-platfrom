@@ -112,6 +112,20 @@ class PrivatePilotContractTests(unittest.TestCase):
                     "allowed_oauth_flows": ["code"],
                     "allowed_oauth_scopes": ["openid", "email", "profile"],
                 }
+            elif resource_type == "aws_budgets_budget":
+                after = {
+                    "cost_filter": [],
+                    "notification": [
+                        {
+                            "notification_type": "ACTUAL",
+                            "subscriber_email_addresses": ["set-out-of-band"],
+                        },
+                        {
+                            "notification_type": "FORECASTED",
+                            "subscriber_email_addresses": ["set-out-of-band"],
+                        },
+                    ],
+                }
             elif resource_type == "aws_vpc":
                 after = {"cidr_block": "10.60.0.0/16"}
             elif resource_type == "aws_subnet":
@@ -182,6 +196,25 @@ class PrivatePilotContractTests(unittest.TestCase):
             }},
         })
         self.assertTrue(any("dos subredes" in item
+                            for item in validate_plan(plan, self.model)))
+
+    def test_budget_without_recipient_dies(self) -> None:
+        plan = self.valid_plan()
+        budget = next(item for item in plan["resource_changes"]
+                      if item["type"] == "aws_budgets_budget")
+        budget["change"]["after"]["notification"][0][
+            "subscriber_email_addresses"] = []
+        self.assertTrue(any("destinatario" in item
+                            for item in validate_plan(plan, self.model)))
+
+    def test_tag_filtered_budget_dies(self) -> None:
+        plan = self.valid_plan()
+        budget = next(item for item in plan["resource_changes"]
+                      if item["type"] == "aws_budgets_budget")
+        budget["change"]["after"]["cost_filter"] = [{
+            "name": "TagKeyValue", "values": ["not-yet-activated"],
+        }]
+        self.assertTrue(any("depender de tags" in item
                             for item in validate_plan(plan, self.model)))
 
     def test_plan_with_public_ecs_task_dies(self) -> None:

@@ -97,6 +97,18 @@ variable "gross_monthly_budget_usd" {
   }
 }
 
+variable "budget_alert_email" {
+  description = "Buzon operativo para alertas AWS Budgets; se suministra fuera del repositorio."
+  type        = string
+  sensitive   = true
+  validation {
+    condition = length(var.budget_alert_email) <= 254 && can(regex(
+      "^[^@[:space:]]+@[^@[:space:]]+\\.[^@[:space:]]+$", var.budget_alert_email
+    ))
+    error_message = "budget_alert_email debe ser un correo operativo valido."
+  }
+}
+
 variable "expires_at" {
   type    = string
   default = "2027-02-15"
