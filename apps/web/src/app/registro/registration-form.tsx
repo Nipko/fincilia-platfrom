@@ -102,8 +102,8 @@ export function RegistrationForm({
           </label>
           <p className="field-help" id="registration-invite-help">
             {inviteRequired
-              ? 'Cada invitación funciona una sola vez y no se almacena en claro.'
-              : 'Opcional en el entorno local; obligatoria en la beta cerrada.'}
+              ? 'Cada código funciona una sola vez y no se almacena en claro.'
+              : 'Opcional y exclusivo del laboratorio local.'}
           </p>
           <label>
             Tu nombre visible
@@ -135,7 +135,7 @@ export function RegistrationForm({
             El navegador nunca recibe el token de sesion.
           </p>
           <fieldset className="registration-consent">
-            <legend>Condiciones de esta beta</legend>
+            <legend>Condiciones del laboratorio</legend>
             <label>
               <input name="acceptSynthetic" type="checkbox" value="yes" required />
               <span>
@@ -146,7 +146,7 @@ export function RegistrationForm({
             <label>
               <input name="acceptTerms" type="checkbox" value="yes" required />
               <span>
-                Acepto los <Link href="/terminos">terminos de la beta</Link> y he
+                Acepto los <Link href="/terminos">terminos del servicio</Link> y he
                 leido la <Link href="/privacidad">politica de privacidad</Link>.
               </span>
             </label>

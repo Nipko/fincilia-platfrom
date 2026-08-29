@@ -79,11 +79,11 @@ export async function registerAccountAction(
   }
   if (!acceptedSyntheticOnly || !acceptedTerms) {
     return {
-      error: 'Confirma el uso exclusivo de datos sinteticos y acepta los terminos de la beta.',
+      error: 'Confirma el uso exclusivo de datos sinteticos y acepta los terminos del servicio.',
     };
   }
   if (process.env.FINCILIA_REGISTRATION_INVITE_REQUIRED === 'true' && !inviteCode) {
-    return { error: 'Escribe el codigo de invitacion de esta beta cerrada.' };
+    return { error: 'Escribe el codigo de acceso del laboratorio.' };
   }
   if (!username.endsWith('@demo.local')) {
     return { error: 'En este laboratorio usa una direccion terminada en @demo.local.' };

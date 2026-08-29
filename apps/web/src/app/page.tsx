@@ -16,12 +16,12 @@ export default async function Home() {
           </p>
           <div className="public-actions">
             <Link className="primary-link" href={session ? '/empresas' : '/registro'}>
-              {session ? 'Ir a mi portafolio' : 'Empezar prueba sintética'}
+              {session ? 'Ir a mi portafolio' : 'Crear mi cuenta'}
             </Link>
             <Link className="secondary-link" href="/entrar">Entrar</Link>
           </div>
           <p className="public-stage-note">
-            Beta cerrada · solo datos inventados · no admite documentos reales.
+            Registro público con Google · datos reales pendientes de autorización.
           </p>
         </div>
         <div className="public-hero__visual card" aria-label="Flujo de Fincilia">

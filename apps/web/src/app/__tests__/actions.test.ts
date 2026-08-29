@@ -170,7 +170,7 @@ describe('registration action', () => {
     );
   });
 
-  it('exige invitacion en servidor cuando la beta cerrada esta activa', async () => {
+  it('exige codigo de acceso cuando el laboratorio local activa ese control', async () => {
     vi.stubEnv('FINCILIA_REGISTRATION_INVITE_REQUIRED', 'true');
     const form = registrationForm();
     form.set('acceptSynthetic', 'yes');
@@ -178,7 +178,7 @@ describe('registration action', () => {
 
     const result = await registerAccountAction({ error: null }, form);
 
-    expect(result.error).toContain('codigo de invitacion');
+    expect(result.error).toContain('codigo de acceso del laboratorio');
     expect(mocks.registerAccount).not.toHaveBeenCalled();
   });
 });

@@ -11,7 +11,7 @@ test.describe('recorrido publico sin secretos', () => {
     await expect(page.getByLabel('Contrasena')).toHaveAttribute('type', 'password');
     await expect(page.getByRole('link', { name: 'Crear una cuenta' }))
       .toHaveAttribute('href', '/registro');
-    await expect(page.getByRole('link', { name: 'terminos de la beta' }))
+    await expect(page.getByRole('link', { name: 'terminos del servicio' }))
       .toHaveAttribute('href', '/terminos');
 
     await page.keyboard.press('Tab');
@@ -51,7 +51,7 @@ test.describe('recorrido publico sin secretos', () => {
       level: 1,
       name: 'De documentos dispersos a diferencias explicables.',
     })).toBeVisible();
-    await expect(page.getByText('Beta cerrada · solo datos inventados'))
+    await expect(page.getByText('Registro público con Google · datos reales pendientes de autorización'))
       .toBeVisible();
     await expect(page.getByText(/No pedirá acceso a Gmail, Drive/)).toBeVisible();
     await page.getByRole('link', { name: 'Leer política de privacidad' }).click();
