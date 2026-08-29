@@ -109,6 +109,24 @@ def validate_contract(model: dict[str, Any]) -> list[str]:
         if activation.get(field) is not True:
             errors.append(f"runtime_activation.{field} debe ser true")
 
+    lifecycle = model.get("cost_lifecycle", {})
+    expected_lifecycle = {
+        "default_mode": "cold",
+        "cold_runtime_plane_enabled": False,
+        "warm_runtime_plane_enabled": True,
+        "warm_initial_desired_count": 0,
+        "cold_rds_action": "request_stop_preserve_storage",
+        "mutations_require_apply_flag": True,
+        "controller_can_accept_gates": False,
+    }
+    for field, expected in expected_lifecycle.items():
+        if lifecycle.get(field) != expected:
+            errors.append(f"cost_lifecycle.{field} debe ser {expected!r}")
+    persistent = set(lifecycle.get("persistent_resource_types", []))
+    runtime_only = set(lifecycle.get("runtime_only_resource_types", []))
+    if not persistent or not runtime_only or persistent & runtime_only:
+        errors.append("cost_lifecycle debe separar recursos persistentes y runtime")
+
     disabled = set(model.get("disabled_capabilities", []))
     required_disabled = {
         "external_ai", "payments", "email_ingest", "sftp", "api_connectors",
@@ -156,7 +174,10 @@ def validate_sources(sources: str | None = None) -> list[str]:
         'key          = "fincilia/private-pilot/foundation.tfstate"',
         'vpc_cidr = "10.60.0.0/16"',
         'worker-no-default-route',
-        'for_each = toset(["ecr.api", "ecr.dkr", "kms", "logs", "secretsmanager", "ssmmessages"])',
+        'variable "runtime_plane_enabled"',
+        'default     = false',
+        'for_each = var.runtime_plane_enabled ? toset([',
+        'count = var.runtime_plane_enabled ? 1 : 0',
         'assign_public_ip = false',
         'condition     = var.service_desired_count == 0',
         'manage_master_user_password   = true',
@@ -218,13 +239,25 @@ def validate_plan(plan: dict[str, Any], model: dict[str, Any]) -> list[str]:
     errors: list[str] = []
     required = set(model["required_resource_types"])
     forbidden = set(model["forbidden_resource_types"])
+    lifecycle = model["cost_lifecycle"]
+    runtime_only = set(lifecycle["runtime_only_resource_types"])
+    persistent = set(lifecycle["persistent_resource_types"])
     changes = [item for item in plan.get("resource_changes", [])
                if item.get("mode", "managed") == "managed"]
     if not changes:
         return ["plan sin recursos administrados"]
-    present = {item.get("type") for item in changes}
+    runtime_enabled = any(
+        item.get("type") == "aws_nat_gateway"
+        and item.get("change", {}).get("actions") != ["delete"]
+        for item in changes
+    )
+    required_for_mode = required if runtime_enabled else required - runtime_only
+    present = {
+        item.get("type") for item in changes
+        if item.get("change", {}).get("actions") != ["delete"]
+    }
     planned_addresses = {str(item.get("address", "")) for item in changes}
-    for resource_type in sorted(required - present):
+    for resource_type in sorted(required_for_mode - present):
         errors.append(f"plan no contiene recurso requerido {resource_type}")
 
     for item in changes:
@@ -235,8 +268,25 @@ def validate_plan(plan: dict[str, Any], model: dict[str, Any]) -> list[str]:
         after_unknown = item.get("change", {}).get("after_unknown") or {}
         if resource_type in forbidden:
             errors.append(f"{address}: tipo prohibido {resource_type}")
-        if "delete" in actions and "create" not in actions:
-            errors.append(f"{address}: borrado sin reemplazo no autorizado")
+        delete_only = "delete" in actions and "create" not in actions
+        if not runtime_enabled and resource_type in runtime_only and not delete_only:
+            errors.append(f"{address}: recurso runtime presente en plan cold")
+        if delete_only:
+            runtime_address = (
+                resource_type in runtime_only
+                or address.startswith("aws_eip.nat")
+                or address.startswith("aws_route.application_internet")
+                or address.startswith("aws_vpc_endpoint.worker_interface")
+                or address.startswith("aws_cloudwatch_log_group.waf")
+                or address.startswith("aws_cloudwatch_metric_alarm.alb_5xx")
+                or address.startswith("aws_cloudwatch_metric_alarm.waf_blocked")
+                or address.startswith("aws_wafv2_web_acl_logging_configuration.pilot")
+            )
+            if runtime_enabled or not runtime_address:
+                errors.append(f"{address}: borrado sin reemplazo no autorizado")
+            if resource_type in persistent:
+                errors.append(f"{address}: modo cold intenta borrar recurso persistente")
+            continue
         if resource_type == "aws_ecs_service":
             network = (after.get("network_configuration") or [{}])[0]
             if network.get("assign_public_ip") is not False:

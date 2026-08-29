@@ -2,6 +2,7 @@ output "foundation_only" {
   value = {
     deployment_authorized = false
     real_data_authorized  = false
+    runtime_plane_enabled = var.runtime_plane_enabled
     desired_count         = var.service_desired_count
   }
 }
@@ -11,7 +12,7 @@ output "required_dns_records" {
     application = {
       name   = var.pilot_domain
       type   = "CNAME_or_ALIAS"
-      target = aws_lb.pilot.dns_name
+      target = try(aws_lb.pilot[0].dns_name, null)
     }
     certificate_validation = [for option in aws_acm_certificate.pilot.domain_validation_options : {
       name  = option.resource_record_name

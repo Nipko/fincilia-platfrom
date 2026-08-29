@@ -2,6 +2,7 @@ locals {
   repositories = toset(["api", "web", "worker"])
   oidc_issuer  = "https://cognito-idp.${var.region}.amazonaws.com/${aws_cognito_user_pool.pilot.id}"
   oidc_base    = "https://${aws_cognito_user_pool_domain.pilot.domain}.auth.${var.region}.amazoncognito.com"
+  cache_host   = try(aws_elasticache_replication_group.pilot[0].primary_endpoint_address, "disabled.invalid")
 
   api_environment = [
     { name = "FINCILIA_ENV", value = "pilot" },
@@ -14,7 +15,7 @@ locals {
     { name = "FINCILIA_DATABASE_POOL_MIN", value = "1" },
     { name = "FINCILIA_DATABASE_POOL_MAX", value = "6" },
     { name = "FINCILIA_DATABASE_STATEMENT_TIMEOUT_MS", value = "15000" },
-    { name = "FINCILIA_CACHE_URL", value = "rediss://${aws_elasticache_replication_group.pilot.primary_endpoint_address}:6379/0" },
+    { name = "FINCILIA_CACHE_URL", value = "rediss://${local.cache_host}:6379/0" },
     { name = "FINCILIA_OBJECT_STORE_ENDPOINT", value = "https://s3.${var.region}.amazonaws.com" },
     { name = "FINCILIA_OBJECT_REGION", value = var.region },
     { name = "FINCILIA_OBJECT_CREDENTIALS_SOURCE", value = "aws_workload_identity" },
@@ -85,7 +86,7 @@ locals {
     { name = "FINCILIA_DATABASE_POOL_MIN", value = "1" },
     { name = "FINCILIA_DATABASE_POOL_MAX", value = "3" },
     { name = "FINCILIA_DATABASE_STATEMENT_TIMEOUT_MS", value = "30000" },
-    { name = "FINCILIA_CACHE_URL", value = "rediss://${aws_elasticache_replication_group.pilot.primary_endpoint_address}:6379/1" },
+    { name = "FINCILIA_CACHE_URL", value = "rediss://${local.cache_host}:6379/1" },
     { name = "FINCILIA_OBJECT_STORE_ENDPOINT", value = "https://s3.${var.region}.amazonaws.com" },
     { name = "FINCILIA_OBJECT_REGION", value = var.region },
     { name = "FINCILIA_OBJECT_CREDENTIALS_SOURCE", value = "aws_workload_identity" },
@@ -156,6 +157,8 @@ resource "aws_ecs_cluster_capacity_providers" "pilot" {
 }
 
 resource "aws_ecs_task_definition" "application" {
+  count = var.runtime_plane_enabled ? 1 : 0
+
   family                   = "${local.name}-application"
   requires_compatibilities = ["FARGATE"]
   network_mode             = "awsvpc"
@@ -227,6 +230,8 @@ resource "aws_ecs_task_definition" "application" {
 }
 
 resource "aws_ecs_task_definition" "worker" {
+  count = var.runtime_plane_enabled ? 1 : 0
+
   family                   = "${local.name}-worker"
   requires_compatibilities = ["FARGATE"]
   network_mode             = "awsvpc"
@@ -275,6 +280,8 @@ resource "aws_ecs_task_definition" "worker" {
 }
 
 resource "aws_ecs_task_definition" "migrator" {
+  count = var.runtime_plane_enabled ? 1 : 0
+
   family                   = "${local.name}-migrator"
   requires_compatibilities = ["FARGATE"]
   network_mode             = "awsvpc"
@@ -317,9 +324,11 @@ resource "aws_ecs_task_definition" "migrator" {
 }
 
 resource "aws_ecs_service" "application" {
+  count = var.runtime_plane_enabled ? 1 : 0
+
   name                   = "${local.name}-application"
   cluster                = aws_ecs_cluster.pilot.id
-  task_definition        = aws_ecs_task_definition.application.arn
+  task_definition        = aws_ecs_task_definition.application[0].arn
   desired_count          = var.service_desired_count
   enable_execute_command = true
   wait_for_steady_state  = false
@@ -336,7 +345,7 @@ resource "aws_ecs_service" "application" {
   }
 
   load_balancer {
-    target_group_arn = aws_lb_target_group.web.arn
+    target_group_arn = aws_lb_target_group.web[0].arn
     container_name   = "web"
     container_port   = 3000
   }
@@ -355,9 +364,11 @@ resource "aws_ecs_service" "application" {
 }
 
 resource "aws_ecs_service" "worker" {
+  count = var.runtime_plane_enabled ? 1 : 0
+
   name                   = "${local.name}-worker"
   cluster                = aws_ecs_cluster.pilot.id
-  task_definition        = aws_ecs_task_definition.worker.arn
+  task_definition        = aws_ecs_task_definition.worker[0].arn
   desired_count          = var.service_desired_count
   enable_execute_command = true
   wait_for_steady_state  = false

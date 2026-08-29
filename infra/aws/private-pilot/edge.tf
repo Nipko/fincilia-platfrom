@@ -9,6 +9,8 @@ resource "aws_acm_certificate" "pilot" {
 }
 
 resource "aws_lb" "pilot" {
+  count = var.runtime_plane_enabled ? 1 : 0
+
   name                       = "fincilia-private-pilot"
   internal                   = false
   load_balancer_type         = "application"
@@ -28,6 +30,8 @@ resource "aws_lb" "pilot" {
 }
 
 resource "aws_lb_target_group" "web" {
+  count = var.runtime_plane_enabled ? 1 : 0
+
   name        = "fincilia-pilot-web"
   port        = 3000
   protocol    = "HTTP"
@@ -49,7 +53,9 @@ resource "aws_lb_target_group" "web" {
 }
 
 resource "aws_lb_listener" "http" {
-  load_balancer_arn = aws_lb.pilot.arn
+  count = var.runtime_plane_enabled ? 1 : 0
+
+  load_balancer_arn = aws_lb.pilot[0].arn
   port              = 80
   protocol          = "HTTP"
 
@@ -64,9 +70,9 @@ resource "aws_lb_listener" "http" {
 }
 
 resource "aws_lb_listener" "https" {
-  count = var.certificate_ready ? 1 : 0
+  count = var.runtime_plane_enabled && var.certificate_ready ? 1 : 0
 
-  load_balancer_arn = aws_lb.pilot.arn
+  load_balancer_arn = aws_lb.pilot[0].arn
   port              = 443
   protocol          = "HTTPS"
   ssl_policy        = "ELBSecurityPolicy-TLS13-1-2-2021-06"
@@ -74,11 +80,13 @@ resource "aws_lb_listener" "https" {
 
   default_action {
     type             = "forward"
-    target_group_arn = aws_lb_target_group.web.arn
+    target_group_arn = aws_lb_target_group.web[0].arn
   }
 }
 
 resource "aws_wafv2_web_acl" "pilot" {
+  count = var.runtime_plane_enabled ? 1 : 0
+
   name  = local.name
   scope = "REGIONAL"
 
@@ -152,19 +160,25 @@ resource "aws_wafv2_web_acl" "pilot" {
 }
 
 resource "aws_wafv2_web_acl_association" "pilot" {
-  resource_arn = aws_lb.pilot.arn
-  web_acl_arn  = aws_wafv2_web_acl.pilot.arn
+  count = var.runtime_plane_enabled ? 1 : 0
+
+  resource_arn = aws_lb.pilot[0].arn
+  web_acl_arn  = aws_wafv2_web_acl.pilot[0].arn
 }
 
 resource "aws_cloudwatch_log_group" "waf" {
+  count = var.runtime_plane_enabled ? 1 : 0
+
   name              = "aws-waf-logs-fincilia-private-pilot"
   retention_in_days = 30
   kms_key_id        = aws_kms_key.audit.arn
 }
 
 resource "aws_wafv2_web_acl_logging_configuration" "pilot" {
-  log_destination_configs = [aws_cloudwatch_log_group.waf.arn]
-  resource_arn            = aws_wafv2_web_acl.pilot.arn
+  count = var.runtime_plane_enabled ? 1 : 0
+
+  log_destination_configs = [aws_cloudwatch_log_group.waf[0].arn]
+  resource_arn            = aws_wafv2_web_acl.pilot[0].arn
 
   redacted_fields {
     single_header {

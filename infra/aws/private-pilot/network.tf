@@ -69,13 +69,17 @@ resource "aws_route_table_association" "public" {
 }
 
 resource "aws_eip" "nat" {
+  count = var.runtime_plane_enabled ? 1 : 0
+
   domain     = "vpc"
   depends_on = [aws_internet_gateway.pilot]
   tags       = { Name = "${local.name}-nat" }
 }
 
 resource "aws_nat_gateway" "application" {
-  allocation_id = aws_eip.nat.id
+  count = var.runtime_plane_enabled ? 1 : 0
+
+  allocation_id = aws_eip.nat[0].id
   subnet_id     = aws_subnet.public[0].id
   depends_on    = [aws_internet_gateway.pilot]
   tags          = { Name = "${local.name}-app" }
@@ -89,11 +93,11 @@ resource "aws_route_table" "application" {
 }
 
 resource "aws_route" "application_internet" {
-  count = 2
+  count = var.runtime_plane_enabled ? 2 : 0
 
   route_table_id         = aws_route_table.application[count.index].id
   destination_cidr_block = "0.0.0.0/0"
-  nat_gateway_id         = aws_nat_gateway.application.id
+  nat_gateway_id         = aws_nat_gateway.application[0].id
 }
 
 resource "aws_route_table_association" "application" {
@@ -154,7 +158,9 @@ resource "aws_vpc_security_group_ingress_rule" "endpoints_worker" {
 }
 
 resource "aws_vpc_endpoint" "worker_interface" {
-  for_each = toset(["ecr.api", "ecr.dkr", "kms", "logs", "secretsmanager", "ssmmessages"])
+  for_each = var.runtime_plane_enabled ? toset([
+    "ecr.api", "ecr.dkr", "kms", "logs", "secretsmanager", "ssmmessages",
+  ]) : toset([])
 
   vpc_id              = aws_vpc.pilot.id
   service_name        = "com.amazonaws.${var.region}.${each.value}"

@@ -78,6 +78,12 @@ variable "certificate_ready" {
   default     = false
 }
 
+variable "runtime_plane_enabled" {
+  description = "Crea el plano temporal facturable; cold=false es el valor seguro."
+  type        = bool
+  default     = false
+}
+
 variable "service_desired_count" {
   description = "Foundation siempre crea servicios detenidos; activacion es otra tarea/gate."
   type        = number

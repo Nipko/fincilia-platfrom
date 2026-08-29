@@ -14,6 +14,8 @@ resource "aws_elasticache_parameter_group" "pilot" {
 }
 
 resource "aws_elasticache_replication_group" "pilot" {
+  count = var.runtime_plane_enabled ? 1 : 0
+
   replication_group_id = local.name
   description          = "Cache efimero; nunca autoridad financiera"
 

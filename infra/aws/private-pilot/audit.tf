@@ -122,6 +122,8 @@ resource "aws_cloudwatch_log_group" "rds" {
 }
 
 resource "aws_cloudwatch_metric_alarm" "alb_5xx" {
+  count = var.runtime_plane_enabled ? 1 : 0
+
   alarm_name          = "${local.name}-alb-5xx"
   alarm_description   = "Errores 5xx del ALB del piloto"
   namespace           = "AWS/ApplicationELB"
@@ -132,7 +134,7 @@ resource "aws_cloudwatch_metric_alarm" "alb_5xx" {
   threshold           = 5
   comparison_operator = "GreaterThanOrEqualToThreshold"
   treat_missing_data  = "notBreaching"
-  dimensions          = { LoadBalancer = aws_lb.pilot.arn_suffix }
+  dimensions          = { LoadBalancer = aws_lb.pilot[0].arn_suffix }
 }
 
 resource "aws_cloudwatch_metric_alarm" "rds_cpu" {
@@ -150,6 +152,8 @@ resource "aws_cloudwatch_metric_alarm" "rds_cpu" {
 }
 
 resource "aws_cloudwatch_metric_alarm" "waf_blocked" {
+  count = var.runtime_plane_enabled ? 1 : 0
+
   alarm_name          = "${local.name}-waf-blocked"
   alarm_description   = "Volumen anormal de bloqueos WAF"
   namespace           = "AWS/WAFV2"
@@ -161,7 +165,7 @@ resource "aws_cloudwatch_metric_alarm" "waf_blocked" {
   comparison_operator = "GreaterThanOrEqualToThreshold"
   treat_missing_data  = "notBreaching"
   dimensions = {
-    WebACL = aws_wafv2_web_acl.pilot.name
+    WebACL = aws_wafv2_web_acl.pilot[0].name
     Region = var.region
     Rule   = "ALL"
   }

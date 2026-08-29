@@ -39,6 +39,17 @@ class PrivatePilotContractTests(unittest.TestCase):
         errors = validate_contract(self.mutate("deployment_authorized", value=True))
         self.assertTrue(any("deployment_authorized" in item for item in errors))
 
+    def test_cold_must_remain_the_default_mode(self) -> None:
+        errors = validate_contract(self.mutate(
+            "cost_lifecycle", "default_mode", value="warm"))
+        self.assertTrue(any("default_mode" in item for item in errors))
+
+    def test_controller_cannot_accept_gates(self) -> None:
+        errors = validate_contract(self.mutate(
+            "cost_lifecycle", "controller_can_accept_gates", value=True))
+        self.assertTrue(any("controller_can_accept_gates" in item
+                            for item in errors))
+
     def test_worker_default_route_dies(self) -> None:
         errors = validate_contract(self.mutate(
             "network", "worker_has_default_route", value=True))
@@ -139,6 +150,50 @@ class PrivatePilotContractTests(unittest.TestCase):
 
     def test_minimum_safe_plan_is_valid(self) -> None:
         self.assertEqual([], validate_plan(self.valid_plan(), self.model))
+
+    def cold_plan(self) -> dict:
+        runtime_only = set(
+            self.model["cost_lifecycle"]["runtime_only_resource_types"])
+        plan = self.valid_plan()
+        plan["resource_changes"] = [
+            item for item in plan["resource_changes"]
+            if item["type"] not in runtime_only
+        ]
+        return plan
+
+    def test_cold_plan_without_runtime_plane_is_valid(self) -> None:
+        self.assertEqual([], validate_plan(self.cold_plan(), self.model))
+
+    def test_partial_runtime_resource_in_cold_plan_dies(self) -> None:
+        plan = self.cold_plan()
+        plan["resource_changes"].append({
+            "address": "aws_lb.pilot[0]", "mode": "managed", "type": "aws_lb",
+            "change": {"actions": ["create"], "after": {
+                "internal": False, "load_balancer_type": "application",
+                "enable_deletion_protection": True,
+                "subnets": ["subnet-a", "subnet-b"],
+                "access_logs": [{"enabled": True}],
+            }},
+        })
+        self.assertTrue(any("plan cold" in item
+                            for item in validate_plan(plan, self.model)))
+
+    def test_cold_plan_may_delete_runtime_but_not_persistent_resources(self) -> None:
+        plan = self.cold_plan()
+        plan["resource_changes"].append({
+            "address": "aws_nat_gateway.application[0]",
+            "mode": "managed", "type": "aws_nat_gateway",
+            "change": {"actions": ["delete"], "after": None},
+        })
+        self.assertEqual([], validate_plan(plan, self.model))
+
+        persistent = copy.deepcopy(plan)
+        database = next(item for item in persistent["resource_changes"]
+                        if item["type"] == "aws_db_instance")
+        database["change"] = {"actions": ["delete"], "after": None}
+        errors = validate_plan(persistent, self.model)
+        self.assertTrue(any("persistente" in item or "no autorizado" in item
+                            for item in errors))
 
     def test_provider_normalized_oidc_scope_order_is_valid(self) -> None:
         plan = self.valid_plan()
