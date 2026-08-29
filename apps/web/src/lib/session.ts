@@ -74,3 +74,18 @@ export async function clearSession(): Promise<void> {
   store.delete(SESSION_COOKIE);
   store.delete(`${SESSION_COOKIE}_name`);
 }
+
+export function clearSessionFromResponse(response: NextResponse): void {
+  const common = {
+    httpOnly: true,
+    sameSite: 'strict',
+    secure: process.env.FINCILIA_WEB_SECURE_COOKIES === 'true',
+    path: '/',
+    maxAge: 0,
+  } as const;
+  response.cookies.set(SESSION_COOKIE, '', common);
+  response.cookies.set(`${SESSION_COOKIE}_name`, '', {
+    ...common,
+    httpOnly: false,
+  });
+}

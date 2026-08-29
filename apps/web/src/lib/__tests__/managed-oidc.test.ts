@@ -7,7 +7,9 @@ import {
   createManagedOidcTransaction,
   exactState,
   managedAuthorizeUrl,
+  managedLogoutUrl,
   managedOidcConfig,
+  managedOidcLogoutConfig,
   openManagedOidcTransaction,
   sealManagedOidcTransaction,
 } from '../managed-oidc';
@@ -81,6 +83,15 @@ describe('transaccion OIDC administrada', () => {
     expect(url.searchParams.get('code_challenge_method')).toBe('S256');
     expect(url.search).not.toContain('Invite_code');
     expect(url.search).not.toContain('Firma');
+  });
+
+  it('construye logout Cognito con parametros exactos y sin entrada del cliente', () => {
+    const url = new URL(managedLogoutUrl(managedOidcLogoutConfig()));
+    expect(url.origin + url.pathname).toBe('https://auth.fincilia.test/logout');
+    expect(url.searchParams.get('client_id')).toBe('public-client-123');
+    expect(url.searchParams.get('logout_uri')).toBe(
+      'https://pilot.fincilia.test/entrar');
+    expect([...url.searchParams.keys()].sort()).toEqual(['client_id', 'logout_uri']);
   });
 
   it('falla cerrado con HTTP, callback de otro origen o cookie insegura', () => {

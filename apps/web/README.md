@@ -51,6 +51,11 @@ FINCILIA_E2E_BASE_URL=http://127.0.0.1:53000 npm run test:a11y
 | `FINCILIA_OIDC_REDIRECT_URI` | callback HTTPS exacto de esta web |
 | `FINCILIA_OAUTH_TRANSACTION_KEY` | clave AES-256 dedicada para la cookie OAuth transitoria; solo Secrets Manager |
 
+El cierre administrado deriva el endpoint `/logout` del mismo origen Cognito y
+usa `https://<FINCILIA_PUBLIC_ORIGIN>/entrar` como `logout_uri`. Ambos valores
+se validan server-side; el navegador no puede indicar a dónde redirigir. Antes
+de salir se eliminan las cookies de sesión y cualquier transacción OAuth.
+
 ## Que se puede hacer hoy
 
 Entrar, ver la firma y las empresas con acceso vigente; administrar cuentas,

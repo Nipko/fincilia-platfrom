@@ -36,6 +36,12 @@ type ManagedOidcConfig = {
   transactionKey: Buffer;
 };
 
+export type ManagedOidcLogoutConfig = {
+  clientId: string;
+  logoutEndpoint: string;
+  logoutUri: string;
+};
+
 export class ManagedOidcConfigurationError extends Error {
   constructor() {
     super('managed identity is not safely configured');
@@ -66,9 +72,7 @@ function exactHttpsUrl(value: string | undefined, expectedPath?: string): URL {
 }
 
 export function managedOidcConfig(): ManagedOidcConfig {
-  if (!managedOidcEnabled()) throw new ManagedOidcConfigurationError();
-  const origin = publicWebOrigin();
-  if (!origin || !origin.startsWith('https://')) throw new ManagedOidcConfigurationError();
+  const logout = managedOidcLogoutConfig();
   const authorize = exactHttpsUrl(
     process.env.FINCILIA_OIDC_AUTHORIZE_ENDPOINT,
     '/oauth2/authorize',
@@ -77,11 +81,8 @@ export function managedOidcConfig(): ManagedOidcConfig {
     process.env.FINCILIA_OIDC_REDIRECT_URI,
     OIDC_CALLBACK_PATH,
   );
+  const origin = publicWebOrigin();
   if (redirect.origin !== origin) throw new ManagedOidcConfigurationError();
-  const clientId = process.env.FINCILIA_OIDC_CLIENT_ID;
-  if (!clientId || clientId.length < 8 || clientId.length > 128 || !SAFE_VALUE.test(clientId)) {
-    throw new ManagedOidcConfigurationError();
-  }
   const encodedKey = process.env.FINCILIA_OAUTH_TRANSACTION_KEY;
   if (!encodedKey || !/^[A-Za-z0-9_-]{43}$/.test(encodedKey)) {
     throw new ManagedOidcConfigurationError();
@@ -92,10 +93,42 @@ export function managedOidcConfig(): ManagedOidcConfig {
   }
   return {
     authorizeEndpoint: authorize.toString(),
-    clientId,
+    clientId: logout.clientId,
     redirectUri: redirect.toString(),
     transactionKey,
   };
+}
+
+export function managedOidcLogoutConfig(): ManagedOidcLogoutConfig {
+  if (!managedOidcEnabled()) throw new ManagedOidcConfigurationError();
+  const origin = publicWebOrigin();
+  if (!origin || !origin.startsWith('https://') ||
+      process.env.FINCILIA_WEB_SECURE_COOKIES !== 'true') {
+    throw new ManagedOidcConfigurationError();
+  }
+  const authorize = exactHttpsUrl(
+    process.env.FINCILIA_OIDC_AUTHORIZE_ENDPOINT,
+    '/oauth2/authorize',
+  );
+  const clientId = process.env.FINCILIA_OIDC_CLIENT_ID;
+  if (!clientId || clientId.length < 8 || clientId.length > 128 ||
+      !SAFE_VALUE.test(clientId)) {
+    throw new ManagedOidcConfigurationError();
+  }
+  return {
+    clientId,
+    logoutEndpoint: new URL('/logout', authorize.origin).toString(),
+    logoutUri: new URL('/entrar', origin).toString(),
+  };
+}
+
+export function managedLogoutUrl(config: ManagedOidcLogoutConfig): string {
+  const url = new URL(config.logoutEndpoint);
+  url.search = new URLSearchParams({
+    client_id: config.clientId,
+    logout_uri: config.logoutUri,
+  }).toString();
+  return url.toString();
 }
 
 function bounded(value: FormDataEntryValue | null, minimum: number, maximum: number): string {

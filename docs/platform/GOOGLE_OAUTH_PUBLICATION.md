@@ -123,16 +123,44 @@ Client Secret termine en el state o en un plan guardado.
 
 ## 6. Prueba y publicación gradual
 
+### Operar invitaciones nominales
+
+La invitación se crea desde una sesión privada del migrador, con
+`FINCILIA_MIGRATOR_URL` y `FINCILIA_IDENTITY_BINDING_HMAC_KEY` inyectadas desde
+Secrets Manager. No escribir sus valores en la línea de comandos ni exportarlos
+a un fichero. El correo se introduce en el prompt oculto y PostgreSQL recibe
+solo su HMAC; el código aparece una vez en stdout para entregarlo por un canal
+distinto a la cuenta Google invitada.
+
+```text
+python -m db.admin.pilot_invitations create --hours 168
+python -m db.admin.pilot_invitations list
+python -m db.admin.pilot_invitations revoke --invitation <UUID>
+```
+
+No redirigir la salida de `create`, no capturar la terminal y no pegar el código
+en tickets, chats de agentes, Git o logs. `list` expone únicamente identificador,
+prefijo del digest y marcas de estado; `revoke` solo acepta el UUID de la
+invitación. Las invitaciones locales sintéticas se administran con
+`db.admin.invitations` y no son válidas en el piloto nominal.
+
+### Recorrido de aceptación
+
 1. Probar con una sola identidad nominal de Testing y una invitación de un uso.
 2. Confirmar `state`, nonce, PKCE, issuer, audience, expiración y correo
    verificado; un fallo no debe crear sujeto, firma ni empresa.
-3. Confirmar alta nueva completa, login idempotente, logout y revocación.
-4. Confirmar que URLs, logs, auditoría y base no contienen códigos, tokens,
+3. Confirmar alta nueva completa y login idempotente. Al pulsar `Salir`, verificar
+   que desaparecen las tres cookies Fincilia y Cognito vuelve exactamente a
+   `https://<APP_DOMAIN>/entrar`; volver a entrar debe iniciar un flujo nuevo.
+4. Revocar una invitación no consumida y comprobar que no crea filas. Suspender
+   la identidad de prueba en Cognito y retirar sus grants en Fincilia; ambas
+   capas deben negar el siguiente acceso sin aceptar claims de empresa del IdP.
+5. Confirmar que URLs, logs, auditoría y base no contienen códigos, tokens,
    correo ni `sub` en claro.
-5. Ejecutar regresión de rutas públicas, onboarding, aislamiento multiempresa y
+6. Ejecutar regresión de rutas públicas, onboarding, aislamiento multiempresa y
    recuperación ante proveedor no disponible.
-6. Obtener revisiones nominales de Security, Privacy/Legal, Architecture y QA.
-7. Para una publicación pública futura, mover el proyecto de producción a
+7. Obtener revisiones nominales de Security, Privacy/Legal, Architecture y QA.
+8. Para una publicación pública futura, mover el proyecto de producción a
    `In production`, verificar branding y completar cualquier revisión que Google
    solicite. La beta y producción deben usar proyectos Google separados.
 
