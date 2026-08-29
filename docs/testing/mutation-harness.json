@@ -1638,7 +1638,7 @@
       ],
       "state": "active",
       "target": "docs/testing/golden-harness.json",
-      "target_sha256": "1d11df10ae585bc0d3e6041039eeb94df3e66fd1e26034e2c9803f1ba3b88557",
+      "target_sha256": "0587e0ca007d9e36d6435849cd283a5365ea2de1e5dd3034fa465c2a5db17659",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -1691,7 +1691,7 @@
       ],
       "state": "active",
       "target": "docs/testing/golden-harness.json",
-      "target_sha256": "1d11df10ae585bc0d3e6041039eeb94df3e66fd1e26034e2c9803f1ba3b88557",
+      "target_sha256": "0587e0ca007d9e36d6435849cd283a5365ea2de1e5dd3034fa465c2a5db17659",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -1744,7 +1744,7 @@
       ],
       "state": "active",
       "target": "docs/testing/golden-harness.json",
-      "target_sha256": "1d11df10ae585bc0d3e6041039eeb94df3e66fd1e26034e2c9803f1ba3b88557",
+      "target_sha256": "0587e0ca007d9e36d6435849cd283a5365ea2de1e5dd3034fa465c2a5db17659",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -1797,7 +1797,7 @@
       ],
       "state": "active",
       "target": "docs/testing/golden-harness.json",
-      "target_sha256": "1d11df10ae585bc0d3e6041039eeb94df3e66fd1e26034e2c9803f1ba3b88557",
+      "target_sha256": "0587e0ca007d9e36d6435849cd283a5365ea2de1e5dd3034fa465c2a5db17659",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -1851,7 +1851,7 @@
       ],
       "state": "active",
       "target": "docs/testing/golden-harness.json",
-      "target_sha256": "1d11df10ae585bc0d3e6041039eeb94df3e66fd1e26034e2c9803f1ba3b88557",
+      "target_sha256": "0587e0ca007d9e36d6435849cd283a5365ea2de1e5dd3034fa465c2a5db17659",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -1904,7 +1904,7 @@
       ],
       "state": "active",
       "target": "docs/testing/golden-harness.json",
-      "target_sha256": "1d11df10ae585bc0d3e6041039eeb94df3e66fd1e26034e2c9803f1ba3b88557",
+      "target_sha256": "0587e0ca007d9e36d6435849cd283a5365ea2de1e5dd3034fa465c2a5db17659",
       "test_refs": [
         "TST-MUT-001"
       ],
@@ -1954,7 +1954,7 @@
       ],
       "state": "active",
       "target": "docs/testing/golden-harness.json",
-      "target_sha256": "1d11df10ae585bc0d3e6041039eeb94df3e66fd1e26034e2c9803f1ba3b88557",
+      "target_sha256": "0587e0ca007d9e36d6435849cd283a5365ea2de1e5dd3034fa465c2a5db17659",
       "test_refs": [
         "TST-META-001"
       ],
