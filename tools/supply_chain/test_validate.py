@@ -133,6 +133,13 @@ class SyntheticTreeMixin:
             ("npm", "/spikes/SYN-001/api"),
             ("docker", "/infra/synthetic"),
         ])))
+        evidence_ref = next(
+            claim["verification_ref"] for claim in self.model["evidence_claims"]
+            if claim.get("satisfied") is True
+        )
+        evidence_target = directory / evidence_ref
+        evidence_target.parent.mkdir(parents=True, exist_ok=True)
+        evidence_target.write_bytes((ROOT / evidence_ref).read_bytes())
         return directory
 
     def scan(self, directory: Path, model: dict | None = None) -> dict:
@@ -200,6 +207,13 @@ class RealRepositoryTests(unittest.TestCase):
         for claim in self.model["evidence_claims"]:
             if claim.get("satisfied"):
                 self.assertTrue(claim.get("verification_ref"), claim["id"])
+
+    def test_pos_09b_attested_evidence_is_revalidated_from_the_real_tree(self) -> None:
+        result = reconcile(self.model, ROOT, self.inventory)
+        self.assertNotIn(
+            "SUP-EVIDENCE-INVALID",
+            {item["code"] for item in result["findings"]},
+        )
 
     def test_pos_10_every_declared_gap_keeps_its_gate_blocked(self) -> None:
         self.assertTrue(self.model["declared_gaps"])
@@ -365,15 +379,32 @@ class NegativeInvariantTests(SyntheticTreeMixin, unittest.TestCase):
     # 10. SBOM/provenance/signature marcados completos sin evidencia.
     def test_neg_10a_evidence_claim_satisfied_without_verification(self) -> None:
         broken = copy.deepcopy(self.model)
-        broken["evidence_claims"][0]["satisfied"] = True
+        del broken["evidence_claims"][0]["verification_ref"]
         self.assertIn("SUP-EVIDENCE-UNSUPPORTED",
                       {item.code for item in validate_model(broken)})
 
     def test_neg_10b_a_pending_state_can_never_be_satisfied(self) -> None:
         broken = copy.deepcopy(self.model)
-        broken["evidence_claims"][0].update(satisfied=True, verification_ref="trust me")
+        pending = next(
+            claim for claim in broken["evidence_claims"]
+            if claim["state"] == "source_verified_pending"
+        )
+        pending.update(satisfied=True, verification_ref="trust me")
         self.assertIn("SUP-EVIDENCE-UNSUPPORTED",
                       {item.code for item in validate_model(broken)})
+
+    def test_neg_10c_attested_state_cannot_be_unsatisfied(self) -> None:
+        broken = copy.deepcopy(self.model)
+        broken["evidence_claims"][0]["satisfied"] = False
+        self.assertIn("SUP-EVIDENCE-UNSUPPORTED",
+                      {item.code for item in validate_model(broken)})
+
+    def test_neg_10d_attested_evidence_digest_mismatch_fails_reconcile(self) -> None:
+        broken = copy.deepcopy(self.model)
+        broken["evidence_claims"][0]["verification_sha256"] = "0" * 64
+        result = reconcile(broken, ROOT, discover(broken, ROOT))
+        self.assertIn("SUP-EVIDENCE-INVALID",
+                      {item["code"] for item in result["findings"]})
 
     # 11. Excepción incompleta.
     def test_neg_11a_exception_missing_owner_reviewer_expiry_or_gate(self) -> None:

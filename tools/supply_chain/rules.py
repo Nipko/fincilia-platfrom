@@ -16,6 +16,7 @@ Funciones puras. Sin red, reloj, hostname, entorno completo, Git ni aleatoriedad
 
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -27,7 +28,9 @@ from tools.supply_chain.discovery import (
     SHA40,
     collect_files,
     component_dicts,
+    resolve_inside,
     safe_relative,
+    sha256_file,
 )
 
 REQUIRED_TASK = "FNC-SUP-001"
@@ -40,13 +43,17 @@ COMPONENT_TYPES = (
 )
 EVIDENCE_STATES = (
     "observed", "digest_pinned", "source_verified_pending", "sbom_pending",
-    "provenance_pending", "signature_pending",
+    "provenance_pending", "signature_pending", "sbom_attested",
+    "provenance_attested", "signature_attested",
 )
 # Estados que un agente NO puede declarar satisfechos: exigen verificación
 # independiente fuera de este repositorio.
 EVIDENCE_REQUIRING_HUMAN = (
     "source_verified_pending", "sbom_pending", "provenance_pending", "signature_pending",
 )
+EVIDENCE_ATTESTED = frozenset({
+    "sbom_attested", "provenance_attested", "signature_attested",
+})
 ACCEPTED_TOKENS = frozenset({
     "accepted", "approved", "met", "resolved", "closed", "signed", "done", "complete",
     "completed", "verified",
@@ -55,6 +62,7 @@ OPEN_RANGE = re.compile(r"^[\^~>=<*]|[*x]$|\.\.|\s-\s")
 VENDORED_TOKENS = ("node_modules", "vendor", ".venv", "site-packages", "__pycache__")
 
 FLOATING_TAGS = frozenset({"latest", "main", "head", "stable", "current", "edge", "nightly"})
+SHA256_HEX = re.compile(r"^[0-9a-f]{64}$")
 
 
 @dataclass(frozen=True, order=True)
@@ -208,6 +216,19 @@ def validate_model(model: dict[str, Any]) -> list[Finding]:
         if claim.get("satisfied") is True and not claim.get("verification_ref"):
             fail("SUP-EVIDENCE-UNSUPPORTED", f"{location}.verification_ref",
                  "a satisfied claim must point at the verification that satisfied it")
+        if state in EVIDENCE_ATTESTED:
+            if claim.get("satisfied") is not True:
+                fail("SUP-EVIDENCE-UNSUPPORTED", f"{location}.satisfied",
+                     "an attested state must be backed by satisfied external evidence")
+            if not SHA256_HEX.fullmatch(str(claim.get("verification_sha256", ""))):
+                fail("SUP-EVIDENCE-UNSUPPORTED", f"{location}.verification_sha256",
+                     "attested evidence needs the exact local evidence digest")
+            if not re.fullmatch(
+                r"https://github\.com/[^/]+/[^/]+/actions/runs/\d+",
+                str(claim.get("external_verification_url", "")),
+            ):
+                fail("SUP-EVIDENCE-UNSUPPORTED", f"{location}.external_verification_url",
+                     "attested evidence needs a canonical external run URL")
 
     for index, gate in enumerate(model.get("gates", []) or []):
         location = f"gates[{index}]"
@@ -547,6 +568,61 @@ def check_provenance_evidence(model: dict[str, Any], inventory: dict[str, Any]) 
     return findings
 
 
+def check_attested_evidence(model: dict[str, Any], root: Path) -> list[Finding]:
+    """Revalida evidencia versionada; un URL o un booleano aislado no basta."""
+    findings: list[Finding] = []
+    expected_predicates = {
+        "sbom_attested": {"https://spdx.dev/Document/v2.3"},
+        "provenance_attested": {"https://slsa.dev/provenance/v1"},
+        "signature_attested": {
+            "https://slsa.dev/provenance/v1", "https://spdx.dev/Document/v2.3",
+        },
+    }
+    for claim in model.get("evidence_claims", []) or []:
+        state = claim.get("state")
+        if state not in EVIDENCE_ATTESTED:
+            continue
+        reference = str(claim.get("verification_ref", ""))
+        path = resolve_inside(root, reference)
+        invalid = path is None or not path.is_file() or path.is_symlink()
+        evidence: dict[str, Any] = {}
+        if not invalid:
+            try:
+                evidence = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+                invalid = True
+        if not invalid and sha256_file(path) != claim.get("verification_sha256"):
+            invalid = True
+        run = evidence.get("run", {}) if isinstance(evidence, dict) else {}
+        subject = evidence.get("subject", {}) if isinstance(evidence, dict) else {}
+        attestations = evidence.get("attestations", []) if isinstance(evidence, dict) else []
+        predicates = {
+            item.get("predicate_type") for item in attestations if isinstance(item, dict)
+            and item.get("signature_verified_in_runner") is True
+            and item.get("signature_verified_outside_runner") is True
+        }
+        if not invalid and (
+            evidence.get("task_id") != "FNC-SUP-002"
+            or evidence.get("status") != "externally_verified"
+            or evidence.get("data_ceiling") != "synthetic_only"
+            or evidence.get("real_data_authorized") is not False
+            or evidence.get("production_authorized") is not False
+            or run.get("url") != claim.get("external_verification_url")
+            or not SHA40.fullmatch(str(run.get("source_revision", "")))
+            or not SHA256_HEX.fullmatch(str(subject.get("sha256", "")))
+            or not expected_predicates[state].issubset(predicates)
+        ):
+            invalid = True
+        if invalid:
+            findings.append(Finding(
+                "SUP-EVIDENCE-INVALID", f"evidence_claims[{claim.get('id')}]",
+                "attested claim does not match immutable local and external evidence",
+                "critical", "Security", claim.get("gate") or "DRG-00", ("TM-005",),
+                "defect",
+            ))
+    return findings
+
+
 def reconcile(model: dict[str, Any], root: Path, inventory: dict[str, Any]) -> dict[str, Any]:
     findings: list[Finding] = []
     findings += check_scan_integrity(model, inventory)
@@ -557,6 +633,7 @@ def reconcile(model: dict[str, Any], root: Path, inventory: dict[str, Any]) -> d
     findings += check_install_commands(model, inventory)
     findings += check_update_monitoring(model, inventory)
     findings += check_inventory_completeness(model, root, inventory)
+    findings += check_attested_evidence(model, root)
     findings += check_provenance_evidence(model, inventory)
 
     ordered = sorted(set(findings))

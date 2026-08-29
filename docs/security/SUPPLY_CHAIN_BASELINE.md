@@ -133,17 +133,30 @@ Next.js y sus manifests transitivos no son fuentes mantenidas por el repositorio
 
 ---
 
-## 7. Por qué `validate` sale distinto de cero
+## 7. Evidencia externa FNC-SUP-002
 
-Los cuatro `SUP-PROVENANCE-PENDING` son de severidad `high`, y el bloqueo se rige
+El candidato `1aa44c29af51709e7f675cdeee76c453fc30f416` generó un archivo
+determinista, un SPDX agregado y dos bundles Sigstore mediante GitHub OIDC. La
+corrida `33256843904` verificó dentro del runner y una segunda verificación local
+comprobó el mismo sujeto SHA-256, workflow, commit, ref, predicate y prohibición
+de runner autohospedado. La evidencia acotada está en
+`docs/implementation/evidence/FNC-SUP-002.json`.
+
+Esto satisface técnicamente SBOM, firma y procedencia **del archivo candidato**.
+No afirma que las imágenes locales estén publicadas, ni que cada dependencia
+upstream sea auténtica, ni constituye revisión independiente.
+
+## 8. Por qué `validate` sigue saliendo distinto de cero
+
+El `SUP-PROVENANCE-PENDING` restante es de severidad `high`, y el bloqueo se rige
 por **severidad declarada**, no por una nota agregada ni por la clasificación. Que un
 gap esté previsto no lo hace menos bloqueante:
 
 | Evidencia | Estado | Por qué |
 |---|---|---|
-| SBOM | `sbom_pending` | no existe ninguno; sin árbol transitivo no se sabe qué contiene un artefacto |
-| Firma | `signature_pending` | ni imágenes ni releases firmadas, y no hay raíz de confianza declarada |
-| Procedencia | `provenance_pending` | no hay attestation que ligue artefacto ↔ commit ↔ builder |
+| SBOM | `sbom_attested` | SPDX por servicio y agregado, firmado y verificado para el candidato |
+| Firma | `signature_attested` | dos bundles Sigstore verificados contra la identidad OIDC del workflow |
+| Procedencia | `provenance_attested` | SLSA liga sujeto ↔ commit ↔ ref ↔ workflow ↔ runner |
 | Origen verificado | `source_verified_pending` | el sha de una action se copió de upstream sin verificación independiente |
 
 Rebajar cualquiera de esas severidades para que el comando quedara verde sería
@@ -151,7 +164,7 @@ exactamente la aritmética optimista que este baseline existe para impedir.
 
 ---
 
-## 8. TM-005 sigue abierto
+## 9. TM-005 sigue abierto
 
 El contrato lo declara de forma ejecutable y el validador **rechaza** cualquier
 intento de cerrarlo:
@@ -160,14 +173,14 @@ intento de cerrarlo:
 {"state": "open", "closed_by_this_tool": false, "owner_role": "Security", "gate": "DRG-00"}
 ```
 
-Este baseline demuestra que las referencias observadas están fijadas y que las
-fuentes están inventariadas. No genera SBOM, no firma, no verifica attestation y no
-comprueba la integridad de ningún proveedor. Cerrar TM-005 exige verificación
-independiente fuera de este repositorio.
+El candidato ya aporta SBOM, firma y procedencia. TM-005 sigue abierto porque la
+observación automatizada de tags no es revisión Security independiente, el runner
+hosted no es una imagen fijada y no se ha probado equivalencia fuente→paquete para
+cada proveedor.
 
 ---
 
-## 9. Excepciones
+## 10. Excepciones
 
 El catálogo empieza **vacío**. Una excepción solo suspende una regla si declara id,
 componente, regla, motivo, owner, revisor, expiración, gate y aprobación humana. Un
@@ -176,7 +189,7 @@ intacta, y hay prueba de que así ocurre.
 
 ---
 
-## 10. CLI
+## 11. CLI
 
 ```bash
 python -m tools.supply_chain.cli discover
@@ -187,7 +200,7 @@ python -m tools.supply_chain.cli report
 
 - `discover` — inventario estable y ordenado, con procedencia y digest.
 - `validate` — validez del contrato **más** reconciliación completa; continúa saliendo
-  1 mientras los cuatro gaps de DRG-00 sigan abiertos.
+  1 mientras el origen independiente siga abierto.
 - `validate --gate S1-READY` — conserva todos los hallazgos en la salida, pero solo
   usa como exit code los bloqueantes cuyo `gate` sea S1-READY. Un gate desconocido
   falla cerrado.
@@ -199,7 +212,7 @@ descubierto se ejecuta jamás: una action, una imagen o un paquete son datos.
 
 ---
 
-## 11. Límites honestos
+## 12. Límites honestos
 
 1. Un inventario en verde prueba que las referencias están fijadas, **no** que sean seguras.
 2. Un digest identifica el artefacto observado; no acredita quién lo produjo.
@@ -208,7 +221,7 @@ descubierto se ejecuta jamás: una action, una imagen o un paquete son datos.
 5. El escáner de YAML es un subconjunto; lo que no puede leer lo declara.
 6. Los runners hosted de GitHub no son artefactos fijables por digest.
 
-## 12. Decisiones abiertas
+## 13. Decisiones abiertas
 
 | ID | Pregunta | Owner |
 |---|---|---|

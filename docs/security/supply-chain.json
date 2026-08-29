@@ -39,6 +39,9 @@
     "provenance_pending",
     "sbom_pending",
     "signature_pending",
+    "provenance_attested",
+    "sbom_attested",
+    "signature_attested",
     "source_verified_pending"
   ],
   "discovery_rules": {
@@ -376,36 +379,45 @@
   "evidence_claims": [
     {
       "id": "EVC-SBOM",
-      "state": "sbom_pending",
-      "satisfied": false,
+      "state": "sbom_attested",
+      "satisfied": true,
       "owner_role": "Security",
       "gate": "DRG-00",
       "risk_refs": [
         "TM-005"
       ],
-      "reason": "no existe SBOM generado ni almacenado en el repositorio; sin inventario transitivo no se puede responder que contiene un artefacto"
+      "reason": "el candidato contiene SPDX 2.3 por servicio y agregado; el predicado agregado fue firmado y verificado dentro y fuera del runner",
+      "verification_ref": "docs/implementation/evidence/FNC-SUP-002.json",
+      "verification_sha256": "ed6b6838ad41dd25daf5647fcd10ae4128d389f1edd05991baed8953ac4b67d7",
+      "external_verification_url": "https://github.com/Nipko/fincilia-platfrom/actions/runs/33256843904"
     },
     {
       "id": "EVC-SIGNATURE",
-      "state": "signature_pending",
-      "satisfied": false,
+      "state": "signature_attested",
+      "satisfied": true,
       "owner_role": "Security",
       "gate": "DRG-00",
       "risk_refs": [
         "TM-005"
       ],
-      "reason": "ninguna imagen ni release esta firmada, y no hay raiz de confianza declarada contra la que verificar una firma"
+      "reason": "el archivo determinista del candidato tiene dos bundles Sigstore firmados con la identidad OIDC del workflow y verificados contra esa identidad",
+      "verification_ref": "docs/implementation/evidence/FNC-SUP-002.json",
+      "verification_sha256": "ed6b6838ad41dd25daf5647fcd10ae4128d389f1edd05991baed8953ac4b67d7",
+      "external_verification_url": "https://github.com/Nipko/fincilia-platfrom/actions/runs/33256843904"
     },
     {
       "id": "EVC-PROVENANCE",
-      "state": "provenance_pending",
-      "satisfied": false,
+      "state": "provenance_attested",
+      "satisfied": true,
       "owner_role": "Security",
       "gate": "DRG-00",
       "risk_refs": [
         "TM-005"
       ],
-      "reason": "no hay attestation de build que ligue un artefacto a un commit y a un builder; el digest identifica bytes, no cadena de produccion"
+      "reason": "la attestation SLSA liga el archivo sha256 al commit, ref, repositorio, workflow firmante y runner hospedado exactos",
+      "verification_ref": "docs/implementation/evidence/FNC-SUP-002.json",
+      "verification_sha256": "ed6b6838ad41dd25daf5647fcd10ae4128d389f1edd05991baed8953ac4b67d7",
+      "external_verification_url": "https://github.com/Nipko/fincilia-platfrom/actions/runs/33256843904"
     },
     {
       "id": "EVC-SOURCE-VERIFIED",
@@ -439,30 +451,9 @@
     "closed_by_this_tool": false,
     "owner_role": "Security",
     "gate": "DRG-00",
-    "reason": "TM-005 cubre compromiso de cadena de suministro. Este baseline demuestra que las referencias observadas estan fijadas y que las fuentes estan inventariadas. No genera SBOM, no firma, no verifica attestation y no comprueba la integridad del proveedor. Cerrarlo exige verificacion independiente fuera de este repositorio."
+    "reason": "TM-005 cubre compromiso de cadena de suministro. El candidato ya tiene SBOM, firma y procedencia verificables, pero no demuestra equivalencia upstream de cada dependencia, inmutabilidad del runner ni revision Security independiente."
   },
   "declared_gaps": [
-    {
-      "id": "GAP-SUP-SBOM",
-      "reason": "Sin SBOM no se conoce el arbol transitivo real de ninguna imagen ni de ningun paquete.",
-      "owner_role": "Security",
-      "gate": "DRG-00",
-      "blocks_gate": true
-    },
-    {
-      "id": "GAP-SUP-SIGNING",
-      "reason": "No hay firma de artefactos ni raiz de confianza declarada.",
-      "owner_role": "Security",
-      "gate": "DRG-00",
-      "blocks_gate": true
-    },
-    {
-      "id": "GAP-SUP-PROVENANCE",
-      "reason": "No hay attestation de build; la procedencia no esta demostrada para ningun componente.",
-      "owner_role": "Security",
-      "gate": "DRG-00",
-      "blocks_gate": true
-    },
     {
       "id": "GAP-SUP-RUNNER",
       "reason": "Los runners hosted de GitHub no son artefactos inmutables ni con etiqueta versionada; su contenido cambia sin aviso y no se puede fijar por digest.",
@@ -524,7 +515,7 @@
   "anti_promises": [
     "Un inventario en verde prueba que las referencias observadas estan fijadas, no que sean seguras.",
     "Un digest identifica el artefacto observado; no acredita quien lo produjo ni con que codigo fuente.",
-    "Este baseline no genera SBOM, no firma nada y no verifica ninguna attestation.",
+    "La attestation cubre el archivo del candidato; no convierte IDs locales de imagen en digests publicados ni firma cada dependencia upstream.",
     "No sustituye al escaner de secretos ni al analisis de vulnerabilidades.",
     "No lee el arbol transitivo de dependencias: un lockfile fijado puede seguir conteniendo un paquete comprometido.",
     "El escaner de YAML es un subconjunto orientado a lineas; lo que no puede leer lo declara, no lo omite.",
