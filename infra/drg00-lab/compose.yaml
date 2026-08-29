@@ -1,0 +1,32 @@
+name: fincilia-drg00-lab
+
+# Estas sondas no procesan documentos. Demuestran que cuarentena y procesamiento
+# arrancan sin red, sin privilegios y con filesystem raíz de solo lectura.
+services:
+  quarantine:
+    image: python:3.12@sha256:a116514e19457bcb7af7efe9c3dd0b9b71e85b317694e7882a1c52aa15a78134
+    pull_policy: never
+    network_mode: none
+    read_only: true
+    user: "65532:65532"
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=8m
+    command: ["python", "-c", "import os; assert os.getuid() == 65532"]
+
+  processing:
+    image: python:3.12@sha256:a116514e19457bcb7af7efe9c3dd0b9b71e85b317694e7882a1c52aa15a78134
+    pull_policy: never
+    network_mode: none
+    read_only: true
+    user: "65532:65532"
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=8m
+    command: ["python", "-c", "import os; assert os.getuid() == 65532"]

@@ -1,0 +1,40 @@
+{
+  "schema_version": "1.0.0",
+  "task_id": "FNC-PLT-004",
+  "status": "implemented_review_pending",
+  "data_ceiling": "synthetic_only",
+  "real_data_authorized": false,
+  "deployment_enabled_for_real_data": false,
+  "runtime": {
+    "kind": "ephemeral_filesystem_and_networkless_container_probes",
+    "published_ports": [],
+    "external_networks": [],
+    "root_filesystem": "read_only",
+    "uid": 65532,
+    "capabilities": [],
+    "no_new_privileges": true,
+    "pull_policy": "never",
+    "persistent_zones": ["quarantine", "evidence", "derived", "backup", "archive", "control"],
+    "ephemeral_zones": ["scratch"]
+  },
+  "intake": {
+    "requires_manifest": true,
+    "first_zone": "quarantine",
+    "opaque_object_keys": true,
+    "unknown_or_failed_scan": "fail_closed",
+    "external_ai": false
+  },
+  "release_admission": {
+    "digest_pinned": "required",
+    "signature_verified": "required",
+    "provenance_verified": "required",
+    "current_product_release_admitted": false
+  },
+  "evidence": {
+    "inventory": "append_only_hash_chain",
+    "audit": "allowlisted_metadata_only",
+    "delete_ledger": "separate_hash_chain",
+    "restore_ready": "after_tombstone_reconciliation_only"
+  },
+  "human_review": "pending_security_privacy_architecture_platform"
+}

@@ -189,10 +189,21 @@ class DisposalService:
         self.policy.validate()
         tombstones = self.tombstones.read()
         removed = 0
+        inventory_events = self.inventory.read()
         for tombstone in tombstones:
             digest = tombstone["content_sha256"]
-            for zone in sorted(ZONES):
-                path = self.root / zone / digest
+            # Un derivado tiene su propio digest. El tombstone conserva el
+            # artefacto y el inventario conserva todas las referencias creadas;
+            # usar sólo el digest del raw resucitaría derivados desde backup.
+            historical_refs = {
+                reference
+                for event in inventory_events
+                if event["artifact_ref"] == tombstone["artifact_ref"]
+                for reference in event["created_refs"]
+            }
+            historical_refs.add(f"backup/{digest}")
+            for reference in sorted(historical_refs):
+                path = self.root.joinpath(*reference.split("/"))
                 if path.exists():
                     path.unlink()
                     removed += 1
