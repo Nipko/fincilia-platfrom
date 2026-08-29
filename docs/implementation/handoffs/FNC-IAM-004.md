@@ -3,7 +3,7 @@ id: FNC-IAM-004
 status: REVIEW_PENDING
 base_sha: 08762c5318ec7132fac0c9f21ef9b79e066cfb17
 implementation_sha: 762cde9c27fb3a5458c16dcc22cf65a8eb4d75ac
-integration_sha: pending_integration_commit
+integration_sha: a6dfe50acd787e27059bceb3a24413ee59175ee0
 data_ceiling: synthetic_only_until_DRG_00
 ---
 
