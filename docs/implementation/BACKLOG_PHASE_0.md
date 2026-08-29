@@ -138,6 +138,7 @@ dependencias de `FNC-GAT-002` ni afirmar que Sprint 1 está habilitado.
 | FNC-ING-002 | A4/A5/A6 | ING-001, QA-010 | Review pending | Seleccion company-scoped de una hoja XLSX segura, seguida de perfil, extraccion y limpieza visual en el estudio de mapeo; revision independiente pendiente |
 | FNC-ING-003 | A4/A5/A6 | ING-002, CLN-004, WEB-003 | Review pending | Fuente autoritativa e inmutable en cada recepcion nueva y centro web keyset de documentos; legacy permanece sin atribucion inferida |
 | FNC-ING-004 | A4/A6 | ING-003, QA-010 | Review pending | Bandeja web de hasta 10 cargas por fuente, concurrencia maxima 2, progreso, cancelacion y reintento por archivo; revision independiente pendiente |
+| FNC-ING-005 | A4/A5/A6 | ING-001, ING-002, ING-004 | Review pending | ODS tabular seguro con seleccion, perfil, extraccion y coordenadas; la web distingue procesamiento de simple cuarentena |
 | FNC-CLS-001 | A5/A6 | OPS-001, DQ-001, RPT-001, REC-004 | Review pending | Diagnostico company-scoped por periodo de evidencia y bloqueos; nunca ejecuta ni certifica cierre |
 | FNC-CLS-002 | A5/A6 | CLS-001, DOM-002, DOM-003, DOM-005 | Review pending | Observaciones canonicas e inmutables de saldo por cuenta con evidencia visible; linaje completo y revision independiente pendientes |
 | FNC-CLS-003 | A5/A6 | CLS-002, DOM-003, DOM-005, REC-004 | Review pending | Assessments, partidas conciliatorias y statements reproducibles verificados; sin excepcion aceptada, snapshot ni cierre productivo |

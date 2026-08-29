@@ -1,7 +1,7 @@
 ---
 id: FNC-ING-005
 title: Ingesta segura de ODS y contrato honesto de formatos
-status: in_progress
+status: review_pending
 implementer: Codex principal dev + Integration Steward
 base_sha: cd911de
 gate: S1-READY
