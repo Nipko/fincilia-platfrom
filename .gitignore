@@ -44,10 +44,12 @@ Thumbs.db
 .terraform/
 *.tfstate
 *.tfstate.*
+*.tfvars
+*.auto.tfvars
+*.tfplan
 .docker/
 
 # Logs and temporary files
 *.log
 tmp/
 temp/
-

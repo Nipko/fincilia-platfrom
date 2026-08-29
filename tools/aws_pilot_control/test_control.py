@@ -1,0 +1,165 @@
+from __future__ import annotations
+
+import json
+import tempfile
+import unittest
+from pathlib import Path
+from typing import Sequence
+from unittest.mock import patch
+
+from .cli import main
+from .control import ControlError, PilotController, Result, SERVICE_NAMES
+
+
+IDENTITY = {"Account": "123456789012", "Arn": "redacted", "UserId": "redacted"}
+
+
+class FakeRunner:
+    def __init__(self, responses: list[Result]) -> None:
+        self.responses = list(responses)
+        self.calls: list[tuple[str, ...]] = []
+
+    def run(self, argv: Sequence[str], **_: object) -> Result:
+        self.calls.append(tuple(argv))
+        if not self.responses:
+            raise AssertionError(f"respuesta no preparada para {argv}")
+        return self.responses.pop(0)
+
+
+def response(payload: object, code: int = 0) -> Result:
+    return Result(code, json.dumps(payload), "")
+
+
+class PilotControllerTests(unittest.TestCase):
+    def controller(self, runner: FakeRunner) -> PilotController:
+        return PilotController(account_id="123456789012", runner=runner)
+
+    def test_wrong_account_is_rejected_before_other_calls(self) -> None:
+        runner = FakeRunner([response({"Account": "999999999999"})])
+        with self.assertRaisesRegex(ControlError, "cuenta autorizada"):
+            self.controller(runner).status()
+        self.assertEqual(len(runner.calls), 1)
+
+    def test_invalid_region_and_account_format_die(self) -> None:
+        with self.assertRaises(ControlError):
+            PilotController(account_id="123", runner=FakeRunner([]))
+        with self.assertRaises(ControlError):
+            PilotController(
+                account_id="123456789012", region="us-east-1", runner=FakeRunner([])
+            )
+
+    def test_status_reports_cold_without_mutations(self) -> None:
+        runner = FakeRunner([
+            response(IDENTITY),
+            Result(254, "", "DBInstanceNotFound"),
+            Result(254, "", "ClusterNotFoundException"),
+            response({"NatGateways": []}),
+            Result(254, "", "LoadBalancerNotFound"),
+            Result(254, "", "ReplicationGroupNotFoundFault"),
+        ])
+        report = self.controller(runner).status()
+        self.assertEqual(report["mode"], "cold")
+        self.assertFalse(report["real_data_authorized"])
+        flattened = " ".join(" ".join(call) for call in runner.calls)
+        self.assertNotIn("update-service", flattened)
+        self.assertNotIn("apply", flattened)
+
+    def test_status_does_not_echo_arn_or_user_id(self) -> None:
+        runner = FakeRunner([
+            response(IDENTITY),
+            response({"DBInstances": [{"DBInstanceStatus": "stopped"}]}),
+            response({"services": []}),
+            response({"NatGateways": []}),
+            Result(254, "", "LoadBalancerNotFound"),
+            Result(254, "", "ReplicationGroupNotFoundFault"),
+        ])
+        encoded = json.dumps(self.controller(runner).status())
+        self.assertNotIn("Arn", encoded)
+        self.assertNotIn("UserId", encoded)
+
+    def test_mode_without_apply_is_refused_without_calls(self) -> None:
+        runner = FakeRunner([])
+        with self.assertRaisesRegex(ControlError, "requiere --apply"):
+            self.controller(runner).apply_mode("cold", apply=False)
+        self.assertEqual(runner.calls, [])
+
+    def test_cli_mode_without_apply_returns_refused(self) -> None:
+        with patch("tools.aws_pilot_control.cli.PilotController") as controller:
+            controller.return_value.apply_mode.side_effect = ControlError(
+                "la mutacion requiere --apply"
+            )
+            self.assertEqual(
+                main(["--account-id", "123456789012", "warm"]),
+                2,
+            )
+
+    def test_cold_scales_before_planning_and_applying(self) -> None:
+        controller = self.controller(FakeRunner([]))
+        events: list[str] = []
+        controller.guard_identity = lambda: events.append("guard") or {}  # type: ignore[method-assign]
+        controller._scale_services_to_zero = lambda: events.append("scale")  # type: ignore[method-assign]
+        controller.plan = lambda mode: events.append(f"plan:{mode}") or {  # type: ignore[method-assign]
+            "plan_file": Path("cold.tfplan")
+        }
+        controller._run = lambda *args, **kwargs: events.append("apply") or Result(0)  # type: ignore[method-assign]
+        controller._stop_database = lambda: events.append("stop-db") or "stop_requested"  # type: ignore[method-assign]
+        controller.apply_mode("cold", apply=True)
+        self.assertEqual(events, ["guard", "scale", "plan:cold", "apply", "stop-db"])
+
+    def test_warm_applies_before_starting_database(self) -> None:
+        controller = self.controller(FakeRunner([]))
+        events: list[str] = []
+        controller.plan = lambda mode: events.append(f"plan:{mode}") or {  # type: ignore[method-assign]
+            "plan_file": Path("warm.tfplan")
+        }
+        controller._run = lambda *args, **kwargs: events.append("apply") or Result(0)  # type: ignore[method-assign]
+        controller._start_database = lambda: events.append("start-db") or "start_requested"  # type: ignore[method-assign]
+        report = controller.apply_mode("warm", apply=True)
+        self.assertEqual(events, ["plan:warm", "apply", "start-db"])
+        self.assertEqual(report["services_desired_count"], 0)
+        self.assertFalse(report["real_data_authorized"])
+
+    def test_cold_stop_is_idempotent_when_database_absent(self) -> None:
+        controller = self.controller(FakeRunner([]))
+        controller._database_state = lambda: "absent"  # type: ignore[method-assign]
+        self.assertEqual(controller._stop_database(), "absent")
+
+    def test_cold_refuses_to_stop_database_in_unknown_transition(self) -> None:
+        controller = self.controller(FakeRunner([]))
+        controller._database_state = lambda: "backing-up"  # type: ignore[method-assign]
+        with self.assertRaisesRegex(ControlError, "backing-up"):
+            controller._stop_database()
+
+    def test_service_names_are_closed_and_exact(self) -> None:
+        self.assertEqual(SERVICE_NAMES, (
+            "fincilia-private-pilot-application",
+            "fincilia-private-pilot-worker",
+        ))
+
+    def test_scale_waits_only_for_services_that_exist(self) -> None:
+        runner = FakeRunner([Result(0), Result(0)])
+        controller = self.controller(runner)
+        controller._describe_services = lambda: [  # type: ignore[method-assign]
+            {"name": SERVICE_NAMES[0], "status": "active", "desired": 1, "running": 1},
+            {"name": SERVICE_NAMES[1], "status": "absent", "desired": 0, "running": 0},
+        ]
+        controller._scale_services_to_zero()
+        wait_call = runner.calls[-1]
+        self.assertIn(SERVICE_NAMES[0], wait_call)
+        self.assertNotIn(SERVICE_NAMES[1], wait_call)
+
+    def test_safe_environment_does_not_forward_arbitrary_secret(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "infra" / "aws" / "private-pilot").mkdir(parents=True)
+            controller = PilotController(
+                account_id="123456789012", runner=FakeRunner([]), root=root
+            )
+        allowed = set(controller.environment)
+        self.assertNotIn("FINCILIA_DATABASE_URL", allowed)
+        self.assertNotIn("AWS_SECRET_ACCESS_KEY", allowed)
+        self.assertEqual(controller.environment["AWS_PROFILE"], "fincilia-sandbox")
+
+
+if __name__ == "__main__":
+    unittest.main()

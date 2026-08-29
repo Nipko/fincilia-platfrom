@@ -1,0 +1,13 @@
+# Copiar como pilot.auto.tfvars (ignorado por Git) y sustituir placeholders.
+# No incluir secretos, credenciales ni datos financieros en este archivo.
+expected_account_id    = "000000000000"
+pilot_domain           = "pilot.example.invalid"
+cognito_domain_prefix  = "fincilia-private-pilot-placeholder"
+release_sha            = "0000000000000000000000000000000000000000"
+api_image              = "000000000000.dkr.ecr.sa-east-1.amazonaws.com/fincilia/private-pilot/api@sha256:0000000000000000000000000000000000000000000000000000000000000000"
+web_image              = "000000000000.dkr.ecr.sa-east-1.amazonaws.com/fincilia/private-pilot/web@sha256:0000000000000000000000000000000000000000000000000000000000000000"
+worker_image           = "000000000000.dkr.ecr.sa-east-1.amazonaws.com/fincilia/private-pilot/worker@sha256:0000000000000000000000000000000000000000000000000000000000000000"
+budget_alert_email     = "alerts@example.invalid"
+gross_monthly_budget_usd = 120
+certificate_ready      = false
+runtime_plane_enabled  = false
