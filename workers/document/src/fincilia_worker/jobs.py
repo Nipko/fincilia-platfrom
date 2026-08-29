@@ -32,6 +32,7 @@ import psycopg
 
 from fincilia_contracts.extraction import ExtractionError
 from fincilia_contracts.ingestion import RejectedUpload, decide_promotion
+from fincilia_contracts.open_document import OpenDocumentError
 from fincilia_platform.objects import ObjectStoreError
 from fincilia_contracts.profiling import UnprofilableFile, profile
 from fincilia_contracts.spreadsheet import SpreadsheetError
@@ -53,7 +54,7 @@ UNKNOWN = "unknown"
 # sobre el mismo artefacto es una sola decision, y reejecutarlo no crea otra.
 # Cuando el escaner cambie de verdad, esto sube y la decision se puede revisar
 # sin reescribir la anterior.
-SCANNER_RELEASE = "scan-3"
+SCANNER_RELEASE = "scan-4"
 
 
 @dataclass(frozen=True)
@@ -129,6 +130,10 @@ def run_profile(payload: bytes, *,
             from fincilia_contracts.profiling import profile_workbook
 
             table = profile_workbook(payload, sheet_identity=sheet_identity)
+        elif internal_type == "ods":
+            from fincilia_contracts.profiling import profile_open_document
+
+            table = profile_open_document(payload, sheet_identity=sheet_identity)
         else:
             table = profile(payload)
     except UnprofilableFile as error:
@@ -177,7 +182,7 @@ def classify_extraction(error: Exception) -> tuple[str, str]:
         # Lo que hace falta es que alguien mire por que dos lecturas del mismo
         # tramo no coinciden.
         return "raw_record_conflict", FATAL
-    if isinstance(error, (ExtractionError, SpreadsheetError)):
+    if isinstance(error, (ExtractionError, SpreadsheetError, OpenDocumentError)):
         # El fichero es el que es: releerlo dara lo mismo.
         logger.warning("unextractable artifact: %s", error)
         return "unextractable", FATAL

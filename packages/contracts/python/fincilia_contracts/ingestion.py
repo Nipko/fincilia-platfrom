@@ -36,6 +36,11 @@ from .spreadsheet import (
     inspect_workbook,
     iter_inspection_texts,
 )
+from .open_document import (
+    OpenDocumentError,
+    inspect_open_document,
+    iter_open_document_texts,
+)
 
 # --------------------------------------------------------------------------- #
 # Limites
@@ -237,7 +242,7 @@ def inspect_archive(payload: bytes) -> list[Finding]:
 # lo decida quien sube el fichero. Se mira dentro, al manifiesto.
 XLSX_MARKERS = ("[Content_Types].xml", "xl/workbook.xml")
 ODS_MIMETYPE = b"application/vnd.oasis.opendocument.spreadsheet"
-MACRO_ENTRIES = ("xl/vbaProject.bin", "macros/", "Basic/")
+MACRO_ENTRIES = ("xl/vbaproject.bin", "macros/", "basic/", "scripts/")
 
 
 def identify_archive(payload: bytes) -> str:
@@ -257,7 +262,8 @@ def identify_archive(payload: bytes) -> str:
         raise RejectedUpload("the archive is not readable") from error
 
     for entry in names:
-        if any(entry.startswith(marker) for marker in MACRO_ENTRIES):
+        folded = entry.casefold()
+        if any(folded.startswith(marker) for marker in MACRO_ENTRIES):
             # Una macro es codigo. No entra, se llame como se llame el fichero.
             return "macro_enabled"
     if mimetype.startswith(ODS_MIMETYPE):
@@ -270,7 +276,7 @@ def identify_archive(payload: bytes) -> str:
 # Tipos tecnicos que se saben inspeccionar de principio a fin. XLSX se expresa
 # por su identidad interna, no por `application/zip`: un ZIP generico sigue sin
 # ser promovible y una extension `.xlsx` no decide nada.
-FULLY_INSPECTABLE: Final[frozenset[str]] = frozenset({"text/csv", "xlsx"})
+FULLY_INSPECTABLE: Final[frozenset[str]] = frozenset({"text/csv", "xlsx", "ods"})
 
 SENSITIVE_KINDS: Final[frozenset[str]] = frozenset({
     "payment_card_number", "private_key", "aws_access_key", "bearer_token",
@@ -382,6 +388,64 @@ def decide_promotion(payload: bytes, filename: str) -> Decision:
                 findings.append(Finding(
                     "worksheet_selection", "xlsx workbook",
                     "the workbook requires an explicit worksheet selection"))
+                return Decision(
+                    "promoted", "content_inspected_selection_required",
+                    detection.media_type, internal, tuple(findings), manifest, True)
+            return Decision("promoted", "content_inspected", detection.media_type,
+                            internal, tuple(findings), manifest, False)
+
+        if internal == "ods":
+            try:
+                workbook = inspect_open_document(payload)
+            except OpenDocumentError:
+                findings.append(Finding(
+                    "workbook_structure", "ods package",
+                    "the document is malformed or uses an unsafe XML/package feature"))
+                return Decision("quarantined", "unsafe_or_malformed_workbook",
+                                detection.media_type, internal, tuple(findings))
+
+            if workbook.active_parts or workbook.external_relationships:
+                findings.append(Finding(
+                    "active_workbook_content", "ods package",
+                    "scripts, objects, binary parts or externally linked content are not accepted"))
+                return Decision("rejected", "active_workbook_content",
+                                detection.media_type, internal, tuple(findings))
+            if workbook.formula_count:
+                findings.append(Finding(
+                    "formula_cells", "ods worksheet",
+                    "formula cells require an explicit review flow and are never executed"))
+                return Decision("quarantined", "formula_review_required",
+                                detection.media_type, internal, tuple(findings))
+            try:
+                for part, value in iter_open_document_texts(payload):
+                    if len(findings) >= 50:
+                        break
+                    for item in scan_secrets(
+                            value.encode("utf-8"), max_findings=50 - len(findings)):
+                        findings.append(Finding(
+                            item.kind, f"{part}:{item.location}", item.detail))
+            except OpenDocumentError:
+                findings.append(Finding(
+                    "workbook_structure", "ods package",
+                    "the document could not be inspected completely"))
+                return Decision("quarantined", "unsafe_or_malformed_workbook",
+                                detection.media_type, internal, tuple(findings))
+            if any(item.kind in SENSITIVE_KINDS for item in findings):
+                return Decision("quarantined", "sensitive_content",
+                                detection.media_type, internal, tuple(findings))
+            manifest = workbook.manifest(hashlib.sha256(payload).hexdigest())
+            visible = [sheet for sheet in workbook.sheets if sheet.state == "visible"]
+            if not visible:
+                findings.append(Finding(
+                    "worksheet_visibility", "ods document",
+                    "the document has no visible worksheet that can be selected"))
+                return Decision("quarantined", "no_visible_worksheet",
+                                detection.media_type, internal, tuple(findings),
+                                manifest, True)
+            if len(workbook.sheets) != 1:
+                findings.append(Finding(
+                    "worksheet_selection", "ods document",
+                    "the document requires an explicit worksheet selection"))
                 return Decision(
                     "promoted", "content_inspected_selection_required",
                     detection.media_type, internal, tuple(findings), manifest, True)

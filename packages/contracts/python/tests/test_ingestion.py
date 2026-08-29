@@ -29,6 +29,7 @@ from fincilia_contracts.ingestion import (ACCEPTED_MEDIA_TYPES, FULLY_INSPECTABL
                                           inspect_archive, luhn_valid, scan_secrets,
                                           sha256_bytes)
 from xlsx_factory import build_xlsx
+from ods_factory import build_ods
 
 CSV = b"fecha,descripcion,valor\n2026-01-02,Pago proveedor,-125000.00\n"
 NEWLINE = b"\n"
@@ -316,6 +317,19 @@ class PromotionTests(unittest.TestCase):
         self.assertEqual("sensitive_content", decision.reason_code)
         self.assertNotIn(pan, repr(decision.as_dict()))
 
+    def test_a_clean_ods_is_promoted_and_a_secret_is_minimized(self) -> None:
+        clean = decide_promotion(build_ods([
+            ["Fecha", "Descripcion", "Importe"],
+            ["2026-01-02", "Pago sintetico", -1250],
+        ]), "libro.ods")
+        self.assertTrue(clean.promoted)
+        self.assertEqual("ods", clean.internal_type)
+        pan = "4111" + "1111" + "1111" + "1111"
+        sensitive = decide_promotion(build_ods(
+            [["Cliente", "Tarjeta"], ["Sintetico", pan]]), "libro.ods")
+        self.assertEqual("sensitive_content", sensitive.reason_code)
+        self.assertNotIn(pan, repr(sensitive.as_dict()))
+
     def test_formula_and_multiple_sheet_books_use_explicit_flows(self) -> None:
         formula = decide_promotion(build_xlsx(
             [["Importe"], [10]], formula_at=(2, 1)), "formula.xlsx")
@@ -328,6 +342,16 @@ class PromotionTests(unittest.TestCase):
         self.assertEqual(2, multiple.workbook["sheet_count"])
         self.assertNotIn("uno", repr(multiple.as_dict()))
         self.assertNotIn("dos", repr(multiple.as_dict()))
+
+        ods_formula = decide_promotion(
+            build_ods([["Importe"], [10]], formula_at=(2, 1)), "formula.ods")
+        self.assertEqual("formula_review_required", ods_formula.reason_code)
+        ods_multiple = decide_promotion(build_ods(
+            [["A"], ["uno"]], second_sheet=[["B"], ["dos"]]), "multi.ods")
+        self.assertTrue(ods_multiple.promoted)
+        self.assertTrue(ods_multiple.requires_selection)
+        self.assertNotIn("uno", repr(ods_multiple.as_dict()))
+        self.assertNotIn("dos", repr(ods_multiple.as_dict()))
 
     def test_active_workbook_content_is_rejected(self) -> None:
         decision = decide_promotion(build_xlsx(
@@ -352,7 +376,7 @@ class PromotionTests(unittest.TestCase):
     def test_only_what_can_be_read_whole_is_promotable(self) -> None:
         # Si esta lista creciera sin un analizador detras, la regla dejaria de
         # significar nada.
-        self.assertEqual({"text/csv", "xlsx"}, set(FULLY_INSPECTABLE))
+        self.assertEqual({"text/csv", "xlsx", "ods"}, set(FULLY_INSPECTABLE))
         self.assertNotIn("application/zip", FULLY_INSPECTABLE)
         self.assertNotIn("application/pdf", FULLY_INSPECTABLE)
 

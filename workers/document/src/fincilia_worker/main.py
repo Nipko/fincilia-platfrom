@@ -336,24 +336,43 @@ def _extract_streaming(database: Database, store, claim: "jobs.Claim") -> bool:
         outcome = StreamOutcome()
         stream = None
         try:
-            if artifact["internal_type"] == "xlsx":
-                from fincilia_contracts.spreadsheet import (
-                    SpreadsheetOutcome,
-                    sniff_workbook,
-                    spreadsheet_summary,
-                    stream_workbook_rows,
-                )
+            if artifact["internal_type"] in {"xlsx", "ods"}:
+                if artifact["internal_type"] == "ods":
+                    from fincilia_contracts.open_document import (
+                        OpenDocumentOutcome,
+                        open_document_summary,
+                        sniff_open_document,
+                        stream_open_document_rows,
+                    )
 
-                payload = store.get("raw", artifact["object_key"])
-                _, preamble = sniff_workbook(
-                    payload, sheet_identity=artifact.get("sheet_identity"))
-                xlsx_outcome = SpreadsheetOutcome()
-                written = _store_stream(
-                    database, claim, artifact,
-                    stream_workbook_rows(
-                        payload, preamble, outcome=xlsx_outcome,
-                        artifact_sha256=artifact["content_sha256"]))
-                result = spreadsheet_summary(preamble, xlsx_outcome)
+                    payload = store.get("raw", artifact["object_key"])
+                    _, preamble = sniff_open_document(
+                        payload, sheet_identity=artifact.get("sheet_identity"))
+                    ods_outcome = OpenDocumentOutcome()
+                    written = _store_stream(
+                        database, claim, artifact,
+                        stream_open_document_rows(
+                            payload, preamble, outcome=ods_outcome,
+                            artifact_sha256=artifact["content_sha256"]))
+                    result = open_document_summary(preamble, ods_outcome)
+                else:
+                    from fincilia_contracts.spreadsheet import (
+                        SpreadsheetOutcome,
+                        sniff_workbook,
+                        spreadsheet_summary,
+                        stream_workbook_rows,
+                    )
+
+                    payload = store.get("raw", artifact["object_key"])
+                    _, preamble = sniff_workbook(
+                        payload, sheet_identity=artifact.get("sheet_identity"))
+                    xlsx_outcome = SpreadsheetOutcome()
+                    written = _store_stream(
+                        database, claim, artifact,
+                        stream_workbook_rows(
+                            payload, preamble, outcome=xlsx_outcome,
+                            artifact_sha256=artifact["content_sha256"]))
+                    result = spreadsheet_summary(preamble, xlsx_outcome)
             else:
                 stream = store.open("raw", artifact["object_key"])
                 preamble, reader = sniff(stream)

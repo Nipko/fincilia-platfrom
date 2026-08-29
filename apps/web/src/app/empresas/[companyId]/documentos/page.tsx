@@ -40,11 +40,11 @@ const PROMOTION_REASON_LABELS: Record<string, string> = {
   content_inspected_selection_required: 'Contenido seguro; seleccion de hoja requerida',
   sensitive_content: 'Informacion sensible detectada',
   no_scanner_for_format: 'Formato aun sin analizador seguro',
-  macro_enabled_archive: 'Libro con macros',
-  active_workbook_content: 'Libro con contenido activo',
+  macro_enabled_archive: 'Hoja de calculo con macros o scripts',
+  active_workbook_content: 'Hoja de calculo con contenido activo',
   formula_review_required: 'Formulas pendientes de revision',
   worksheet_selection_required: 'Seleccion de hoja requerida',
-  unsafe_or_malformed_workbook: 'Libro danado o no seguro',
+  unsafe_or_malformed_workbook: 'Hoja de calculo danada o no segura',
   unscannable: 'No fue posible examinar el contenido',
 };
 

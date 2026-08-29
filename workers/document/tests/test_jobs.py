@@ -30,6 +30,7 @@ from fincilia_contracts.extraction import (  # noqa: E402
 from fincilia_platform.objects import ObjectStoreError  # noqa: E402
 from fincilia_worker import jobs  # noqa: E402
 from xlsx_factory import build_xlsx  # noqa: E402
+from ods_factory import build_ods  # noqa: E402
 
 CLEAN_CSV = (
     "Fecha;Detalle;Debito;Credito\n"
@@ -83,12 +84,32 @@ class FailureClassificationTests(unittest.TestCase):
                          [column["header"] for column in result["columns"]])
         self.assertNotIn("NO-DEBE-APARECER", repr(result))
 
+    def test_a_safe_ods_uses_the_open_document_profiler(self) -> None:
+        payload = build_ods([
+            ["Fecha", "Descripcion", "Importe"],
+            ["2026-02-01", "Pago ODS sintetico", -1250],
+        ])
+        result, error, failure = jobs.run_profile(payload, internal_type="ods")
+        self.assertIsNone(error)
+        self.assertIsNone(failure)
+        self.assertEqual("ods", result["technical_format"])
+        self.assertEqual(1, result["row_count"])
+        self.assertNotIn("Pago ODS sintetico", repr(result))
+
     def test_an_unreadable_file_is_fatal_not_retryable(self) -> None:
         # El fichero es el que es. Reintentarlo tres veces daria lo mismo tres
         # veces y solo retrasaria el unico desenlace posible.
         result, error, failure = jobs.run_profile(BINARY)
         self.assertIsNone(result)
         self.assertEqual("unprofilable", error)
+        self.assertEqual(jobs.FATAL, failure)
+
+    def test_an_unsafe_ods_extraction_is_fatal_not_retryable(self) -> None:
+        from fincilia_contracts.open_document import OpenDocumentError
+
+        error, failure = jobs.classify_extraction(
+            OpenDocumentError("synthetic unsafe document"))
+        self.assertEqual("unextractable", error)
         self.assertEqual(jobs.FATAL, failure)
 
     def test_an_empty_file_is_fatal(self) -> None:

@@ -385,7 +385,8 @@ export function UploadForm({
       </label>
       <p className="meta" id="upload-limit">
         Hasta 10 archivos, 25 MiB por archivo y 100 MiB por lote. Cada documento
-        se confirma por separado.
+        se confirma por separado. CSV, XLSX y ODS seguros se procesan; PDF y ZIP
+        genérico se conservan en cuarentena hasta contar con un analizador seguro.
       </p>
 
       {items.length > 0 ? (

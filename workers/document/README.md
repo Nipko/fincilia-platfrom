@@ -50,8 +50,10 @@ reintenta a ciegas: `unknown` va a carta muerta marcada `requires_human`.
 evidencia y calcula la forma del fichero. **Nada se perfila desde cuarentena**: si
 se pudiera, la regla de inspección previa no serviría de nada.
 
-Sólo se promueve lo que se inspecciona de principio a fin. Hoy eso es CSV; un PDF
-o un libro de cálculo se quedan donde están, con el motivo escrito.
+Sólo se promueve lo que se inspecciona de principio a fin. Hoy son CSV, XLSX y
+ODS dentro de sus subconjuntos tabulares seguros. Un PDF, un ZIP genérico, una
+macro, una fórmula o un documento con objetos/enlaces queda en cuarentena con el
+motivo escrito. No se presenta almacenamiento como si fuera OCR o antivirus.
 
 ## Salud
 

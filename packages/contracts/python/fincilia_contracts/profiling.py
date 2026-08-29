@@ -168,7 +168,7 @@ class TableProfile:
 
 @dataclass(frozen=True)
 class SpreadsheetTableProfile:
-    """Forma de una hoja XLSX; nunca contiene ejemplos de sus celdas."""
+    """Forma de una hoja empaquetada; nunca contiene ejemplos de sus celdas."""
 
     sheet_name: str
     sheet_ordinal: int
@@ -178,6 +178,8 @@ class SpreadsheetTableProfile:
     ragged_rows: int
     truncated: bool
     columns: tuple[ColumnProfile, ...]
+    technical_format: str = "xlsx"
+    effective_encoding: str = "xlsx-xml"
 
     @property
     def needs_decision(self) -> tuple[str, ...]:
@@ -185,8 +187,8 @@ class SpreadsheetTableProfile:
 
     def as_dict(self) -> dict[str, object]:
         return {
-            "technical_format": "xlsx",
-            "encoding": "xlsx-xml",
+            "technical_format": self.technical_format,
+            "encoding": self.effective_encoding,
             "delimiter": "",
             "sheet_name": self.sheet_name,
             "sheet_ordinal": self.sheet_ordinal,
@@ -384,4 +386,46 @@ def profile_workbook(payload: bytes, *, sheet_identity: str | None = None,
         ragged_rows=outcome.ragged_rows,
         truncated=outcome.state == "truncated",
         columns=tuple(columns),
+    )
+
+
+def profile_open_document(payload: bytes, *, sheet_identity: str | None = None,
+                          max_rows: int = MAX_PROFILE_ROWS) -> SpreadsheetTableProfile:
+    """Perfila una hoja ODS segura mediante el lector compartido."""
+    from .open_document import (
+        OpenDocumentError,
+        OpenDocumentOutcome,
+        sniff_open_document,
+        stream_open_document_rows,
+    )
+
+    try:
+        _, preamble = sniff_open_document(payload, sheet_identity=sheet_identity)
+        outcome = OpenDocumentOutcome()
+        rows = stream_open_document_rows(
+            payload, preamble, max_rows=max_rows, outcome=outcome)
+        columns = [ColumnProfile(index, header)
+                   for index, header in enumerate(preamble.header)]
+        for row in rows:
+            if row.record_ordinal < preamble.first_data_row:
+                continue
+            while len(columns) < len(row.values):
+                index = len(columns)
+                columns.append(ColumnProfile(index, f"columna_{index + 1}"))
+            for index, column in enumerate(columns):
+                column.observe(row.values[index] if index < len(row.values) else "")
+    except OpenDocumentError as error:
+        raise UnprofilableFile(str(error)) from error
+
+    return SpreadsheetTableProfile(
+        sheet_name=preamble.sheet_name,
+        sheet_ordinal=preamble.sheet_ordinal,
+        has_header=looks_like_header(list(preamble.header)),
+        row_count=outcome.data_rows,
+        column_count=len(columns),
+        ragged_rows=outcome.ragged_rows,
+        truncated=outcome.state == "truncated",
+        columns=tuple(columns),
+        technical_format="ods",
+        effective_encoding="ods-xml",
     )
