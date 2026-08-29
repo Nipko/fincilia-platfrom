@@ -23,7 +23,9 @@ resource "aws_cognito_user_pool" "pilot" {
   }
 
   admin_create_user_config {
-    allow_admin_create_user_only = false
+    # La beta no expone SignUp nativo. Los perfiles federados nacen mediante
+    # Google y aun necesitan una invitacion nominal dentro de Fincilia.
+    allow_admin_create_user_only = true
   }
 
   account_recovery_setting {

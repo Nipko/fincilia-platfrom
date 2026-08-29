@@ -76,6 +76,16 @@ class PrivatePilotContractTests(unittest.TestCase):
             "identity", "authorization_source", value="Cognito groups"))
         self.assertTrue(any("autorizacion financiera" in item for item in errors))
 
+    def test_federated_assurance_cannot_be_mislabelled_as_cognito_mfa(self) -> None:
+        errors = validate_contract(self.mutate(
+            "identity", "federated_assurance", value="required_by_user_pool"))
+        self.assertTrue(any("assurance federado" in item for item in errors))
+
+    def test_native_self_signup_cannot_open_silently(self) -> None:
+        errors = validate_contract(self.mutate(
+            "identity", "native_self_service_signup", value=True))
+        self.assertTrue(any("SignUp nativo" in item for item in errors))
+
     def test_secret_values_cannot_enter_state(self) -> None:
         errors = validate_contract(self.mutate(
             "secrets", "values_in_iac_state", value=True))
@@ -122,7 +132,13 @@ class PrivatePilotContractTests(unittest.TestCase):
                     "access_logs": [{"enabled": True}],
                 }
             elif resource_type == "aws_cognito_user_pool":
-                after = {"mfa_configuration": "ON", "deletion_protection": "ACTIVE"}
+                after = {
+                    "mfa_configuration": "ON",
+                    "deletion_protection": "ACTIVE",
+                    "admin_create_user_config": [{
+                        "allow_admin_create_user_only": True,
+                    }],
+                }
             elif resource_type == "aws_cognito_user_pool_client":
                 after = {
                     "generate_secret": False,
@@ -209,6 +225,15 @@ class PrivatePilotContractTests(unittest.TestCase):
             "email", "openid", "profile",
         ]
         self.assertEqual([], validate_plan(plan, self.model))
+
+    def test_plan_opening_native_self_signup_dies(self) -> None:
+        plan = self.valid_plan()
+        pool = next(item for item in plan["resource_changes"]
+                    if item["type"] == "aws_cognito_user_pool")
+        pool["change"]["after"]["admin_create_user_config"][0][
+            "allow_admin_create_user_only"] = False
+        self.assertTrue(any("SignUp nativo" in item
+                            for item in validate_plan(plan, self.model)))
 
     def test_provider_string_true_for_valkey_at_rest_is_valid(self) -> None:
         plan = self.valid_plan()
@@ -345,6 +370,13 @@ class PrivatePilotContractTests(unittest.TestCase):
 
     def test_source_mutation_adding_google_secret_to_iac_dies(self) -> None:
         candidate = source_text() + '\nresource "aws_cognito_identity_provider" "google" {}\n'
+        self.assertTrue(any("patron prohibido" in item
+                            for item in validate_sources(candidate)))
+
+    def test_source_mutation_opening_native_signup_dies(self) -> None:
+        candidate = source_text().replace(
+            "allow_admin_create_user_only = true",
+            "allow_admin_create_user_only = false", 1)
         self.assertTrue(any("patron prohibido" in item
                             for item in validate_sources(candidate)))
 

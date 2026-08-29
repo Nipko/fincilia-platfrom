@@ -14,9 +14,12 @@ sinteticos y se niega a arrancar junto a datos reales.
 ## Decision
 
 La interfaz de registro depende de un adaptador de identidad. En un entorno real,
-un IdP administrado verifica correo, MFA y assurance; Fincilia enlaza su `sub` a un
+un IdP administrado verifica correo e identidad; Fincilia enlaza su `sub` a un
 `subject_id` y resuelve membresias y empresas server-side. El producto no se vuelve
-autoridad de passwords reales.
+autoridad de passwords reales. En federacion social, los factores primario y MFA
+se delegan a Google: el `mfa_configuration` del User Pool cubre usuarios nativos y
+no demuestra por si mismo MFA para una sesion Google. Fincilia no afirma un nivel
+de MFA que los claims minimos no prueban.
 
 Local y AWS T1 pueden implementar el mismo recorrido con un adaptador sintetico,
 restringido a `@demo.local`, `real_data_enabled=false` y sin proveedores externos.
@@ -39,6 +42,9 @@ DDL, declarada para revision bajo DB-G03.
   independiente; BETA-01 no la habilita porque nombre y correo son PII.
 - Activar datos reales mantiene bloqueado el proveedor local por construccion.
 - Security y Architecture deben revisar el IdP definitivo antes de DRG-00.
+- El piloto privado mantiene cerrado `SignUp` nativo. La garantia adicional para
+  identidades Google queda en `FNC-IAM-003-FEDERATED-MFA.md`; hasta adjudicarla,
+  correo verificado e invitacion nominal no se etiquetan como MFA.
 
 ## Alternativas descartadas
 

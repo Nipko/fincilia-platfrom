@@ -114,8 +114,18 @@ En el User Pool de Fincilia:
    conservando Authorization Code, PKCE y el callback exacto de la matriz.
 6. Mantener tokens de acceso/ID en 15 minutos y revocación habilitada. Fincilia
    descarta el refresh token y no lo persiste.
-7. Configurar el runtime con issuer/endpoints/client ID de Cognito y mantener
+7. Mantener deshabilitado el `SignUp` nativo del User Pool. El acceso social
+   crea el perfil federado, pero la cuenta Fincilia solo nace al consumir la
+   invitación nominal vinculada al correo verificado.
+8. Configurar el runtime con issuer/endpoints/client ID de Cognito y mantener
    `FINCILIA_OIDC_ENABLED=false` hasta la adjudicación de DRG-00.
+
+`mfa_configuration = ON` protege el flujo nativo de Cognito. No debe presentarse
+como evidencia de MFA para Google: en federación, los factores se delegan a
+Google y los scopes mínimos de esta integración no prueban segundo factor. Para
+la beta se pide a cada invitado habilitar verificación en dos pasos, pero esa es
+una condición operativa, no una garantía que Fincilia pueda certificar. La
+decisión de assurance queda registrada como `UD-IAM-FEDERATED-MFA`.
 
 El secret ya tiene un contenedor dedicado en AWS Secrets Manager. La
 configuración del proveedor se hace fuera del estado OpenTofu para impedir que el

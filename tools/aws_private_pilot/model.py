@@ -88,6 +88,13 @@ def validate_contract(model: dict[str, Any]) -> list[str]:
         errors.append("el secreto Google no puede entrar a IaC")
     if identity.get("known_users_seeded") is not False:
         errors.append("el piloto no puede sembrar usuarios conocidos")
+    if identity.get("native_mfa") != "required_by_user_pool":
+        errors.append("Cognito debe exigir MFA a identidades nativas")
+    if identity.get("federated_assurance") != \
+            "delegated_to_google_not_asserted_by_fincilia":
+        errors.append("el assurance federado debe permanecer delegado y no afirmado")
+    if identity.get("native_self_service_signup") is not False:
+        errors.append("la beta no puede habilitar SignUp nativo publico")
 
     secrets = model.get("secrets", {})
     if secrets.get("values_created_out_of_band") is not True or \
@@ -191,6 +198,7 @@ def validate_sources(sources: str | None = None) -> list[str]:
         'FINCILIA_OIDC_ENABLED", value = "true"',
         'allowed_oauth_flows                  = ["code"]',
         'allowed_oauth_scopes                 = ["openid", "email", "profile"]',
+        'allow_admin_create_user_only = true',
         'data "aws_iam_policy_document" "alb_logs"',
         'sse_algorithm = "AES256"',
         'resource "aws_wafv2_web_acl_association" "pilot"',
@@ -217,6 +225,7 @@ def validate_sources(sources: str | None = None) -> list[str]:
         'secret_string',
         'secret_binary',
         'resource "aws_cognito_identity_provider"',
+        'allow_admin_create_user_only = false',
         'resource "aws_instance"',
         'resource "aws_key_pair"',
         'assign_public_ip = true',
@@ -358,9 +367,13 @@ def validate_plan(plan: dict[str, Any], model: dict[str, Any]) -> list[str]:
                 errors.append(f"{address}: ALB access logs son obligatorios")
         elif resource_type == "aws_cognito_user_pool":
             if after.get("mfa_configuration") != "ON":
-                errors.append(f"{address}: Cognito debe exigir MFA")
+                errors.append(f"{address}: Cognito debe exigir MFA nativo")
             if after.get("deletion_protection") != "ACTIVE":
                 errors.append(f"{address}: Cognito debe proteger borrado")
+            admin = after.get("admin_create_user_config") or []
+            if len(admin) != 1 or \
+                    admin[0].get("allow_admin_create_user_only") is not True:
+                errors.append(f"{address}: SignUp nativo debe estar cerrado")
         elif resource_type == "aws_cognito_user_pool_client":
             if after.get("generate_secret") is not False:
                 errors.append(f"{address}: el cliente PKCE no lleva secreto en IaC")

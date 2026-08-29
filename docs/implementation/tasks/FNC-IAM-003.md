@@ -24,6 +24,8 @@ beta cerrada sin convertir el IdP en fuente de autorización financiera.
 - `apps/web/src/app/empresas/sign-out.tsx` y consumidores estrictamente
   necesarios para el cierre de sesión.
 - `apps/web/README.md` y `docs/platform/GOOGLE_OAUTH_PUBLICATION.md`.
+- `infra/aws/private-pilot/identity.tf`, contrato y validador del piloto.
+- ADR-012 y solicitud de decisión sobre assurance federado.
 - Ficha, handoff, trazabilidad y registros centrales por Integration Steward.
 
 # Criterios de aceptación
@@ -41,6 +43,8 @@ beta cerrada sin convertir el IdP en fuente de autorización financiera.
    nominales; solo almacena HMAC/digests y nunca el código o correo en claro.
 7. Unitarias, tipos, lint, build y CI aplicables quedan verdes.
 8. La activación real continúa bloqueada por DRG-00 y revisión independiente.
+9. El contrato distingue MFA nativo de assurance federado: nunca afirma que
+   Cognito añade MFA a una sesión Google.
 
 # Fuera de alcance
 
