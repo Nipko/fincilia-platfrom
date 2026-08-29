@@ -45,11 +45,8 @@ Después de confirmar USD 200 se ejecutó `cleanup -Apply`:
 
 - Lambda: `deleted`;
 - rol IAM: `deleted`;
-- RDS vacío: `deleting` sin snapshot ni backups automatizados;
+- RDS vacío: `deleted`, confirmado mediante `DBInstanceNotFound`;
 - Bedrock: cero recursos persistentes.
-
-La eliminación de RDS es asíncrona. Una comprobación posterior debe confirmar
-`DBInstanceNotFound`; no se recrea el laboratorio para obtener esa evidencia.
 
 ## Límites y revisión
 

@@ -52,4 +52,4 @@ base, migraciones, promoción del laboratorio o aceptación de gates.
 
 - `c7ef06e`: Lambda sintética, contrato operativo y cleanup fail-closed.
 - AWS confirmó USD 200 disponibles tras completar las cinco actividades.
-- Cleanup aplicado: Lambda y rol IAM eliminados; RDS en eliminación asíncrona.
+- Cleanup aplicado y verificado: Lambda, rol IAM y RDS eliminados.
