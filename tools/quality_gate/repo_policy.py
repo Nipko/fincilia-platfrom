@@ -25,6 +25,11 @@ PINNED_ACTION = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+
 PINNED_IMAGE = re.compile(r"^\s*image:\s*[^\s#]+@sha256:[0-9a-f]{64}(?:\s*(?:#.*)?)$")
 TODO_PATTERN = re.compile(r"\b(?:TODO|FIXME)\b", re.IGNORECASE)
 TASK_ID_PATTERN = re.compile(r"\bFNC-[A-Z]+-\d{3}\b")
+WRITE_PERMISSION = re.compile(
+    r"(?m)^(?P<indent>[ \t]+)(?P<name>[a-z][a-z0-9-]*)\s*:\s*write\s*$"
+)
+ATTESTATION_WORKFLOW = ".github/workflows/release-candidate.yml"
+ATTESTATION_WRITE_PERMISSIONS = frozenset({"attestations", "id-token"})
 SECRET_PATTERNS = {
     "POL-AWS-ACCESS-KEY": re.compile(rb"AKIA[A-Z0-9]{16}"),
     "POL-GITHUB-TOKEN": re.compile(rb"gh[pousr]_[A-Za-z0-9]{30,}"),
@@ -66,7 +71,18 @@ def _scan_workflow(path: str, text: str) -> Iterable[Finding]:
     lowered = text.lower()
     if re.search(r"(?m)^\s*pull_request_target\s*:", text):
         yield Finding("POL-WORKFLOW-DANGEROUS-TRIGGER", path, "pull_request_target is prohibited")
-    if "write-all" in lowered or re.search(r"(?m)^\s*(?:contents|id-token)\s*:\s*write\s*$", text):
+    write_permissions = list(WRITE_PERMISSION.finditer(lowered))
+    attestation_only = (
+        path == ATTESTATION_WORKFLOW
+        and re.search(r"(?m)^\s{2}workflow_dispatch\s*:", text) is not None
+        and re.search(r"(?m)^\s{2}(?:pull_request|pull_request_target|push)\s*:", text) is None
+        and all(
+            match.group("indent") == "  "
+            and match.group("name") in ATTESTATION_WRITE_PERMISSIONS
+            for match in write_permissions
+        )
+    )
+    if "write-all" in lowered or (write_permissions and not attestation_only):
         yield Finding("POL-WORKFLOW-WRITE-PERMISSION", path, "workflow requests a prohibited write permission")
     if not re.search(r"(?ms)^permissions:\s*\n\s+contents:\s*read\s*$", text):
         yield Finding("POL-WORKFLOW-PERMISSIONS", path, "workflow must declare top-level contents: read")

@@ -77,7 +77,9 @@ El escáner falla por:
 - TODO/FIXME anónimo en comentarios de código;
 - action GitHub no fijada a SHA de 40 caracteres;
 - imagen Compose sin digest SHA-256;
-- `pull_request_target`, `write-all`, `contents: write` o `id-token: write`;
+- `pull_request_target`, `write-all` o cualquier permiso `write`; la única
+  excepción es el workflow manual exacto `release-candidate.yml`, limitado en
+  nivel superior a `id-token: write` y `attestations: write`, sin `push` ni PR;
 - workflow sin `permissions: contents: read` en nivel superior.
 
 Los tests prueban tanto aceptación como rechazo. Los ejemplos de token peligroso se construyen en memoria para no versionar una cadena con forma de secreto.

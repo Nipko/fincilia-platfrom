@@ -42,7 +42,8 @@ sus tags y la revisión de Security siguen siendo independientes.
   `docs/platform/RELEASE_CANDIDATE.md`,
   `.github/workflows/release-candidate.yml`,
   `docs/security/supply-chain.json`, `tools/supply_chain/**`, esta ficha, su
-  handoff y registros centrales modificados por el Integration Steward.
+  handoff, `tools/quality_gate/**`, `docs/testing/CI_QUALITY_GATE.md` y registros
+  centrales modificados por el Integration Steward.
 - Rutas prohibidas: producto, migraciones, secretos, configuración AWS,
   identidad, autorización financiera y estados humanos.
 
@@ -71,4 +72,3 @@ sus tags y la revisión de Security siguen siendo independientes.
 
 Retirar los dos pasos de attestation y descartar el candidato. No hay migración,
 datos ni runtime persistente.
-
