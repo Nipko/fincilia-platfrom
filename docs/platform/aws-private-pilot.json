@@ -74,6 +74,7 @@
     "warm_runtime_plane_enabled": true,
     "warm_initial_desired_count": 0,
     "cold_rds_action": "request_stop_preserve_storage",
+    "rds_stop_limit_days": 7,
     "persistent_resource_types": [
       "aws_acm_certificate", "aws_cloudtrail", "aws_cognito_user_pool",
       "aws_db_instance", "aws_ecr_repository", "aws_kms_key",

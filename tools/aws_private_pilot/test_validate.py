@@ -44,6 +44,12 @@ class PrivatePilotContractTests(unittest.TestCase):
             "cost_lifecycle", "default_mode", value="warm"))
         self.assertTrue(any("default_mode" in item for item in errors))
 
+    def test_rds_stop_limit_must_remain_visible(self) -> None:
+        model = copy.deepcopy(self.model)
+        model["cost_lifecycle"]["rds_stop_limit_days"] = 8
+        errors = validate_contract(model)
+        self.assertTrue(any("rds_stop_limit_days" in item for item in errors))
+
     def test_controller_cannot_accept_gates(self) -> None:
         errors = validate_contract(self.mutate(
             "cost_lifecycle", "controller_can_accept_gates", value=True))

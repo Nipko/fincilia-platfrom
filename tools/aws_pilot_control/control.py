@@ -206,6 +206,7 @@ class PilotController:
             "identity": identity,
             "mode": "cold" if runtime_count == 0 else "warm_or_transitioning",
             "database": rds,
+            "database_stop_limit_days": 7,
             "services": services,
             "runtime": {
                 "nat_gateways": len(nat.get("NatGateways", [])),
@@ -316,21 +317,32 @@ class PilotController:
     def apply_mode(self, mode: str, *, apply: bool) -> dict[str, Any]:
         if not apply:
             raise ControlError("la mutacion requiere --apply")
+        alb_arn: str | None = None
         if mode == "cold":
             self.guard_identity()
             self._scale_services_to_zero()
-        report = self.plan(mode)
-        apply_result = self._run(
-            (
-                "tofu", f"-chdir={self.infra_root}", "apply", "-input=false",
-                "-auto-approve", str(report["plan_file"]),
-            ),
-            timeout=1800,
-            operation=f"apply {mode}",
-        )
-        assert isinstance(apply_result, Result)
-        if apply_result.returncode != 0:
-            raise ControlError(f"apply {mode} fallo; revise el estado antes de reintentar")
+            alb_arn = self._load_balancer_arn()
+            if alb_arn is not None:
+                self._set_alb_deletion_protection(alb_arn, enabled=False)
+        try:
+            report = self.plan(mode)
+            apply_result = self._run(
+                (
+                    "tofu", f"-chdir={self.infra_root}", "apply", "-input=false",
+                    "-auto-approve", str(report["plan_file"]),
+                ),
+                timeout=1800,
+                operation=f"apply {mode}",
+            )
+            assert isinstance(apply_result, Result)
+            if apply_result.returncode != 0:
+                raise ControlError(
+                    f"apply {mode} fallo; revise el estado antes de reintentar"
+                )
+        except ControlError:
+            if alb_arn is not None:
+                self._set_alb_deletion_protection(alb_arn, enabled=True)
+            raise
         database_action = self._start_database() if mode == "warm" else self._stop_database()
         return {
             "ok": True,
@@ -346,6 +358,45 @@ class PilotController:
                 else "Plano temporal retirado; almacenamiento persistente conservado."
             ),
         }
+
+    def _load_balancer_arn(self) -> str | None:
+        result = self._run(
+            (
+                "aws", "elbv2", "describe-load-balancers", "--names", RESOURCE_NAME,
+                "--region", self.region, "--output", "json",
+            ),
+            operation="consulta ALB",
+        )
+        assert isinstance(result, Result)
+        if result.returncode != 0:
+            if "notfound" in result.stderr.lower():
+                return None
+            raise ControlError("consulta ALB fallo; cold fue detenido")
+        payload = _json(result, "consulta ALB")
+        load_balancers = payload.get("LoadBalancers", [])
+        if not load_balancers:
+            return None
+        arn = load_balancers[0].get("LoadBalancerArn")
+        if not isinstance(arn, str) or not arn.startswith("arn:aws:elasticloadbalancing:"):
+            raise ControlError("ALB devolvio una identidad inesperada")
+        return arn
+
+    def _set_alb_deletion_protection(self, arn: str, *, enabled: bool) -> None:
+        result = self._run(
+            (
+                "aws", "elbv2", "modify-load-balancer-attributes",
+                "--load-balancer-arn", arn,
+                "--attributes", f"Key=deletion_protection.enabled,Value={str(enabled).lower()}",
+                "--region", self.region, "--no-cli-pager",
+            ),
+            operation="proteccion de borrado ALB",
+        )
+        assert isinstance(result, Result)
+        if result.returncode != 0:
+            if enabled and "notfound" in result.stderr.lower():
+                return
+            state = "reactivar" if enabled else "desactivar"
+            raise ControlError(f"no se pudo {state} la proteccion de borrado del ALB")
 
     def _scale_services_to_zero(self) -> None:
         active_services = [

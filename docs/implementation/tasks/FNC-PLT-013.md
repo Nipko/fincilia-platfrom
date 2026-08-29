@@ -1,7 +1,7 @@
 ---
 id: FNC-PLT-013
 title: Ciclo frio y activacion temporal del piloto privado AWS
-status: in_progress
+status: review_pending
 implementer: Codex principal dev + Integration Steward
 base_sha: 09e601a
 gate: DRG-01
@@ -51,3 +51,10 @@ local genera y valida el plan exacto antes de crear o retirar ese plano temporal
 
 Aplicar la infraestructura definitiva, publicar DNS, cargar secretos, aceptar
 DRG-00/01, encender datos reales, pentest o emitir revision independiente.
+
+# Implementación integrada
+
+- `f06de25`: separación OpenTofu de plano persistente y runtime.
+- `4799227`: controlador fail-closed, wrapper PowerShell y configuración ejemplo.
+- Planes reales `cold` y `warm` validados sin apply en la cuenta/región
+  autorizadas; `status` remoto confirma `cold` y cero runtime del piloto.

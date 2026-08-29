@@ -116,6 +116,7 @@ def validate_contract(model: dict[str, Any]) -> list[str]:
         "warm_runtime_plane_enabled": True,
         "warm_initial_desired_count": 0,
         "cold_rds_action": "request_stop_preserve_storage",
+        "rds_stop_limit_days": 7,
         "mutations_require_apply_flag": True,
         "controller_can_accept_gates": False,
     }

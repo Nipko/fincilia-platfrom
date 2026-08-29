@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 import tempfile
 import unittest
+from contextlib import redirect_stdout
+from io import StringIO
 from pathlib import Path
 from typing import Sequence
 from unittest.mock import patch
@@ -88,16 +90,18 @@ class PilotControllerTests(unittest.TestCase):
             controller.return_value.apply_mode.side_effect = ControlError(
                 "la mutacion requiere --apply"
             )
-            self.assertEqual(
-                main(["--account-id", "123456789012", "warm"]),
-                2,
-            )
+            with redirect_stdout(StringIO()):
+                self.assertEqual(
+                    main(["--account-id", "123456789012", "warm"]),
+                    2,
+                )
 
     def test_cold_scales_before_planning_and_applying(self) -> None:
         controller = self.controller(FakeRunner([]))
         events: list[str] = []
         controller.guard_identity = lambda: events.append("guard") or {}  # type: ignore[method-assign]
         controller._scale_services_to_zero = lambda: events.append("scale")  # type: ignore[method-assign]
+        controller._load_balancer_arn = lambda: None  # type: ignore[method-assign]
         controller.plan = lambda mode: events.append(f"plan:{mode}") or {  # type: ignore[method-assign]
             "plan_file": Path("cold.tfplan")
         }
@@ -105,6 +109,21 @@ class PilotControllerTests(unittest.TestCase):
         controller._stop_database = lambda: events.append("stop-db") or "stop_requested"  # type: ignore[method-assign]
         controller.apply_mode("cold", apply=True)
         self.assertEqual(events, ["guard", "scale", "plan:cold", "apply", "stop-db"])
+
+    def test_cold_restores_alb_protection_when_plan_fails(self) -> None:
+        controller = self.controller(FakeRunner([]))
+        events: list[str] = []
+        arn = "arn:aws:elasticloadbalancing:sa-east-1:123456789012:loadbalancer/app/x/y"
+        controller.guard_identity = lambda: {}  # type: ignore[method-assign]
+        controller._scale_services_to_zero = lambda: events.append("scale")  # type: ignore[method-assign]
+        controller._load_balancer_arn = lambda: arn  # type: ignore[method-assign]
+        controller._set_alb_deletion_protection = (  # type: ignore[method-assign]
+            lambda _arn, enabled: events.append(f"protection:{enabled}")
+        )
+        controller.plan = lambda mode: (_ for _ in ()).throw(ControlError("plan fallo"))  # type: ignore[method-assign]
+        with self.assertRaisesRegex(ControlError, "plan fallo"):
+            controller.apply_mode("cold", apply=True)
+        self.assertEqual(events, ["scale", "protection:False", "protection:True"])
 
     def test_warm_applies_before_starting_database(self) -> None:
         controller = self.controller(FakeRunner([]))
