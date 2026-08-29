@@ -34,6 +34,7 @@ jobs:
           tools.architecture_model.test_validate
           tools.adr_readiness.test_validate
           tools.aws_beta.test_validate
+          tools.aws_private_pilot.test_validate
           tools.brand_clearance.test_validate
           tools.budget_model.test_validate
           tools.canonical_model.test_validate
@@ -105,6 +106,8 @@ jobs:
         run: python -m tools.adr_readiness.validate
       - name: Validate closed synthetic beta contract
         run: python -m tools.aws_beta.validate
+      - name: Validate AWS production-shaped pilot contract
+        run: python -m tools.aws_private_pilot.validate
       - name: Validate provisional brand clearance
         run: python -m tools.brand_clearance.validate
       - name: Validate F0-F2 budget model

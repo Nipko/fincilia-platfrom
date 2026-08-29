@@ -1,9 +1,10 @@
 # Publicación de Google OAuth para Fincilia
 
-Estado: **preparado, no activado**. Este runbook configura Google como proveedor
-social de Amazon Cognito sin convertir claims externos en roles de Fincilia. La
-activación con personas reales permanece bloqueada por DRG-00 y revisión
-independiente; publicar las páginas y preparar el proyecto no mueve ese gate.
+Estado: **recorrido productivo preparado, no activado**. Este runbook configura
+Google como proveedor social de Amazon Cognito y permite alta publica sin
+invitaciones, sin convertir claims externos en roles de Fincilia. La activacion
+con personas reales permanece bloqueada por DRG-00 y revision independiente;
+publicar las paginas y preparar el proyecto no mueve ese gate.
 
 ## 1. Lo que debe entregar el Founder
 
@@ -11,12 +12,11 @@ No enviar secretos por chat, Git, capturas, handoffs ni variables de Terraform.
 
 | Dato | Ejemplo de forma | Uso |
 | --- | --- | --- |
-| Dominio final de la beta | `beta.<dominio-propio>` | Portada, políticas y callback de Fincilia |
+| Dominio final del servicio | `app.<dominio-propio>` | Portada, políticas y callback de Fincilia |
 | Cuenta Google Cloud | cuenta con rol Owner/Editor | Crear proyecto y OAuth client |
 | Propiedad Search Console | dominio raíz verificado | Demostrar control del dominio autorizado |
 | Correo de soporte | buzón atendido | Consent screen y contacto de usuarios |
 | Correo de desarrollador | buzón atendido | Avisos de Google |
-| Usuarios de prueba | correos de los invitados | Audience `Testing`, máximo 100 |
 | Logo de Fincilia | archivo cuadrado según el límite que muestre Google | Branding; no usar una marca de Google |
 
 Nombre público: **Fincilia**. Desarrollador: **Parallext.com**. El Client ID se
@@ -67,12 +67,13 @@ aplicación y ya está fijado por el contrato de infraestructura.
 Estas páginas se sirven desde la aplicación Next.js existente. No requieren S3,
 CloudFront ni otro servicio AWS separado: el costo incremental de **las páginas**
 es cero sobre el runtime ya encendido. Siguen existiendo los costos del dominio,
-del runtime, almacenamiento, secretos y transferencia de la beta.
+del runtime, almacenamiento, secretos y transferencia del servicio.
 
 ## 4. Configurar Google Auth Platform
 
-Crear un proyecto separado para esta beta; no reutilizar el futuro proyecto de
-producción. En Google Cloud Console:
+Crear proyectos separados para preproducción y producción. El cliente que se
+publica para usuarios finales pertenece al proyecto de producción. En Google
+Cloud Console:
 
 1. Abrir **Google Auth Platform → Branding**.
 2. App name: `Fincilia`.
@@ -82,17 +83,18 @@ producción. En Google Cloud Console:
 6. Terms of service: `https://<APP_DOMAIN>/terminos`.
 7. Authorized domain: el dominio raíz verificado en Search Console.
 8. Developer contact: el correo atendido de Parallext.com.
-9. En **Audience**, seleccionar `External` y mantener `Testing` para la beta
-   cerrada. Añadir únicamente los invitados nominales; Google limita Testing a
-   100 usuarios y sus autorizaciones vencen a los siete días.
+9. En **Audience**, seleccionar `External`. Durante la configuracion inicial se
+   puede usar `Testing`; antes de abrir registro cambiar el proyecto definitivo
+   a `In production`. En ese estado cualquier cuenta Google puede autenticarse
+   y ya no existe una lista de invitados de Fincilia.
 10. En **Data Access**, declarar solamente `openid`,
     `https://www.googleapis.com/auth/userinfo.email` y
     `https://www.googleapis.com/auth/userinfo.profile`.
 11. En **Clients**, crear `Web application` con nombre
-    `Fincilia beta web`.
+    `Fincilia web production`.
 12. Authorized JavaScript origin: el origen Cognito de la matriz.
 13. Authorized redirect URI: el endpoint Cognito `/oauth2/idpresponse` de la
-    matriz. No agregar callbacks locales al proyecto de beta.
+   matriz. No agregar callbacks locales al proyecto de producción.
 14. Guardar Client ID. Cargar el Client Secret directamente en el secreto AWS
     `fincilia/private-pilot/google-oidc-v1`; no descargarlo al repositorio.
 
@@ -115,16 +117,17 @@ En el User Pool de Fincilia:
 6. Mantener tokens de acceso/ID en 15 minutos y revocación habilitada. Fincilia
    descarta el refresh token y no lo persiste.
 7. Mantener deshabilitado el `SignUp` nativo del User Pool. El acceso social
-   crea el perfil federado, pero la cuenta Fincilia solo nace al consumir la
-   invitación nominal vinculada al correo verificado.
+   crea el perfil federado; la cuenta Fincilia solo nace cuando la persona inicia
+   el recorrido explícito de registro, acepta las versiones legales vigentes y
+   Google devuelve un correo verificado.
 8. Configurar el runtime con issuer/endpoints/client ID de Cognito y mantener
    `FINCILIA_OIDC_ENABLED=false` hasta la adjudicación de DRG-00.
 
 `mfa_configuration = ON` protege el flujo nativo de Cognito. No debe presentarse
 como evidencia de MFA para Google: en federación, los factores se delegan a
-Google y los scopes mínimos de esta integración no prueban segundo factor. Para
-la beta se pide a cada invitado habilitar verificación en dos pasos, pero esa es
-una condición operativa, no una garantía que Fincilia pueda certificar. La
+Google y los scopes mínimos de esta integración no prueban segundo factor. Se
+recomienda a cada persona habilitar verificación en dos pasos, pero esa es una
+condición operativa, no una garantía que Fincilia pueda certificar. La
 decisión de assurance queda registrada como `UD-IAM-FEDERATED-MFA`.
 
 El secret ya tiene un contenedor dedicado en AWS Secrets Manager. La
@@ -133,30 +136,14 @@ Client Secret termine en el state o en un plan guardado.
 
 ## 6. Prueba y publicación gradual
 
-### Operar invitaciones nominales
-
-La invitación se crea desde una sesión privada del migrador, con
-`FINCILIA_MIGRATOR_URL` y `FINCILIA_IDENTITY_BINDING_HMAC_KEY` inyectadas desde
-Secrets Manager. No escribir sus valores en la línea de comandos ni exportarlos
-a un fichero. El correo se introduce en el prompt oculto y PostgreSQL recibe
-solo su HMAC; el código aparece una vez en stdout para entregarlo por un canal
-distinto a la cuenta Google invitada.
-
-```text
-python -m db.admin.pilot_invitations create --hours 168
-python -m db.admin.pilot_invitations list
-python -m db.admin.pilot_invitations revoke --invitation <UUID>
-```
-
-No redirigir la salida de `create`, no capturar la terminal y no pegar el código
-en tickets, chats de agentes, Git o logs. `list` expone únicamente identificador,
-prefijo del digest y marcas de estado; `revoke` solo acepta el UUID de la
-invitación. Las invitaciones locales sintéticas se administran con
-`db.admin.invitations` y no son válidas en el piloto nominal.
+No se crean, distribuyen ni conservan invitaciones. La apertura y cierre del
+alta es un control operativo: `FINCILIA_OIDC_REGISTRATION_MODE=public_google`
+permite cuentas nuevas y `disabled` conserva el login de las existentes. Cambiar
+ese control no elimina sujetos, firmas, membresías ni aceptaciones.
 
 ### Recorrido de aceptación
 
-Después de conectar Google y antes de invitar a una persona, ejecutar la sonda
+Después de conectar Google y antes de abrir el registro, ejecutar la sonda
 contra el control plane. Los tres identificadores no son secretos y se obtienen
 del output `cognito` de OpenTofu; no usar esta orden con credenciales root.
 
@@ -176,23 +163,27 @@ evidencia no pudo obtenerse. El informe omite IDs, usuarios, correos y secretos,
 y siempre conserva `activation_authorized: false` y
 `real_data_authorized: false`: una sonda técnica no adjudica DRG-00.
 
-1. Probar con una sola identidad nominal de Testing y una invitación de un uso.
+1. Probar primero con una identidad Google controlada en el proyecto de
+   preproducción y repetir en el proyecto definitivo `In production`.
 2. Confirmar `state`, nonce, PKCE, issuer, audience, expiración y correo
    verificado; un fallo no debe crear sujeto, firma ni empresa.
-3. Confirmar alta nueva completa y login idempotente. Al pulsar `Salir`, verificar
+3. Confirmar que un `login` desconocido no crea filas y dirige a `/registro`.
+   Confirmar alta nueva completa, dos aceptaciones legales versionadas y login
+   idempotente. Al pulsar `Salir`, verificar
    que desaparecen las tres cookies Fincilia y Cognito vuelve exactamente a
    `https://<APP_DOMAIN>/entrar`; volver a entrar debe iniciar un flujo nuevo.
-4. Revocar una invitación no consumida y comprobar que no crea filas. Suspender
-   la identidad de prueba en Cognito y retirar sus grants en Fincilia; ambas
+4. Cambiar temporalmente el modo de registro a `disabled` y comprobar que no
+   nacen cuentas nuevas mientras las existentes siguen entrando. Suspender la
+   identidad de prueba en Cognito y retirar sus grants en Fincilia; ambas
    capas deben negar el siguiente acceso sin aceptar claims de empresa del IdP.
 5. Confirmar que URLs, logs, auditoría y base no contienen códigos, tokens,
    correo ni `sub` en claro.
 6. Ejecutar regresión de rutas públicas, onboarding, aislamiento multiempresa y
    recuperación ante proveedor no disponible.
 7. Obtener revisiones nominales de Security, Privacy/Legal, Architecture y QA.
-8. Para una publicación pública futura, mover el proyecto de producción a
-   `In production`, verificar branding y completar cualquier revisión que Google
-   solicite. La beta y producción deben usar proyectos Google separados.
+8. Antes de abrir registro, mover el proyecto definitivo a `In production`,
+   verificar branding y completar cualquier revisión que Google solicite. Los
+   proyectos de preproducción y producción deben permanecer separados.
 
 ## 7. Fuentes normativas y técnicas
 

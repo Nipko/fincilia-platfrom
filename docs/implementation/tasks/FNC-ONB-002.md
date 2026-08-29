@@ -53,5 +53,7 @@ primera empresa sin semillas ni intervencion administrativa.
 
 # Fuera de alcance
 
-Autorregistro Cognito, correo real, recuperacion de password, OAuth social, cobro,
-aceptacion legal productiva, datos reales o mover DRG-00/DRG-01.
+En esta rebanada histórica quedaron fuera autorregistro Cognito, correo real,
+OAuth social y aceptación legal. FNC-IAM-004 los sustituye para el recorrido
+Google definitivo sin contraseñas propias. Cobro, datos reales y mover
+DRG-00/DRG-01 continúan fuera de alcance.

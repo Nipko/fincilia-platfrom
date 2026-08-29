@@ -1,6 +1,6 @@
-# ADR-012 — IdP administrado, sujeto interno y registro por adaptador
+# ADR-012 — IdP administrado, sujeto interno y alta publica Google
 
-- Estado: **Proposed; forma sintetica autorizada para FNC-ONB-002**
+- Estado: **Proposed; implementacion preparada para revision independiente**
 - Fecha: 2026-08-28
 - Gate: S1-READY / DRG-00
 
@@ -27,24 +27,28 @@ Ese adaptador crea atomicamente sujeto, binding local, credencial derivada, firm
 membresia owner. Crear la primera company permanece en la transaccion separada de
 FNC-ONB-001: una identidad no constituye por si sola una frontera financiera.
 
-El rol de la API nunca recibe escritura directa sobre credenciales. El alta local
-se expone mediante una funcion de base acotada, propiedad de un rol `NOLOGIN` sin
-DDL, declarada para revision bajo DB-G03.
+El rol de la API nunca recibe escritura directa sobre credenciales o identidad
+global. En el sistema administrado, el recorrido explicito `register` crea sujeto,
+binding HMAC, firma, membresia owner y aceptaciones legales en una sola funcion
+acotada propiedad de un rol `NOLOGIN`. Un recorrido `login` desconocido nunca
+crea la cuenta. El alta publica se puede cerrar operativamente sin impedir el
+ingreso de cuentas existentes.
 
 ## Consecuencias
 
 - El recorrido web se puede probar completamente en T1 sin correo o PII real.
 - Ninguna cuenta creada por el adaptador local es portable a un entorno real.
-- Cognito T0 continua `admin_create_user_only` hasta que otra tarea implemente y
-  revise callback OIDC, verificacion, MFA, recuperacion y proteccion contra abuso.
-- FNC-IAM-001 prepara Google mediante Cognito con Authorization Code + PKCE y
-  scopes mínimos. Su activación real permanece bloqueada por DRG-00 y revisión
-  independiente; BETA-01 no la habilita porque nombre y correo son PII.
+- Cognito mantiene `admin_create_user_only`: Fincilia no abre SignUp nativo ni
+  almacena passwords reales. Los perfiles federados Google sí pueden registrarse
+  publicamente mediante el flujo revisado de Fincilia.
+- FNC-IAM-001/003/004 implementan Google mediante Cognito con Authorization Code
+  + PKCE, scopes minimos, logout y alta versionada. Su activacion con personas
+  reales permanece bloqueada por DRG-00 y revision independiente.
 - Activar datos reales mantiene bloqueado el proveedor local por construccion.
 - Security y Architecture deben revisar el IdP definitivo antes de DRG-00.
-- El piloto privado mantiene cerrado `SignUp` nativo. La garantia adicional para
-  identidades Google queda en `FNC-IAM-003-FEDERATED-MFA.md`; hasta adjudicarla,
-  correo verificado e invitacion nominal no se etiquetan como MFA.
+- El `SignUp` nativo permanece cerrado. Correo verificado y acceso social no se
+  etiquetan como MFA; el assurance y el step-up previo a GA siguen en
+  `FNC-IAM-003-FEDERATED-MFA.md`.
 
 ## Alternativas descartadas
 

@@ -40,8 +40,8 @@ beta cerrada sin convertir el IdP en fuente de autorización financiera.
 4. El modo local conserva el cierre de sesión interno actual.
 5. Logout, callback y autorización no incorporan tokens, correo, invitación,
    subject externo ni secretos en URLs, logs o respuestas.
-6. El runbook distingue crear, consumir, listar y revocar invitaciones
-   nominales; solo almacena HMAC/digests y nunca el código o correo en claro.
+6. El runbook histórico de invitaciones queda sustituido por FNC-IAM-004. El
+   recorrido definitivo no crea, consume ni conserva invitaciones.
 7. Unitarias, tipos, lint, build y CI aplicables quedan verdes.
 8. La activación real continúa bloqueada por DRG-00 y revisión independiente.
 9. El contrato distingue MFA nativo de assurance federado: nunca afirma que
@@ -51,6 +51,12 @@ beta cerrada sin convertir el IdP en fuente de autorización financiera.
 
 Autorizar datos reales, almacenar contraseñas, usar claims de Google como roles,
 acceder a APIs Google, aceptar revisiones humanas o desplegar el plano AWS.
+
+# Sustitución parcial
+
+FNC-IAM-004 sustituye exclusivamente la apertura por invitación y conserva
+vigentes el logout, el SignUp nativo cerrado y la prohibición de afirmar MFA
+federado no demostrado.
 
 # Evidencia integrada
 

@@ -2,7 +2,7 @@
 
 - ID: UD-IAM-FEDERATED-MFA
 - Fecha: 2026-08-29
-- Tarea bloqueada: FNC-IAM-003 / activacion nominal de FNC-IAM-001
+- Tarea bloqueada: assurance de FNC-IAM-003 / activacion externa de FNC-IAM-004
 - Owner requerido: Security + Product
 - Gate afectado: DRG-00
 - Fecha limite: antes de habilitar `FINCILIA_OIDC_ENABLED` con personas reales
@@ -18,7 +18,8 @@ una garantia de seguridad no demostrable.
 ## Evidencia disponible
 
 - La implementacion obliga Code + PKCE, state, nonce, issuer/audience y correo
-  verificado, y enlaza la cuenta mediante invitacion nominal de un uso.
+  verificado. `login` nunca crea filas; `register` crea la identidad interna
+  solo tras aceptar las versiones legales activas.
 - La sesion Fincilia dura 15 minutos y la autorizacion se revalida server-side.
 - AWS documenta que la autenticacion federada no usa los flujos configurados en
   el app client y delega los factores primario/MFA al IdP.
@@ -29,21 +30,24 @@ una garantia de seguridad no demostrable.
 
 | Opcion | Ventajas | Riesgos | Costo de reversion |
 |---|---|---|---|
-| A. Google para beta; assurance declarado como federado no verificable | Conserva UX, password fuera de Fincilia y beta por invitacion | No se puede prometer MFA; requiere limitar riesgo y pedir 2SV como norma operativa no verificable | Bajo; anadir step-up despues |
+| A. Google público; assurance declarado como federado no verificable | Conserva UX y password fuera de Fincilia sin una infraestructura transitoria de invitaciones | No se puede prometer MFA; las acciones de alto riesgo necesitan límites o step-up posterior | Bajo; añadir step-up después |
 | B. Cognito nativo con TOTP obligatorio | MFA tecnicamente demostrable en Cognito | Reintroduce password, elimina el acceso Google simple y duplica recuperacion | Medio/alto |
 | C. Google Workspace administrado con 2SV obligatoria | MFA gobernable en el dominio | Excluye cuentas personales/amigos y anade costo/administracion | Alto para esta beta |
 
 ## Recomendacion del agente
 
-Opcion A para la beta cerrada: no afirmar MFA, exigir invitacion nominal, sesion
-corta, cierre federado, revocacion de grants y recomendacion explicita de 2SV a
-los testers. Antes de GA o acciones financieras de alto riesgo, decidir un
-step-up verificable o una identidad empresarial administrada.
+Opcion A para el alta pública definitiva: no afirmar MFA, mantener sesión corta,
+cierre federado y revocación server-side de membresías. La invitación no es un
+factor de autenticación y se retira del diseño. Antes de habilitar acciones
+financieras de alto riesgo se debe adjudicar un step-up verificable o una
+identidad empresarial administrada.
 
 ## Decision humana
 
-- Estado: Proposed
-- Aprobador: pendiente (Security + Product; `FOUNDER-01` puede decidir riesgo,
-  pero no cuenta como revision independiente)
+- Estado: Proposed para assurance/step-up; la apertura pública sin invitaciones
+  fue aceptada por `FOUNDER-01` en IMP-020.
+- Aprobador: pendiente para assurance (Security; `FOUNDER-01` no cuenta como
+  revisión independiente)
 - Fecha: pendiente
-- ADR o cambio requerido: adjudicar y actualizar ADR-012/DRG-00
+- ADR o cambio requerido: adjudicar assurance en ADR-012 antes de acciones de
+  alto riesgo; DRG-00 continúa sin cambios.
