@@ -7,7 +7,7 @@ from pathlib import Path
 from tools.data_disposal import DisposalPolicy
 
 from .lab import AccessGrant, LabController, LabError, LabManifest, LabPolicy, opaque
-from .runtime import validate_compose
+from .runtime import IMAGE, validate_compose
 
 
 NOW = "2026-08-29T12:00:00Z"
@@ -108,6 +108,15 @@ class LabTests(unittest.TestCase):
     def test_compose_contract_has_two_networkless_services(self) -> None:
         path = Path(__file__).resolve().parents[2] / "infra/drg00-lab/compose.yaml"
         self.assertEqual([], validate_compose(path))
+
+    def test_ci_stages_the_exact_probe_image_before_networkless_execution(self) -> None:
+        root = Path(__file__).resolve().parents[2]
+        workflow = (root / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+        pull = f"docker pull\n          {IMAGE}"
+        probe = "python -m tools.drg00_drill.cli"
+        self.assertEqual(1, workflow.count(pull))
+        self.assertLess(workflow.index(pull), workflow.index(probe))
+        self.assertNotIn("docker pull\n          python:3.12\n", workflow)
 
 
 if __name__ == "__main__":

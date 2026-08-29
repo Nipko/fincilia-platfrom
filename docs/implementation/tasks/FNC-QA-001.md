@@ -20,6 +20,8 @@ backup, tombstone, purga, restore, reaplicación y destrucción del laboratorio.
 
 - `tools/drg00_drill/**` y `tests/drg00/**`.
 - `docs/implementation/evidence/FNC-QA-001.json`.
+- `.github/workflows/ci.yml` para precargar por digest la imagen de la sonda;
+  el runtime conserva `--pull never` y `--network none`.
 - Ficha, handoff y registros centrales por Integration Steward.
 
 # Criterios de aceptación

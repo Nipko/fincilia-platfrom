@@ -86,6 +86,10 @@ jobs:
           tools.data_disposal.test_service
           tools.drg00_lab.test_lab
           tools.drg00_drill.test_runner -v
+      - name: Stage the exact DRG-00 probe image by digest
+        run: >-
+          docker pull
+          python:3.12@sha256:a116514e19457bcb7af7efe9c3dd0b9b71e85b317694e7882a1c52aa15a78134
       - name: Replay the twelve DRG-00 controls in networkless containers
         env:
           PYTHONPATH: packages/contracts/python
