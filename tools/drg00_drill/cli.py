@@ -10,10 +10,20 @@ from .runner import ROOT, run_drill
 DEFAULT_OUTPUT = ROOT / "docs/implementation/evidence/FNC-QA-001.json"
 
 
-def main() -> int:
+def _summary(report: dict) -> dict:
+    return {
+        "ok": True,
+        "test_count": report["test_count"],
+        "passed_count": report["passed_count"],
+        "evidence_sha256": report["evidence_sha256"],
+        "output_written": True,
+    }
+
+
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="fincilia-drg00-drill")
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     try:
         report = run_drill()
     except Exception as error:  # noqa: BLE001 - evidencia fail-closed
@@ -24,12 +34,7 @@ def main() -> int:
         json.dumps(report, ensure_ascii=True, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
-    print(json.dumps({
-        "ok": True, "test_count": report["test_count"],
-        "passed_count": report["passed_count"],
-        "evidence_sha256": report["evidence_sha256"],
-        "output": args.output.relative_to(ROOT).as_posix(),
-    }, sort_keys=True))
+    print(json.dumps(_summary(report), sort_keys=True))
     return 0
 
 

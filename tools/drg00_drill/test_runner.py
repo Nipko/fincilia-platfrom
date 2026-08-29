@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import unittest
 
+from .cli import _summary
 from .runner import TEST_IDS, run_drill
 
 
@@ -35,6 +36,12 @@ class DrillTests(unittest.TestCase):
 
         with self.assertRaises(RuntimeError):
             run_drill(probe=bad_probe)
+
+    def test_success_summary_never_discloses_or_relativizes_output_path(self) -> None:
+        summary = _summary(run_drill(probe=fake_probe))
+        self.assertTrue(summary["output_written"])
+        self.assertNotIn("output", summary)
+        self.assertNotIn("path", str(summary).lower())
 
 
 if __name__ == "__main__":
