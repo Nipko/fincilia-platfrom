@@ -1,7 +1,7 @@
 ---
 id: FNC-IAM-003
 title: Cierre operativo de identidad administrada
-status: in_progress
+status: review_pending
 implementer: Codex principal dev + Integration Steward
 base_sha: 46d57a3025d7402c7a90b4cb7e8002c50bc02a68
 gate: DRG-00
@@ -51,3 +51,10 @@ beta cerrada sin convertir el IdP en fuente de autorización financiera.
 
 Autorizar datos reales, almacenar contraseñas, usar claims de Google como roles,
 acceder a APIs Google, aceptar revisiones humanas o desplegar el plano AWS.
+
+# Evidencia integrada
+
+- Logout y cookies: `e0f8154`.
+- Contrato Cognito/assurance: `3fc4341`.
+- Sonda live redactada: `c0d9ef0`.
+- Handoff: `docs/implementation/handoffs/FNC-IAM-003.md`.

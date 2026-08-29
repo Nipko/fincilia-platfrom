@@ -22,6 +22,7 @@ Registro append-only. Una corrección crea una nueva decisión que sustituye a l
 | IMP-016 | 2026-08-24 | GOVERNANCE | Rejected | No se adjudica el paquete técnico bajo una identidad Founder única; las diez decisiones conservan su estado en los contratos fuente | Founder + owners afectados | Corrección FNC-GOV-001-R1; retira la propuesta de adjudicación conjunta |
 | IMP-017 | 2026-08-25 | GOVERNANCE/ADR | Accepted | `FOUNDER-01` asume provisionalmente los siete roles accountable y aprueba el paquete recomendado de diez decisiones y ADR-001..010/023/024; no cuenta como revisor independiente y ADR-026/027 quedan fuera | FOUNDER-01 | Instrucción humana vigente; `founder-governance.json`; sustituye las interpretaciones previas solo respecto del gobierno y paquete ahora aprobados |
 | IMP-018 | 2026-08-26 | PRODUCT/ADR | Proposed | Modelar primero propuestas manuales 1:N/N:1 de movimientos completos, sin N:M, asignaciones, confirmación ni efecto financiero | Accounting + Architecture + Product | ADR-028; FNC-REC-005; revisión independiente pendiente |
+| IMP-019 | 2026-08-29 | SECURITY/IDENTITY | Proposed | Para la beta Google, no afirmar MFA no demostrable; usar invitacion nominal, sesion corta y assurance federado hasta decidir step-up o identidad empresarial | Security + Product | `decision_requests/FNC-IAM-003-FEDERATED-MFA.md`; revision independiente pendiente |
 
 ## Campos para nuevas decisiones
 

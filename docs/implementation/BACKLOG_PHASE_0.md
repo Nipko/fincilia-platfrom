@@ -158,7 +158,7 @@ dependencias de `FNC-GAT-002` ni afirmar que Sprint 1 está habilitado.
 | FNC-PLT-014 | A2 | PLT-012 | Review pending | Actividades AWS Credits completadas con USD 200 disponibles; laboratorio sintético retirado por completo |
 | FNC-IAM-001 | A3/A6 | ONB-002, SEC-001, LEG-002 | In progress | Google OIDC/Cognito con PKCE preparado; activación real bloqueada por DRG-00 |
 | FNC-IAM-002 | A3/A6 | IAM-001, ONB-002, QA-007 | Review pending | Centro de cuenta y recorrido coherente de identidad, sesión, empresas y roles |
-| FNC-IAM-003 | A2/A3/A6 | IAM-001, IAM-002, PLT-012 | In progress | Logout federado, SignUp nativo cerrado y contrato de assurance Google sin sobreafirmar MFA |
+| FNC-IAM-003 | A2/A3/A6 | IAM-001, IAM-002, PLT-012 | Review pending | Logout federado, SignUp nativo cerrado y contrato de assurance Google sin sobreafirmar MFA |
 | FNC-ACC-001 | A4/A5/A6 | ING-005, REC-006, CLS-005, RPT-001 | Review pending | Recorrido contable web guiado sin cambiar semántica ni ejecutar cierre |
 | FNC-UX-003 | A6 | WEB-004, UX-001, IAM-002, ACC-001 | Review pending | Shell SaaS premium, navegación jerárquica, motion accesible y responsive |
 | FNC-LEG-002 | A3/A6 | PRV-001, LEG-001 | In progress | Centro legal público Fincilia desarrollado por Parallext.com; textos sujetos a revisión jurídica |
