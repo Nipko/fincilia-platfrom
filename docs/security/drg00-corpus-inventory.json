@@ -1,0 +1,31 @@
+{
+  "schema_version": "1.0.0",
+  "task_id": "FNC-DAT-003",
+  "status": "implemented_review_pending",
+  "data_ceiling": "synthetic_only",
+  "real_data_authorized": false,
+  "storage_format": "append_only_ndjson_hash_chain",
+  "identity": {
+    "artifact_ref": "opaque_sha256",
+    "company_ref": "opaque_sha256",
+    "operation_ref": "opaque_sha256"
+  },
+  "events": [
+    "intake", "promotion", "rejection", "derivation", "backup",
+    "tombstone", "purge", "restore_repurge", "destroy"
+  ],
+  "zones": ["quarantine", "evidence", "derived", "backup", "scratch"],
+  "forbidden_fields": [
+    "filename", "email", "company_name", "account_number", "amount",
+    "document_content", "token", "secret"
+  ],
+  "invariants": [
+    "event_digest_covers_every_field_except_itself",
+    "every_event_links_the_previous_digest",
+    "operation_ref_is_idempotent_and_cannot_diverge",
+    "object_refs_are_zone_plus_sha256_only",
+    "tombstone_precedes_purge",
+    "reconciliation_compares_ledger_with_all_known_zones"
+  ],
+  "human_review": "pending_independent_review"
+}

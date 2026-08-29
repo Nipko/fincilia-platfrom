@@ -1,0 +1,39 @@
+{
+  "schema_version": "1.0.0",
+  "task_id": "FNC-PRV-003",
+  "status": "implemented_review_pending",
+  "data_ceiling": "synthetic_only",
+  "real_data_authorized": false,
+  "l01_state": "pending_independent_legal_adjudication",
+  "required_order": [
+    "validate_effective_policy",
+    "append_and_fsync_tombstone",
+    "append_inventory_tombstone",
+    "remove_every_known_copy",
+    "append_purge_receipt",
+    "reconcile_inventory_and_zones"
+  ],
+  "restore_order": [
+    "restore_encrypted_backup_into_closed_environment",
+    "load_delete_ledger_outside_ordinary_restore",
+    "reapply_every_tombstone",
+    "reconcile_inventory_and_zones",
+    "write_readiness_receipt"
+  ],
+  "invariants": [
+    "delete_ledger_days_must_exceed_longest_backup_days",
+    "no_unlink_before_durable_tombstone",
+    "retry_is_idempotent",
+    "restore_cannot_be_ready_before_tombstone_reconciliation",
+    "receipts_are_digest_only",
+    "any_unaccounted_copy_blocks_completion"
+  ],
+  "synthetic_drill_policy": {
+    "policy_id": "SYNTHETIC-TEST-POLICY",
+    "retention_days": 0,
+    "backup_days": 7,
+    "delete_ledger_days": 8,
+    "authorizes_real_data": false
+  },
+  "human_review": "pending_legal_privacy_security_platform"
+}

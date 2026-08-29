@@ -19,7 +19,7 @@ financiero.
 
 # Rutas
 
-- `docs/data/drg00-corpus-inventory.json` y documentación.
+- `docs/security/drg00-corpus-inventory.json` y documentación.
 - `tools/corpus_inventory/**`.
 - Ficha, handoff, evidencia y registros centrales por Integration Steward.
 
