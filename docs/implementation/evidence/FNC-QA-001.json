@@ -1,0 +1,123 @@
+{
+  "data_classification": "completely_synthetic",
+  "evidence_sha256": "7f17c320cadae9c4f2287af0d9e721993e453ed69b609c82c372bfb3dda1ee47",
+  "executed_at": "2026-08-29T12:00:00Z",
+  "failed_count": 0,
+  "limitations": [
+    "no_real_data_was_received",
+    "product_release_remains_unadmitted_until_signature_and_provenance",
+    "human_legal_privacy_region_and_independent_reviews_remain_pending"
+  ],
+  "passed_count": 12,
+  "real_data_authorized": false,
+  "schema_version": "1.0.0",
+  "task_id": "FNC-QA-001",
+  "technical_controls": {
+    "G00-DELETE": [
+      "LAB-T09",
+      "LAB-T10"
+    ],
+    "G00-DRILL": [
+      "LAB-T01",
+      "LAB-T02",
+      "LAB-T03",
+      "LAB-T04",
+      "LAB-T05",
+      "LAB-T06",
+      "LAB-T07",
+      "LAB-T08",
+      "LAB-T09",
+      "LAB-T10",
+      "LAB-T11",
+      "LAB-T12"
+    ],
+    "G00-INVENTORY": [
+      "LAB-T04",
+      "LAB-T05",
+      "LAB-T06",
+      "LAB-T08"
+    ],
+    "G00-ISOLATED-ENV": [
+      "LAB-T01",
+      "LAB-T02",
+      "LAB-T03",
+      "LAB-T11",
+      "LAB-T12"
+    ]
+  },
+  "test_count": 12,
+  "tests": [
+    {
+      "assertion": "public_ingress_and_public_ips_absent",
+      "evidence_sha256": "bbe2f79ba9fbc43304b14891a1662b9a0b7abaf438a92ff1043f5b49fc0fa462",
+      "id": "LAB-T01",
+      "state": "passed"
+    },
+    {
+      "assertion": "quarantine_cannot_resolve_or_reach_external_endpoint",
+      "evidence_sha256": "07b31a667002b8a3016801dc8e0a1d5db7d95d42ea466a7e772f27e40966e941",
+      "id": "LAB-T02",
+      "state": "passed"
+    },
+    {
+      "assertion": "processing_cannot_reach_external_endpoint",
+      "evidence_sha256": "161e5bb0ab366d9056bf1820954a65a9b480b8369a0c9009ecf6871a517c61d6",
+      "id": "LAB-T03",
+      "state": "passed"
+    },
+    {
+      "assertion": "hostile_active_or_pan_fixture_never_reaches_raw",
+      "evidence_sha256": "6bebf031bb2b7c0308788af4f85067fa41689caaae55b988f023f99e3fd36765",
+      "id": "LAB-T04",
+      "state": "passed"
+    },
+    {
+      "assertion": "cross_company_read_write_and_object_key_access_denied",
+      "evidence_sha256": "321036b26426e9286f605eac6e26b07eaf86eb82174478863355d91b614d0d8d",
+      "id": "LAB-T05",
+      "state": "passed"
+    },
+    {
+      "assertion": "revoked_user_session_job_and_download_fail",
+      "evidence_sha256": "8da7531a3867012af295da9711c7f0351319e25d24239fd65cb3710a8c0ebf63",
+      "id": "LAB-T06",
+      "state": "passed"
+    },
+    {
+      "assertion": "shared_account_static_key_and_password_only_login_fail",
+      "evidence_sha256": "e6bdb4a5e72c4a21b500be371d5a234cb45f4b7899d719d0bd6d4c32ff6fdce3",
+      "id": "LAB-T07",
+      "state": "passed"
+    },
+    {
+      "assertion": "logs_and_errors_contain_only_allowlisted_metadata",
+      "evidence_sha256": "9537ac36c568d9c2e46b5ba7b3d932c6894c991d97eeda515669db02dd6bcb7e",
+      "id": "LAB-T08",
+      "state": "passed"
+    },
+    {
+      "assertion": "restore_reapplies_tombstones_before_health_ready",
+      "evidence_sha256": "15c06c390726c3270541ed0e27b0d6d9feb805f9a20f79d02e9e0ed2146b04f6",
+      "id": "LAB-T09",
+      "state": "passed"
+    },
+    {
+      "assertion": "lab_destroy_reconciles_all_active_derived_and_backup_inventory",
+      "evidence_sha256": "9db21527c748d3fac4798941cc8ed88894db5241125e48058aff718ffe5576f0",
+      "id": "LAB-T10",
+      "state": "passed"
+    },
+    {
+      "assertion": "unsigned_or_unprovenanced_image_cannot_start",
+      "evidence_sha256": "05e2a18bc41ec11f14db809b706d2092064761c06310372ba7138abb9e7b81e3",
+      "id": "LAB-T11",
+      "state": "passed"
+    },
+    {
+      "assertion": "break_glass_requires_two_distinct_humans_and_post_review",
+      "evidence_sha256": "71bdf01599f8b7145cb8efa01177ad3c1fab9682d78a2aafe52157a9bb8cf31d",
+      "id": "LAB-T12",
+      "state": "passed"
+    }
+  ]
+}
