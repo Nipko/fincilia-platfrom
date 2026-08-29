@@ -126,6 +126,64 @@ class PrivatePilotContractTests(unittest.TestCase):
     def test_minimum_safe_plan_is_valid(self) -> None:
         self.assertEqual([], validate_plan(self.valid_plan(), self.model))
 
+    def test_provider_normalized_oidc_scope_order_is_valid(self) -> None:
+        plan = self.valid_plan()
+        client = next(item for item in plan["resource_changes"]
+                      if item["type"] == "aws_cognito_user_pool_client")
+        client["change"]["after"]["allowed_oauth_scopes"] = [
+            "email", "openid", "profile",
+        ]
+        self.assertEqual([], validate_plan(plan, self.model))
+
+    def test_provider_string_true_for_valkey_at_rest_is_valid(self) -> None:
+        plan = self.valid_plan()
+        cache = next(item for item in plan["resource_changes"]
+                     if item["type"] == "aws_elasticache_replication_group")
+        cache["change"]["after"]["at_rest_encryption_enabled"] = "true"
+        self.assertEqual([], validate_plan(plan, self.model))
+
+    def test_provider_string_false_for_valkey_at_rest_dies(self) -> None:
+        plan = self.valid_plan()
+        cache = next(item for item in plan["resource_changes"]
+                     if item["type"] == "aws_elasticache_replication_group")
+        cache["change"]["after"]["at_rest_encryption_enabled"] = "false"
+        self.assertTrue(any("Valkey" in item
+                            for item in validate_plan(plan, self.model)))
+
+    def test_two_planned_public_subnets_satisfy_unknown_alb_ids(self) -> None:
+        plan = self.valid_plan()
+        load_balancer = next(item for item in plan["resource_changes"]
+                             if item["type"] == "aws_lb")
+        load_balancer["change"]["after"].pop("subnets")
+        load_balancer["change"]["after_unknown"] = {"subnets": True}
+        plan["resource_changes"].extend([
+            {
+                "address": f"aws_subnet.public[{index}]",
+                "mode": "managed", "type": "aws_subnet",
+                "change": {"actions": ["create"], "after": {
+                    "map_public_ip_on_launch": False,
+                }},
+            }
+            for index in range(2)
+        ])
+        self.assertEqual([], validate_plan(plan, self.model))
+
+    def test_unknown_alb_ids_without_two_public_subnets_dies(self) -> None:
+        plan = self.valid_plan()
+        load_balancer = next(item for item in plan["resource_changes"]
+                             if item["type"] == "aws_lb")
+        load_balancer["change"]["after"].pop("subnets")
+        load_balancer["change"]["after_unknown"] = {"subnets": True}
+        plan["resource_changes"].append({
+            "address": "aws_subnet.public[0]",
+            "mode": "managed", "type": "aws_subnet",
+            "change": {"actions": ["create"], "after": {
+                "map_public_ip_on_launch": False,
+            }},
+        })
+        self.assertTrue(any("dos subredes" in item
+                            for item in validate_plan(plan, self.model)))
+
     def test_plan_with_public_ecs_task_dies(self) -> None:
         plan = self.valid_plan()
         service = next(item for item in plan["resource_changes"]

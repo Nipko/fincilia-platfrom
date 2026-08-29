@@ -219,6 +219,7 @@ def validate_plan(plan: dict[str, Any], model: dict[str, Any]) -> list[str]:
     if not changes:
         return ["plan sin recursos administrados"]
     present = {item.get("type") for item in changes}
+    planned_addresses = {str(item.get("address", "")) for item in changes}
     for resource_type in sorted(required - present):
         errors.append(f"plan no contiene recurso requerido {resource_type}")
 
@@ -227,6 +228,7 @@ def validate_plan(plan: dict[str, Any], model: dict[str, Any]) -> list[str]:
         resource_type = item.get("type")
         actions = item.get("change", {}).get("actions", [])
         after = item.get("change", {}).get("after") or {}
+        after_unknown = item.get("change", {}).get("after_unknown") or {}
         if resource_type in forbidden:
             errors.append(f"{address}: tipo prohibido {resource_type}")
         if "delete" in actions and "create" not in actions:
@@ -249,8 +251,11 @@ def validate_plan(plan: dict[str, Any], model: dict[str, Any]) -> list[str]:
             if after.get("manage_master_user_password") is not True:
                 errors.append(f"{address}: password master debe administrarlo RDS")
         elif resource_type == "aws_elasticache_replication_group":
+            # AWS provider 6.59 serializes at_rest_encryption_enabled as the
+            # string "true" in a saved-plan JSON while transit encryption is
+            # a JSON boolean. Fail closed for every other representation.
             if after.get("transit_encryption_enabled") is not True or \
-                    after.get("at_rest_encryption_enabled") is not True:
+                    after.get("at_rest_encryption_enabled") not in (True, "true"):
                 errors.append(f"{address}: Valkey debe cifrar transito y reposo")
         elif resource_type == "aws_s3_bucket":
             if after.get("force_destroy") is not False:
@@ -275,7 +280,23 @@ def validate_plan(plan: dict[str, Any], model: dict[str, Any]) -> list[str]:
                 errors.append(f"{address}: entrada debe ser ALB publico")
             if after.get("enable_deletion_protection") is not True:
                 errors.append(f"{address}: ALB debe proteger borrado")
-            if len(after.get("subnets") or []) != 2:
+            subnets = after.get("subnets")
+            subnets_are_two = isinstance(subnets, list) and len(subnets) == 2
+            if subnets is None and after_unknown.get("subnets") is True:
+                # IDs created in this same plan are unknown until apply, so
+                # OpenTofu omits `after.subnets`. Require the exact two indexed
+                # public subnet resources rather than treating any unknown as
+                # safe.
+                subnets_are_two = {
+                    "aws_subnet.public[0]", "aws_subnet.public[1]",
+                }.issubset(planned_addresses) and not any(
+                    address.startswith("aws_subnet.public[")
+                    and address not in {
+                        "aws_subnet.public[0]", "aws_subnet.public[1]",
+                    }
+                    for address in planned_addresses
+                )
+            if not subnets_are_two:
                 errors.append(f"{address}: ALB requiere dos subredes")
             logs = (after.get("access_logs") or [{}])[0]
             if logs.get("enabled") is not True:
@@ -288,8 +309,9 @@ def validate_plan(plan: dict[str, Any], model: dict[str, Any]) -> list[str]:
         elif resource_type == "aws_cognito_user_pool_client":
             if after.get("generate_secret") is not False:
                 errors.append(f"{address}: el cliente PKCE no lleva secreto en IaC")
+            scopes = after.get("allowed_oauth_scopes") or []
             if after.get("allowed_oauth_flows") != ["code"] or \
-                    after.get("allowed_oauth_scopes") != ["openid", "email", "profile"]:
+                    len(scopes) != 3 or set(scopes) != {"openid", "email", "profile"}:
                 errors.append(f"{address}: flujo/scopes OIDC no son minimos")
         elif resource_type == "aws_vpc":
             if after.get("cidr_block") != "10.60.0.0/16":
