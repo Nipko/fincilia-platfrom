@@ -192,6 +192,7 @@ export default async function CompanyPage({
       </header>
 
       <nav className="workspace-nav" aria-label="Navegacion de la empresa">
+          <Link href={`/empresas/${companyId}/flujo-contable`}><span aria-hidden="true">→</span> Flujo contable</Link>
           {company.permissions.includes('report.read') ? (
             <><Link href={`/informes?empresa=${companyId}`}><span aria-hidden="true">▥</span> Informes</Link>
               <Link href={`/preparacion-cierre?empresa=${companyId}`}><span aria-hidden="true">◎</span>
