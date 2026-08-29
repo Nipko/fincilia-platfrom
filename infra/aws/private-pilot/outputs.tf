@@ -24,11 +24,13 @@ output "required_dns_records" {
 
 output "cognito" {
   value = {
-    user_pool_id      = aws_cognito_user_pool.pilot.id
-    web_client_id     = aws_cognito_user_pool_client.web.id
-    hosted_ui_domain  = local.oidc_base
-    callback_uri      = "https://${var.pilot_domain}/api/auth/callback/cognito"
-    google_configured = false
+    user_pool_id             = aws_cognito_user_pool.pilot.id
+    web_client_id            = aws_cognito_user_pool_client.web.id
+    hosted_ui_domain         = local.oidc_base
+    google_javascript_origin = local.oidc_base
+    google_redirect_uri      = "${local.oidc_base}/oauth2/idpresponse"
+    callback_uri             = "https://${var.pilot_domain}/api/auth/callback/cognito"
+    google_configured        = false
   }
 }
 

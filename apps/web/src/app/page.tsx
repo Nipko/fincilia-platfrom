@@ -45,11 +45,18 @@ export default async function Home() {
 
       <section className="public-trust card">
         <div><p className="eyebrow">Construido con trazabilidad</p><h2>Privacidad visible desde el inicio.</h2></div>
-        <p>
-          Conoce qué tratamos, qué no hacemos y cómo se elimina una cuenta antes
-          de registrarte. Fincilia es desarrollado por{' '}
-          <a href="https://parallext.com" rel="noreferrer" target="_blank">Parallext.com</a>.
-        </p>
+        <div>
+          <p>
+            Conoce qué tratamos, qué no hacemos y cómo se elimina una cuenta antes
+            de registrarte. Fincilia es desarrollado por{' '}
+            <a href="https://parallext.com" rel="noreferrer" target="_blank">Parallext.com</a>.
+          </p>
+          <p>
+            Al habilitar el acceso con Google, Fincilia usará únicamente el
+            identificador, nombre y correo verificado para autenticar tu cuenta.
+            No pedirá acceso a Gmail, Drive, contactos ni calendario.
+          </p>
+        </div>
         <Link href="/privacidad">Leer política de privacidad</Link>
       </section>
     </main>

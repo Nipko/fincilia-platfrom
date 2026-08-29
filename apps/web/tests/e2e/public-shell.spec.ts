@@ -53,6 +53,7 @@ test.describe('recorrido publico sin secretos', () => {
     })).toBeVisible();
     await expect(page.getByText('Beta cerrada · solo datos inventados'))
       .toBeVisible();
+    await expect(page.getByText(/No pedirá acceso a Gmail, Drive/)).toBeVisible();
     await page.getByRole('link', { name: 'Leer política de privacidad' }).click();
 
     await expect(page).toHaveURL(/\/privacidad$/);

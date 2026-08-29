@@ -27,6 +27,10 @@ continúa resolviendo `subject_id`, firma, empresa, membresía y roles.
   URLs propias, respuestas, auditoría o logs. Correo y `sub` se referencian por
   HMAC con claves versionadas.
 - El modo local permanece separado y rotulado como laboratorio sintético.
+- `docs/platform/GOOGLE_OAUTH_PUBLICATION.md` fija los datos requeridos, las
+  páginas públicas y la matriz Google→Cognito→Fincilia sin almacenar secretos.
+- El output no sensible `cognito` expone por separado origen/redirect de Google
+  y callback de Fincilia para impedir que se intercambien al configurar.
 
 ## Evidencia reproducible
 

@@ -43,5 +43,7 @@ fuente de autorización financiera o activar OAuth real antes de DRG-00.
 - Backend y persistencia: `3ec2893`.
 - BFF, PKCE y experiencia web: `99c9445`.
 - Handoff reproducible: `docs/implementation/handoffs/FNC-IAM-001.md`.
+- Runbook de dominio, branding, Google y doble callback:
+  `docs/platform/GOOGLE_OAUTH_PUBLICATION.md`.
 - Estado: implementación lista para revisión; configuración externa, DRG-00 y
   revisores independientes continúan pendientes.

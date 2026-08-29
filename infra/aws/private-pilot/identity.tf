@@ -66,8 +66,9 @@ resource "aws_cognito_user_pool_client" "web" {
   enable_token_revocation       = true
   prevent_user_existence_errors = "ENABLED"
 
-  # Google se configura fuera de IaC porque su client secret no puede entrar al
-  # estado. La revision del provider es una evidencia DRG separada.
+  # Google se configura siguiendo docs/platform/GOOGLE_OAUTH_PUBLICATION.md,
+  # fuera de IaC porque su client secret no puede entrar al estado. La revision
+  # del provider es una evidencia DRG separada.
   lifecycle {
     ignore_changes  = [supported_identity_providers]
     prevent_destroy = true
