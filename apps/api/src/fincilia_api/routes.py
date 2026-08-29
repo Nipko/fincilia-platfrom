@@ -489,9 +489,17 @@ def _my_companies(request: Request, principal: Principal) -> list[CompanySummary
 def me(request: Request,
              principal: Principal = Depends(principal_dependency)) -> dict:
     companies = _my_companies(request, principal)
+    managed_identity = request.app.state.settings.oidc_enabled
     return {
         "subject_id": principal.subject_id,
         "display_name": principal.display_name,
+        # Contexto de experiencia, no identidad externa. El issuer real, el
+        # correo y el subject del IdP no salen de esta frontera.
+        "identity_mode": "managed_oidc" if managed_identity else "local_synthetic",
+        "credential_management": (
+            "external_identity_provider" if managed_identity else "synthetic_demo_only"
+        ),
+        "session_issued_at": principal.claims.issued_at,
         "session_expires_at": principal.claims.expires_at,
         "companies": [item.model_dump() for item in companies],
     }

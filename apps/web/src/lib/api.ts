@@ -60,6 +60,9 @@ export type AuditFilters = {
 export type Me = {
   subject_id: string;
   display_name: string;
+  identity_mode: 'managed_oidc' | 'local_synthetic';
+  credential_management: 'external_identity_provider' | 'synthetic_demo_only';
+  session_issued_at: number;
   session_expires_at: number;
   companies: CompanySummary[];
 };

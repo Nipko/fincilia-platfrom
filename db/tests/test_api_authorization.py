@@ -233,6 +233,15 @@ class ApiAuthorizationTests(unittest.TestCase):
                  for item in body["companies"]}
         self.assertEqual(1, len(firms))
 
+    def test_me_exposes_minimal_session_context_without_external_identity(self) -> None:
+        body = self.client.get("/api/v1/me", headers=self.auth("ana@demo.local")).json()
+        self.assertEqual("local_synthetic", body["identity_mode"])
+        self.assertEqual("synthetic_demo_only", body["credential_management"])
+        self.assertLess(body["session_issued_at"], body["session_expires_at"])
+        forbidden = {"email", "username", "token", "issuer", "external_subject_ref",
+                     "secret", "secret_hash", "salt"}
+        self.assertTrue(forbidden.isdisjoint(body))
+
     def company_detail(self, username: str, company_id: str) -> dict:
         response = self.client.get(f"/api/v1/companies/{company_id}",
                                    headers=self.auth(username))

@@ -11,6 +11,7 @@ const ITEMS = [
   { href: '/informes', label: 'Informes' },
   { href: '/preparacion-cierre', label: 'Cierre' },
   { href: '/auditoria', label: 'Auditoria' },
+  { href: '/cuenta', label: 'Cuenta' },
 ] as const;
 
 export function GlobalNavigation({ authenticated }: { authenticated: boolean }) {
