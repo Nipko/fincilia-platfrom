@@ -44,9 +44,10 @@ esté autorizado.
 
 FNC-PLT-004, FNC-DAT-003, FNC-PRV-003 y FNC-QA-001 materializaron y ejercitaron
 el laboratorio con fixtures completamente sintéticos. Los doce casos
-`LAB-T01..T12` pasaron y el agregador verifica el digest y el mapeo de la
-evidencia antes de contar los cuatro controles automáticos.
+`LAB-T01..T12` pasaron y el agregador verifica el digest y el mapeo antes de
+contar inventario, borrado y drill. El aislamiento productivo permanece pendiente
+hasta admitir una release firmada/provenanced y un IdP administrado.
 
-DRG-00 permanece `not_met`: `G00-LEGAL`, `G00-RETENTION`, `G00-REGION` y
-`G00-INDEPENDENT-REVIEW` siguen pendientes y deben ser aceptados por personas
-nominales distintas de `FOUNDER-01`. Por tanto el techo continúa sintético.
+DRG-00 permanece `not_met`: además de los cuatro controles humanos siguen
+pendientes `G00-ISOLATED-ENV` y `G00-SUPPLY-CHAIN`. Por tanto el techo continúa
+sintético y ninguna release está admitida para documentos reales.

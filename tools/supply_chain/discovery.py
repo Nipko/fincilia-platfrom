@@ -97,7 +97,7 @@ BOUNDED_INSTALL = re.compile(
 
 VENDORED_PARTS = frozenset({
     "node_modules", "vendor", ".venv", "venv", "__pycache__", ".git", "dist", "build",
-    ".mypy_cache", ".pytest_cache", ".ruff_cache", "site-packages",
+    ".mypy_cache", ".pytest_cache", ".ruff_cache", ".terraform", "site-packages",
 })
 
 

@@ -77,6 +77,21 @@ jobs:
         run: >-
           python -m unittest discover
           -s packages/platform/python -t packages/platform/python
+      - name: DRG-00 inventory, disposal and isolated-lab units
+        env:
+          PYTHONPATH: packages/contracts/python
+        run: >-
+          python -m unittest
+          tools.corpus_inventory.test_ledger
+          tools.data_disposal.test_service
+          tools.drg00_lab.test_lab
+          tools.drg00_drill.test_runner -v
+      - name: Replay the twelve DRG-00 controls in networkless containers
+        env:
+          PYTHONPATH: packages/contracts/python
+        run: |
+          python -m tools.drg00_drill.cli --output "$RUNNER_TEMP/FNC-QA-001.json"
+          cmp docs/implementation/evidence/FNC-QA-001.json "$RUNNER_TEMP/FNC-QA-001.json"
       - name: Validate executable architecture model
         run: python -m tools.architecture_model.validate
       - name: Validate ADR readiness packet

@@ -1,7 +1,7 @@
 ---
 id: FNC-PLT-004
 title: Ambiente aislado reproducible para corpus DRG-00
-status: in_progress
+status: review_pending
 implementer: Codex principal dev + Integration Steward
 base_sha: 0c11e0fe2269d915f84201cb6b13dad96432ac70
 gate: DRG-00

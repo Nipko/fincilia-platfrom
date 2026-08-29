@@ -17,15 +17,16 @@ class Drg01ReadinessTests(unittest.TestCase):
         payload = report(self.model)
         self.assertTrue(payload["ok"])
         self.assertFalse(payload["real_data_authorized"])
-        self.assertEqual(17, payload["blocker_count"])
+        self.assertEqual(18, payload["blocker_count"])
         self.assertEqual(["DRG-00", "DRG-01"], [item["id"] for item in payload["gates"]])
         technical = {
             item["id"]: item["state"] for item in self.model["controls"]
             if item["id"].startswith("G00-") and item["kind"] == "automated"
         }
         self.assertEqual({
-            "G00-ISOLATED-ENV": "passed", "G00-INVENTORY": "passed",
+            "G00-ISOLATED-ENV": "pending", "G00-INVENTORY": "passed",
             "G00-DELETE": "passed", "G00-DRILL": "passed",
+            "G00-SUPPLY-CHAIN": "pending",
         }, technical)
 
     def test_scope_widening_bites(self) -> None:
