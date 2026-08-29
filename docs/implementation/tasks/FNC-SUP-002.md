@@ -5,7 +5,7 @@ epic: FNC-EP-PLATFORM
 phase: F0
 iteration: E1
 type: implementation
-status: in_progress
+status: review_pending
 priority: P0
 accountable_owner: FOUNDER-01
 agent_lane: Platform/SRE
@@ -72,3 +72,14 @@ sus tags y la revisión de Security siguen siendo independientes.
 
 Retirar los dos pasos de attestation y descartar el candidato. No hay migración,
 datos ni runtime persistente.
+
+# Evidencia obtenida
+
+- Workflow `33256843904`, SHA fuente
+  `1aa44c29af51709e7f675cdeee76c453fc30f416`, conclusión `success`.
+- Sujeto `fincilia-release.tar.gz` con SHA-256
+  `81b87a7d161f002bc74acf08c3b26ab2009bfcaa8870d5a7f5c538817560d32e`.
+- Predicados verificados dentro y fuera del runner:
+  `https://slsa.dev/provenance/v1` y `https://spdx.dev/Document/v2.3`.
+- 27 pruebas de release, 80 de supply-chain y 10 de política focales verdes.
+- SBOM/firma/procedencia pasan; origen independiente de Actions sigue pendiente.
