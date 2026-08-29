@@ -17,7 +17,7 @@ test.describe('FNC-WEB-004 · shell visual responsive', () => {
   }) => {
     await page.goto('/entrar');
 
-    await expect(page.getByLabel('Fincilia, ir al portafolio')).toBeVisible();
+    await expect(page.getByLabel('Fincilia, ir al inicio')).toBeVisible();
     await expect(page.getByRole('heading', { level: 1, name: 'Fincilia' })).toBeVisible();
     await expectNoPageOverflow(page);
 
