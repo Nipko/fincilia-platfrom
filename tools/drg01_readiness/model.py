@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -30,6 +31,10 @@ HUMAN_IDS = {
 }
 PREREQUISITE_IDS = {"D01-DRG00"}
 ALLOWED_DOCUMENTS = ["csv", "xlsx", "pdf"]
+DRG00_TECHNICAL_EVIDENCE = "docs/implementation/evidence/FNC-QA-001.json"
+DRG00_TECHNICAL_IDS = {
+    "G00-ISOLATED-ENV", "G00-INVENTORY", "G00-DELETE", "G00-DRILL",
+}
 PROHIBITED_DATA = [
     "payment_card", "payroll", "government_identity", "health", "credentials",
 ]
@@ -74,6 +79,47 @@ def _control_satisfied(control: dict[str, Any], drg00_ready: bool) -> bool:
     if kind == "prerequisite":
         return control.get("state") == "passed" and drg00_ready
     return False
+
+
+def _validate_drg00_technical_evidence() -> list[Finding]:
+    path = ROOT / DRG00_TECHNICAL_EVIDENCE
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        return [Finding("DRG-TECH-EVIDENCE", DRG00_TECHNICAL_EVIDENCE,
+                        "technical evidence is absent or unreadable")]
+    findings: list[Finding] = []
+    expected_tests = [f"LAB-T{number:02d}" for number in range(1, 13)]
+    tests = payload.get("tests") if isinstance(payload, dict) else None
+    mappings = payload.get("technical_controls") if isinstance(payload, dict) else None
+    if (
+        payload.get("schema_version") != "1.0.0"
+        or payload.get("task_id") != "FNC-QA-001"
+        or payload.get("data_classification") != "completely_synthetic"
+        or payload.get("real_data_authorized") is not False
+        or payload.get("test_count") != 12
+        or payload.get("passed_count") != 12
+        or payload.get("failed_count") != 0
+        or not isinstance(tests, list)
+        or [item.get("id") for item in tests if isinstance(item, dict)] != expected_tests
+        or any(item.get("state") != "passed" for item in tests if isinstance(item, dict))
+        or not isinstance(mappings, dict)
+        or set(mappings) != DRG00_TECHNICAL_IDS
+        or any(not value for value in mappings.values())
+    ):
+        findings.append(Finding(
+            "DRG-TECH-EVIDENCE", DRG00_TECHNICAL_EVIDENCE,
+            "technical evidence does not prove the four mapped controls"))
+    claimed = payload.get("evidence_sha256")
+    unsigned = {key: value for key, value in payload.items() if key != "evidence_sha256"}
+    observed = hashlib.sha256(json.dumps(
+        unsigned, sort_keys=True, separators=(",", ":")
+    ).encode()).hexdigest()
+    if claimed != observed:
+        findings.append(Finding(
+            "DRG-TECH-DIGEST", DRG00_TECHNICAL_EVIDENCE,
+            "technical evidence digest does not match its content"))
+    return findings
 
 
 def validate(model: dict[str, Any]) -> list[Finding]:
@@ -163,6 +209,15 @@ def validate(model: dict[str, Any]) -> list[Finding]:
             findings.append(Finding("DRG-AUTO-STATE", str(identifier), "technical control state is invalid"))
         if control.get("state") == "accepted" and control.get("reviewer_id") == FOUNDER_ID:
             findings.append(Finding("DRG-SOD", str(identifier), "Founder cannot independently review the control"))
+        if identifier in DRG00_TECHNICAL_IDS and control.get("state") == "passed":
+            if control.get("evidence_refs") != [DRG00_TECHNICAL_EVIDENCE]:
+                findings.append(Finding(
+                    "DRG-TECH-REF", str(identifier),
+                    "DRG-00 technical controls require the adjudicated drill evidence"))
+
+    if any(by_id.get(identifier, {}).get("state") == "passed"
+           for identifier in DRG00_TECHNICAL_IDS):
+        findings.extend(_validate_drg00_technical_evidence())
 
     drg00_ready = all(
         _control_satisfied(by_id.get(identifier, {}), False)

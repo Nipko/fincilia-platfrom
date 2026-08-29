@@ -17,8 +17,16 @@ class Drg01ReadinessTests(unittest.TestCase):
         payload = report(self.model)
         self.assertTrue(payload["ok"])
         self.assertFalse(payload["real_data_authorized"])
-        self.assertEqual(21, payload["blocker_count"])
+        self.assertEqual(17, payload["blocker_count"])
         self.assertEqual(["DRG-00", "DRG-01"], [item["id"] for item in payload["gates"]])
+        technical = {
+            item["id"]: item["state"] for item in self.model["controls"]
+            if item["id"].startswith("G00-") and item["kind"] == "automated"
+        }
+        self.assertEqual({
+            "G00-ISOLATED-ENV": "passed", "G00-INVENTORY": "passed",
+            "G00-DELETE": "passed", "G00-DRILL": "passed",
+        }, technical)
 
     def test_scope_widening_bites(self) -> None:
         candidate = copy.deepcopy(self.model)
@@ -60,6 +68,13 @@ class Drg01ReadinessTests(unittest.TestCase):
         control = next(item for item in candidate["controls"] if item["id"] == "D01-XTENANT")
         control.update({"state": "passed", "evidence_refs": ["docs/missing-evidence.json"]})
         self.assertIn("DRG-EVIDENCE", self.codes(candidate))
+
+    def test_drg00_technical_control_cannot_point_to_narrative(self) -> None:
+        candidate = copy.deepcopy(self.model)
+        control = next(item for item in candidate["controls"]
+                       if item["id"] == "G00-DRILL")
+        control["evidence_refs"] = ["docs/security/DRG01_READINESS.md"]
+        self.assertIn("DRG-TECH-REF", self.codes(candidate))
 
     def test_drg01_cannot_open_before_drg00(self) -> None:
         candidate = copy.deepcopy(self.model)
