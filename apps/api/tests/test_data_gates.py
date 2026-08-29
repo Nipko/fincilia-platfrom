@@ -209,7 +209,7 @@ class PilotSettingsTests(unittest.TestCase):
         return {
             **self.BASE,
             "oidc_enabled": True,
-            "registration_invite_required": True,
+            "oidc_registration_mode": "public_google",
             "oidc_issuer": "https://issuer.example.test/pool",
             "oidc_client_id": "client-123456",
             "oidc_token_endpoint": "https://issuer.example.test/oauth2/token",
@@ -221,15 +221,22 @@ class PilotSettingsTests(unittest.TestCase):
             "identity_gate_kms_key_id": KMS_ARN,
         }
 
-    def test_oidc_needs_https_invites_and_a_dedicated_key(self):
+    def test_oidc_needs_https_public_registration_and_a_dedicated_key(self):
         common = self._oidc_config()
         with isolated_env():
             self.assertTrue(ApiSettings(**common).oidc_enabled)
         for override in (
-            {"registration_invite_required": False},
             {"oidc_token_endpoint": "http://issuer.example.test/token"},
             {"identity_binding_hmac_key": "a" * 40},
         ):
             with self.subTest(override=override), self.assertRaises(ValidationError):
                 with isolated_env():
                     ApiSettings(**{**common, **override})
+
+    def test_public_google_registration_cannot_run_without_oidc(self):
+        with self.assertRaises(ValidationError):
+            with isolated_env():
+                ApiSettings(**{
+                    **self.BASE,
+                    "oidc_registration_mode": "public_google",
+                })

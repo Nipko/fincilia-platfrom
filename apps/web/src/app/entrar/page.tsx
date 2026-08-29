@@ -9,8 +9,9 @@ type SignInPageProps = {
 };
 
 const ERROR_MESSAGES: Record<string, string> = {
-  'managed-rejected': 'No pudimos completar el ingreso. Reintenta con la cuenta invitada.',
+  'managed-rejected': 'No pudimos completar el ingreso. Reintenta con tu cuenta Google.',
   'managed-unavailable': 'El ingreso esta temporalmente fuera de servicio.',
+  'registration-closed': 'El registro esta temporalmente cerrado. Las cuentas existentes pueden ingresar.',
 };
 
 export default async function SignInPage({ searchParams }: SignInPageProps) {
@@ -40,7 +41,7 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
           <p className="eyebrow">Bienvenido</p>
           <h2 id="signin-form-title">Entra a tu espacio</h2>
           <p className="meta">
-            {managed ? 'Usa la cuenta Google que recibio la invitacion.' :
+            {managed ? 'Usa la cuenta Google asociada a tu espacio.' :
               'Usa una cuenta local para continuar.'}
           </p>
         </div>
@@ -61,7 +62,7 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
         </div>
 
         <p className="auth-legal">
-          Al continuar aceptas los <Link href="/terminos">terminos de la beta</Link> y
+          Al continuar aceptas los <Link href="/terminos">terminos del servicio</Link> y
           reconoces nuestra <Link href="/privacidad">politica de privacidad</Link>.
         </p>
 

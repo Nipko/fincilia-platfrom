@@ -29,7 +29,7 @@ from fincilia_platform.identity_refs import (
     hmac_reference,
 )
 
-from .registration import RegistrationError, clean_name, invitation_digest
+from .registration import RegistrationError, clean_name
 from .repository import Subject
 
 
@@ -44,6 +44,8 @@ COGNITO_SUB = re.compile(
 MAX_TOKEN_RESPONSE_BYTES = 16_384
 MAX_JWT_BYTES = 16_384
 MAX_ACCESS_TOKEN_BYTES = 16_384
+TERMS_VERSION = "terms-2026-08-29"
+PRIVACY_VERSION = "privacy-2026-08-29"
 
 
 class OidcError(Exception):
@@ -69,6 +71,7 @@ class ManagedAccount:
     subject_id: str
     display_name: str
     status: str
+    created: bool = False
 
     @property
     def active(self) -> bool:
@@ -229,27 +232,29 @@ def resolve_account(connection: psycopg.Connection, identity: VerifiedIdentity
             (identity.issuer, identity.external_subject_ref),
         )
         row = cursor.fetchone()
-    return ManagedAccount(*row) if row else None
+    return ManagedAccount(*row, created=False) if row else None
 
 
 def register_account(connection: psycopg.Connection, *, identity: VerifiedIdentity,
-                     invite_code: str | None, firm_name: str) -> ManagedAccount:
+                     firm_name: str, terms_version: str,
+                     privacy_version: str) -> ManagedAccount:
     try:
         canonical_firm = clean_name(firm_name, kind="firm name", maximum=300)
-        invite_digest = invitation_digest(invite_code)
     except RegistrationError as error:
         raise OidcError("managed-registration-unavailable", status=422) from error
+    if terms_version != TERMS_VERSION or privacy_version != PRIVACY_VERSION:
+        raise OidcError("managed-registration-unavailable", status=422)
     subject_id = str(uuid.uuid4())
     try:
         with connection.transaction(), connection.cursor() as cursor:
             cursor.execute(
-                "SELECT fincilia.register_external_account_with_invite("
-                "%s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                "SELECT fincilia.register_external_account_public("
+                "%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
                 (
-                    invite_digest, identity.verified_email_ref, subject_id,
-                    str(uuid.uuid4()), str(uuid.uuid4()), identity.issuer,
+                    identity.verified_email_ref, subject_id, str(uuid.uuid4()),
+                    str(uuid.uuid4()), identity.issuer,
                     identity.external_subject_ref, identity.display_name,
-                    canonical_firm,
+                    canonical_firm, terms_version, privacy_version,
                 ),
             )
     except psycopg.errors.UniqueViolation:
@@ -260,4 +265,4 @@ def register_account(connection: psycopg.Connection, *, identity: VerifiedIdenti
     except (psycopg.errors.CheckViolation,
             psycopg.errors.InvalidParameterValue):
         raise OidcError("managed-registration-unavailable", status=422) from None
-    return ManagedAccount(subject_id, identity.display_name, "active")
+    return ManagedAccount(subject_id, identity.display_name, "active", created=True)

@@ -19,6 +19,7 @@ const KEY = Buffer.alloc(32, 7).toString('base64url');
 
 function configure() {
   vi.stubEnv('FINCILIA_OIDC_ENABLED', 'true');
+  vi.stubEnv('FINCILIA_OIDC_REGISTRATION_MODE', 'public_google');
   vi.stubEnv('FINCILIA_PUBLIC_ORIGIN', 'https://pilot.fincilia.test');
   vi.stubEnv('FINCILIA_OIDC_AUTHORIZE_ENDPOINT',
     'https://auth.fincilia.test/oauth2/authorize');
@@ -32,9 +33,9 @@ function configure() {
 function registration(): FormData {
   const form = new FormData();
   form.set('mode', 'register');
-  form.set('inviteCode', 'Invite_code_12345678901234567890');
-  form.set('firmName', 'Firma Privada Piloto');
+  form.set('firmName', 'Firma Fincilia');
   form.set('acceptTerms', 'yes');
+  form.set('acknowledgePrivacy', 'yes');
   return form;
 }
 
@@ -44,13 +45,14 @@ describe('transaccion OIDC administrada', () => {
     configure();
   });
 
-  it('cifra invitacion, firma, nonce, state y PKCE en una cookie acotada', () => {
+  it('cifra firma, versiones legales, nonce, state y PKCE en una cookie acotada', () => {
     const config = managedOidcConfig();
     const transaction = createManagedOidcTransaction(registration(), NOW);
     const sealed = sealManagedOidcTransaction(transaction, config.transactionKey);
 
-    expect(sealed).not.toContain('Invite_code');
-    expect(sealed).not.toContain('Firma Privada');
+    expect(sealed).not.toContain('Firma Fincilia');
+    expect(transaction.termsVersion).toBe('terms-2026-08-29');
+    expect(transaction.privacyVersion).toBe('privacy-2026-08-29');
     expect(transaction.state).toHaveLength(43);
     expect(transaction.nonce).toHaveLength(43);
     expect(transaction.verifier.length).toBeGreaterThanOrEqual(43);
@@ -81,8 +83,13 @@ describe('transaccion OIDC administrada', () => {
     expect(url.searchParams.get('scope')).toBe('openid email profile');
     expect(url.searchParams.get('identity_provider')).toBe('Google');
     expect(url.searchParams.get('code_challenge_method')).toBe('S256');
-    expect(url.search).not.toContain('Invite_code');
     expect(url.search).not.toContain('Firma');
+  });
+
+  it('no abre el autorregistro si el control operativo esta deshabilitado', () => {
+    vi.stubEnv('FINCILIA_OIDC_REGISTRATION_MODE', 'disabled');
+    expect(() => createManagedOidcTransaction(registration(), NOW))
+      .toThrow(ManagedOidcConfigurationError);
   });
 
   it('construye logout Cognito con parametros exactos y sin entrada del cliente', () => {

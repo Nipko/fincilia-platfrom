@@ -34,13 +34,17 @@ class ManagedOidcIdentityTests(unittest.TestCase):
     def tearDown(self) -> None:
         with psycopg.connect(MIGRATOR_DSN, autocommit=True) as connection:
             with connection.cursor() as cursor:
+                cursor.execute("SET ROLE fincilia_identity")
                 if self.invitations:
-                    cursor.execute("SET ROLE fincilia_identity")
                     cursor.execute(
                         "DELETE FROM fincilia.pilot_identity_invitation "
                         "WHERE invitation_id = ANY(%s::uuid[])",
                         (list(self.invitations),))
-                    cursor.execute("RESET ROLE")
+                for subject_id in self.subjects:
+                    cursor.execute(
+                        "DELETE FROM fincilia.subject_legal_acceptance "
+                        "WHERE subject_id=%s", (subject_id,))
+                cursor.execute("RESET ROLE")
                 for subject_id in self.subjects:
                     cursor.execute(
                         "SELECT firm_id FROM fincilia.membership WHERE subject_id=%s",
@@ -77,14 +81,31 @@ class ManagedOidcIdentityTests(unittest.TestCase):
     def register(self, *, code: str, email_ref: str, external_ref: str,
                  subject_id: str | None = None):
         subject = subject_id or str(uuid.uuid4())
-        with psycopg.connect(RUNTIME_DSN, autocommit=False) as connection:
+        with psycopg.connect(MIGRATOR_DSN, autocommit=False) as connection:
             with connection.transaction(), connection.cursor() as cursor:
+                cursor.execute("SET LOCAL ROLE fincilia_identity")
                 cursor.execute(
                     "SELECT fincilia.register_external_account_with_invite("
                     "%s,%s,%s,%s,%s,%s,%s,%s,%s)",
                     (code, email_ref, subject, str(uuid.uuid4()), str(uuid.uuid4()),
                      self.issuer, external_ref, "Persona Piloto Sintetica",
                      "Firma Piloto Sintetica"))
+        self.subjects.add(subject)
+        return subject
+
+    def register_public(self, *, email_ref: str, external_ref: str,
+                        subject_id: str | None = None,
+                        terms_version: str = "terms-2026-08-29",
+                        privacy_version: str = "privacy-2026-08-29") -> str:
+        subject = subject_id or str(uuid.uuid4())
+        with psycopg.connect(RUNTIME_DSN, autocommit=False) as connection:
+            with connection.transaction(), connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT fincilia.register_external_account_public("
+                    "%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+                    (email_ref, subject, str(uuid.uuid4()), str(uuid.uuid4()),
+                     self.issuer, external_ref, "Persona Google Sintetica",
+                     "Firma Google Sintetica", terms_version, privacy_version))
         self.subjects.add(subject)
         return subject
 
@@ -173,7 +194,57 @@ class ManagedOidcIdentityTests(unittest.TestCase):
                 self.assertTrue(cursor.fetchone()[0])
                 cursor.execute("RESET ROLE")
 
-    def test_runtime_has_only_the_two_bounded_functions(self) -> None:
+    def test_public_google_registration_is_atomic_and_records_legal_versions(self) -> None:
+        email_ref = ref("public-email-" + self.marker)
+        external_ref = ref("public-sub-" + self.marker)
+        subject_id = self.register_public(
+            email_ref=email_ref, external_ref=external_ref)
+
+        with psycopg.connect(MIGRATOR_DSN, autocommit=True) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT b.verified_email_ref,m.firm_role,m.status "
+                    "FROM fincilia.identity_binding b "
+                    "JOIN fincilia.membership m USING(subject_id) "
+                    "WHERE b.subject_id=%s", (subject_id,))
+                self.assertEqual((email_ref, "owner", "active"), cursor.fetchone())
+                cursor.execute("SET ROLE fincilia_identity")
+                cursor.execute(
+                    "SELECT document_kind,document_version,acceptance_channel "
+                    "FROM fincilia.subject_legal_acceptance "
+                    "WHERE subject_id=%s ORDER BY document_kind", (subject_id,))
+                self.assertEqual([
+                    ("privacy", "privacy-2026-08-29", "google_oidc_registration"),
+                    ("terms", "terms-2026-08-29", "google_oidc_registration"),
+                ], cursor.fetchall())
+                cursor.execute("RESET ROLE")
+
+    def test_stale_legal_version_and_duplicate_email_leave_no_partial_account(self) -> None:
+        email_ref = ref("unique-email-" + self.marker)
+        first = self.register_public(
+            email_ref=email_ref, external_ref=ref("first-sub-" + self.marker))
+        stale_subject = str(uuid.uuid4())
+        duplicate_subject = str(uuid.uuid4())
+        with self.assertRaises(psycopg.errors.InvalidParameterValue):
+            self.register_public(
+                email_ref=ref("stale-email-" + self.marker),
+                external_ref=ref("stale-sub-" + self.marker),
+                subject_id=stale_subject, terms_version="terms-2026-01-01")
+        with self.assertRaises(psycopg.errors.UniqueViolation):
+            self.register_public(
+                email_ref=email_ref,
+                external_ref=ref("different-sub-" + self.marker),
+                subject_id=duplicate_subject)
+        self.subjects.update({first, stale_subject, duplicate_subject})
+        with psycopg.connect(MIGRATOR_DSN, autocommit=True) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT count(*) FROM fincilia.subject "
+                    "WHERE subject_id IN (%s,%s)",
+                    (stale_subject, duplicate_subject))
+                self.assertEqual(0, cursor.fetchone()[0])
+
+    def test_runtime_has_only_resolve_and_public_registration(self) -> None:
         with psycopg.connect(MIGRATOR_DSN, autocommit=True) as connection:
             with connection.cursor() as cursor:
                 cursor.execute(
@@ -186,12 +257,19 @@ class ManagedOidcIdentityTests(unittest.TestCase):
                     "'fincilia.register_external_account_with_invite(text,text,uuid,uuid,uuid,text,text,text,text)','EXECUTE'),"
                     "has_function_privilege('fincilia_app', "
                     "'fincilia.register_external_account_with_invite(text,text,uuid,uuid,uuid,text,text,text,text)','EXECUTE'),"
+                    "has_function_privilege('public', "
+                    "'fincilia.register_external_account_public(text,uuid,uuid,uuid,text,text,text,text,text,text)','EXECUTE'),"
+                    "has_function_privilege('fincilia_app', "
+                    "'fincilia.register_external_account_public(text,uuid,uuid,uuid,text,text,text,text,text,text)','EXECUTE'),"
                     "has_table_privilege('fincilia_app', "
                     "'fincilia.pilot_identity_invitation','SELECT,INSERT,UPDATE,DELETE'),"
+                    "has_table_privilege('fincilia_app', "
+                    "'fincilia.subject_legal_acceptance','SELECT,INSERT,UPDATE,DELETE'),"
                     "has_table_privilege('fincilia_app','fincilia.subject','INSERT,UPDATE'),"
                     "has_table_privilege('fincilia_app','fincilia.membership','INSERT,UPDATE')")
                 self.assertEqual(
-                    (False, True, False, True, False, False, False),
+                    (False, True, False, False, False, True, False, False,
+                     False, False),
                     cursor.fetchone())
 
 

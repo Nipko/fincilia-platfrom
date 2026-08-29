@@ -94,7 +94,9 @@ def validate_contract(model: dict[str, Any]) -> list[str]:
             "delegated_to_google_not_asserted_by_fincilia":
         errors.append("el assurance federado debe permanecer delegado y no afirmado")
     if identity.get("native_self_service_signup") is not False:
-        errors.append("la beta no puede habilitar SignUp nativo publico")
+        errors.append("SignUp nativo de Cognito debe permanecer cerrado")
+    if identity.get("registration") != "public_google_self_service":
+        errors.append("el alta administrada debe ser autoservicio publico con Google")
 
     secrets = model.get("secrets", {})
     if secrets.get("values_created_out_of_band") is not True or \
@@ -196,6 +198,7 @@ def validate_sources(sources: str | None = None) -> list[str]:
         'customer_master_key_spec = "RSA_2048"',
         'FINCILIA_OBJECT_CREDENTIALS_SOURCE", value = "aws_workload_identity"',
         'FINCILIA_OIDC_ENABLED", value = "true"',
+        'FINCILIA_OIDC_REGISTRATION_MODE", value = "public_google"',
         'allowed_oauth_flows                  = ["code"]',
         'allowed_oauth_scopes                 = ["openid", "email", "profile"]',
         'allow_admin_create_user_only = true',

@@ -9,7 +9,9 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock('@/lib/api', () => ({
-  ApiError: class ApiError extends Error {},
+  ApiError: class ApiError extends Error {
+    code: string | null = null;
+  },
   exchangeManagedIdentity: mocks.exchange,
 }));
 vi.mock('@/lib/session', () => ({ writeSessionToResponse: mocks.writeSession }));
@@ -27,6 +29,7 @@ const CODE = 'code_123456789012345678901234567890';
 
 function configure() {
   vi.stubEnv('FINCILIA_OIDC_ENABLED', 'true');
+  vi.stubEnv('FINCILIA_OIDC_REGISTRATION_MODE', 'public_google');
   vi.stubEnv('FINCILIA_PUBLIC_ORIGIN', 'https://pilot.fincilia.test');
   vi.stubEnv('FINCILIA_OIDC_AUTHORIZE_ENDPOINT',
     'https://auth.fincilia.test/oauth2/authorize');
@@ -40,9 +43,9 @@ function configure() {
 function transaction() {
   const form = new FormData();
   form.set('mode', 'register');
-  form.set('inviteCode', 'Invite_code_12345678901234567890');
-  form.set('firmName', 'Firma Privada Piloto');
+  form.set('firmName', 'Firma Fincilia');
   form.set('acceptTerms', 'yes');
+  form.set('acknowledgePrivacy', 'yes');
   return createManagedOidcTransaction(form);
 }
 
@@ -71,13 +74,16 @@ describe('callback Cognito BFF', () => {
     const response = await GET(request(tx.state, sealed));
 
     expect(response.status).toBe(307);
-    expect(response.headers.get('location')).toBe('https://pilot.fincilia.test/empresas');
+    expect(response.headers.get('location')).toBe(
+      'https://pilot.fincilia.test/empresas/nueva');
     expect(mocks.exchange).toHaveBeenCalledWith({
       code: CODE,
       verifier: tx.verifier,
       nonce: tx.nonce,
-      invite_code: tx.inviteCode,
+      mode: 'register',
       firm_name: tx.firmName,
+      terms_version: 'terms-2026-08-29',
+      privacy_version: 'privacy-2026-08-29',
     });
     expect(mocks.writeSession).toHaveBeenCalledOnce();
     const cookie = response.headers.get('set-cookie') ?? '';

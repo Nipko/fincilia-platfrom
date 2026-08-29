@@ -5,10 +5,15 @@ import contextlib
 import json
 import os
 import unittest
+from types import SimpleNamespace
+from unittest.mock import MagicMock, Mock, patch
 
 import httpx
+from pydantic import ValidationError
 
-from fincilia_api.oidc import OidcError, exchange_code
+from fincilia_api.oidc import ManagedAccount, OidcError, exchange_code
+from fincilia_api.routes import OidcExchangeRequest, exchange_managed_identity
+from fincilia_api.security import ProblemError
 from fincilia_platform.settings import ApiSettings
 
 
@@ -45,7 +50,7 @@ def settings() -> ApiSettings:
             identifier_tokenization_key="b" * 40,
             authorization_context_hmac_key="c" * 40,
             oidc_enabled=True,
-            registration_invite_required=True,
+            oidc_registration_mode="public_google",
             oidc_issuer="https://issuer.example.test/pool",
             oidc_client_id="client-123456",
             oidc_token_endpoint="https://issuer.example.test/oauth2/token",
@@ -203,3 +208,73 @@ class CognitoExchangeTests(unittest.TestCase):
         with self.assertRaises(OidcError):
             self.exchange(http=FakeHttp({
                 **FakeHttp().payload, "id_token": "x" * 20_000}))
+
+    def test_login_and_registration_payloads_cannot_be_confused(self):
+        common = {"code": CODE, "verifier": VERIFIER, "nonce": NONCE}
+        login = OidcExchangeRequest(**common, mode="login")
+        self.assertEqual("login", login.mode)
+        registration = OidcExchangeRequest(
+            **common, mode="register", firm_name="Firma Fincilia",
+            terms_version="terms-2026-08-29",
+            privacy_version="privacy-2026-08-29")
+        self.assertEqual("register", registration.mode)
+        for payload in (
+            {**common, "mode": "login", "firm_name": "No debe entrar"},
+            {**common, "mode": "register", "firm_name": "Incompleto"},
+        ):
+            with self.subTest(payload=payload), self.assertRaises(ValidationError):
+                OidcExchangeRequest(**payload)
+
+    def test_unknown_login_never_materialises_an_account(self):
+        configured = settings()
+        throttle = Mock()
+        throttle.exhausted.return_value = False
+        connection = MagicMock()
+
+        @contextlib.contextmanager
+        def session():
+            yield connection
+
+        request = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(
+            settings=configured, throttle=throttle,
+            database=SimpleNamespace(session=session))))
+        body = OidcExchangeRequest(
+            code=CODE, verifier=VERIFIER, nonce=NONCE, mode="login")
+        with patch("fincilia_api.routes.oidc.exchange_code", return_value=Mock()), \
+                patch("fincilia_api.routes.oidc.resolve_account", return_value=None), \
+                patch("fincilia_api.routes.oidc.register_account") as register:
+            with self.assertRaises(ProblemError) as caught:
+                exchange_managed_identity(request, body)
+        self.assertTrue(caught.exception.problem.type.endswith(
+            "/account-registration-required"))
+        register.assert_not_called()
+        throttle.record_failure.assert_called_once()
+
+    def test_public_registration_is_the_only_account_creation_path(self):
+        configured = settings()
+        throttle = Mock()
+        throttle.exhausted.return_value = False
+        connection = MagicMock()
+
+        @contextlib.contextmanager
+        def session():
+            yield connection
+
+        request = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(
+            settings=configured, throttle=throttle,
+            database=SimpleNamespace(session=session))))
+        body = OidcExchangeRequest(
+            code=CODE, verifier=VERIFIER, nonce=NONCE, mode="register",
+            firm_name="Firma Fincilia", terms_version="terms-2026-08-29",
+            privacy_version="privacy-2026-08-29")
+        account = ManagedAccount(SUBJECT, "Founder Fincilia", "active", True)
+        with patch("fincilia_api.routes.oidc.exchange_code", return_value=Mock()), \
+                patch("fincilia_api.routes.oidc.resolve_account", return_value=None), \
+                patch("fincilia_api.routes.oidc.register_account",
+                      return_value=account) as register, \
+                patch("fincilia_api.routes.repository.record_audit"), \
+                patch("fincilia_api.routes.issue", return_value="session-token"):
+            response = exchange_managed_identity(request, body)
+        self.assertEqual("session-token", response.token)
+        register.assert_called_once()
+        throttle.clear.assert_called_once()

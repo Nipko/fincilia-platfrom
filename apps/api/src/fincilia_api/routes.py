@@ -14,13 +14,13 @@ import hashlib
 import logging
 import time
 import uuid
-from typing import Annotated
+from typing import Annotated, Literal
 
 import psycopg
 
 from fastapi import APIRouter, Depends, File, Request, Response, UploadFile
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from fincilia_contracts.ingestion import MAX_UPLOAD_BYTES, RejectedUpload, admit
 from fincilia_contracts.tenancy import TenantContext
@@ -70,8 +70,19 @@ class OidcExchangeRequest(BaseModel):
     code: str = Field(min_length=16, max_length=2048)
     verifier: str = Field(min_length=43, max_length=128)
     nonce: str = Field(min_length=24, max_length=128)
-    invite_code: str | None = Field(default=None, min_length=24, max_length=128)
+    mode: Literal["login", "register"]
     firm_name: str | None = Field(default=None, min_length=2, max_length=300)
+    terms_version: str | None = Field(default=None, min_length=10, max_length=40)
+    privacy_version: str | None = Field(default=None, min_length=10, max_length=40)
+
+    @model_validator(mode="after")
+    def _exact_mode_payload(self) -> "OidcExchangeRequest":
+        profile = (self.firm_name, self.terms_version, self.privacy_version)
+        if self.mode == "login" and any(value is not None for value in profile):
+            raise ValueError("login does not accept registration profile")
+        if self.mode == "register" and any(value is None for value in profile):
+            raise ValueError("registration profile is incomplete")
+        return self
 
 
 class CompanySummary(BaseModel):
@@ -415,15 +426,28 @@ def exchange_managed_identity(request: Request,
         with database.session() as connection:
             account = oidc.resolve_account(connection, identity)
             if account is None:
+                if body.mode != "register" or \
+                        settings.oidc_registration_mode != "public_google":
+                    raise oidc.OidcError(
+                        "account-registration-required", status=403)
                 account = oidc.register_account(
-                    connection, identity=identity, invite_code=body.invite_code,
-                    firm_name=body.firm_name or "")
+                    connection, identity=identity,
+                    firm_name=body.firm_name or "",
+                    terms_version=body.terms_version or "",
+                    privacy_version=body.privacy_version or "")
             if not account.active:
                 raise oidc.OidcError()
             with connection.cursor() as cursor:
                 cursor.execute(
                     "SELECT set_config('fincilia.subject_id', %s, true)",
                     (account.subject_id,),
+                )
+            if account.created:
+                repository.record_audit(
+                    connection, subject_id=account.subject_id, company_id=None,
+                    action="auth.account.register", resource_kind="subject",
+                    resource_ref=account.subject_id, outcome="allowed",
+                    detail={"issuer": "managed_oidc", "firm_created": True},
                 )
             repository.record_audit(
                 connection, subject_id=account.subject_id, company_id=None,

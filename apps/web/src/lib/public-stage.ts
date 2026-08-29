@@ -4,6 +4,9 @@ export type PublicStage = {
 };
 
 export function publicStage(value: string | undefined): PublicStage {
+  if (value === 'preproduction') {
+    return { badge: 'Preproducción', footer: 'Preproducción · datos sintéticos' };
+  }
   if (value === 'private_pilot') {
     return { badge: 'Piloto privado', footer: 'Piloto privado · acceso por invitación' };
   }

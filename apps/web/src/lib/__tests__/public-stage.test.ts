@@ -3,6 +3,12 @@ import { describe, expect, it } from 'vitest';
 import { publicStage } from '../public-stage';
 
 describe('publicStage', () => {
+  it('presenta el sistema definitivo sin llamarlo beta ni abrir datos reales', () => {
+    expect(publicStage('preproduction')).toEqual({
+      badge: 'Preproducción',
+      footer: 'Preproducción · datos sintéticos',
+    });
+  });
   it('no presenta el piloto privado como entorno local ni autoautoriza datos', () => {
     expect(publicStage('private_pilot')).toEqual({
       badge: 'Piloto privado',

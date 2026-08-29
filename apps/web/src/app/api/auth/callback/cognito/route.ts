@@ -61,17 +61,26 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
     const session = await exchangeManagedIdentity({
       code, verifier: transaction.verifier, nonce: transaction.nonce,
-      ...(transaction.inviteCode ? { invite_code: transaction.inviteCode } : {}),
+      mode: transaction.mode,
       ...(transaction.firmName ? { firm_name: transaction.firmName } : {}),
+      ...(transaction.termsVersion ? { terms_version: transaction.termsVersion } : {}),
+      ...(transaction.privacyVersion ?
+        { privacy_version: transaction.privacyVersion } : {}),
     });
-    const response = finish('/empresas');
+    const response = finish(
+      transaction.mode === 'register' ? '/empresas/nueva' : '/empresas');
     writeSessionToResponse(response, session.token, session.display_name,
       session.expires_at);
     return response;
   } catch (error) {
     const retry = transaction.mode === 'register' ?
       '/registro?error=managed-registration' : '/entrar?error=managed-rejected';
-    if (error instanceof ApiError) return finish(retry);
+    if (error instanceof ApiError) {
+      if (error.code === 'account-registration-required') {
+        return finish('/registro?error=account-required');
+      }
+      return finish(retry);
+    }
     return finish('/entrar?error=managed-unavailable');
   }
 }

@@ -41,9 +41,9 @@ export function RegistrationForm({
 
       <section className="signin-panel card" aria-labelledby="registration-form-title">
         <div>
-          <p className="eyebrow">{managedIdentity ? 'Beta privada' : 'Laboratorio sintetico'}</p>
+          <p className="eyebrow">{managedIdentity ? 'Registro seguro' : 'Laboratorio sintetico'}</p>
           <h2 id="registration-form-title">
-            {managedIdentity ? 'Activa tu invitacion' : 'Datos de acceso'}
+            {managedIdentity ? 'Empieza con Google' : 'Datos de acceso'}
           </h2>
           <p className="meta">
             {managedIdentity
@@ -56,32 +56,29 @@ export function RegistrationForm({
           <form className="signin" method="post" action="/api/auth/oidc/start">
             <input type="hidden" name="mode" value="register" />
             <label>
-              Codigo de invitacion
-              <input name="inviteCode" minLength={24} maxLength={128} required
-                     autoComplete="off" spellCheck={false} />
-            </label>
-            <p className="field-help">
-              Esta ligado al correo Google invitado y funciona una sola vez.
-            </p>
-            <label>
               Nombre de tu firma o equipo
               <input name="firmName" minLength={2} maxLength={300} required
                      autoComplete="organization" placeholder="Firma Horizonte" />
             </label>
             <fieldset className="registration-consent">
-              <legend>Condiciones del piloto</legend>
+              <legend>Condiciones de tu cuenta</legend>
               <label>
                 <input name="acceptTerms" type="checkbox" value="yes" required />
                 <span>
-                  Acepto los <Link href="/terminos">terminos</Link>, he leido la{' '}
-                  <Link href="/privacidad">politica de privacidad</Link> y usare solo
-                  los tipos de datos autorizados para mi invitacion.
+                  Acepto los <Link href="/terminos">terminos del servicio</Link>.
+                </span>
+              </label>
+              <label>
+                <input name="acknowledgePrivacy" type="checkbox" value="yes" required />
+                <span>
+                  Confirmo que he leido la{' '}
+                  <Link href="/privacidad">politica de privacidad</Link>.
                 </span>
               </label>
             </fieldset>
             {managedError ? (
               <p className="notice error" role="alert">
-                La invitacion o la cuenta Google no pudieron validarse. Solicita una nueva invitacion.
+                No pudimos crear la cuenta. Revisa los datos o intenta con otra cuenta Google.
               </p>
             ) : null}
             <button type="submit" className="google-button">

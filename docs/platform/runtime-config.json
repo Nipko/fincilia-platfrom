@@ -388,6 +388,13 @@
       "safe_example": "false"
     },
     {
+      "class": "plain",
+      "name": "FINCILIA_OIDC_REGISTRATION_MODE",
+      "owner": "Security",
+      "required": false,
+      "safe_example": "disabled"
+    },
+    {
       "class": "optional_endpoint",
       "name": "FINCILIA_OIDC_ISSUER",
       "owner": "Security",

@@ -86,8 +86,10 @@ export type ManagedIdentityInput = {
   code: string;
   verifier: string;
   nonce: string;
-  invite_code?: string;
+  mode: 'login' | 'register';
   firm_name?: string;
+  terms_version?: string;
+  privacy_version?: string;
 };
 
 export type ManagedFirm = {

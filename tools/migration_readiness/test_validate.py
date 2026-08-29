@@ -144,9 +144,10 @@ class MigrationTest(unittest.TestCase):
  def test_the_declared_definers_are_the_bounded_privileged_functions(self):
   names=sorted(x["function"] for x in M["security_definer_functions"])
   self.assertEqual(["fincilia.claim_next_run","fincilia.enqueue_processing_run",
-                    "fincilia.finish_run","fincilia.hold_processing_lease",
-                    "fincilia.record_overlay_application_run",
-                    "fincilia.register_external_account_with_invite",
+                     "fincilia.finish_run","fincilia.hold_processing_lease",
+                     "fincilia.record_overlay_application_run",
+                     "fincilia.register_external_account_public",
+                     "fincilia.register_external_account_with_invite",
                     "fincilia.register_local_account",
                     "fincilia.register_local_account_with_invite",
                     "fincilia.reserve_confirmed_match_members",

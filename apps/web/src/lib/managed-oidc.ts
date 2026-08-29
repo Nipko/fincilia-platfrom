@@ -13,6 +13,8 @@ import { publicWebOrigin } from './server-config';
 export const OIDC_TRANSACTION_COOKIE = 'fincilia_oidc_tx';
 export const OIDC_CALLBACK_PATH = '/api/auth/callback/cognito';
 export const OIDC_TRANSACTION_TTL_SECONDS = 600;
+export const TERMS_VERSION = 'terms-2026-08-29';
+export const PRIVACY_VERSION = 'privacy-2026-08-29';
 
 const SAFE_VALUE = /^[A-Za-z0-9._~-]+$/;
 const CONTROL = /[\u0000-\u001f\u007f]/;
@@ -24,8 +26,9 @@ export type ManagedOidcTransaction = {
   state: string;
   nonce: string;
   verifier: string;
-  inviteCode: string | null;
   firmName: string | null;
+  termsVersion: string | null;
+  privacyVersion: string | null;
   expiresAt: number;
 };
 
@@ -51,6 +54,11 @@ export class ManagedOidcConfigurationError extends Error {
 
 export function managedOidcEnabled(): boolean {
   return process.env.FINCILIA_OIDC_ENABLED === 'true';
+}
+
+export function managedOidcRegistrationEnabled(): boolean {
+  return managedOidcEnabled() &&
+    process.env.FINCILIA_OIDC_REGISTRATION_MODE === 'public_google';
 }
 
 function exactHttpsUrl(value: string | undefined, expectedPath?: string): URL {
@@ -148,27 +156,35 @@ export function createManagedOidcTransaction(
   if (mode !== 'login' && mode !== 'register') {
     throw new TypeError('invalid managed sign-in input');
   }
-  let inviteCode: string | null = null;
   let firmName: string | null = null;
+  let termsVersion: string | null = null;
+  let privacyVersion: string | null = null;
   const keys = [...form.keys()];
   const allowed = mode === 'register' ?
-    new Set(['mode', 'inviteCode', 'firmName', 'acceptTerms']) : new Set(['mode']);
+    new Set(['mode', 'firmName', 'acceptTerms', 'acknowledgePrivacy']) : new Set(['mode']);
   if (keys.length !== new Set(keys).size || keys.some((key) => !allowed.has(key))) {
     throw new TypeError('invalid managed sign-in input');
   }
   if (mode === 'register') {
-    inviteCode = bounded(form.get('inviteCode'), 24, 128);
-    if (!SAFE_VALUE.test(inviteCode)) throw new TypeError('invalid managed sign-in input');
+    if (!managedOidcRegistrationEnabled()) {
+      throw new ManagedOidcConfigurationError();
+    }
     firmName = bounded(form.get('firmName'), 2, 300);
-    if (form.get('acceptTerms') !== 'yes') throw new TypeError('invalid managed sign-in input');
+    if (form.get('acceptTerms') !== 'yes' ||
+        form.get('acknowledgePrivacy') !== 'yes') {
+      throw new TypeError('invalid managed sign-in input');
+    }
+    termsVersion = TERMS_VERSION;
+    privacyVersion = PRIVACY_VERSION;
   }
   return {
     mode,
     state: randomBytes(32).toString('base64url'),
     nonce: randomBytes(32).toString('base64url'),
     verifier: randomBytes(64).toString('base64url'),
-    inviteCode,
     firmName,
+    termsVersion,
+    privacyVersion,
     expiresAt: now + OIDC_TRANSACTION_TTL_SECONDS,
   };
 }
@@ -182,10 +198,14 @@ function transactionShape(value: unknown, now: number): value is ManagedOidcTran
     typeof tx.nonce === 'string' && tx.nonce.length === 43 && SAFE_VALUE.test(tx.nonce) &&
     typeof tx.verifier === 'string' && tx.verifier.length >= 43 &&
     tx.verifier.length <= 128 && SAFE_VALUE.test(tx.verifier) &&
-    (tx.inviteCode === null || (typeof tx.inviteCode === 'string' &&
-      tx.inviteCode.length >= 24 && tx.inviteCode.length <= 128 && SAFE_VALUE.test(tx.inviteCode))) &&
     (tx.firmName === null || (typeof tx.firmName === 'string' &&
       tx.firmName.length >= 2 && tx.firmName.length <= 300 && !CONTROL.test(tx.firmName))) &&
+    (tx.termsVersion === null || tx.termsVersion === TERMS_VERSION) &&
+    (tx.privacyVersion === null || tx.privacyVersion === PRIVACY_VERSION) &&
+    (tx.mode === 'login' ?
+      tx.firmName === null && tx.termsVersion === null && tx.privacyVersion === null :
+      tx.firmName !== null && tx.termsVersion === TERMS_VERSION &&
+        tx.privacyVersion === PRIVACY_VERSION) &&
     typeof tx.expiresAt === 'number' && Number.isInteger(tx.expiresAt) &&
     tx.expiresAt >= now && tx.expiresAt <= now + OIDC_TRANSACTION_TTL_SECONDS
   );

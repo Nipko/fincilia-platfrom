@@ -4,7 +4,7 @@ export const PRIVACY_SECTIONS: readonly LegalSection[] = [
   {
     title: 'Quiénes somos y alcance',
     paragraphs: [
-      'Fincilia es una plataforma de conciliación y control financiero desarrollada por Parallext.com. Durante la beta cerrada opera exclusivamente con datos inventados y no admite documentos financieros reales.',
+      'Fincilia es una plataforma de conciliación y control financiero desarrollada por Parallext.com. El entorno de preproducción actual opera exclusivamente con datos inventados y no admite documentos financieros reales.',
       'La entidad jurídica que actuará como responsable o encargado, su domicilio y los canales formales se completarán con revisión legal antes de habilitar datos reales. El contacto provisional de privacidad es support@parallext.com.',
     ],
   },
@@ -14,7 +14,7 @@ export const PRIVACY_SECTIONS: readonly LegalSection[] = [
       'Datos de cuenta: nombre visible, correo o identificador del proveedor de identidad y estado de la cuenta.',
       'Datos de seguridad y operación: roles, sesiones, eventos de auditoría, dirección IP en la capa de infraestructura y diagnóstico técnico limitado.',
       'Datos de uso: acciones realizadas, errores, tiempos y métricas necesarias para seguridad y mejora del servicio.',
-      'En la beta actual, empresas, cuentas, documentos, movimientos y referencias deben ser completamente sintéticos.',
+      'Mientras los gates de datos permanezcan cerrados, empresas, cuentas, documentos, movimientos y referencias deben ser completamente sintéticos.',
     ],
   },
   {
@@ -29,14 +29,14 @@ export const PRIVACY_SECTIONS: readonly LegalSection[] = [
     bullets: [
       'Crear y proteger la cuenta, resolver roles y prestar las funciones solicitadas.',
       'Prevenir abuso, investigar incidentes, conservar auditoría y cumplir obligaciones aplicables.',
-      'Medir estabilidad y mejorar la experiencia de la beta con información minimizada.',
+      'Medir estabilidad y mejorar la experiencia del servicio con información minimizada.',
       'Las bases jurídicas definitivas —ejecución contractual, obligación legal, interés legítimo o consentimiento— se documentarán por actividad antes de datos reales.',
     ],
   },
   {
     title: 'Conservación, transferencias y proveedores',
     paragraphs: [
-      'La beta conserva cuentas y evidencia sintética mientras dure la prueba o hasta una solicitud de eliminación. Registros de seguridad y copias pueden permanecer durante una ventana limitada para investigación y restauración.',
+      'El entorno de preproducción conserva cuentas y evidencia sintética mientras dure la prueba o hasta una solicitud de eliminación. Registros de seguridad y copias pueden permanecer durante una ventana limitada para investigación y restauración.',
       'La infraestructura evaluada está en AWS São Paulo. Google solo participará como proveedor de identidad cuando sea habilitado. La decisión de transmisión internacional, el DPA y la lista definitiva de subencargados siguen pendientes antes de datos reales.',
     ],
   },
@@ -51,10 +51,10 @@ export const PRIVACY_SECTIONS: readonly LegalSection[] = [
 
 export const TERMS_SECTIONS: readonly LegalSection[] = [
   {
-    title: 'Naturaleza de la beta',
+    title: 'Naturaleza del entorno actual',
     paragraphs: [
-      'Fincilia se ofrece en una beta cerrada para evaluar experiencia, estabilidad y controles. No constituye un servicio contable certificado, una auditoría, asesoría financiera ni una promesa de disponibilidad.',
-      'Solo pueden participar personas invitadas y todos los datos introducidos deben ser inventados. No cargues extractos, facturas, NIT, nombres, correos, cuentas o movimientos reales.',
+      'Fincilia se encuentra en preproducción mientras completa controles, revisiones y despliegue. No constituye un servicio contable certificado, una auditoría, asesoría financiera ni una promesa de disponibilidad.',
+      'El registro puede ser público mediante Google, pero los datos operativos deben seguir siendo inventados hasta que Fincilia comunique expresamente la habilitación de datos reales. No cargues extractos, facturas, NIT, cuentas o movimientos reales mientras esa restricción aparezca en el servicio.',
     ],
   },
   {
@@ -71,21 +71,21 @@ export const TERMS_SECTIONS: readonly LegalSection[] = [
     bullets: [
       'Datos personales, financieros, bancarios, tributarios o confidenciales reales.',
       'Fraude, malware, scraping abusivo, pruebas de carga no acordadas o acceso no autorizado.',
-      'Decisiones contables o legales reales basadas en resultados de la beta.',
+      'Decisiones contables o legales reales basadas en resultados del entorno de preproducción.',
       'Reventa, sublicencia o representación de Fincilia como servicio propio.',
     ],
   },
   {
     title: 'Propiedad y comentarios',
     paragraphs: [
-      'Fincilia, su software, marca y diseño pertenecen a sus titulares. Parallext.com desarrolla el producto. Conservas los derechos sobre material que estés autorizado a usar; en esta beta ese material debe ser sintético.',
+      'Fincilia, su software, marca y diseño pertenecen a sus titulares. Parallext.com desarrolla el producto. Conservas los derechos sobre material que estés autorizado a usar; mientras los gates de datos estén cerrados ese material debe ser sintético.',
       'Los comentarios de producto pueden usarse para mejorar Fincilia sin revelar tu identidad. No envíes secretos, datos reales o propiedad de terceros dentro del feedback.',
     ],
   },
   {
     title: 'Disponibilidad, suspensión y cambios',
     paragraphs: [
-      'Podemos modificar, detener, reiniciar o eliminar el entorno beta para corregir fallos o protegerlo. Podemos suspender cuentas ante abuso o riesgo. Cuando sea razonable avisaremos cambios materiales por el canal de invitación.',
+      'Podemos modificar, detener o reiniciar el entorno de preproducción para corregir fallos o protegerlo. Podemos suspender cuentas ante abuso o riesgo. Cuando sea razonable avisaremos cambios materiales por los canales de soporte publicados.',
       'La ley aplicable, jurisdicción, limitaciones de responsabilidad y datos corporativos definitivos deben ser aprobados por Legal antes de convertir estos términos en condiciones productivas.',
     ],
   },
@@ -103,7 +103,7 @@ export const COOKIE_SECTIONS: readonly LegalSection[] = [
   {
     title: 'Qué no usamos',
     paragraphs: [
-      'La beta no instala cookies publicitarias, de seguimiento entre sitios ni analítica de terceros. Si se propone analítica opcional, se documentará el proveedor, finalidad y duración y se pedirá consentimiento antes de activarla cuando corresponda.',
+      'Fincilia no instala cookies publicitarias, de seguimiento entre sitios ni analítica de terceros. Si se propone analítica opcional, se documentará el proveedor, finalidad y duración y se pedirá consentimiento antes de activarla cuando corresponda.',
     ],
   },
   {
@@ -125,9 +125,9 @@ export const SECURITY_SECTIONS: readonly LegalSection[] = [
     ],
   },
   {
-    title: 'Límites de la beta',
+    title: 'Límites de preproducción',
     paragraphs: [
-      'El entorno beta no está autorizado para datos reales y no se presenta como infraestructura de producción. Pentest independiente, restore con tombstones, DPA, PCI y revisiones nominales siguen siendo condiciones para DRG-01.',
+      'El entorno actual no está autorizado para datos reales y todavía no se presenta como infraestructura de producción. Pentest independiente, restore con tombstones, DPA, evaluación PCI cuando aplique y revisiones nominales siguen siendo condiciones para DRG-01.',
     ],
   },
   {
@@ -193,7 +193,7 @@ export const DELETION_SECTIONS: readonly LegalSection[] = [
       'Se bloquea el acceso y se elabora un inventario de la cuenta, las membresías, los objetos, las exportaciones y los eventos relacionados antes de ejecutar la eliminación.',
       'Se aplican tombstones antes de purgar copias activas y se reaplican al restaurar backups.',
       'Se informa lo eliminado, lo retenido por seguridad u obligación aplicable y la fecha estimada de reconciliación.',
-      'En beta sintética podemos eliminar el espacio completo; la operación productiva tendrá reglas por clase y legal hold.',
+      'En preproducción sintética podemos eliminar el espacio completo; la operación con datos reales aplicará reglas por clase y legal hold.',
     ],
   },
   {

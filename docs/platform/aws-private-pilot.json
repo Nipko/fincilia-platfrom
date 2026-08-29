@@ -47,7 +47,7 @@
   "identity": {
     "provider": "Amazon Cognito federated with Google",
     "authorization_source": "PostgreSQL server-side memberships and roles",
-    "registration": "named_one_use_invitation",
+    "registration": "public_google_self_service",
     "native_mfa": "required_by_user_pool",
     "federated_assurance": "delegated_to_google_not_asserted_by_fincilia",
     "native_self_service_signup": false,

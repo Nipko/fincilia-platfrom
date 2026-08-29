@@ -115,6 +115,9 @@ class Settings(BaseSettings):
         default=False,
         description="Exige una invitacion de un uso en la beta cerrada sintetica.")
     oidc_enabled: bool = Field(default=False)
+    oidc_registration_mode: Literal["disabled", "public_google"] = Field(
+        default="disabled",
+        description="Control operativo permanente del alta OIDC; login sigue disponible.")
     oidc_issuer: str = Field(default="disabled")
     oidc_client_id: str = Field(default="disabled")
     oidc_token_endpoint: str = Field(default="disabled")
@@ -217,8 +220,6 @@ class Settings(BaseSettings):
             raise ValueError("real data needs a configured KMS gate attestation")
 
         if self.oidc_enabled:
-            if self.registration_invite_required is not True:
-                raise ValueError("pilot OIDC registration must remain invite-only")
             if not self.identity_binding_hmac_key or len(self.identity_binding_hmac_key) < 32:
                 raise ValueError("OIDC needs a dedicated identity binding HMAC key")
             for name, value in (
@@ -236,6 +237,8 @@ class Settings(BaseSettings):
                     self.identity_gate_signature,
                     self.identity_gate_kms_key_id)):
                 raise ValueError("OIDC needs a configured DRG-00 KMS attestation")
+        elif self.oidc_registration_mode != "disabled":
+            raise ValueError("public Google registration requires OIDC")
         return self
 
     @field_validator("engine_release_key")

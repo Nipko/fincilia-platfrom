@@ -9,6 +9,7 @@ const URL = 'https://pilot.fincilia.test/api/auth/oidc/start';
 
 function configure() {
   vi.stubEnv('FINCILIA_OIDC_ENABLED', 'true');
+  vi.stubEnv('FINCILIA_OIDC_REGISTRATION_MODE', 'public_google');
   vi.stubEnv('FINCILIA_PUBLIC_ORIGIN', 'https://pilot.fincilia.test');
   vi.stubEnv('FINCILIA_OIDC_AUTHORIZE_ENDPOINT',
     'https://auth.fincilia.test/oauth2/authorize');
@@ -42,9 +43,9 @@ describe('inicio OIDC BFF', () => {
   it('crea redireccion Google PKCE y cookie cifrada sin reflejar el alta', async () => {
     const body = new URLSearchParams({
       mode: 'register',
-      inviteCode: 'Invite_code_12345678901234567890',
-      firmName: 'Firma Privada Piloto',
+      firmName: 'Firma Fincilia',
       acceptTerms: 'yes',
+      acknowledgePrivacy: 'yes',
     });
     const response = await POST(request(body));
     const location = response.headers.get('location') ?? '';
@@ -53,13 +54,12 @@ describe('inicio OIDC BFF', () => {
     expect(response.status).toBe(303);
     expect(location).toContain('identity_provider=Google');
     expect(location).toContain('code_challenge_method=S256');
-    expect(location).not.toContain('Invite_code');
     expect(location).not.toContain('Firma');
     expect(cookie).toContain('fincilia_oidc_tx=');
     expect(cookie).toContain('HttpOnly');
     expect(cookie).toContain('Secure');
     expect(cookie).toContain('SameSite=lax');
-    expect(cookie).not.toContain('Invite_code');
+    expect(cookie).not.toContain('Firma');
   });
 
   it('rechaza origen externo antes de crear una transaccion', async () => {
@@ -70,7 +70,7 @@ describe('inicio OIDC BFF', () => {
     expect(response.headers.get('set-cookie')).toBeNull();
   });
 
-  it('exige invitacion, firma y terminos para una cuenta nueva', async () => {
+  it('exige firma, terminos y privacidad para una cuenta nueva', async () => {
     const response = await POST(request(new URLSearchParams({ mode: 'register' })));
     expect(response.status).toBe(422);
     expect(response.headers.get('location')).toBeNull();
