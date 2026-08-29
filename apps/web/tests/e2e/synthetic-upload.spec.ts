@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
 import {
+  syntheticOds,
   syntheticMultiSheetXlsx,
   syntheticXlsx,
   waitForRenderedText,
@@ -175,6 +176,31 @@ test('XLSX seguro de una hoja llega a perfil y vista previa con fila exacta', as
   await page.getByRole('link', { name: 'Mapear y publicar' }).click();
   await expect(page).toHaveURL(/\/documentos\/[0-9a-f-]+\/mapeo\?/);
   await waitForRenderedText(page, 'Extraccion', 'Pago XLSX sintetico');
+  await expect(page.getByRole('rowheader', { name: '2' })).toBeVisible();
+});
+
+test('ODS seguro llega a perfil, extraccion y localizador de hoja', async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  const marker = Date.now().toString(36);
+  await signIn(page);
+  await openSyntheticCompany(page);
+  await selectDemoSource(page);
+  await page.getByLabel('Extracto o soporte').setInputFiles({
+    name: `movimientos-ods-${marker}.ods`,
+    mimeType: 'application/vnd.oasis.opendocument.spreadsheet',
+    buffer: syntheticOds(marker),
+  });
+  await page.getByRole('button', { name: 'Subir' }).click();
+  await expect(page).toHaveURL(/\/documentos\/[0-9a-f-]+\?fuente=[0-9a-f-]+$/);
+
+  await waitForRenderedText(page, 'Perfil', 'hoja 1: Movimientos ODS');
+  await expect(page.getByRole('rowheader', { name: 'Descripcion' })).toBeVisible();
+
+  await page.getByRole('link', { name: 'Mapear y publicar' }).click();
+  await expect(page).toHaveURL(/\/documentos\/[0-9a-f-]+\/mapeo\?/);
+  await waitForRenderedText(page, 'Extraccion', `Pago ODS sintetico ${marker}`);
   await expect(page.getByRole('rowheader', { name: '2' })).toBeVisible();
 });
 

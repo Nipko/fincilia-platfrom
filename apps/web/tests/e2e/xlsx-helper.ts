@@ -181,6 +181,47 @@ export function syntheticXlsx(marker = ''): Buffer {
   }]);
 }
 
+export function syntheticOds(marker = ''): Buffer {
+  const suffix = marker ? ` ${marker}` : '';
+  const rows: Array<Array<string | number>> = [
+    ['Fecha', 'Descripcion', 'Importe', 'Moneda'],
+    ['2026-08-01', `Pago ODS sintetico${suffix}`, -1250, 'COP'],
+    ['2026-08-02', `Abono ODS sintetico${suffix}`, 3400, 'COP'],
+  ];
+  const tableRows = rows.map((row) => {
+    const cells = row.map((value) => typeof value === 'number'
+      ? `<table:table-cell office:value-type="float" office:value="${value}"><text:p>${value}</text:p></table:table-cell>`
+      : `<table:table-cell office:value-type="string"><text:p>${xml(value)}</text:p></table:table-cell>`,
+    ).join('');
+    return `<table:table-row>${cells}</table:table-row>`;
+  }).join('');
+  const text = (value: string): Buffer => Buffer.from(value, 'utf8');
+  return storedZip([
+    {
+      name: 'META-INF/manifest.xml',
+      payload: text('<?xml version="1.0" encoding="UTF-8"?>' +
+        '<manifest:manifest xmlns:manifest="urn:oasis:names:tc:opendocument:xmlns:manifest:1.0">' +
+        '<manifest:file-entry manifest:full-path="/" manifest:media-type="application/vnd.oasis.opendocument.spreadsheet"/>' +
+        '<manifest:file-entry manifest:full-path="content.xml" manifest:media-type="text/xml"/>' +
+        '</manifest:manifest>'),
+    },
+    {
+      name: 'content.xml',
+      payload: text('<?xml version="1.0" encoding="UTF-8"?>' +
+        '<office:document-content xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" ' +
+        'xmlns:table="urn:oasis:names:tc:opendocument:xmlns:table:1.0" ' +
+        'xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0">' +
+        '<office:body><office:spreadsheet><table:table table:name="Movimientos ODS">' +
+        tableRows + '</table:table></office:spreadsheet></office:body>' +
+        '</office:document-content>'),
+    },
+    {
+      name: 'mimetype',
+      payload: text('application/vnd.oasis.opendocument.spreadsheet'),
+    },
+  ]);
+}
+
 export function syntheticMultiSheetXlsx(marker = 'base'): Buffer {
   return syntheticWorkbook([
     {
