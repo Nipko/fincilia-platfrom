@@ -1,7 +1,7 @@
 ---
 id: FNC-ACC-001
 title: Recorrido contable guiado de punta a punta
-status: in_progress
+status: review_pending
 implementer: Codex principal dev + Integration Steward
 base_sha: a1f03c7430e30c15ccf0a3ed411c3baf7d4e26bb
 gate: S1-READY

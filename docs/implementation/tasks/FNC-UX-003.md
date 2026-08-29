@@ -1,7 +1,7 @@
 ---
-id: FNC-UX-002
+id: FNC-UX-003
 title: Shell SaaS premium y sistema visual web v2
-status: in_progress
+status: review_pending
 implementer: Codex principal dev + Integration Steward
 base_sha: a1f03c7430e30c15ccf0a3ed411c3baf7d4e26bb
 gate: S1-READY

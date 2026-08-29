@@ -63,7 +63,7 @@ test.describe('FNC-ACC-001 · recorrido contable', () => {
   });
 });
 
-test.describe('FNC-UX-002 · experiencia premium responsive', () => {
+test.describe('FNC-UX-003 · experiencia premium responsive', () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
   test('cuenta y flujo contable no producen overflow global', async ({ page }) => {

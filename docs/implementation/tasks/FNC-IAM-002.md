@@ -1,7 +1,7 @@
 ---
 id: FNC-IAM-002
 title: Centro de cuenta y recorrido de identidad coherente
-status: in_progress
+status: review_pending
 implementer: Codex principal dev + Integration Steward
 base_sha: a1f03c7430e30c15ccf0a3ed411c3baf7d4e26bb
 gate: DRG-00

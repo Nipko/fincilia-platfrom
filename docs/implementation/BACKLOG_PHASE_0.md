@@ -156,9 +156,9 @@ dependencias de `FNC-GAT-002` ni afirmar que Sprint 1 está habilitado.
 | FNC-PLT-013 | A2/A3/A4 | PLT-012, GAT-005 | Review pending | Plano de costo frío/encendido y controlador seguro integrados; aplicación y datos reales continúan bloqueados |
 | FNC-PLT-014 | A2 | PLT-012 | Review pending | Actividades AWS Credits completadas con USD 200 disponibles; laboratorio sintético retirado por completo |
 | FNC-IAM-001 | A3/A6 | ONB-002, SEC-001, LEG-002 | In progress | Google OIDC/Cognito con PKCE preparado; activación real bloqueada por DRG-00 |
-| FNC-IAM-002 | A3/A6 | IAM-001, ONB-002, QA-007 | In progress | Centro de cuenta y recorrido coherente de identidad, sesión, empresas y roles |
-| FNC-ACC-001 | A4/A5/A6 | ING-005, REC-006, CLS-005, RPT-001 | In progress | Recorrido contable web guiado sin cambiar semántica ni ejecutar cierre |
-| FNC-UX-002 | A6 | WEB-004, UX-001, IAM-002, ACC-001 | In progress | Shell SaaS premium, navegación jerárquica, motion accesible y responsive |
+| FNC-IAM-002 | A3/A6 | IAM-001, ONB-002, QA-007 | Review pending | Centro de cuenta y recorrido coherente de identidad, sesión, empresas y roles |
+| FNC-ACC-001 | A4/A5/A6 | ING-005, REC-006, CLS-005, RPT-001 | Review pending | Recorrido contable web guiado sin cambiar semántica ni ejecutar cierre |
+| FNC-UX-003 | A6 | WEB-004, UX-001, IAM-002, ACC-001 | Review pending | Shell SaaS premium, navegación jerárquica, motion accesible y responsive |
 | FNC-LEG-002 | A3/A6 | PRV-001, LEG-001 | In progress | Centro legal público Fincilia desarrollado por Parallext.com; textos sujetos a revisión jurídica |
 | FNC-SEC-004 | A3/A5 | SEC-001, PLT-005, DB-002 | Review pending | Contexto durable company-scoped con emision idempotente, revalidacion online, revocacion append-only, HMAC y V0021; sin consumidor artificial ni datos reales |
 | FNC-SEC-005 | A3/A5 | SEC-004, DB-002, P3.6 | Review pending | Trabajos nuevos ligados a issued context y revalidados al reclamar, escribir y cerrar; fase expand compatible con filas legacy |
