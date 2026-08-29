@@ -1,7 +1,7 @@
 ---
 id: FNC-PLT-014
 title: Laboratorio efimero de actividades AWS Credits
-status: in_progress
+status: review_pending
 implementer: Codex principal dev + Integration Steward
 base_sha: 880576d
 gate: none
@@ -47,3 +47,9 @@ Fincilia ni se reutiliza como infraestructura de beta o producción.
 
 Dominio, DNS, Cognito/Google, despliegue de Fincilia, datos reales, conexión a la
 base, migraciones, promoción del laboratorio o aceptación de gates.
+
+# Implementación integrada
+
+- `c7ef06e`: Lambda sintética, contrato operativo y cleanup fail-closed.
+- AWS confirmó USD 200 disponibles tras completar las cinco actividades.
+- Cleanup aplicado: Lambda y rol IAM eliminados; RDS en eliminación asíncrona.

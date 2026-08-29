@@ -41,5 +41,7 @@ esperado inicial.
 - Lambda respondió por HTTPS con el HTML sintético esperado.
 - RDS alcanzó `available`, `db.t4g.micro`, privado y cifrado.
 - Nova Micro respondió a una petición sintética en 363 ms.
-- Los créditos visibles subieron de USD 140 a USD 180 tras Lambda y RDS.
-- La adjudicación de Bedrock puede tardar hasta 30 minutos según AWS.
+- Los créditos visibles subieron de USD 140 a USD 180 tras Lambda y RDS, y a
+  USD 200 después de la adjudicación de Bedrock.
+- Tras confirmar USD 200, el controlador eliminó Lambda y el rol IAM; RDS quedó
+  en `deleting`. Bedrock no dejó capacidad persistente.
