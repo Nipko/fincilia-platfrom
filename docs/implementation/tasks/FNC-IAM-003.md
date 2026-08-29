@@ -25,6 +25,7 @@ beta cerrada sin convertir el IdP en fuente de autorización financiera.
   necesarios para el cierre de sesión.
 - `apps/web/README.md` y `docs/platform/GOOGLE_OAUTH_PUBLICATION.md`.
 - `infra/aws/private-pilot/identity.tf`, contrato y validador del piloto.
+- `tools/identity_readiness/**` y su integración en CI.
 - ADR-012 y solicitud de decisión sobre assurance federado.
 - Ficha, handoff, trazabilidad y registros centrales por Integration Steward.
 

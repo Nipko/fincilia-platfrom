@@ -46,6 +46,9 @@ jobs:
           tools.dfd_model.test_validate
           tools.event_model.test_validate
           tools.idempotency_model.test_validate
+          tools.identity_readiness.test_aws_cli
+          tools.identity_readiness.test_cli
+          tools.identity_readiness.test_probe
           tools.lineage_model.test_validate
           tools.local_stack.test_validate
           tools.isolated_web_runtime.test_validate

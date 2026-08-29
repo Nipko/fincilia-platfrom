@@ -156,6 +156,26 @@ invitación. Las invitaciones locales sintéticas se administran con
 
 ### Recorrido de aceptación
 
+Después de conectar Google y antes de invitar a una persona, ejecutar la sonda
+contra el control plane. Los tres identificadores no son secretos y se obtienen
+del output `cognito` de OpenTofu; no usar esta orden con credenciales root.
+
+```text
+python -m tools.identity_readiness.cli \
+  --profile fincilia-sandbox \
+  --region sa-east-1 \
+  --user-pool-id <USER_POOL_ID> \
+  --client-id <WEB_CLIENT_ID> \
+  --domain-prefix <COGNITO_DOMAIN_PREFIX> \
+  --app-origin https://<APP_DOMAIN>
+```
+
+Exit `0` significa que los 16 controles de configuración observables pasan;
+`10`, que la consulta fue válida pero al menos uno no está listo; `2`, que la
+evidencia no pudo obtenerse. El informe omite IDs, usuarios, correos y secretos,
+y siempre conserva `activation_authorized: false` y
+`real_data_authorized: false`: una sonda técnica no adjudica DRG-00.
+
 1. Probar con una sola identidad nominal de Testing y una invitación de un uso.
 2. Confirmar `state`, nonce, PKCE, issuer, audience, expiración y correo
    verificado; un fallo no debe crear sujeto, firma ni empresa.
