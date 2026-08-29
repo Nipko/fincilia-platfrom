@@ -2,7 +2,7 @@
 
 - Estado: **Proposed; bloqueado por DRG-00/DRG-01 y revisión independiente**
 - Fecha: 2026-08-28
-- Tareas: FNC-GAT-005 / FNC-PLT-012
+- Tareas: FNC-GAT-005 / FNC-PLT-012 / FNC-PLT-013
 - Gates: DRG-00 / DRG-01
 
 ## Contexto
@@ -31,6 +31,13 @@ Los workers de cuarentena/procesamiento no tendrán egress general. El tráfico
 de aplicación que necesite endpoints públicos se separará de esos workers y se
 reducirá a destinos justificados; una ausencia de servicio no habilita fallback
 a IA, OCR o proveedor externo.
+
+El entorno tendrá un ciclo de costo reversible. El plano persistente conserva
+datos, llaves, identidad y auditoría; el plano runtime temporal contiene ALB/WAF,
+NAT, endpoints Interface, Valkey y ECS. `cold` retira solo el segundo y solicita
+detener RDS. `warm` lo recrea con capacidad ECS cero. Escalar tareas continúa
+siendo una operación separada, posterior a gates firmados; el ciclo de costo no
+autoriza datos por sí mismo.
 
 ## Consecuencias
 
