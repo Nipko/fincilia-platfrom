@@ -3,7 +3,8 @@
 FNC-REL-001 produce una evidencia portable de **identidad**, no una aprobación
 de producción. El bundle liga un commit Git limpio, los árboles de fuente que
 entran en las tres imágenes, la cabeza de migraciones, los IDs SHA-256 de las
-imágenes construidas y tres inventarios SPDX 2.3 derivados de los lockfiles.
+imágenes construidas, tres inventarios SPDX 2.3 por servicio y un inventario
+SPDX agregado de la release.
 
 ## Qué demuestra
 
@@ -22,7 +23,9 @@ imágenes construidas y tres inventarios SPDX 2.3 derivados de los lockfiles.
 - El inventario describe dependencias fijadas; no afirma análisis de cada archivo
   ni sustituye un SBOM de filesystem/OS de la imagen.
 - El ID local de imagen no es un digest publicado en un registry.
-- No existe firma, raíz de confianza ni procedencia verificada.
+- El bundle interno no se autoafirma firmado. El workflow manual puede envolverlo
+  en un archivo determinista, emitir attestations externas de procedencia y SBOM
+  mediante GitHub OIDC/Sigstore y verificarlas contra el workflow y commit.
 - No habilita staging, producción, datos reales ni promoción de engine releases.
 
 El propio verificador rechaza cualquier bundle que cambie estos cinco campos a
@@ -50,6 +53,14 @@ python -m tools.release_candidate.cli verify \
 python -m tools.release_candidate.cli verify-source \
   --root . \
   --bundle "$RUNNER_TEMP/fincilia-release"
+
+python -m tools.release_candidate.cli archive \
+  --bundle "$RUNNER_TEMP/fincilia-release" \
+  --output "$RUNNER_TEMP/fincilia-release.tar.gz"
+
+python -m tools.release_candidate.cli verify-archive \
+  --bundle "$RUNNER_TEMP/fincilia-release" \
+  --archive "$RUNNER_TEMP/fincilia-release.tar.gz"
 ```
 
 `verify` sólo necesita el bundle y valida inventario, estructura, claims y
@@ -61,9 +72,11 @@ digests. `verify-source` añade comparación contra el checkout limpio exacto.
 2. Construye las tres imágenes sin push y obtiene sus IDs locales.
 3. Genera y verifica el bundle dos veces.
 4. Security/QA/Architecture revisan claims, SPDX y evidencia.
-5. Después de A-02 se decide registry, builder, raíz de firma y secret provider.
-6. Una tarea posterior añade attestation/firma verificables y promoción por
-   digest. Sólo entonces puede hablarse de release publicable.
+5. El workflow firma por identidad OIDC una procedencia SLSA y el SPDX agregado;
+   luego verifica ambos bundles Sigstore offline con `gh attestation verify`.
+6. Security/QA revisan la identidad firmante y los SHA de actions. Después de
+   A-02 se decide registry y secret provider; esta attestation no publica ni
+   promueve imágenes.
 
 ## Rollback
 

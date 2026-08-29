@@ -2,14 +2,18 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import io
 import json
 import os
 import subprocess
+import tarfile
 import tempfile
 import unittest
 from pathlib import Path
 
+from .archive import ARCHIVE_ROOT, create_archive, verify_archive
 from .model import (
+    AGGREGATE_SBOM_NAME,
     CHECKSUM_NAME,
     EXPECTED_FILES,
     ReleaseError,
@@ -33,7 +37,7 @@ CI_URL = "https://github.com/Nipko/fincilia-platfrom/actions/runs/123456"
 
 def write(path: Path, content: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(content, encoding="utf-8")
+    path.write_text(content, encoding="utf-8", newline="\n")
 
 
 def git(root: Path, *args: str, env: dict[str, str] | None = None) -> str:
@@ -55,7 +59,7 @@ def contract() -> dict:
             "web": "apps/web/package-lock.json",
             "worker": "workers/document/requirements.txt",
         },
-        "schema_version": "1.0.0",
+        "schema_version": "1.1.0",
         "source_inputs": [
             "apps/api/Dockerfile", "apps/api/requirements.txt", "apps/api/src",
             "apps/web/Dockerfile", "apps/web/package-lock.json", "apps/web/src",
@@ -311,9 +315,131 @@ class ReleaseBundleTests(unittest.TestCase):
         document = json.loads((self.bundle / "api-dependencies.spdx.json").read_text())
         self.assertEqual(document["creationInfo"]["created"], "2026-08-28T00:00:00Z")
 
+    def test_aggregate_sbom_covers_all_three_artifact_inventories(self) -> None:
+        manifest = self.fixture.create(self.bundle)
+        aggregate = json.loads((self.bundle / AGGREGATE_SBOM_NAME).read_text())
+        expected = {
+            package["SPDXID"]
+            for name in ("api", "worker", "web")
+            for package in json.loads(
+                (self.bundle / f"{name}-dependencies.spdx.json").read_text()
+            )["packages"]
+        }
+        self.assertEqual({package["SPDXID"] for package in aggregate["packages"]}, expected)
+        self.assertEqual(manifest["release_sbom"]["path"], AGGREGATE_SBOM_NAME)
+
+    def test_aggregate_sbom_tamper_is_rejected_even_with_bundle_checksums(self) -> None:
+        self.fixture.create(self.bundle)
+        path = self.bundle / AGGREGATE_SBOM_NAME
+        document = json.loads(path.read_text())
+        document["packages"].pop()
+        path.write_text(json.dumps(document, sort_keys=True), encoding="utf-8")
+        manifest_path = self.bundle / "manifest.json"
+        manifest = json.loads(manifest_path.read_text())
+        manifest["release_sbom"]["sha256"] = hashlib.sha256(path.read_bytes()).hexdigest()
+        manifest_path.write_text(json.dumps(manifest, sort_keys=True), encoding="utf-8")
+        self._refresh_checksums()
+        with self.assertRaisesRegex(ReleaseError, "does not cover"):
+            verify_bundle(self.bundle)
+
     def test_clean_git_state_returns_full_revision(self) -> None:
         state = clean_git_state(self.fixture.root)
         self.assertRegex(state.revision, r"^[0-9a-f]{40}$")
+
+
+class ReleaseArchiveTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.temp = tempfile.TemporaryDirectory()
+        self.base = Path(self.temp.name)
+        self.fixture = RepositoryFixture(self.base)
+        self.bundle = self.base / "bundle"
+        self.fixture.create(self.bundle)
+
+    def tearDown(self) -> None:
+        self.temp.cleanup()
+
+    def test_archive_is_deterministic_and_matches_the_validated_bundle(self) -> None:
+        first = self.base / "first.tar.gz"
+        second = self.base / "second.tar.gz"
+        manifest = create_archive(self.bundle, first)
+        create_archive(self.bundle, second)
+        self.assertEqual(first.read_bytes(), second.read_bytes())
+        self.assertEqual(verify_archive(self.bundle, first), manifest)
+        with tarfile.open(first, "r:gz") as archive:
+            for member in archive.getmembers():
+                self.assertEqual(member.mtime, 0)
+                self.assertEqual(member.mode, 0o644)
+                self.assertEqual(member.uid, 0)
+                self.assertEqual(member.gid, 0)
+
+    def test_archive_rejects_existing_output_and_tamper(self) -> None:
+        output = self.base / "candidate.tar.gz"
+        output.write_bytes(b"occupied")
+        with self.assertRaisesRegex(ReleaseError, "already exists"):
+            create_archive(self.bundle, output)
+        output.unlink()
+        create_archive(self.bundle, output)
+        payload = bytearray(output.read_bytes())
+        payload[len(payload) // 2] ^= 1
+        output.write_bytes(payload)
+        with self.assertRaises(ReleaseError):
+            verify_archive(self.bundle, output)
+
+    def test_archive_rejects_links_even_when_names_look_complete(self) -> None:
+        output = self.base / "unsafe.tar.gz"
+        with tarfile.open(output, "w:gz") as archive:
+            for index, name in enumerate(sorted(EXPECTED_FILES)):
+                info = tarfile.TarInfo(f"{ARCHIVE_ROOT}/{name}")
+                info.mode = 0o644
+                info.mtime = 0
+                if index == 0:
+                    info.type = tarfile.SYMTYPE
+                    info.linkname = "../../outside"
+                    archive.addfile(info)
+                else:
+                    data = (self.bundle / name).read_bytes()
+                    info.size = len(data)
+                    archive.addfile(info, io.BytesIO(data))
+        with self.assertRaisesRegex(ReleaseError, "unsafe"):
+            verify_archive(self.bundle, output)
+
+
+class ReleaseWorkflowTests(unittest.TestCase):
+    def setUp(self) -> None:
+        root = Path(__file__).resolve().parents[2]
+        self.workflow = (root / ".github/workflows/release-candidate.yml").read_text(
+            encoding="utf-8"
+        )
+
+    def test_attestation_action_and_permissions_are_minimal_and_pinned(self) -> None:
+        pin = "actions/attest@a1948c3f048ba23858d222213b7c278aabede763"
+        self.assertEqual(self.workflow.count(pin), 2)
+        self.assertNotIn("actions/attest@v", self.workflow)
+        self.assertIn("  id-token: write", self.workflow)
+        self.assertIn("  attestations: write", self.workflow)
+        self.assertNotIn("  packages: write", self.workflow)
+
+    def test_workflow_attests_archive_and_aggregate_sbom_without_publish(self) -> None:
+        self.assertEqual(
+            self.workflow.count("subject-path: ${{ runner.temp }}/fincilia-release.tar.gz"),
+            2,
+        )
+        self.assertIn(
+            "sbom-path: ${{ runner.temp }}/fincilia-release/release-dependencies.spdx.json",
+            self.workflow,
+        )
+        self.assertNotIn("docker push", self.workflow)
+        self.assertNotIn("push-to-registry:", self.workflow)
+
+    def test_verification_binds_signer_source_commit_ref_and_runner(self) -> None:
+        for required in (
+            "--signer-workflow \"$SIGNER_WORKFLOW\"",
+            "--source-digest \"$GITHUB_SHA\"",
+            "--source-ref \"$GITHUB_REF\"",
+            "--deny-self-hosted-runners",
+            "--predicate-type \"https://spdx.dev/Document/v2.3\"",
+        ):
+            self.assertIn(required, self.workflow)
 
 
 if __name__ == "__main__":

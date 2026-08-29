@@ -14,6 +14,8 @@ on:
 
 permissions:
   contents: read
+  id-token: write
+  attestations: write
 
 concurrency:
   group: fincilia-release-${{ github.ref }}
@@ -107,11 +109,62 @@ jobs:
           python -m tools.release_candidate.cli verify-source \
             --root . --bundle "$RUNNER_TEMP/fincilia-release"
 
+      - name: Produce and verify the deterministic attestation subject
+        run: |
+          python -m tools.release_candidate.cli archive \
+            --bundle "$RUNNER_TEMP/fincilia-release" \
+            --output "$RUNNER_TEMP/fincilia-release.tar.gz"
+          python -m tools.release_candidate.cli verify-archive \
+            --bundle "$RUNNER_TEMP/fincilia-release" \
+            --archive "$RUNNER_TEMP/fincilia-release.tar.gz"
+
+      - name: Sign SLSA provenance with the workflow OIDC identity
+        id: provenance
+        uses: actions/attest@a1948c3f048ba23858d222213b7c278aabede763 # v4.1.1
+        with:
+          subject-path: ${{ runner.temp }}/fincilia-release.tar.gz
+
+      - name: Sign the aggregate SPDX inventory with the workflow OIDC identity
+        id: sbom
+        uses: actions/attest@a1948c3f048ba23858d222213b7c278aabede763 # v4.1.1
+        with:
+          subject-path: ${{ runner.temp }}/fincilia-release.tar.gz
+          sbom-path: ${{ runner.temp }}/fincilia-release/release-dependencies.spdx.json
+
+      - name: Verify both signed attestations against exact source and signer
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SIGNER_WORKFLOW: github.com/${{ github.repository }}/.github/workflows/release-candidate.yml
+        run: |
+          gh attestation verify "$RUNNER_TEMP/fincilia-release.tar.gz" \
+            --bundle "${{ steps.provenance.outputs.bundle-path }}" \
+            --repo "$GITHUB_REPOSITORY" --signer-workflow "$SIGNER_WORKFLOW" \
+            --source-digest "$GITHUB_SHA" --source-ref "$GITHUB_REF" \
+            --deny-self-hosted-runners --format json \
+            > "$RUNNER_TEMP/provenance-verification.json"
+          gh attestation verify "$RUNNER_TEMP/fincilia-release.tar.gz" \
+            --bundle "${{ steps.sbom.outputs.bundle-path }}" \
+            --repo "$GITHUB_REPOSITORY" --signer-workflow "$SIGNER_WORKFLOW" \
+            --source-digest "$GITHUB_SHA" --source-ref "$GITHUB_REF" \
+            --predicate-type "https://spdx.dev/Document/v2.3" \
+            --deny-self-hosted-runners --format json \
+            > "$RUNNER_TEMP/sbom-verification.json"
+          cp "${{ steps.provenance.outputs.bundle-path }}" \
+            "$RUNNER_TEMP/provenance.sigstore.json"
+          cp "${{ steps.sbom.outputs.bundle-path }}" \
+            "$RUNNER_TEMP/sbom.sigstore.json"
+
       - name: Preserve the unpublished evidence bundle
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: fincilia-release-${{ github.sha }}
-          path: ${{ runner.temp }}/fincilia-release
+          path: |
+            ${{ runner.temp }}/fincilia-release
+            ${{ runner.temp }}/fincilia-release.tar.gz
+            ${{ runner.temp }}/provenance.sigstore.json
+            ${{ runner.temp }}/sbom.sigstore.json
+            ${{ runner.temp }}/provenance-verification.json
+            ${{ runner.temp }}/sbom-verification.json
           if-no-files-found: error
           retention-days: 14
 

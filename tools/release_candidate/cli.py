@@ -6,6 +6,7 @@ import argparse
 import json
 from pathlib import Path
 
+from .archive import create_archive, verify_archive
 from .model import ReleaseError, create_bundle, verify_bundle, verify_source
 
 
@@ -29,6 +30,14 @@ def _parser() -> argparse.ArgumentParser:
     source = sub.add_parser("verify-source")
     source.add_argument("--root", type=Path, default=Path.cwd())
     source.add_argument("--bundle", type=Path, required=True)
+
+    archive = sub.add_parser("archive")
+    archive.add_argument("--bundle", type=Path, required=True)
+    archive.add_argument("--output", type=Path, required=True)
+
+    archive_verify = sub.add_parser("verify-archive")
+    archive_verify.add_argument("--bundle", type=Path, required=True)
+    archive_verify.add_argument("--archive", type=Path, required=True)
     return parser
 
 
@@ -44,8 +53,12 @@ def main(argv: list[str] | None = None) -> int:
                 ci_run_url=args.ci_run_url)
         elif args.command == "verify":
             manifest = verify_bundle(args.bundle)
-        else:
+        elif args.command == "verify-source":
             manifest = verify_source(args.root, args.bundle)
+        elif args.command == "archive":
+            manifest = create_archive(args.bundle, args.output)
+        else:
+            manifest = verify_archive(args.bundle, args.archive)
     except ReleaseError as error:
         print(json.dumps({"ok": False, "error": str(error)}, sort_keys=True))
         return 1

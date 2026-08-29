@@ -33,7 +33,10 @@ SBOM_NAMES = {
     "worker": "worker-dependencies.spdx.json",
     "web": "web-dependencies.spdx.json",
 }
-EXPECTED_FILES = frozenset({MANIFEST_NAME, CHECKSUM_NAME, *SBOM_NAMES.values()})
+AGGREGATE_SBOM_NAME = "release-dependencies.spdx.json"
+EXPECTED_FILES = frozenset({
+    MANIFEST_NAME, CHECKSUM_NAME, AGGREGATE_SBOM_NAME, *SBOM_NAMES.values(),
+})
 
 
 class ReleaseError(ValueError):
@@ -142,6 +145,8 @@ def load_contract(root: Path) -> dict[str, Any]:
     }
     if set(contract) != required:
         raise ReleaseError("release candidate contract fields drifted")
+    if contract["schema_version"] != "1.1.0" or contract["task"] != "FNC-REL-001":
+        raise ReleaseError("release candidate contract version or owner drifted")
     if contract["state"] != "review_pending" or contract["allowed_data"] != "synthetic_only":
         raise ReleaseError("contract may only describe a synthetic review candidate")
     if contract["artifact_names"] != ["api", "worker", "web"]:
@@ -356,6 +361,8 @@ def create_bundle(root: Path, output: Path, images: dict[str, str], *,
     if set(locks) != set(SBOM_NAMES):
         raise ReleaseError("dependency lock scopes must match artifact names")
     sbom_digests: dict[str, str] = {}
+    all_packages: list[dict[str, Any]] = []
+    lock_digests: dict[str, str] = {}
     for scope, relative in sorted(locks.items()):
         lock_path = _resolved(root, relative)
         lock_digest = _sha256(_git_blob(root, relative))
@@ -363,10 +370,18 @@ def create_bundle(root: Path, output: Path, images: dict[str, str], *,
                     else python_packages(lock_path, scope))
         if not packages:
             raise ReleaseError(f"dependency inventory is empty: {scope}")
+        all_packages.extend(packages)
+        lock_digests[scope] = lock_digest
         document = spdx_document(scope, packages, state, lock_digest)
         encoded = _json_bytes(document)
         (output / SBOM_NAMES[scope]).write_bytes(encoded)
         sbom_digests[scope] = _sha256(encoded)
+
+    aggregate_lock_digest = _sha256(_json_bytes(lock_digests))
+    aggregate = spdx_document("release", all_packages, state, aggregate_lock_digest)
+    aggregate_bytes = _json_bytes(aggregate)
+    (output / AGGREGATE_SBOM_NAME).write_bytes(aggregate_bytes)
+    aggregate_digest = _sha256(aggregate_bytes)
 
     inputs = []
     for relative in contract["source_inputs"]:
@@ -397,8 +412,12 @@ def create_bundle(root: Path, output: Path, images: dict[str, str], *,
         },
         "data_ceiling": "synthetic_only",
         "kind": "fincilia_release_candidate",
+        "release_sbom": {
+            "path": AGGREGATE_SBOM_NAME,
+            "sha256": aggregate_digest,
+        },
         "schema_head": _schema_head(root),
-        "schema_version": "1.0.0",
+        "schema_version": "1.1.0",
         "source": {"clean": True, "inputs": inputs, "revision": state.revision},
         "state": "candidate",
     }
@@ -486,13 +505,13 @@ def verify_bundle(bundle: Path) -> dict[str, Any]:
     manifest = _load_json(bundle / MANIFEST_NAME, "manifest")
     required = {
         "approval", "artifacts", "build", "data_ceiling", "kind", "schema_head",
-        "schema_version", "source", "state",
+        "schema_version", "source", "state", "release_sbom",
     }
     if set(manifest) != required:
         raise ReleaseError("manifest fields drifted")
     if manifest["kind"] != "fincilia_release_candidate" or manifest["state"] != "candidate":
         raise ReleaseError("bundle is not a release candidate")
-    if manifest["schema_version"] != "1.0.0" or manifest["data_ceiling"] != "synthetic_only":
+    if manifest["schema_version"] != "1.1.0" or manifest["data_ceiling"] != "synthetic_only":
         raise ReleaseError("unsupported schema or data ceiling")
     approval = manifest["approval"]
     if approval != {
@@ -525,6 +544,22 @@ def verify_bundle(bundle: Path) -> dict[str, Any]:
         if _file_digest(bundle / artifact["sbom_path"]) != artifact["sbom_sha256"]:
             raise ReleaseError(f"artifact SBOM digest does not match: {scope}")
         _verify_spdx(_load_json(bundle / artifact["sbom_path"], f"{scope} SBOM"), revision, scope)
+    release_sbom = manifest.get("release_sbom")
+    if release_sbom != {
+        "path": AGGREGATE_SBOM_NAME,
+        "sha256": _file_digest(bundle / AGGREGATE_SBOM_NAME),
+    }:
+        raise ReleaseError("aggregate release SBOM reference is invalid")
+    aggregate = _load_json(bundle / AGGREGATE_SBOM_NAME, "release SBOM")
+    _verify_spdx(aggregate, revision, "release")
+    expected_package_ids = {
+        package["SPDXID"]
+        for scope in SBOM_NAMES
+        for package in _load_json(bundle / SBOM_NAMES[scope], f"{scope} SBOM")["packages"]
+    }
+    actual_package_ids = {package["SPDXID"] for package in aggregate["packages"]}
+    if actual_package_ids != expected_package_ids:
+        raise ReleaseError("aggregate release SBOM does not cover every artifact package")
     return manifest
 
 

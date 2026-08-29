@@ -17,7 +17,7 @@
     "web": "apps/web/package-lock.json",
     "worker": "workers/document/requirements.txt"
   },
-  "schema_version": "1.0.0",
+  "schema_version": "1.1.0",
   "source_inputs": [
     "apps/api/Dockerfile",
     "apps/api/requirements.txt",
@@ -38,6 +38,6 @@
     "external_publish": false,
     "manual_only": true,
     "real_data": false,
-    "signing": "pending_human_root_of_trust"
+    "signing": "github_oidc_attestation_pending_external_run"
   }
 }
