@@ -103,6 +103,8 @@ def validate_sources(sources: str | None = None) -> list[str]:
         'ReleaseDeploymentSuccess',
         "psql -U postgres -d fincilia_restore",
         "-Atqc 'SELECT 1'",
+        'CREATE ROLE fincilia_app NOLOGIN',
+        'CREATE ROLE fincilia_identity NOLOGIN',
         'python -m db.admin.invitations create',
         'sha256sum -c manifest.sha256',
         'RestoreCheckSuccess',

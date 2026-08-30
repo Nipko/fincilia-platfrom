@@ -61,6 +61,18 @@ for _ in $(seq 1 60); do
 done
 test "$(docker exec "$container" psql -U postgres -d fincilia_restore \
   -Atqc 'SELECT 1')" = 1
+
+# El dump conserva las politicas RLS y sus roles objetivo, pero --no-owner y
+# --no-acl deliberadamente no trasladan roles ni credenciales. Los placeholders
+# NOLOGIN permiten reconstruir la semantica del esquema sin copiar accesos.
+docker exec "$container" psql -U postgres -d fincilia_restore \
+  --set ON_ERROR_STOP=on -c '
+    CREATE ROLE fincilia_app NOLOGIN;
+    CREATE ROLE fincilia_migrator NOLOGIN;
+    CREATE ROLE fincilia_worker NOLOGIN;
+    CREATE ROLE fincilia_dispatch NOLOGIN;
+    CREATE ROLE fincilia_identity NOLOGIN;
+  ' >/dev/null
 docker exec -i "$container" pg_restore -U postgres -d fincilia_restore \
   --no-owner --no-acl < "$workdir/database.dump"
 

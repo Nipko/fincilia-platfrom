@@ -104,6 +104,20 @@ class ClosedBetaContractTests(unittest.TestCase):
         self.assertTrue(any("psql -U postgres -d fincilia_restore" in item
                             for item in validate_sources(mutated)))
 
+    def test_restore_recreates_only_non_login_policy_roles(self) -> None:
+        mutated = source_text().replace(
+            'CREATE ROLE fincilia_app NOLOGIN',
+            'CREATE ROLE fincilia_app LOGIN',
+        ).replace(
+            'CREATE ROLE fincilia_identity NOLOGIN',
+            'CREATE ROLE fincilia_identity LOGIN',
+        )
+        errors = validate_sources(mutated)
+        self.assertTrue(any('CREATE ROLE fincilia_app NOLOGIN' in item
+                            for item in errors))
+        self.assertTrue(any('CREATE ROLE fincilia_identity NOLOGIN' in item
+                            for item in errors))
+
     def valid_plan(self) -> dict:
         tags = {
             "Project": "Fincilia", "Environment": "closed-beta",

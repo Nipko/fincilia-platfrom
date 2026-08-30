@@ -90,7 +90,10 @@ revisiones independientes. BETA-01 y DRG-01 permanecen `not_met`.
 - El primer backup sintético se escribió en S3 y sus tres artefactos pasaron
   checksum. El restore desechable descubrió una carrera: `pg_isready` observaba
   el PostgreSQL temporal del entrypoint antes de que terminara el reinicio. La
-  espera ahora exige `SELECT 1` sobre la base final exacta.
+  espera ahora exige `SELECT 1` sobre la base final exacta. La primera repetición
+  descubrió además que las políticas RLS referencian roles que un dump sin
+  owners/ACL no recrea; el laboratorio crea placeholders `NOLOGIN`, nunca copia
+  roles ni credenciales del entorno activo.
 - El primer plan de actualización pretendía reemplazar EC2, su asociación EIP y
   el volumen por un cambio solo web. El release ahora se despliega in-place por
   SSM, bajo lock, con bundle verificado, preservación de volúmenes y rollback
