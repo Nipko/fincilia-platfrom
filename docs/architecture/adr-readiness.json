@@ -514,6 +514,36 @@
         "QA"
       ],
       "scope": "private_real_data_pilot_only"
+    },
+    {
+      "blockers": [
+        "DRG-00",
+        "DRG-01",
+        "uat_reset_rehearsal_and_bootstrap_completion",
+        "independent_security_privacy_architecture_sre_qa_review"
+      ],
+      "evidence": [
+        "docs/implementation/tasks/FNC-UAT-001.md",
+        "docs/implementation/handoffs/FNC-UAT-001.md",
+        "docs/platform/uat-lifecycle.json",
+        "docs/platform/UAT_LIFECYCLE.md"
+      ],
+      "id": "ADR-033",
+      "owners": [
+        "Product",
+        "Platform"
+      ],
+      "path": "docs/adr/ADR-033-uat-production-platform-administration.md",
+      "readiness": "blocked",
+      "reviewers": [
+        "Security",
+        "Privacy",
+        "Architecture",
+        "Database",
+        "SRE",
+        "QA"
+      ],
+      "scope": "uat_reset_and_production_promotion_contract_only"
     }
   ],
   "agent_may_accept": false,
