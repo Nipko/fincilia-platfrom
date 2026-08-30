@@ -96,4 +96,21 @@ describe('PlatformPage', () => {
     await expect(PlatformPage()).rejects.toThrow('NEXT_REDIRECT');
     expect(mocks.redirect).toHaveBeenCalledWith('/empresas');
   });
+
+  it('permite auditoría sin intentar leer identidades restringidas', async () => {
+    mocks.fetchMe.mockResolvedValue({
+      subject_id: '44444444-4444-4444-8444-444444444444',
+      display_name: 'Auditora',
+      platform_roles: ['platform_auditor'],
+      companies: [],
+    });
+
+    render(await PlatformPage());
+
+    expect(screen.getByText('Firma UAT')).toBeInTheDocument();
+    expect(screen.getByText(/Break-glass:/)).toBeInTheDocument();
+    expect(mocks.fetchIdentities).not.toHaveBeenCalled();
+    expect(screen.queryByRole('heading', { name: 'Usuarios de la plataforma' }))
+      .not.toBeInTheDocument();
+  });
 });

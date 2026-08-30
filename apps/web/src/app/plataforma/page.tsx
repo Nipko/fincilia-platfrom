@@ -25,12 +25,20 @@ export default async function PlatformPage() {
   const session = await readSession();
   if (!session) redirect('/entrar');
 
-  let data;
+  let me: Awaited<ReturnType<typeof fetchMe>>;
+  let overview: Awaited<ReturnType<typeof fetchPlatformOverview>>;
+  let identities: Awaited<ReturnType<typeof fetchPlatformIdentities>>;
+  let organizations: Awaited<ReturnType<typeof fetchPlatformOrganizations>>;
+  let diagnostics: Awaited<ReturnType<typeof fetchPlatformDiagnostics>>;
+  let audit: Awaited<ReturnType<typeof fetchPlatformAudit>>;
   try {
-    data = await Promise.all([
-        fetchMe(session.token),
+    me = await fetchMe(session.token);
+    const canReadIdentities = me.platform_roles.some((role) => (
+      role === 'platform_superadmin' || role === 'platform_operator'
+    ));
+    [overview, identities, organizations, diagnostics, audit] = await Promise.all([
         fetchPlatformOverview(session.token),
-        fetchPlatformIdentities(session.token),
+        canReadIdentities ? fetchPlatformIdentities(session.token) : Promise.resolve([]),
         fetchPlatformOrganizations(session.token),
         fetchPlatformDiagnostics(session.token),
         fetchPlatformAudit(session.token),
@@ -40,8 +48,8 @@ export default async function PlatformPage() {
     if (error instanceof ApiError && error.status === 403) redirect('/empresas');
     throw error;
   }
-  const [me, overview, identities, organizations, diagnostics, audit] = data;
   const superadmin = me.platform_roles.includes('platform_superadmin');
+  const canReadIdentities = superadmin || me.platform_roles.includes('platform_operator');
 
   return (
       <main className="platform-page">
@@ -81,7 +89,7 @@ export default async function PlatformPage() {
           <p className="platform-boundary">Break-glass: <strong>deshabilitado</strong>. El soporte financiero excepcional exige un flujo separado, temporal y con segundo aprobador.</p>
         </section>
 
-        <section className="workspace-section" aria-labelledby="platform-users-title">
+        {canReadIdentities ? <section className="workspace-section" aria-labelledby="platform-users-title">
           <div className="section-heading"><div><p className="eyebrow">Identidad</p><h2 id="platform-users-title">Usuarios de la plataforma</h2></div><span>{identities.length} visibles</span></div>
           <div className="table-wrap"><table><thead><tr><th>Persona</th><th>Estado</th><th>Firmas</th><th>Autoridad</th><th>Acción</th></tr></thead><tbody>
             {identities.map((identity) => (
@@ -127,7 +135,7 @@ export default async function PlatformPage() {
               </tr>
             ))}
           </tbody></table></div>
-        </section>
+        </section> : null}
 
         <section className="platform-columns">
           <div className="workspace-section">
