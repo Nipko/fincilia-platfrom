@@ -155,7 +155,7 @@ from botocore.client import Config
 client = boto3.client(
     "s3",
     endpoint_url=os.environ["FINCILIA_OBJECT_STORE_ENDPOINT"],
-    region_name=os.environ["FINCILIA_OBJECT_REGION"],
+    region_name=os.environ.get("FINCILIA_OBJECT_REGION", "us-east-1"),
     aws_access_key_id=os.environ["FINCILIA_OBJECT_ACCESS_KEY"],
     aws_secret_access_key=os.environ["FINCILIA_OBJECT_SECRET_KEY"],
     config=Config(signature_version="s3v4"),
