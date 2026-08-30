@@ -84,6 +84,26 @@ class ClosedBetaContractTests(unittest.TestCase):
         self.assertTrue(any("ensure_buckets(settings)" in item
                             for item in validate_sources(mutated)))
 
+    def test_release_updates_preserve_the_instance_and_have_rollback(self) -> None:
+        mutated = source_text().replace(
+            'ignore_changes = [user_data]', 'ignore_changes = []', 1
+        ).replace(
+            'fincilia-beta-deploy.lock', 'missing-deploy-lock', 1
+        )
+        errors = validate_sources(mutated)
+        self.assertTrue(any("ignore_changes = [user_data]" in item
+                            for item in errors))
+        self.assertTrue(any("fincilia-beta-deploy.lock" in item
+                            for item in errors))
+
+    def test_restore_waits_for_the_final_database_not_pg_isready(self) -> None:
+        mutated = source_text().replace(
+            "psql -U postgres -d fincilia_restore",
+            "pg_isready -U postgres -d fincilia_restore",
+        )
+        self.assertTrue(any("psql -U postgres -d fincilia_restore" in item
+                            for item in validate_sources(mutated)))
+
     def valid_plan(self) -> dict:
         tags = {
             "Project": "Fincilia", "Environment": "closed-beta",

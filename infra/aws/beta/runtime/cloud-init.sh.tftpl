@@ -24,16 +24,8 @@ install -d -m 0700 /opt/fincilia
 aws s3 cp '${bundle_uri}/' /opt/fincilia/ --recursive --only-show-errors
 cd /opt/fincilia
 sha256sum -c manifest.sha256
-chmod 0700 up.sh invite.sh backup.sh restore-check.sh
+chmod 0700 up.sh invite.sh backup.sh restore-check.sh deploy-release.sh
 chmod 0444 bootstrap.sh Caddyfile nginx.conf compose.yaml
-
-cat > /opt/fincilia/deployment.env <<'EOF'
-FINCILIA_BACKUP_BUCKET=${backup_bucket}
-FINCILIA_BACKUP_PREFIX=${backup_prefix}
-FINCILIA_RELEASE_SHA=${release_sha}
-FINCILIA_REGISTRY=${registry}
-FINCILIA_RUNTIME_PARAMETER=/fincilia/closed-beta/runtime-env-v1
-EOF
 chmod 0600 /opt/fincilia/deployment.env
 
 for unit in \

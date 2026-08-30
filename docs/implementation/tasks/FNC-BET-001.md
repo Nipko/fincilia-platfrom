@@ -77,6 +77,25 @@ revisiones independientes. BETA-01 y DRG-01 permanecen `not_met`.
 - EC2 pasa status checks, SSM está `Online`, el bundle local verifica por SHA-256,
   `fincilia-beta.service` está activo y el acceso externo por IP con `Host:
   fincilia.com` devuelve redirección permanente a HTTPS.
-- El registro DNS A, la emisión del certificado, el E2E público, backup/restore y
-  las revisiones independientes siguen pendientes. `BETA-01`, `DRG-00`, `DRG-01`
-  y `GA-01` permanecen `not_met`; solo se permiten datos completamente sintéticos.
+- El registro DNS A y el certificado ya están operativos; el E2E público,
+  restore verificado y las revisiones independientes siguen pendientes.
+  `BETA-01`, `DRG-00`, `DRG-01` y `GA-01` permanecen `not_met`; solo se permiten
+  datos completamente sintéticos.
+
+# Punto de control 2026-08-30 — dominio y operación
+
+- `fincilia.com` resuelve a la EIP, redirige HTTP a HTTPS y sirve un certificado
+  Let's Encrypt válido. Los puertos 22, 3000, 5432, 6379 y 9000 permanecen
+  cerrados desde Internet.
+- El primer backup sintético se escribió en S3 y sus tres artefactos pasaron
+  checksum. El restore desechable descubrió una carrera: `pg_isready` observaba
+  el PostgreSQL temporal del entrypoint antes de que terminara el reinicio. La
+  espera ahora exige `SELECT 1` sobre la base final exacta.
+- El primer plan de actualización pretendía reemplazar EC2, su asociación EIP y
+  el volumen por un cambio solo web. El release ahora se despliega in-place por
+  SSM, bajo lock, con bundle verificado, preservación de volúmenes y rollback
+  local al release anterior. El user-data queda reservado al alta de hosts.
+- La superficie pública deja de mostrar usuarios conocidos del laboratorio y
+  publica canales separados `support`, `privacy`, `legal` y `security` bajo
+  `fincilia.com`. El código y las imágenes fueron verificados; falta aplicar el
+  bundle final, repetir restore y completar el E2E de una cuenta invitada.

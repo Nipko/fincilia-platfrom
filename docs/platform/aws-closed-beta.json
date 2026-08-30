@@ -31,7 +31,8 @@
     "database": "postgresql_17_single_host",
     "cache": "valkey_8_ephemeral",
     "object_store": "minio_single_host",
-    "availability": "best_effort_closed_beta"
+    "availability": "best_effort_closed_beta",
+    "release_deployment": "ssm_in_place_with_local_rollback"
   },
   "isolation": {
     "public_container": "caddy_only",

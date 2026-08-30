@@ -51,12 +51,16 @@ docker run -d --name "$container" --network none \
   postgres:17.11-alpine3.24@sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73 >/dev/null
 
 for _ in $(seq 1 60); do
-  if docker exec "$container" pg_isready -U postgres -d fincilia_restore >/dev/null 2>&1; then
+  # La imagen levanta un servidor temporal, crea la base y lo reinicia. pg_isready
+  # puede observar el primero y provocar una carrera contra ese apagado.
+  if docker exec "$container" psql -U postgres -d fincilia_restore \
+    -Atqc 'SELECT 1' 2>/dev/null | grep -qx 1; then
     break
   fi
   sleep 1
 done
-docker exec "$container" pg_isready -U postgres -d fincilia_restore >/dev/null
+test "$(docker exec "$container" psql -U postgres -d fincilia_restore \
+  -Atqc 'SELECT 1')" = 1
 docker exec -i "$container" pg_restore -U postgres -d fincilia_restore \
   --no-owner --no-acl < "$workdir/database.dump"
 

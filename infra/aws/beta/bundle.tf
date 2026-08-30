@@ -8,6 +8,13 @@ locals {
   caddy_content = templatefile("${path.module}/runtime/Caddyfile.tftpl", {
     beta_domain = var.beta_domain
   })
+  deployment_env_content = <<-EOT
+    FINCILIA_BACKUP_BUCKET=${data.terraform_remote_state.t0.outputs.object_bucket_name}
+    FINCILIA_BACKUP_PREFIX=${local.backup_prefix}
+    FINCILIA_RELEASE_SHA=${var.release_sha}
+    FINCILIA_REGISTRY=${local.registry}
+    FINCILIA_RUNTIME_PARAMETER=/fincilia/closed-beta/runtime-env-v1
+  EOT
 
   bundle_files = {
     "compose.yaml"                        = local.compose_content
@@ -18,6 +25,8 @@ locals {
     "invite.sh"                           = file("${path.module}/runtime/invite.sh")
     "backup.sh"                           = file("${path.module}/runtime/backup.sh")
     "restore-check.sh"                    = file("${path.module}/runtime/restore-check.sh")
+    "deploy-release.sh"                   = file("${path.module}/runtime/deploy-release.sh")
+    "deployment.env"                      = local.deployment_env_content
     "fincilia-beta.service"               = file("${path.module}/runtime/fincilia-beta.service")
     "fincilia-beta-backup.service"        = file("${path.module}/runtime/fincilia-beta-backup.service")
     "fincilia-beta-backup.timer"          = file("${path.module}/runtime/fincilia-beta-backup.timer")

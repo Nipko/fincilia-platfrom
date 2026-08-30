@@ -45,6 +45,10 @@ resource "aws_instance" "beta" {
   tags = { Name = "fincilia-closed-beta" }
 
   lifecycle {
+    # El user-data solo inicializa un host nuevo. Los releases posteriores usan
+    # deploy-release.sh por SSM para preservar instancia, EIP y volumen.
+    ignore_changes = [user_data]
+
     precondition {
       condition = (
         length(regexall("FINCILIA_REAL_DATA_ENABLED: \"false\"", local.compose_content)) >= 2 &&
