@@ -152,7 +152,7 @@ dependencias de `FNC-GAT-002` ni afirmar que Sprint 1 está habilitado.
 | FNC-RPT-001 | A5/A6 | WEB-003, REC-003, DQ-001, EXP-001 | Review pending | Informes operativos e historicos company-scoped, importes exactos por moneda, CSV determinista y web verificada; revision humana pendiente |
 | FNC-ONB-001 | A5/A6 | PLT-008, QA-007, P3.5 | Review pending | Alta atomica de empresa, engagement y configuracion inicial desde la web; solo sintetico mientras DRG-00 siga cerrado |
 | FNC-ONB-002 | A3/A5/A6 | ONB-001, SEC-001, PLT-011 | Review pending | Registro local sintetico y primer espacio completos; FNC-IAM-004 sustituye el pendiente de identidad administrada sin habilitar datos reales |
-| FNC-BET-001 | A2/A3/A6 | ONB-002, PLT-011, REL-001 | Review pending | Beta cerrada HTTPS sintética desplegada y recorrida en AWS; revisiones Security, Platform/SRE, Privacy/Legal y QA pendientes; no mueve DRG-00/01 |
+| FNC-BET-001 | A2/A3/A6 | ONB-002, PLT-011, REL-001 | Review pending | Despliegue UAT público inicial (ID histórico) recorrido en AWS; ADR-033 prohíbe promover sus cuentas/datos y no mueve DRG-00/01 |
 | FNC-PLT-012 | A2/A3/A4 | GAT-005, ARC-003, SEC-003, REL-001 | In progress | Foundation separada integrada; plan/apply y activación continúan bloqueados por DRG-00/01 |
 | FNC-PLT-013 | A2/A3/A4 | PLT-012, GAT-005 | Review pending | Plano de costo frío/encendido y controlador seguro integrados; aplicación y datos reales continúan bloqueados |
 | FNC-PLT-014 | A2 | PLT-012 | Review pending | Actividades AWS Credits completadas con USD 200 disponibles; laboratorio sintético retirado por completo |
@@ -160,6 +160,8 @@ dependencias de `FNC-GAT-002` ni afirmar que Sprint 1 está habilitado.
 | FNC-IAM-002 | A3/A6 | IAM-001, ONB-002, QA-007 | Review pending | Centro de cuenta y recorrido coherente de identidad, sesión, empresas y roles |
 | FNC-IAM-003 | A2/A3/A6 | IAM-001, IAM-002, PLT-012 | Review pending | Logout federado, SignUp nativo cerrado y contrato de assurance Google sin sobreafirmar MFA |
 | FNC-IAM-004 | A2/A3/A6 | IAM-001, IAM-002, IAM-003, ONB-001, LEG-002 | Review pending | Alta pública Google sin invitaciones, login no creador, aceptación legal versionada y firma/owner atómicos; activación externa y revisión independiente pendientes |
+| FNC-ADM-001 | A2/A3/A5/A6 | IAM-004, SEC-001, AUD-001 | Review pending | Superadmin inicial y plano de control separados de roles/datos financieros; PostgreSQL, API, web y consola local verificados |
+| FNC-UAT-001 | A2/A3/A4/A5 | ADM-001, REL-001, SUP-002 | In progress | Promoción por digest sin datos, producción separada y reset UAT por reemplazo; ensayo desechable y revisiones pendientes |
 | FNC-ACC-001 | A4/A5/A6 | ING-005, REC-006, CLS-005, RPT-001 | Review pending | Recorrido contable web guiado sin cambiar semántica ni ejecutar cierre |
 | FNC-UX-003 | A6 | WEB-004, UX-001, IAM-002, ACC-001 | Review pending | Shell SaaS premium, navegación jerárquica, motion accesible y responsive |
 | FNC-LEG-002 | A3/A6 | PRV-001, LEG-001 | In progress | Centro legal público Fincilia desarrollado por Parallext.com; textos sujetos a revisión jurídica |

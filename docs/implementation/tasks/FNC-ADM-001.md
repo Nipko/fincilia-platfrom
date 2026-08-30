@@ -1,7 +1,7 @@
 ---
 id: FNC-ADM-001
 title: Plano de administración y superadmin inicial
-status: in_progress
+status: review_pending
 implementer: Codex principal dev + Integration Steward
 gate: DRG-00
 gate_effect: none
