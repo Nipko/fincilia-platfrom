@@ -34,6 +34,18 @@ output "cognito_web_client_id" {
   value = aws_cognito_user_pool_client.web.id
 }
 
+output "cognito_google_web_client_id" {
+  value = aws_cognito_user_pool_client.google_web.id
+}
+
+output "cognito_google_redirect_uri" {
+  value = "https://${aws_cognito_user_pool_domain.t0.domain}.auth.${var.region}.amazoncognito.com/oauth2/idpresponse"
+}
+
+output "cognito_fincilia_callback_uri" {
+  value = "https://fincilia.com/api/auth/callback/cognito"
+}
+
 output "cognito_domain" {
   value = aws_cognito_user_pool_domain.t0.domain
 }

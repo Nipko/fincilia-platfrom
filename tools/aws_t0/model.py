@@ -105,6 +105,10 @@ def validate_sources(root: Path | None = None) -> list[str]:
         'data "aws_region" "current"',
         'DataClass   = "synthetic_only"',
         'resource "aws_budgets_budget"',
+        'resource "aws_cognito_user_pool_client" "google_web"',
+        'supported_identity_providers         = ["Google"]',
+        'callback_urls                        = ["https://fincilia.com/api/auth/callback/cognito"]',
+        'logout_urls                          = ["https://fincilia.com/entrar"]',
     ):
         if required not in merged:
             errors.append(f"fuente no contiene control requerido: {required}")

@@ -104,6 +104,23 @@ class ContractTests(unittest.TestCase):
             errors = validate_sources(Path(directory))
         self.assertTrue(any("EC2" in error for error in errors))
 
+    def test_google_web_client_has_exact_public_callbacks(self) -> None:
+        source = (T0_SOURCE_ROOTS[1] / "cognito.tf").read_text(encoding="utf-8")
+        start = source.index('resource "aws_cognito_user_pool_client" "google_web"')
+        end = source.index('resource "aws_cognito_user_pool_domain"', start)
+        client = source[start:end]
+        for required in (
+            'generate_secret                      = false',
+            'allowed_oauth_flows                  = ["code"]',
+            'allowed_oauth_scopes                 = ["openid", "email", "profile"]',
+            'supported_identity_providers         = ["Google"]',
+            'callback_urls                        = ["https://fincilia.com/api/auth/callback/cognito"]',
+            'logout_urls                          = ["https://fincilia.com/entrar"]',
+            'prevent_destroy = true',
+        ):
+            self.assertIn(required, client)
+        self.assertNotIn("localhost", client)
+
 
 class PlanTests(unittest.TestCase):
     def setUp(self) -> None:
