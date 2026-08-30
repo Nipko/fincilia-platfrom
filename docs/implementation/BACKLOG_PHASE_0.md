@@ -156,7 +156,7 @@ dependencias de `FNC-GAT-002` ni afirmar que Sprint 1 está habilitado.
 | FNC-PLT-012 | A2/A3/A4 | GAT-005, ARC-003, SEC-003, REL-001 | In progress | Foundation separada integrada; plan/apply y activación continúan bloqueados por DRG-00/01 |
 | FNC-PLT-013 | A2/A3/A4 | PLT-012, GAT-005 | Review pending | Plano de costo frío/encendido y controlador seguro integrados; aplicación y datos reales continúan bloqueados |
 | FNC-PLT-014 | A2 | PLT-012 | Review pending | Actividades AWS Credits completadas con USD 200 disponibles; laboratorio sintético retirado por completo |
-| FNC-IAM-001 | A3/A6 | ONB-002, SEC-001, LEG-002 | Review pending | Google OIDC/Cognito con PKCE preparado; el alta por invitación queda sustituida por FNC-IAM-004 y la activación real sigue separada |
+| FNC-IAM-001 | A3/A6 | ONB-002, SEC-001, LEG-002 | Review pending | Google y cliente Cognito público aplicados con callbacks exactos y drift cero; PKCE preparado y activación real separada por DRG-00/atestación/revisión |
 | FNC-IAM-002 | A3/A6 | IAM-001, ONB-002, QA-007 | Review pending | Centro de cuenta y recorrido coherente de identidad, sesión, empresas y roles |
 | FNC-IAM-003 | A2/A3/A6 | IAM-001, IAM-002, PLT-012 | Review pending | Logout federado, SignUp nativo cerrado y contrato de assurance Google sin sobreafirmar MFA |
 | FNC-IAM-004 | A2/A3/A6 | IAM-001, IAM-002, IAM-003, ONB-001, LEG-002 | Review pending | Alta pública Google sin invitaciones, login no creador, aceptación legal versionada y firma/owner atómicos; activación externa y revisión independiente pendientes |

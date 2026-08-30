@@ -6,6 +6,20 @@ invitaciones, sin convertir claims externos en roles de Fincilia. La activacion
 con personas reales permanece bloqueada por DRG-00 y revision independiente;
 publicar las paginas y preparar el proyecto no mueve ese gate.
 
+### Estado observado — 2026-08-30
+
+- Google existe como proveedor social del User Pool y solicita unicamente
+  `openid email profile`.
+- El cliente Cognito exclusivo de Fincilia esta administrado por OpenTofu, no
+  genera secret, admite solo `Google` y tiene revocacion habilitada.
+- Redirect de Google:
+  `https://fincilia-t0-632144225293.auth.sa-east-1.amazoncognito.com/oauth2/idpresponse`.
+- Callback de Fincilia:
+  `https://fincilia.com/api/auth/callback/cognito`.
+- Logout de Fincilia: `https://fincilia.com/entrar`.
+- El runtime permanece deshabilitado. Esta preparacion no adjudica DRG-00 ni
+  autoriza que una identidad personal complete el flujo.
+
 ## 1. Lo que debe entregar el Founder
 
 No enviar secretos por chat, Git, capturas, handoffs ni variables de Terraform.

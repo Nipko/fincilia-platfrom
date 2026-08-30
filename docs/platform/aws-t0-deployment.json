@@ -93,9 +93,9 @@
     "control_tower_forbidden": true
   },
   "deployment_evidence": {
-    "observed_at": "2026-08-28T18:36:00Z",
+    "observed_at": "2026-08-30T16:44:33Z",
     "bootstrap_managed_resources": 8,
-    "control_plane_managed_resources": 45,
+    "control_plane_managed_resources": 46,
     "bootstrap_post_apply_plan": "no_changes",
     "control_plane_post_apply_plan": "no_changes",
     "remote_state": {
@@ -112,7 +112,11 @@
     "cognito": {
       "mfa": "ON",
       "admin_create_only": true,
-      "user_count": 0
+      "user_count": 0,
+      "google_provider_configured": true,
+      "google_web_client_managed": true,
+      "google_web_callback": "https://fincilia.com/api/auth/callback/cognito",
+      "google_web_runtime_enabled": false
     },
     "ecr": {
       "repository_count": 3,

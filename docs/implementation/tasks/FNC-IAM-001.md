@@ -47,3 +47,15 @@ fuente de autorización financiera o activar OAuth real antes de DRG-00.
   `docs/platform/GOOGLE_OAUTH_PUBLICATION.md`.
 - Estado: implementación lista para revisión; configuración externa, DRG-00 y
   revisores independientes continúan pendientes.
+
+## Evidencia externa R1 — 2026-08-30
+
+- Google fue configurado como proveedor social en Cognito con scopes mínimos y
+  mapeo de `email`, `email_verified`, `name` y `sub`.
+- `987778d` integra un cliente Cognito separado para `fincilia.com`, sin secret,
+  con callback/logout exactos, Authorization Code, tokens de 15 minutos y
+  revocación habilitada.
+- El plan OpenTofu produjo `1 add, 0 change, 0 destroy`; el plan posterior fue
+  `No changes`. La comprobación directa observó solo Google como IdP.
+- La configuración externa deja de estar pendiente. La activación sigue cerrada
+  por DRG-00, atestación KMS y revisión independiente.
