@@ -51,6 +51,7 @@ ADD_COLUMN=re.compile(r"(?mi)^ALTER TABLE (?P<name>fincilia\.[a-z_]+)\s*$\n\s+AD
 # esquema se crea donde diga el `search_path` del momento, y exigirle el
 # prefijo a la regla dejaria pasar justo la mas dificil de auditar.
 CREATE_FUNCTION=re.compile(r"CREATE (?:OR REPLACE )?FUNCTION (?P<name>[a-z_][a-z0-9_.]*)\s*\(")
+ROLE_EVENT=re.compile(r"(?mi)^(?:SET LOCAL ROLE (?P<role>[a-z_][a-z0-9_]*);|RESET ROLE;)")
 def validate_definers(items):
  f=[]
  if not isinstance(items,list):return [Finding("DB-DEFINER-SCHEMA","security_definer_functions","not a list")]
@@ -161,7 +162,13 @@ def validate_migrations(root:Path,exemptions=None,definers=None):
    if entry is None:f.append(Finding("DB-MIGRATION-DEFINER",qualified,"undeclared SECURITY DEFINER function"));continue
    # Las tres condiciones que hacen auditable a una funcion definer.
    if "SET search_path" not in window:f.append(Finding("DB-DEFINER-SEARCH-PATH",qualified,"a definer function must pin its search_path"))
-   if f"ALTER FUNCTION {qualified}" not in code or str(entry.get("owner_role")) not in code:f.append(Finding("DB-DEFINER-OWNER",qualified,"the declared owner must be set in the migration"))
+   owner=str(entry.get("owner_role"))
+   role_events=list(ROLE_EVENT.finditer(code[:match.start()]))
+   creation_role=role_events[-1].group("role") if role_events else None
+   owned_at_creation=creation_role==owner
+   altered_to_owner=f"ALTER FUNCTION {qualified}" in code and owner in code
+   if not owned_at_creation and not altered_to_owner:
+    f.append(Finding("DB-DEFINER-OWNER",qualified,"the declared owner must be set in the migration"))
   if "BYPASSRLS" in code or "SUPERUSER" in code:f.append(Finding("DB-MIGRATION-PRIVILEGE",name,"a migration must not grant a role that escapes RLS"))
   declared={str(x.get("table")) for x in exemptions if isinstance(x,dict)}
   for table in CREATE_TABLE.finditer(text):

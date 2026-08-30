@@ -143,8 +143,19 @@ class MigrationTest(unittest.TestCase):
  # ---- funciones SECURITY DEFINER declaradas ----------------------------- #
  def test_the_declared_definers_are_the_bounded_privileged_functions(self):
   names=sorted(x["function"] for x in M["security_definer_functions"])
-  self.assertEqual(["fincilia.claim_next_run","fincilia.enqueue_processing_run",
-                     "fincilia.finish_run","fincilia.hold_processing_lease",
+  self.assertEqual(["fincilia.claim_initial_platform_superadmin",
+                    "fincilia.claim_next_run",
+                    "fincilia.current_subject_has_platform_role",
+                    "fincilia.enqueue_processing_run",
+                    "fincilia.finish_run","fincilia.hold_processing_lease",
+                    "fincilia.platform_admin_audit",
+                    "fincilia.platform_admin_grant_role",
+                    "fincilia.platform_admin_identities",
+                    "fincilia.platform_admin_organizations",
+                    "fincilia.platform_admin_overview",
+                    "fincilia.platform_admin_revoke_role",
+                    "fincilia.platform_admin_set_subject_status",
+                    "fincilia.platform_roles_for_current_subject",
                      "fincilia.record_overlay_application_run",
                      "fincilia.register_external_account_public",
                      "fincilia.register_external_account_with_invite",
@@ -212,6 +223,14 @@ class MigrationTest(unittest.TestCase):
  def test_a_definer_whose_owner_is_never_set_bites(self):
   body='CREATE FUNCTION fincilia.f() RETURNS void\nLANGUAGE plpgsql SECURITY DEFINER\nSET search_path = pg_catalog, fincilia\nAS $x$ BEGIN NULL; END; $x$;\nREVOKE ALL PRIVILEGES ON FUNCTION fincilia.f() FROM PUBLIC;\nALTER FUNCTION fincilia.f() OWNER TO fincilia_dispatch;\n'.replace("ALTER FUNCTION fincilia.f() OWNER TO fincilia_dispatch;","")
   self.assertIn("DB-DEFINER-OWNER",self.scratch("V0001__x.sql",body,None,[json.loads('{"function":"fincilia.f","owner_role":"fincilia_dispatch","granted_to":["fincilia_app"],"reason":"una razon suficientemente larga para que el validador la acepte como explicacion","gate":"DB-G03","human_review_state":"pending"}')]))
+ def test_a_definer_created_under_its_declared_role_passes(self):
+  body='SET LOCAL ROLE fincilia_dispatch;\nCREATE FUNCTION fincilia.f() RETURNS void\nLANGUAGE plpgsql SECURITY DEFINER\nSET search_path = pg_catalog, fincilia\nAS $x$ BEGIN NULL; END; $x$;\nREVOKE ALL PRIVILEGES ON FUNCTION fincilia.f() FROM PUBLIC;\nRESET ROLE;\n'
+  item=json.loads('{"function":"fincilia.f","owner_role":"fincilia_dispatch","granted_to":["fincilia_app"],"reason":"una razon suficientemente larga para que el validador la acepte como explicacion","gate":"DB-G03","human_review_state":"pending"}')
+  self.assertEqual(set(),self.scratch("V0001__x.sql",body,None,[item]))
+ def test_a_definer_created_under_another_role_bites(self):
+  body='SET LOCAL ROLE fincilia_identity;\nCREATE FUNCTION fincilia.f() RETURNS void\nLANGUAGE plpgsql SECURITY DEFINER\nSET search_path = pg_catalog, fincilia\nAS $x$ BEGIN NULL; END; $x$;\nREVOKE ALL PRIVILEGES ON FUNCTION fincilia.f() FROM PUBLIC;\nRESET ROLE;\n'
+  item=json.loads('{"function":"fincilia.f","owner_role":"fincilia_dispatch","granted_to":["fincilia_app"],"reason":"una razon suficientemente larga para que el validador la acepte como explicacion","gate":"DB-G03","human_review_state":"pending"}')
+  self.assertIn("DB-DEFINER-OWNER",self.scratch("V0001__x.sql",body,None,[item]))
 
  # ---- columnas anadidas por ALTER ---------------------------------------- #
  def test_a_column_added_by_alter_is_checked_against_the_exemption(self):

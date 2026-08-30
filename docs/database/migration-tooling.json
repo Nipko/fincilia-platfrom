@@ -304,6 +304,106 @@
       "reason": "crear sujeto, binding HMAC de proveedor y correo verificado, firma, membership owner y aceptaciones legales versionadas en una sola transaccion sin conceder escritura directa de identidad a la API",
       "gate": "DB-G03",
       "human_review_state": "pending"
+    },
+    {
+      "function": "fincilia.current_subject_has_platform_role",
+      "owner_role": "fincilia_identity",
+      "granted_to": [
+        "fincilia_app"
+      ],
+      "reason": "resolver exclusivamente los roles de plataforma del sujeto activo fijado en la sesion, sin aceptar autoridad desde el navegador ni abrir datos financieros",
+      "gate": "DB-G03",
+      "human_review_state": "pending"
+    },
+    {
+      "function": "fincilia.claim_initial_platform_superadmin",
+      "owner_role": "fincilia_identity",
+      "granted_to": [
+        "fincilia_app"
+      ],
+      "reason": "reclamar de forma atomica el unico superadmin inicial contra sujeto, binding Google verificado y referencia HMAC preconfigurada sin persistir el correo",
+      "gate": "DB-G03",
+      "human_review_state": "pending"
+    },
+    {
+      "function": "fincilia.platform_roles_for_current_subject",
+      "owner_role": "fincilia_identity",
+      "granted_to": [
+        "fincilia_app"
+      ],
+      "reason": "devolver solo las autoridades internas activas del sujeto de sesion para que la API falle cerrada sin lectura directa de asignaciones",
+      "gate": "DB-G03",
+      "human_review_state": "pending"
+    },
+    {
+      "function": "fincilia.platform_admin_overview",
+      "owner_role": "fincilia_identity",
+      "granted_to": [
+        "fincilia_app"
+      ],
+      "reason": "producir conteos operativos minimizados para autoridades validas sin exponer correo, identificadores externos, documentos, movimientos, montos ni saldos",
+      "gate": "DB-G03",
+      "human_review_state": "pending"
+    },
+    {
+      "function": "fincilia.platform_admin_identities",
+      "owner_role": "fincilia_identity",
+      "granted_to": [
+        "fincilia_app"
+      ],
+      "reason": "listar sujetos internos y roles de plataforma para superadmin u operador sin dar lectura directa a bindings, credenciales o PII externa",
+      "gate": "DB-G03",
+      "human_review_state": "pending"
+    },
+    {
+      "function": "fincilia.platform_admin_organizations",
+      "owner_role": "fincilia_identity",
+      "granted_to": [
+        "fincilia_app"
+      ],
+      "reason": "listar metadatos de firmas y numero de miembros para diagnostico del SaaS sin atravesar la frontera company-scoped ni devolver informacion financiera",
+      "gate": "DB-G03",
+      "human_review_state": "pending"
+    },
+    {
+      "function": "fincilia.platform_admin_audit",
+      "owner_role": "fincilia_identity",
+      "granted_to": [
+        "fincilia_app"
+      ],
+      "reason": "leer el ledger administrativo minimizado para autoridades del plano de control sin conceder SELECT directo ni incluir payload financiero",
+      "gate": "DB-G03",
+      "human_review_state": "pending"
+    },
+    {
+      "function": "fincilia.platform_admin_set_subject_status",
+      "owner_role": "fincilia_identity",
+      "granted_to": [
+        "fincilia_app"
+      ],
+      "reason": "suspender o reactivar un sujeto con razon y auditoria atomicas, protegiendo al actor y al ultimo superadmin sin UPDATE directo desde la API",
+      "gate": "DB-G03",
+      "human_review_state": "pending"
+    },
+    {
+      "function": "fincilia.platform_admin_grant_role",
+      "owner_role": "fincilia_identity",
+      "granted_to": [
+        "fincilia_app"
+      ],
+      "reason": "conceder una autoridad de plataforma permitida a un sujeto activo con razon, actor y auditoria sin INSERT directo ni autoconcesion",
+      "gate": "DB-G03",
+      "human_review_state": "pending"
+    },
+    {
+      "function": "fincilia.platform_admin_revoke_role",
+      "owner_role": "fincilia_identity",
+      "granted_to": [
+        "fincilia_app"
+      ],
+      "reason": "revocar una autoridad de plataforma con razon, actor y auditoria sin UPDATE directo, autorevocacion ni perdida del ultimo superadmin",
+      "gate": "DB-G03",
+      "human_review_state": "pending"
     }
   ]
 }
