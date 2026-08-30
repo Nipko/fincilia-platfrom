@@ -29,13 +29,13 @@ resource "aws_cloudwatch_metric_alarm" "backup_freshness" {
 
 resource "aws_cloudwatch_metric_alarm" "restore_check" {
   alarm_name          = "fincilia-closed-beta-restore-check"
-  alarm_description   = "No se observo restore-check exitoso durante ocho dias."
+  alarm_description   = "No se observo restore-check exitoso durante siete dias."
   namespace           = "Fincilia/ClosedBeta"
   metric_name         = "RestoreCheckSuccess"
   statistic           = "Maximum"
   period              = 86400
-  evaluation_periods  = 8
-  datapoints_to_alarm = 8
+  evaluation_periods  = 7
+  datapoints_to_alarm = 7
   threshold           = 1
   comparison_operator = "LessThanThreshold"
   treat_missing_data  = "breaching"

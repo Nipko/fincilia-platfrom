@@ -67,6 +67,16 @@ class ClosedBetaContractTests(unittest.TestCase):
         self.assertTrue(any("patron prohibido" in item
                             for item in validate_sources(mutated)))
 
+    def test_restore_alarm_stays_within_cloudwatch_week_limit(self) -> None:
+        mutated = source_text().replace(
+            'evaluation_periods  = 7', 'evaluation_periods  = 8', 1
+        ).replace(
+            'datapoints_to_alarm = 7', 'datapoints_to_alarm = 8', 1
+        )
+        errors = validate_sources(mutated)
+        self.assertTrue(any("evaluation_periods" in item for item in errors))
+        self.assertTrue(any("datapoints_to_alarm" in item for item in errors))
+
     def valid_plan(self) -> dict:
         tags = {
             "Project": "Fincilia", "Environment": "closed-beta",
