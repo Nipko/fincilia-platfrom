@@ -42,9 +42,11 @@ function isCurrent(pathname: string, href: string): boolean {
 export function GlobalNavigation({
   authenticated,
   displayName = 'Cuenta',
+  platformAccess = false,
 }: {
   authenticated: boolean;
   displayName?: string;
+  platformAccess?: boolean;
 }) {
   const pathname = usePathname();
 
@@ -75,6 +77,23 @@ export function GlobalNavigation({
           </div>
         </div>
       ))}
+      {platformAccess ? (
+        <div className="sidebar-nav__group">
+          <span className="sidebar-nav__label">Plataforma</span>
+          <div className="sidebar-nav__items">
+            <Link
+              aria-current={isCurrent(pathname, '/plataforma') ? 'page' : undefined}
+              href="/plataforma"
+            >
+              <AppIcon name="platform" />
+              <span>Control central</span>
+              {isCurrent(pathname, '/plataforma') ? (
+                <span aria-hidden="true" className="nav-current-dot" />
+              ) : null}
+            </Link>
+          </div>
+        </div>
+      ) : null}
     </nav>
     <Link className="sidebar-account" href="/cuenta">
       <span aria-hidden="true" className="sidebar-account__avatar">

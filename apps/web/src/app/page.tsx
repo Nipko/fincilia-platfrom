@@ -25,7 +25,7 @@ export default async function Home() {
           <p className="public-stage-note">
             {googleRegistration
               ? 'Registro público con Google · datos reales pendientes de autorización.'
-              : 'Acceso por invitación · beta cerrada con datos completamente sintéticos.'}
+              : 'Entorno UAT · identidad administrada pendiente de activación.'}
           </p>
         </div>
         <div className="public-hero__visual card" aria-label="Flujo de Fincilia">

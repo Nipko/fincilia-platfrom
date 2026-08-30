@@ -140,7 +140,7 @@ describe('registration action', () => {
     vi.unstubAllEnvs();
   });
 
-  it('rechaza en servidor un registro sin aceptar los limites de la beta', async () => {
+  it('rechaza en servidor un registro sin aceptar los limites de UAT', async () => {
     const result = await registerAccountAction({ error: null }, registrationForm());
 
     expect(result.error).toContain('datos sinteticos');

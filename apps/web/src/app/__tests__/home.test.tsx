@@ -24,7 +24,7 @@ describe('Home', () => {
     render(await Home());
 
     expect(screen.getByText(
-      'Acceso por invitación · beta cerrada con datos completamente sintéticos.',
+      'Entorno UAT · identidad administrada pendiente de activación.',
     )).toBeInTheDocument();
     expect(screen.queryByText(/Registro público con Google/)).not.toBeInTheDocument();
   });

@@ -6,7 +6,8 @@ export type AppIconName =
   | 'reports'
   | 'close'
   | 'audit'
-  | 'account';
+  | 'account'
+  | 'platform';
 
 export function AppIcon({ name }: { name: AppIconName }) {
   const common = {
@@ -47,6 +48,10 @@ export function AppIcon({ name }: { name: AppIconName }) {
       {name === 'account' ? <>
         <circle {...common} cx="12" cy="8" r="3.2" />
         <path {...common} d="M5.5 20a6.5 6.5 0 0 1 13 0" />
+      </> : null}
+      {name === 'platform' ? <>
+        <path {...common} d="M4 6.5h16v11H4zM8 17.5v2m8-2v2M7 21h10" />
+        <path {...common} d="m9 12 2 2 4-4" />
       </> : null}
     </svg>
   );

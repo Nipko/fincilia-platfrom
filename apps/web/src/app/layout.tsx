@@ -4,6 +4,7 @@ import Link from 'next/link';
 
 import { BrandMark } from '@/components/brand-mark';
 import { GlobalNavigation } from '@/components/global-navigation';
+import { fetchMe } from '@/lib/api';
 import { publicStage } from '@/lib/public-stage';
 import { readSession } from '@/lib/session';
 
@@ -31,6 +32,16 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   const session = await readSession();
   const stage = publicStage(process.env.FINCILIA_PUBLIC_STAGE);
   const authenticated = session !== null;
+  let platformAccess = false;
+  if (session) {
+    try {
+      const me = await fetchMe(session.token);
+      platformAccess = me.platform_roles.length > 0;
+    } catch {
+      // La navegación nunca convierte una caída de API en autorización local.
+      platformAccess = false;
+    }
+  }
 
   return (
     <html lang="es">
@@ -47,7 +58,8 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                   <span aria-hidden="true" />{stage.badge}
                 </span>
               </div>
-              <GlobalNavigation authenticated displayName={session.displayName} />
+              <GlobalNavigation authenticated displayName={session.displayName}
+                platformAccess={platformAccess} />
               <div className="app-sidebar__trust">
                 <span aria-hidden="true">◆</span>
                 <p><strong>Contexto protegido</strong><small>Empresa y permisos se validan en el servidor.</small></p>

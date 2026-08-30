@@ -65,6 +65,63 @@ export type Me = {
   session_issued_at: number;
   session_expires_at: number;
   companies: CompanySummary[];
+  platform_roles: PlatformRole[];
+};
+
+export type PlatformRole =
+  | 'platform_superadmin'
+  | 'platform_operator'
+  | 'platform_auditor';
+
+export type PlatformOverview = {
+  subjects: { total: number; active: number; suspended: number };
+  firms: { total: number; active: number; suspended: number };
+  companies: { total: number; active: number; suspended: number; archived: number };
+  platform_roles: number;
+  bootstrap_claimed: boolean;
+};
+
+export type PlatformIdentity = {
+  subject_id: string;
+  display_name: string;
+  status: 'active' | 'suspended' | 'deactivated';
+  created_at: string;
+  active_firms: number;
+  platform_roles: PlatformRole[];
+};
+
+export type PlatformOrganization = {
+  firm_id: string;
+  legal_name: string;
+  status: 'active' | 'suspended';
+  created_at: string;
+  active_members: number;
+};
+
+export type PlatformAuditEvent = {
+  event_id: string;
+  actor_subject_id: string;
+  actor_name: string;
+  action: string;
+  resource_kind: string;
+  resource_ref: string;
+  outcome: 'allowed' | 'denied' | 'error';
+  detail: Record<string, unknown>;
+  occurred_at: string;
+};
+
+export type PlatformDiagnostics = {
+  environment: string;
+  release_id: string;
+  revision: string;
+  services: { name: string; status: string; detail?: string; latency_ms?: number }[];
+  capabilities: {
+    real_data: boolean;
+    managed_identity: boolean;
+    ai_gateway: boolean;
+    payments: boolean;
+    break_glass: boolean;
+  };
 };
 
 export type Session = {
@@ -222,6 +279,68 @@ export function exchangeManagedIdentity(input: ManagedIdentityInput): Promise<Se
 
 export function fetchMe(token: string): Promise<Me> {
   return request<Me>('/api/v1/me', { token });
+}
+
+export function fetchPlatformOverview(token: string): Promise<PlatformOverview> {
+  return request<PlatformOverview>('/api/v1/platform/overview', { token });
+}
+
+export function fetchPlatformIdentities(token: string): Promise<PlatformIdentity[]> {
+  return request<PlatformIdentity[]>('/api/v1/platform/identities?limit=100', { token });
+}
+
+export function fetchPlatformOrganizations(token: string): Promise<PlatformOrganization[]> {
+  return request<PlatformOrganization[]>('/api/v1/platform/organizations?limit=100', { token });
+}
+
+export function fetchPlatformAudit(token: string): Promise<PlatformAuditEvent[]> {
+  return request<PlatformAuditEvent[]>('/api/v1/platform/audit?limit=50', { token });
+}
+
+export function fetchPlatformDiagnostics(token: string): Promise<PlatformDiagnostics> {
+  return request<PlatformDiagnostics>('/api/v1/platform/diagnostics', { token });
+}
+
+export function setPlatformIdentityStatus(
+  token: string,
+  subjectId: string,
+  status: 'active' | 'suspended',
+  reasonCode: string,
+): Promise<Pick<PlatformIdentity, 'subject_id' | 'display_name' | 'status' | 'created_at'>> {
+  return request(`/api/v1/platform/identities/${encodeURIComponent(subjectId)}/status`, {
+    token,
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ status, reason_code: reasonCode }),
+  });
+}
+
+export function grantPlatformRole(
+  token: string,
+  subjectId: string,
+  platformRole: PlatformRole,
+  reasonCode: string,
+): Promise<{ assignment_id: string; platform_role: PlatformRole; status: string }> {
+  return request(`/api/v1/platform/identities/${encodeURIComponent(subjectId)}/roles`, {
+    token,
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ platform_role: platformRole, reason_code: reasonCode }),
+  });
+}
+
+export function revokePlatformRole(
+  token: string,
+  subjectId: string,
+  platformRole: PlatformRole,
+  reasonCode: string,
+): Promise<{ revoked: boolean }> {
+  const query = new URLSearchParams({ reason_code: reasonCode });
+  return request(
+    `/api/v1/platform/identities/${encodeURIComponent(subjectId)}/roles/` +
+      `${encodeURIComponent(platformRole)}?${query.toString()}`,
+    { token, method: 'DELETE' },
+  );
 }
 
 export function fetchCompany(token: string, companyId: string): Promise<CompanyDetail> {

@@ -3,6 +3,13 @@ import { describe, expect, it } from 'vitest';
 import { demoAccountsVisible, publicStage } from '../public-stage';
 
 describe('publicStage', () => {
+  it('presenta UAT como validación previa a producción', () => {
+    expect(publicStage('uat')).toEqual({
+      badge: 'UAT',
+      footer: 'Entorno UAT de validación previo a producción.',
+    });
+    expect(demoAccountsVisible('uat')).toBe(false);
+  });
   it('presenta el sistema definitivo sin llamarlo beta ni abrir datos reales', () => {
     expect(publicStage('preproduction')).toEqual({
       badge: 'Preproducción',
@@ -16,8 +23,11 @@ describe('publicStage', () => {
     });
   });
 
-  it('mantiene la beta cerrada como sintetica', () => {
-    expect(publicStage('closed_beta').footer).toContain('datos sintéticos');
+  it('traduce la configuración heredada a la etapa UAT', () => {
+    expect(publicStage('closed_beta')).toEqual({
+      badge: 'UAT',
+      footer: 'Entorno UAT de validación previo a producción.',
+    });
   });
 
   it('falla a la etiqueta segura para valores desconocidos', () => {
