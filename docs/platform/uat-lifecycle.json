@@ -1,0 +1,81 @@
+{
+  "contract_version": "1.0.0",
+  "decision": "ADR-033",
+  "environments": {
+    "uat": {
+      "purpose": "user_acceptance_testing",
+      "resettable": true,
+      "production_traffic": false
+    },
+    "production": {
+      "purpose": "customer_operations",
+      "resettable": false,
+      "state": "not_provisioned"
+    }
+  },
+  "isolation": {
+    "shared_resource_kinds": [],
+    "required_separate_resource_kinds": [
+      "postgresql",
+      "object_storage",
+      "valkey",
+      "kms_keys",
+      "secrets",
+      "identity_pool",
+      "backups",
+      "audit_sink"
+    ]
+  },
+  "promotion": {
+    "unit": "immutable_artifact_digest",
+    "copy_uat_database": false,
+    "copy_uat_accounts": false,
+    "copy_uat_objects": false,
+    "require_supply_chain_attestation": true,
+    "require_uat_acceptance_evidence": true
+  },
+  "reset": {
+    "strategy": "replace_uat_data_plane",
+    "web_trigger_available": false,
+    "confirmation_token_ttl_seconds": 900,
+    "production_resource_patterns_forbidden": [
+      "*-prod-*",
+      "production",
+      "fincilia-production"
+    ],
+    "allowlisted_resource_kinds": [
+      "uat_postgresql",
+      "uat_object_storage",
+      "uat_valkey",
+      "uat_identity_pool"
+    ],
+    "required_preconditions": [
+      "environment_identity_is_uat",
+      "new_writes_frozen",
+      "resource_inventory_captured",
+      "backup_completed",
+      "restore_drill_passed",
+      "confirmation_token_valid",
+      "target_allowlist_exact",
+      "production_targets_absent"
+    ],
+    "required_postconditions": [
+      "migrations_replayed_from_zero",
+      "bootstrap_reference_reconfigured",
+      "initial_superadmin_reclaimed",
+      "old_sessions_invalidated",
+      "old_uat_keys_retired",
+      "health_and_tenancy_smoke_passed",
+      "evidence_manifest_persisted"
+    ],
+    "bootstrap_policy": "reconfigure_reference_never_copy_assignment",
+    "execution_state": "disabled_pending_rehearsal_and_independent_review"
+  },
+  "reviews_required": [
+    "Security",
+    "Privacy/Legal",
+    "Architecture/Database",
+    "SRE",
+    "QA"
+  ]
+}
