@@ -84,6 +84,23 @@ class ClosedBetaContractTests(unittest.TestCase):
         self.assertTrue(any("ensure_buckets(settings)" in item
                             for item in validate_sources(mutated)))
 
+    def test_uat_reset_keeps_exact_targets_backup_and_short_confirmation(self) -> None:
+        source = source_text()
+        mutations = (
+            ('TOKEN_TTL_SECONDS=900', 'TOKEN_TTL_SECONDS=3600'),
+            ('PG_VOLUME=fincilia-beta_pgdata', 'PG_VOLUME=fincilia-production_pgdata'),
+            ('com.docker.compose.project', 'missing.compose.project'),
+            ('latest_backup_and_restore', 'skip_backup_and_restore'),
+            ('writers_are_stopped', 'assume_writers_stopped'),
+            ('docker volume rm "$PG_VOLUME" "$OBJECT_VOLUME"', 'docker volume prune'),
+            ('reset-evidence/uat/', 'reset-evidence/unknown/'),
+        )
+        for original, replacement in mutations:
+            with self.subTest(original=original):
+                self.assertIn(original, source)
+                errors = validate_sources(source.replace(original, replacement))
+                self.assertTrue(any(original in item for item in errors), errors)
+
     def test_release_updates_preserve_the_instance_and_have_rollback(self) -> None:
         mutated = source_text().replace(
             'ignore_changes = [user_data]', 'ignore_changes = []', 1

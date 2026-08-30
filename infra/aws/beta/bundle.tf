@@ -26,6 +26,7 @@ locals {
     "smoke-journey.sh"                    = file("${path.module}/runtime/smoke-journey.sh")
     "backup.sh"                           = file("${path.module}/runtime/backup.sh")
     "restore-check.sh"                    = file("${path.module}/runtime/restore-check.sh")
+    "reset-uat-empty.sh"                  = file("${path.module}/runtime/reset-uat-empty.sh")
     "deploy-release.sh"                   = file("${path.module}/runtime/deploy-release.sh")
     "deployment.env"                      = local.deployment_env_content
     "fincilia-beta.service"               = file("${path.module}/runtime/fincilia-beta.service")

@@ -41,7 +41,7 @@ trap cleanup EXIT
 aws s3 cp "$bundle_uri/" "$staging/" --recursive --only-show-errors
 (cd "$staging" && sha256sum -c manifest.sha256)
 
-for required in deployment.env compose.yaml up.sh deploy-release.sh; do
+for required in deployment.env compose.yaml up.sh deploy-release.sh reset-uat-empty.sh; do
   test -s "$staging/$required"
 done
 source "$staging/deployment.env"
@@ -50,7 +50,7 @@ test "$bundle_uri" = "${bundle_uri%/*}/$FINCILIA_RELEASE_SHA"
 chmod 0700 "$staging"/up.sh "$staging"/invite.sh \
   "$staging"/smoke-journey.sh \
   "$staging"/backup.sh "$staging"/restore-check.sh \
-  "$staging"/deploy-release.sh
+  "$staging"/deploy-release.sh "$staging"/reset-uat-empty.sh
 chmod 0600 "$staging/deployment.env"
 chmod 0444 "$staging"/bootstrap.sh "$staging"/Caddyfile \
   "$staging"/nginx.conf "$staging"/compose.yaml
