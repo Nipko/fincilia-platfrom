@@ -77,6 +77,13 @@ class ClosedBetaContractTests(unittest.TestCase):
         self.assertTrue(any("evaluation_periods" in item for item in errors))
         self.assertTrue(any("datapoints_to_alarm" in item for item in errors))
 
+    def test_object_buckets_are_bootstrapped_before_worker_start(self) -> None:
+        mutated = source_text().replace(
+            'created = ensure_buckets(settings)', 'created = []', 1
+        )
+        self.assertTrue(any("ensure_buckets(settings)" in item
+                            for item in validate_sources(mutated)))
+
     def valid_plan(self) -> dict:
         tags = {
             "Project": "Fincilia", "Environment": "closed-beta",

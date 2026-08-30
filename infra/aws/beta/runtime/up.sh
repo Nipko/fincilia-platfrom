@@ -51,6 +51,29 @@ aws ecr get-login-password --region sa-east-1 | \
 "${compose[@]}" pull --quiet
 "${compose[@]}" stop caddy nginx web api worker 2>/dev/null || true
 "${compose[@]}" up -d --wait postgres valkey objectstore
+"${compose[@]}" --profile migrate run --rm migrate python -c '
+import os
+from types import SimpleNamespace
+
+from fincilia_platform.probes import ensure_buckets
+
+settings = SimpleNamespace(
+    object_credentials_source="local_static",
+    object_store_endpoint=os.environ["FINCILIA_OBJECT_STORE_ENDPOINT"],
+    object_region=os.environ["FINCILIA_OBJECT_REGION"],
+    object_access_key=os.environ["FINCILIA_OBJECT_ACCESS_KEY"],
+    object_secret_key=os.environ["FINCILIA_OBJECT_SECRET_KEY"],
+    object_bucket_raw="fincilia-raw",
+    buckets=(
+        "fincilia-quarantine",
+        "fincilia-raw",
+        "fincilia-derived",
+        "fincilia-exports",
+    ),
+)
+created = ensure_buckets(settings)
+print("object storage ready; created=" + (",".join(created) or "none"))
+'
 "${compose[@]}" --profile migrate run --rm migrate
 "${compose[@]}" --profile migrate run --rm migrate python -m db.seed.beta
 "${compose[@]}" up -d --wait --force-recreate api worker web nginx caddy

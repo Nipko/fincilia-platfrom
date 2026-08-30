@@ -96,6 +96,8 @@ def validate_sources(sources: str | None = None) -> list[str]:
         'FINCILIA_REAL_DATA_ENABLED: "false"',
         'FINCILIA_AI_GATEWAY_ENABLED: "false"',
         'python -m db.seed.beta',
+        'from fincilia_platform.probes import ensure_buckets',
+        'created = ensure_buckets(settings)',
         'python -m db.admin.invitations create',
         'sha256sum -c manifest.sha256',
         'RestoreCheckSuccess',
