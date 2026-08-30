@@ -12,6 +12,7 @@ from __future__ import annotations
 import datetime as dt
 import hashlib
 import logging
+import re
 import time
 import uuid
 from typing import Annotated, Literal
@@ -31,7 +32,7 @@ from fincilia_platform.tokens import issue
 from . import (access, audit as audit_query, balance_reconciliation, balances,
                close_readiness, close_review, datasets, exports, financial_lineage,
                onboarding, oidc, operations, quality, reconciliation, registration,
-               reports, repository)
+               reports, repository, platform_admin)
 from . import company_onboarding
 from .issued_contexts import issue_context
 from .security import (Principal, ProblemError, company_context, current_principal,
@@ -282,6 +283,20 @@ class SpreadsheetSelectionRequest(BaseModel):
     sheet_identity: str = Field(pattern=r"^[0-9a-f]{64}$")
 
 
+class PlatformSubjectStatusRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    status: Literal["active", "suspended"]
+    reason_code: str = Field(pattern=r"^[a-z0-9._-]{3,80}$")
+
+
+class PlatformRoleRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    platform_role: Literal[
+        "platform_superadmin", "platform_operator", "platform_auditor"
+    ]
+    reason_code: str = Field(pattern=r"^[a-z0-9._-]{3,80}$")
+
+
 def principal_dependency(request: Request) -> Principal:
     return current_principal(request)
 
@@ -442,6 +457,13 @@ def exchange_managed_identity(request: Request,
                     "SELECT set_config('fincilia.subject_id', %s, true)",
                     (account.subject_id,),
                 )
+            # No hay rol en el payload ni en claims de Cognito. PostgreSQL solo
+            # reclama el bootstrap si la referencia HMAC fue preconfigurada,
+            # coincide con este binding verificado y aun no existe un claim.
+            platform_admin.claim_initial_superadmin(
+                connection, subject_id=account.subject_id,
+                verified_email_ref=identity.verified_email_ref,
+            )
             if account.created:
                 repository.record_audit(
                     connection, subject_id=account.subject_id, company_id=None,
@@ -514,6 +536,9 @@ def me(request: Request,
              principal: Principal = Depends(principal_dependency)) -> dict:
     companies = _my_companies(request, principal)
     managed_identity = request.app.state.settings.oidc_enabled
+    with request.app.state.database.session(
+            subject_id=principal.subject_id) as connection:
+        platform_roles = platform_admin.roles(connection)
     return {
         "subject_id": principal.subject_id,
         "display_name": principal.display_name,
@@ -526,7 +551,190 @@ def me(request: Request,
         "session_issued_at": principal.claims.issued_at,
         "session_expires_at": principal.claims.expires_at,
         "companies": [item.model_dump() for item in companies],
+        "platform_roles": platform_roles,
     }
+
+
+def _platform_forbidden(error: psycopg.Error) -> None:
+    if isinstance(error, psycopg.errors.InsufficientPrivilege):
+        raise forbidden() from None
+    raise error
+
+
+@router.get("/platform/overview", tags=["platform"])
+def platform_overview(
+        request: Request,
+        principal: Principal = Depends(principal_dependency),
+        ) -> dict:
+    try:
+        with request.app.state.database.session(
+                subject_id=principal.subject_id) as connection:
+            return platform_admin.overview(connection)
+    except psycopg.Error as error:
+        _platform_forbidden(error)
+    raise forbidden()
+
+
+@router.get("/platform/identities", tags=["platform"])
+def platform_identities(
+        request: Request, limit: int = 50,
+        principal: Principal = Depends(principal_dependency),
+        ) -> list[dict]:
+    if not 1 <= limit <= 100:
+        raise ProblemError(problem(
+            "invalid-request", "Invalid request", 422,
+            "platform list limit is invalid"))
+    try:
+        with request.app.state.database.session(
+                subject_id=principal.subject_id) as connection:
+            return platform_admin.identities(connection, limit=limit)
+    except psycopg.Error as error:
+        _platform_forbidden(error)
+    raise forbidden()
+
+
+@router.get("/platform/organizations", tags=["platform"])
+def platform_organizations(
+        request: Request, limit: int = 50,
+        principal: Principal = Depends(principal_dependency),
+        ) -> list[dict]:
+    if not 1 <= limit <= 100:
+        raise ProblemError(problem(
+            "invalid-request", "Invalid request", 422,
+            "platform list limit is invalid"))
+    try:
+        with request.app.state.database.session(
+                subject_id=principal.subject_id) as connection:
+            return platform_admin.organizations(connection, limit=limit)
+    except psycopg.Error as error:
+        _platform_forbidden(error)
+    raise forbidden()
+
+
+@router.get("/platform/audit", tags=["platform"])
+def platform_audit(
+        request: Request, limit: int = 50,
+        principal: Principal = Depends(principal_dependency),
+        ) -> list[dict]:
+    if not 1 <= limit <= 100:
+        raise ProblemError(problem(
+            "invalid-request", "Invalid request", 422,
+            "platform list limit is invalid"))
+    try:
+        with request.app.state.database.session(
+                subject_id=principal.subject_id) as connection:
+            return platform_admin.audit_events(connection, limit=limit)
+    except psycopg.Error as error:
+        _platform_forbidden(error)
+    raise forbidden()
+
+
+@router.get("/platform/diagnostics", tags=["platform"])
+def platform_diagnostics(
+        request: Request,
+        principal: Principal = Depends(principal_dependency),
+        ) -> dict:
+    # Autorizar en la base antes de ejecutar sondas; un token firmado no basta.
+    platform_overview(request, principal)
+    settings = request.app.state.settings
+    results = [probe.probe().as_dict() for probe in request.app.state.probes]
+    return {
+        "environment": settings.env,
+        "release_id": settings.release_id,
+        "revision": settings.build_revision,
+        "services": results,
+        "capabilities": {
+            "real_data": settings.real_data_enabled,
+            "managed_identity": settings.oidc_enabled,
+            "ai_gateway": settings.ai_gateway_enabled,
+            "payments": settings.payments_enabled,
+            "break_glass": False,
+        },
+    }
+
+
+@router.post("/platform/identities/{subject_id}/status", tags=["platform"])
+def platform_subject_status(
+        request: Request, subject_id: uuid.UUID,
+        body: PlatformSubjectStatusRequest,
+        principal: Principal = Depends(principal_dependency),
+        ) -> dict:
+    try:
+        with request.app.state.database.session(
+                subject_id=principal.subject_id) as connection:
+            return platform_admin.set_subject_status(
+                connection, subject_id=str(subject_id), status=body.status,
+                reason_code=body.reason_code,
+            )
+    except psycopg.errors.CheckViolation:
+        raise ProblemError(problem(
+            "last-superadmin-required", "Platform admin required", 409,
+            "the platform must keep an active superadmin")) from None
+    except psycopg.errors.InvalidParameterValue:
+        raise ProblemError(problem(
+            "invalid-request", "Invalid request", 422,
+            "platform status change is invalid")) from None
+    except psycopg.errors.NoDataFound:
+        raise forbidden() from None
+    except psycopg.Error as error:
+        _platform_forbidden(error)
+    raise forbidden()
+
+
+@router.post("/platform/identities/{subject_id}/roles", tags=["platform"])
+def platform_grant_role(
+        request: Request, subject_id: uuid.UUID, body: PlatformRoleRequest,
+        principal: Principal = Depends(principal_dependency),
+        ) -> dict:
+    try:
+        with request.app.state.database.session(
+                subject_id=principal.subject_id) as connection:
+            return platform_admin.grant_role(
+                connection, subject_id=str(subject_id),
+                platform_role=body.platform_role, reason_code=body.reason_code,
+            )
+    except psycopg.errors.InvalidParameterValue:
+        raise ProblemError(problem(
+            "invalid-request", "Invalid request", 422,
+            "platform role grant is invalid")) from None
+    except psycopg.Error as error:
+        _platform_forbidden(error)
+    raise forbidden()
+
+
+@router.delete(
+    "/platform/identities/{subject_id}/roles/{platform_role}", tags=["platform"]
+)
+def platform_revoke_role(
+        request: Request, subject_id: uuid.UUID,
+        platform_role: Literal[
+            "platform_superadmin", "platform_operator", "platform_auditor"
+        ], reason_code: str,
+        principal: Principal = Depends(principal_dependency),
+        ) -> dict:
+    if not re.fullmatch(r"[a-z0-9._-]{3,80}", reason_code):
+        raise ProblemError(problem(
+            "invalid-request", "Invalid request", 422,
+            "platform role revoke is invalid"))
+    try:
+        with request.app.state.database.session(
+                subject_id=principal.subject_id) as connection:
+            revoked = platform_admin.revoke_role(
+                connection, subject_id=str(subject_id),
+                platform_role=platform_role, reason_code=reason_code,
+            )
+        return {"revoked": revoked}
+    except psycopg.errors.CheckViolation:
+        raise ProblemError(problem(
+            "last-superadmin-required", "Platform admin required", 409,
+            "the platform must keep an active superadmin")) from None
+    except psycopg.errors.InvalidParameterValue:
+        raise ProblemError(problem(
+            "invalid-request", "Invalid request", 422,
+            "platform role revoke is invalid")) from None
+    except psycopg.Error as error:
+        _platform_forbidden(error)
+    raise forbidden()
 
 
 @router.get("/companies", response_model=list[CompanySummary], tags=["companies"])

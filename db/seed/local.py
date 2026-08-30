@@ -159,6 +159,25 @@ def seed(dsn: str, *, secret: str) -> dict[str, object]:
                     (stable_id("membership", person["key"]),
                      stable_id("subject", person["key"]), firm_id, person["firm_role"]))
 
+            # Autoridad real del plano de control sobre identidades sinteticas.
+            # No es una excepcion en la API: usa la misma tabla y las mismas
+            # funciones que UAT. El bootstrap Google permanece como el unico
+            # camino del entorno administrado.
+            cursor.execute(
+                "INSERT INTO fincilia.platform_role_assignment ("
+                "assignment_id, subject_id, platform_role, grant_source, "
+                "granted_by, reason_code) VALUES (%s, %s, "
+                "'platform_superadmin', 'platform_admin', %s, "
+                "'local_synthetic_fixture') "
+                "ON CONFLICT (subject_id, platform_role) WHERE status = 'active' "
+                "DO NOTHING",
+                (stable_id("platform_role", "sofia-superadmin"),
+                 stable_id("subject", "sofia"),
+                 stable_id("subject", PROVISIONER["key"])),
+            )
+            if cursor.rowcount:
+                created.append("platform_role:sofia-superadmin")
+
             # -- empresas -------------------------------------------------- #
             for company in COMPANIES:
                 company_id = stable_id("company", company["key"])
