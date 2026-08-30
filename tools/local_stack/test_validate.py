@@ -238,6 +238,18 @@ class LocalStackContractTests(unittest.TestCase):
         script = (ROOT / "infra/local/up.sh").read_text(encoding="utf-8")
         self.assertEqual([], validate_bootstrap_script(script))
 
+    def test_demo_data_is_explicitly_opt_in(self) -> None:
+        script = (ROOT / "infra/local/up.sh").read_text(encoding="utf-8")
+        for original in ('MODE=${1:---empty}', '--empty) SEED_DEMO=false',
+                         '--demo) SEED_DEMO=true',
+                         'if [ "$SEED_DEMO" = true ]'):
+            with self.subTest(original=original):
+                mutated = script.replace(original, "removed_demo_guard", 1)
+                self.assertIn(
+                    "LOCAL-BOOTSTRAP-DEMO-OPT-IN",
+                    codes(validate_bootstrap_script(mutated)),
+                )
+
     def test_a_stack_that_never_migrates_bites(self) -> None:
         mutated = COMPOSE.replace("db.migrate.apply", "db.migrate.noop")
         self.assertIn("LOCAL-MIGRATE-MISSING", codes(validate_compose(mutated)))

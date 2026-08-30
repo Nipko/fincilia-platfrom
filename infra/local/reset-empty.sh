@@ -1,0 +1,132 @@
+#!/usr/bin/env sh
+# Reemplaza exclusivamente el plano de datos local y lo reconstruye desde
+# migraciones. No acepta globs, overrides de volumen ni otros proyectos Compose.
+set -eu
+
+PROJECT=fincilia-local
+PG_VOLUME=fincilia_local_pgdata
+OBJECT_VOLUME=fincilia_local_objectdata
+HERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+COMPOSE_FILE="$HERE/compose.yaml"
+
+usage() {
+  printf 'usage: %s --plan | --execute fincilia-local\n' "$0" >&2
+  exit 64
+}
+
+compose() {
+  docker compose -f "$COMPOSE_FILE" -p "$PROJECT" "$@"
+}
+
+verify_volume() {
+  volume=$1
+  expected_component=$2
+  actual_project=$(docker volume inspect "$volume" \
+    --format '{{ index .Labels "com.docker.compose.project" }}')
+  actual_component=$(docker volume inspect "$volume" \
+    --format '{{ index .Labels "com.docker.compose.volume" }}')
+  mountpoint=$(docker volume inspect "$volume" --format '{{ .Mountpoint }}')
+  [ "$actual_project" = "$PROJECT" ] || {
+    printf 'refusing volume %s: project=%s\n' "$volume" "$actual_project" >&2
+    exit 65
+  }
+  [ "$actual_component" = "$expected_component" ] || {
+    printf 'refusing volume %s: component=%s\n' "$volume" "$actual_component" >&2
+    exit 65
+  }
+  case "$mountpoint" in
+    /var/lib/docker/volumes/"$volume"/_data) ;;
+    *)
+      printf 'refusing volume %s: mountpoint=%s\n' "$volume" "$mountpoint" >&2
+      exit 65
+      ;;
+  esac
+}
+
+verify_targets() {
+  [ -f "$COMPOSE_FILE" ] || {
+    printf 'compose file missing\n' >&2
+    exit 66
+  }
+  verify_volume "$PG_VOLUME" fincilia_local_pgdata
+  verify_volume "$OBJECT_VOLUME" fincilia_local_objectdata
+}
+
+case "${1:-}" in
+  --plan)
+    [ "$#" -eq 1 ] || usage
+    verify_targets
+    printf 'environment=local project=%s\n' "$PROJECT"
+    printf 'replace_volume=%s\n' "$PG_VOLUME"
+    printf 'replace_volume=%s\n' "$OBJECT_VOLUME"
+    printf 'preserve=source,images,networks,other_compose_projects\n'
+    printf 'postcondition=migrations_replayed,user_tables_empty,objects_empty\n'
+    exit 0
+    ;;
+  --execute)
+    [ "$#" -eq 2 ] && [ "$2" = "$PROJECT" ] || usage
+    ;;
+  *) usage ;;
+esac
+
+verify_targets
+
+echo "==> detener solamente $PROJECT"
+compose down --remove-orphans
+
+# Se vuelve a resolver cada target despues de detener los contenedores. Asi un
+# cambio concurrente entre el plan y la eliminacion no reutiliza el inventario.
+verify_targets
+echo "==> reemplazar los dos volumenes de datos adjudicados"
+docker volume rm "$PG_VOLUME" "$OBJECT_VOLUME"
+
+echo "==> reconstruir desde migraciones sin semilla demo"
+sh "$HERE/up.sh" --empty
+
+echo "==> verificar que todas las tablas de producto estan vacias"
+compose exec -T postgres psql -v ON_ERROR_STOP=1 \
+  -U fincilia_local_admin -d fincilia_local <<'SQL'
+DO $verify_empty$
+DECLARE
+  table_row record;
+  row_count bigint;
+BEGIN
+  FOR table_row IN
+    SELECT tablename
+    FROM pg_tables
+    WHERE schemaname = 'fincilia'
+      AND tablename <> 'schema_history'
+    ORDER BY tablename
+  LOOP
+    EXECUTE format('SELECT count(*) FROM fincilia.%I', table_row.tablename)
+      INTO row_count;
+    IF row_count <> 0 THEN
+      RAISE EXCEPTION 'table %.% is not empty', 'fincilia', table_row.tablename;
+    END IF;
+  END LOOP;
+END
+$verify_empty$;
+SQL
+
+echo "==> verificar que las zonas de objetos no contienen objetos"
+compose --profile migrate run --rm migrate python -c '
+import os
+import boto3
+from botocore.client import Config
+
+client = boto3.client(
+    "s3",
+    endpoint_url=os.environ["FINCILIA_OBJECT_STORE_ENDPOINT"],
+    region_name=os.environ["FINCILIA_OBJECT_REGION"],
+    aws_access_key_id=os.environ["FINCILIA_OBJECT_ACCESS_KEY"],
+    aws_secret_access_key=os.environ["FINCILIA_OBJECT_SECRET_KEY"],
+    config=Config(signature_version="s3v4"),
+)
+for bucket in ("fincilia-quarantine", "fincilia-raw", "fincilia-derived", "fincilia-exports"):
+    payload = client.list_objects_v2(Bucket=bucket, MaxKeys=1)
+    if payload.get("KeyCount", 0):
+        raise SystemExit(f"bucket not empty: {bucket}")
+print("object zones empty")
+'
+
+echo "reset local completo: plano de datos vacio y esquema vigente"

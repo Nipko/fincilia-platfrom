@@ -198,10 +198,10 @@ def validate_bootstrap(text: str) -> list[Finding]:
 def validate_bootstrap_script(text: str | None) -> list[Finding]:
     """El camino documentado tiene que existir y tiene que ser seguro.
 
-    Dos cosas: que arranque el producto de verdad (migrar y sembrar, no solo
-    levantar contenedores) y que **no** borre volumenes. Un script de arranque
-    que empieza destruyendo datos es una trampa el dia que alguien lo ejecuta
-    sobre algo que le importaba.
+    Dos cosas: que arranque el producto de verdad (migrar y permitir una demo
+    opt-in, no solo levantar contenedores) y que **no** borre volumenes. El modo
+    por defecto es vacio: una semilla de demostracion nunca puede reaparecer por
+    un reinicio ordinario.
     """
     findings: list[Finding] = []
     if text is None:
@@ -254,6 +254,18 @@ def validate_bootstrap_script(text: str | None) -> list[Finding]:
                 "LOCAL-BOOTSTRAP-DESTRUCTIVE",
                 f"the bootstrap script contains {destructive!r}; starting the stack "
                 "must never be the same gesture as destroying data"))
+    for required in ('MODE=${1:---empty}', '--empty) SEED_DEMO=false',
+                     '--demo) SEED_DEMO=true'):
+        if required not in text:
+            findings.append(Finding(
+                "LOCAL-BOOTSTRAP-DEMO-OPT-IN",
+                f"the bootstrap script is missing {required!r}; ordinary startup "
+                "must not recreate demonstration accounts"))
+    if text.count('if [ "$SEED_DEMO" = true ]') != 2:
+        findings.append(Finding(
+            "LOCAL-BOOTSTRAP-DEMO-OPT-IN",
+            "demo seeding and its user-facing result must both remain guarded; "
+            "ordinary startup must not recreate demonstration accounts"))
     return findings
 
 

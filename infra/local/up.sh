@@ -3,6 +3,10 @@
 #
 #     sh infra/local/up.sh
 #
+# El arranque normal queda vacio. La demo sintetica es opt-in y explicita:
+#
+#     sh infra/local/up.sh --demo
+#
 # El orden importa y no es un detalle de implementacion. Las aplicaciones no se
 # declaran sanas contra una base sin esquema: el worker prefiere salir con 1 a
 # reportar salud sin poder trabajar, y la API responde 503 en `ready` nombrando
@@ -13,6 +17,16 @@
 #
 #     docker compose -f infra/local/compose.yaml -p fincilia-local down --volumes
 set -eu
+
+MODE=${1:---empty}
+case "$MODE" in
+  --empty) SEED_DEMO=false ;;
+  --demo) SEED_DEMO=true ;;
+  *)
+    printf 'usage: %s [--empty|--demo]\n' "$0" >&2
+    exit 64
+    ;;
+esac
 
 PROJECT=fincilia-local
 HERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
@@ -37,8 +51,12 @@ compose up -d --wait postgres valkey objectstore
 echo "==> esquema"
 compose --profile migrate run --rm migrate
 
-echo "==> datos sinteticos de demo"
-compose --profile migrate run --rm migrate python -m db.seed.local
+if [ "$SEED_DEMO" = true ]; then
+  echo "==> datos sinteticos de demo (opt-in)"
+  compose --profile migrate run --rm migrate python -m db.seed.local
+else
+  echo "==> plano de datos vacio; no se instalan usuarios ni empresas demo"
+fi
 
 echo "==> aplicaciones"
 compose up -d --wait --force-recreate api worker web
@@ -63,4 +81,8 @@ API_PORT=${FINCILIA_LOCAL_API_PORT:-58080}
 echo
 echo "Web:  http://127.0.0.1:${WEB_PORT}"
 echo "API:  http://127.0.0.1:${API_PORT}/docs"
-echo "Entra como ana@demo.local con la contrasena sintetica de la semilla."
+if [ "$SEED_DEMO" = true ]; then
+  echo "Demo sintetica instalada de forma explicita."
+else
+  echo "Entorno vacio: crea la primera cuenta mediante el flujo de producto."
+fi
