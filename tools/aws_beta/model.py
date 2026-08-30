@@ -108,6 +108,7 @@ def validate_sources(sources: str | None = None) -> list[str]:
         'python -m db.admin.invitations create',
         'fincilia-beta-smoke.lock',
         'document_processing',
+        'f"--{boundary}\\r\\n"',
         'sha256sum -c manifest.sha256',
         'RestoreCheckSuccess',
         'alarm_description   = "No se observo restore-check exitoso durante siete dias."',

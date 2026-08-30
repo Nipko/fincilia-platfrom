@@ -123,14 +123,14 @@ token = company["refreshed_session"]["token"]
 
 boundary = "fincilia-smoke-" + uuid.uuid4().hex
 csv = (
-    "fecha,descripcion,importe,referencia\\n"
-    "2026-08-01,Movimiento sintetico,1250.00,SYN-001\\n"
+    "fecha,descripcion,importe,referencia\n"
+    "2026-08-01,Movimiento sintetico,1250.00,SYN-001\n"
 ).encode("utf-8")
 multipart = (
-    f"--{boundary}\\r\\n"
-    'Content-Disposition: form-data; name="file"; filename="recorrido-sintetico.csv"\\r\\n'
-    "Content-Type: text/csv\\r\\n\\r\\n"
-).encode("ascii") + csv + f"\\r\\n--{boundary}--\\r\\n".encode("ascii")
+    f"--{boundary}\r\n"
+    'Content-Disposition: form-data; name="file"; filename="recorrido-sintetico.csv"\r\n'
+    "Content-Type: text/csv\r\n\r\n"
+).encode("ascii") + csv + f"\r\n--{boundary}--\r\n".encode("ascii")
 status, artifact = call(
     "POST",
     f"/companies/{company_id}/documents?data_source_id={source_id}",
