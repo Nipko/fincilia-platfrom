@@ -60,3 +60,23 @@ externa o aprobación jurídica definitiva.
 Dominio exacto, control del DNS, release por digest de estos commits, plan
 adjudicado, apply, registro A, evidencia HTTPS/E2E/backup/restore y las cuatro
 revisiones independientes. BETA-01 y DRG-01 permanecen `not_met`.
+
+# Punto de control 2026-08-30
+
+- `fincilia.com` fue adjudicado como dominio raíz y el release de aplicación
+  `4344a4405fb5ec26f8dc001553612f07db515fbc` fue publicado en ECR con las tres
+  imágenes fijadas por digest después de CI verde y pruebas dentro del contenedor.
+- OpenTofu aplicó los 27 recursos previstos en la cuenta autorizada
+  `632144225293`, región `sa-east-1`, sin cambios ni eliminaciones. La instancia
+  es `i-03115c49eef006553` y su EIP estable es `54.94.132.123`.
+- La ejecución real detectó dos defectos previos a exposición: CloudWatch rechaza
+  ventanas mayores a siete días y el bootstrap no creaba las cuatro zonas de
+  objetos antes del worker. `c4c783b` y `72c529e` los corrigen con mutantes que
+  muerden; los deltas aplicados fueron uno de alta y dos actualizaciones in-place,
+  sin reemplazar instancia, IP o volumen.
+- EC2 pasa status checks, SSM está `Online`, el bundle local verifica por SHA-256,
+  `fincilia-beta.service` está activo y el acceso externo por IP con `Host:
+  fincilia.com` devuelve redirección permanente a HTTPS.
+- El registro DNS A, la emisión del certificado, el E2E público, backup/restore y
+  las revisiones independientes siguen pendientes. `BETA-01`, `DRG-00`, `DRG-01`
+  y `GA-01` permanecen `not_met`; solo se permiten datos completamente sintéticos.
