@@ -1,7 +1,7 @@
 ---
 id: FNC-BET-001
 title: Beta cerrada sintetica con dominio propio
-status: in_progress
+status: review_pending
 implementer: Codex principal dev + Integration Steward
 base_sha: 93dac84
 gate: BETA-01
@@ -102,3 +102,25 @@ revisiones independientes. BETA-01 y DRG-01 permanecen `not_met`.
   publica canales separados `support`, `privacy`, `legal` y `security` bajo
   `fincilia.com`. El código y las imágenes fueron verificados; falta aplicar el
   bundle final, repetir restore y completar el E2E de una cuenta invitada.
+
+# Punto de control final 2026-08-30
+
+- El release `90110e70d51c069afa0c5b91e32d86572b585eee` está activo sobre la
+  instancia y EIP originales. Los planes de los tres incrementos dejaron
+  `aws_instance.beta`, `aws_eip.beta` y `aws_eip_association.beta` en `no-op`.
+- El restore desechable terminó con exit 0 y publicó evidencia en
+  `restore-checks/beta/20260830T060535Z.json`; los timers diarios/semanales
+  quedaron habilitados.
+- El recorrido operacional en AWS creó una identidad y firma completamente
+  sintéticas, autenticó, aprovisionó empresa/cuenta/fuente/ciclo, cargó un CSV
+  inventado y observó `scan`, `profile` y `extract` en `succeeded`. Invitación,
+  contraseña y token nunca aparecieron en salida, Git, S3 o Parameter Store.
+- La ejecución encontró y cerró tres defectos antes de invitar personas: permiso
+  inicial del nuevo script, multipart con escapes literales y rate limiting de
+  Nginx sobre GET que se presentaba como 503. El límite ahora aplica a POST y
+  responde 429; `/registro` soportó cinco recargas consecutivas por HTTPS.
+- La portada describe el modo realmente activo: invitación, beta cerrada y datos
+  sintéticos. Google continúa deshabilitado hasta DRG-00.
+- La implementación pasa a `review_pending`. Security, Platform/SRE,
+  Privacy/Legal y QA deben revisar de forma independiente antes de invitar a
+  terceros; `BETA-01`, `DRG-00`, `DRG-01` y `GA-01` siguen `not_met`.

@@ -152,7 +152,7 @@ dependencias de `FNC-GAT-002` ni afirmar que Sprint 1 está habilitado.
 | FNC-RPT-001 | A5/A6 | WEB-003, REC-003, DQ-001, EXP-001 | Review pending | Informes operativos e historicos company-scoped, importes exactos por moneda, CSV determinista y web verificada; revision humana pendiente |
 | FNC-ONB-001 | A5/A6 | PLT-008, QA-007, P3.5 | Review pending | Alta atomica de empresa, engagement y configuracion inicial desde la web; solo sintetico mientras DRG-00 siga cerrado |
 | FNC-ONB-002 | A3/A5/A6 | ONB-001, SEC-001, PLT-011 | Review pending | Registro local sintetico y primer espacio completos; FNC-IAM-004 sustituye el pendiente de identidad administrada sin habilitar datos reales |
-| FNC-BET-001 | A2/A3/A6 | ONB-002, PLT-011, REL-001 | In progress | Beta cerrada con dominio HTTPS y datos exclusivamente sintéticos; no mueve DRG-00/01 |
+| FNC-BET-001 | A2/A3/A6 | ONB-002, PLT-011, REL-001 | Review pending | Beta cerrada HTTPS sintética desplegada y recorrida en AWS; revisiones Security, Platform/SRE, Privacy/Legal y QA pendientes; no mueve DRG-00/01 |
 | FNC-PLT-012 | A2/A3/A4 | GAT-005, ARC-003, SEC-003, REL-001 | In progress | Foundation separada integrada; plan/apply y activación continúan bloqueados por DRG-00/01 |
 | FNC-PLT-013 | A2/A3/A4 | PLT-012, GAT-005 | Review pending | Plano de costo frío/encendido y controlador seguro integrados; aplicación y datos reales continúan bloqueados |
 | FNC-PLT-014 | A2 | PLT-012 | Review pending | Actividades AWS Credits completadas con USD 200 disponibles; laboratorio sintético retirado por completo |
