@@ -6,6 +6,7 @@ from pathlib import Path
 
 from .model import (validate_bootstrap, validate_bootstrap_script,
                     validate_ci_workflow, validate_compose, validate_repository)
+from .model import validate_empty_reset_script
 
 ROOT = Path(__file__).resolve().parents[2]
 COMPOSE = (ROOT / "infra/local/compose.yaml").read_text(encoding="utf-8")
@@ -249,6 +250,23 @@ class LocalStackContractTests(unittest.TestCase):
                     "LOCAL-BOOTSTRAP-DEMO-OPT-IN",
                     codes(validate_bootstrap_script(mutated)),
                 )
+
+    def test_empty_reset_targets_are_exact_and_guarded(self) -> None:
+        script = (ROOT / "infra/local/reset-empty.sh").read_text(encoding="utf-8")
+        self.assertEqual([], validate_empty_reset_script(script))
+        mutations = (
+            ("PROJECT=fincilia-local", "PROJECT=other", "LOCAL-RESET-ALLOWLIST"),
+            ('com.docker.compose.project', 'missing.project.label',
+             "LOCAL-RESET-ALLOWLIST"),
+            ('[ "$2" = "$PROJECT" ]', '[ -n "$2" ]',
+             "LOCAL-RESET-ALLOWLIST"),
+            ('docker volume rm "$PG_VOLUME" "$OBJECT_VOLUME"',
+             'docker volume prune', "LOCAL-RESET-ALLOWLIST"),
+        )
+        for original, replacement, expected in mutations:
+            with self.subTest(original=original):
+                mutated = script.replace(original, replacement, 1)
+                self.assertIn(expected, codes(validate_empty_reset_script(mutated)))
 
     def test_a_stack_that_never_migrates_bites(self) -> None:
         mutated = COMPOSE.replace("db.migrate.apply", "db.migrate.noop")

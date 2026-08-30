@@ -269,6 +269,39 @@ def validate_bootstrap_script(text: str | None) -> list[Finding]:
     return findings
 
 
+def validate_empty_reset_script(text: str | None) -> list[Finding]:
+    """El reset local solo puede reemplazar dos volumenes adjudicados exactos."""
+    if text is None:
+        return [Finding("LOCAL-RESET-SCRIPT", "the empty reset script is missing")]
+    findings: list[Finding] = []
+    for required in (
+        "PROJECT=fincilia-local",
+        "PG_VOLUME=fincilia_local_pgdata",
+        "OBJECT_VOLUME=fincilia_local_objectdata",
+        'com.docker.compose.project',
+        'com.docker.compose.volume',
+        '/var/lib/docker/volumes/"$volume"/_data',
+        '--execute)',
+        '[ "$2" = "$PROJECT" ]',
+        'docker volume rm "$PG_VOLUME" "$OBJECT_VOLUME"',
+        'sh "$HERE/up.sh" --empty',
+        "tablename NOT IN (",
+        "'schema_history', 'subject', 'legal_document_version'",
+        "object zones empty",
+    ):
+        if required not in text:
+            findings.append(Finding(
+                "LOCAL-RESET-ALLOWLIST",
+                f"the reset script is missing the exact guard {required!r}"))
+    for forbidden in ("--volumes", "docker system prune", "docker volume prune",
+                      "rm -rf", "${PROJECT}_*", "fincilia_rec002"):
+        if forbidden in text:
+            findings.append(Finding(
+                "LOCAL-RESET-BROAD-TARGET",
+                f"the reset script contains broad or foreign target {forbidden!r}"))
+    return sorted(set(findings))
+
+
 # --------------------------------------------------------------------------- #
 # Contrato del workflow de CI
 # --------------------------------------------------------------------------- #
@@ -408,9 +441,13 @@ def validate_repository(root: Path) -> list[Finding]:
     bootstrap = (root / "infra/local/db/init/001_bootstrap.sql").read_text(encoding="utf-8")
     script_path = root / "infra/local/up.sh"
     script = script_path.read_text(encoding="utf-8") if script_path.is_file() else None
+    reset_path = root / "infra/local/reset-empty.sh"
+    reset_script = (reset_path.read_text(encoding="utf-8")
+                    if reset_path.is_file() else None)
     workflow_path = root / ".github/workflows/ci.yml"
     workflow = (workflow_path.read_text(encoding="utf-8")
                 if workflow_path.is_file() else "")
     return sorted(set(validate_compose(compose) + validate_bootstrap(bootstrap)
                       + validate_bootstrap_script(script)
+                      + validate_empty_reset_script(reset_script)
                       + validate_ci_workflow(workflow, root)))

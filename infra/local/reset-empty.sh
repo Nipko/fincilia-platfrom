@@ -95,7 +95,9 @@ BEGIN
     SELECT tablename
     FROM pg_tables
     WHERE schemaname = 'fincilia'
-      AND tablename <> 'schema_history'
+      AND tablename NOT IN (
+        'schema_history', 'subject', 'legal_document_version'
+      )
     ORDER BY tablename
   LOOP
     EXECUTE format('SELECT count(*) FROM fincilia.%I', table_row.tablename)
@@ -106,6 +108,42 @@ BEGIN
   END LOOP;
 END
 $verify_empty$;
+
+DO $verify_system_rows$
+BEGIN
+  IF (SELECT count(*) FROM fincilia.schema_history) <> 45
+     OR (SELECT max(version) FROM fincilia.schema_history) <> 'V0045' THEN
+    RAISE EXCEPTION 'migration history does not match the current release';
+  END IF;
+
+  IF (SELECT count(*) FROM fincilia.subject) <> 1
+     OR NOT EXISTS (
+       SELECT 1 FROM fincilia.subject
+       WHERE subject_id = '4d1d048f-07af-5ccd-bd76-abace2124b63'
+         AND subject_kind = 'service_principal'
+         AND display_name = 'Fincilia Provisioning Authority'
+         AND status = 'active'
+     ) THEN
+    RAISE EXCEPTION 'unexpected subject survived the empty reset';
+  END IF;
+
+  IF (SELECT count(*) FROM fincilia.legal_document_version) <> 2
+     OR NOT EXISTS (
+       SELECT 1 FROM fincilia.legal_document_version
+       WHERE document_kind = 'terms'
+         AND document_version = 'terms-2026-08-29'
+         AND active_for_registration
+     )
+     OR NOT EXISTS (
+       SELECT 1 FROM fincilia.legal_document_version
+       WHERE document_kind = 'privacy'
+         AND document_version = 'privacy-2026-08-29'
+         AND active_for_registration
+     ) THEN
+    RAISE EXCEPTION 'legal registration references are not canonical';
+  END IF;
+END
+$verify_system_rows$;
 SQL
 
 echo "==> verificar que las zonas de objetos no contienen objetos"
