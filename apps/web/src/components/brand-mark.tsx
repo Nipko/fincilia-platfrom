@@ -11,16 +11,24 @@ export function BrandMark() {
         aria-hidden="true"
         className="brand-mark"
         focusable="false"
-        viewBox="0 0 40 40"
+        viewBox="0 0 96 80"
       >
-        <rect height="40" rx="12" width="40" />
-        <path d="M10 13h11l3 3 6-6" />
-        <path d="M30 27H19l-3-3-6 6" />
-        <path d="M10 20h20" />
+        <path
+          className="brand-mark__sheet"
+          d="M38 65H9V8h31v17M58 16h29v56H56V56"
+        />
+        <path
+          className="brand-mark__detail"
+          d="M18 21h13M18 51h13M65 30h13M65 61h13"
+        />
+        <path
+          className="brand-mark__match"
+          d="M17 35h29v13h33"
+        />
       </svg>
       <span className="brand-lockup__copy">
         <strong>Fincilia</strong>
-        <small>Conciliacion clara</small>
+        <small>Conciliación clara</small>
       </span>
     </Link>
   );

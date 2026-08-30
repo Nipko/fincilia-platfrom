@@ -2191,23 +2191,35 @@ ul {
 }
 
 .brand-mark {
-  color: var(--accent);
+  --brand-mark-match: var(--accent);
+  color: var(--ink);
   flex: 0 0 auto;
   height: 2.35rem;
-  width: 2.35rem;
+  overflow: visible;
+  width: 2.82rem;
 }
 
-.brand-mark rect { fill: currentColor; }
-.brand-mark path {
+.brand-mark__sheet,
+.brand-mark__detail,
+.brand-mark__match {
   fill: none;
-  stroke: var(--brand-contrast);
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 2.2;
+  stroke: currentColor;
+  stroke-linecap: square;
+}
+
+.brand-mark__sheet { stroke-width: 7; }
+.brand-mark__detail {
+  opacity: 0.38;
+  stroke-width: 4;
+}
+.brand-mark__match {
+  color: var(--brand-mark-match);
+  stroke-linejoin: miter;
+  stroke-width: 9;
 }
 
 .brand-lockup__copy { display: grid; line-height: 1.05; }
-.brand-lockup__copy strong { font-size: 1.06rem; letter-spacing: -0.02em; }
+.brand-lockup__copy strong { font-size: 1.08rem; letter-spacing: -0.045em; }
 .brand-lockup__copy small {
   color: var(--ink-soft);
   font-size: 0.66rem;
@@ -3001,7 +3013,10 @@ body {
 }
 
 .app-sidebar .brand-lockup { color: var(--sidebar-ink); }
-.app-sidebar .brand-mark { color: #27ae7d; }
+.app-sidebar .brand-mark {
+  --brand-mark-match: #52d7a3;
+  color: var(--sidebar-ink);
+}
 .app-sidebar .brand-lockup__copy small { color: var(--sidebar-muted); }
 .app-sidebar .environment-badge {
   background: rgb(255 255 255 / 7%);
@@ -3462,7 +3477,7 @@ body {
   .app-sidebar__brand { min-height: auto; padding: 0; }
   .app-sidebar__brand .environment-badge { display: none; }
   .app-sidebar .brand-lockup__copy small { display: none; }
-  .app-sidebar .brand-mark { height: 2rem; width: 2rem; }
+  .app-sidebar .brand-mark { height: 2rem; width: 2.4rem; }
   .sidebar-nav { display: flex; gap: 0.2rem; overflow-x: auto; padding: 0; scrollbar-width: none; }
   .sidebar-nav::-webkit-scrollbar { display: none; }
   .sidebar-nav__group,

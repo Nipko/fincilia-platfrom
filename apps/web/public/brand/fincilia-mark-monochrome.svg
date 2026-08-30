@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="96" height="80" viewBox="0 0 96 80" role="img" aria-labelledby="title desc">
+  <title id="title">Fincilia monocromático</title>
+  <desc id="desc">Dos documentos desfasados unidos por una fila coincidente.</desc>
+  <path d="M38 65H9V8h31v17M58 16h29v56H56V56" fill="none" stroke="#10211a" stroke-linecap="square" stroke-width="7"/>
+  <path d="M18 21h13M18 51h13M65 30h13M65 61h13" fill="none" stroke="#10211a" stroke-linecap="square" stroke-width="4"/>
+  <path d="M17 35h29v13h33" fill="none" stroke="#10211a" stroke-linecap="square" stroke-linejoin="miter" stroke-width="9"/>
+</svg>
