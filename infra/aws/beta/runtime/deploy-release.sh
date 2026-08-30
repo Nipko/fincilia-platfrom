@@ -48,6 +48,7 @@ source "$staging/deployment.env"
 test "$bundle_uri" = "${bundle_uri%/*}/$FINCILIA_RELEASE_SHA"
 
 chmod 0700 "$staging"/up.sh "$staging"/invite.sh \
+  "$staging"/smoke-journey.sh \
   "$staging"/backup.sh "$staging"/restore-check.sh \
   "$staging"/deploy-release.sh
 chmod 0600 "$staging/deployment.env"

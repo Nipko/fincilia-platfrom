@@ -23,6 +23,7 @@ locals {
     "bootstrap.sh"                        = file("${path.module}/runtime/bootstrap.sh")
     "up.sh"                               = file("${path.module}/runtime/up.sh")
     "invite.sh"                           = file("${path.module}/runtime/invite.sh")
+    "smoke-journey.sh"                    = file("${path.module}/runtime/smoke-journey.sh")
     "backup.sh"                           = file("${path.module}/runtime/backup.sh")
     "restore-check.sh"                    = file("${path.module}/runtime/restore-check.sh")
     "deploy-release.sh"                   = file("${path.module}/runtime/deploy-release.sh")

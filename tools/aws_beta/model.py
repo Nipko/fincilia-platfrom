@@ -106,6 +106,8 @@ def validate_sources(sources: str | None = None) -> list[str]:
         'CREATE ROLE fincilia_app NOLOGIN',
         'CREATE ROLE fincilia_identity NOLOGIN',
         'python -m db.admin.invitations create',
+        'fincilia-beta-smoke.lock',
+        'document_processing',
         'sha256sum -c manifest.sha256',
         'RestoreCheckSuccess',
         'alarm_description   = "No se observo restore-check exitoso durante siete dias."',

@@ -1,9 +1,11 @@
 import Link from 'next/link';
 
+import { managedOidcRegistrationEnabled } from '@/lib/managed-oidc';
 import { readSession } from '@/lib/session';
 
 export default async function Home() {
   const session = await readSession();
+  const googleRegistration = managedOidcRegistrationEnabled();
   return (
     <main className="public-home">
       <section className="public-hero">
@@ -21,7 +23,9 @@ export default async function Home() {
             <Link className="secondary-link" href="/entrar">Entrar</Link>
           </div>
           <p className="public-stage-note">
-            Registro público con Google · datos reales pendientes de autorización.
+            {googleRegistration
+              ? 'Registro público con Google · datos reales pendientes de autorización.'
+              : 'Acceso por invitación · beta cerrada con datos completamente sintéticos.'}
           </p>
         </div>
         <div className="public-hero__visual card" aria-label="Flujo de Fincilia">
