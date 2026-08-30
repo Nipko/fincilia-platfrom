@@ -126,6 +126,7 @@ def validate_sources(sources: str | None = None) -> list[str]:
         'writers_are_stopped',
         'docker volume rm "$PG_VOLUME" "$OBJECT_VOLUME"',
         'aws ssm delete-parameter --name "$FINCILIA_RUNTIME_PARAMETER"',
+        "runtime parameter deletion did not converge",
         'reset-evidence/uat/',
         '"bootstrap":"not_configured"',
         'alarm_description   = "No se observo restore-check exitoso durante siete dias."',

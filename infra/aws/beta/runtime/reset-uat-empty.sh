@@ -210,6 +210,18 @@ verify_inventory
 if aws ssm get-parameter --name "$FINCILIA_RUNTIME_PARAMETER" \
      --query Parameter.Name --output text >/dev/null 2>&1; then
   aws ssm delete-parameter --name "$FINCILIA_RUNTIME_PARAMETER"
+  for _ in $(seq 1 30); do
+    if ! aws ssm get-parameter --name "$FINCILIA_RUNTIME_PARAMETER" \
+         --query Parameter.Name --output text >/dev/null 2>&1; then
+      break
+    fi
+    sleep 1
+  done
+  if aws ssm get-parameter --name "$FINCILIA_RUNTIME_PARAMETER" \
+       --query Parameter.Name --output text >/dev/null 2>&1; then
+    printf 'runtime parameter deletion did not converge\n' >&2
+    exit 1
+  fi
 fi
 rm -f /opt/fincilia/runtime.env
 docker volume rm "$PG_VOLUME" "$OBJECT_VOLUME"
