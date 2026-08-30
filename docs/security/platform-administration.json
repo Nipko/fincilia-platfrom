@@ -1,0 +1,64 @@
+{
+  "contract_version": "1.0.0",
+  "decision": "ADR-033",
+  "authority_boundary": "platform_control_plane_not_tenant_finance",
+  "roles": {
+    "platform_superadmin": [
+      "platform.overview.read",
+      "platform.identity.read",
+      "platform.identity.status.manage",
+      "platform.organization.read",
+      "platform.diagnostics.read",
+      "platform.audit.read",
+      "platform.role.manage"
+    ],
+    "platform_operator": [
+      "platform.overview.read",
+      "platform.identity.read",
+      "platform.organization.read",
+      "platform.diagnostics.read",
+      "platform.audit.read"
+    ],
+    "platform_auditor": [
+      "platform.overview.read",
+      "platform.organization.read",
+      "platform.diagnostics.read",
+      "platform.audit.read"
+    ]
+  },
+  "forbidden_by_default": [
+    "tenant.document.read",
+    "tenant.movement.read",
+    "tenant.balance.read",
+    "tenant.match.decide",
+    "tenant.close.approve",
+    "cloud.kms.decrypt",
+    "break_glass.self_approve"
+  ],
+  "bootstrap": {
+    "cardinality": 1,
+    "identity": "verified_google_email_hmac_reference",
+    "browser_supplied_role": false,
+    "plaintext_email_persisted": false,
+    "claim_is_atomic": true,
+    "reopen_after_claim": false
+  },
+  "break_glass": {
+    "enabled": false,
+    "requirements_before_enable": [
+      "aal3_step_up",
+      "distinct_requester_and_approver",
+      "company_and_scope_bound",
+      "automatic_expiration",
+      "append_only_audit",
+      "post_review_within_24h"
+    ]
+  },
+  "reviews_required": [
+    "Security",
+    "Privacy/Legal",
+    "Architecture/Database",
+    "SRE",
+    "QA"
+  ]
+}
