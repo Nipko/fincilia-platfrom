@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { publicStage } from '../public-stage';
+import { demoAccountsVisible, publicStage } from '../public-stage';
 
 describe('publicStage', () => {
   it('presenta el sistema definitivo sin llamarlo beta ni abrir datos reales', () => {
@@ -25,5 +25,13 @@ describe('publicStage', () => {
       badge: 'Entorno local',
       footer: 'Entorno local · datos sintéticos',
     });
+  });
+
+  it('solo expone las cuentas conocidas de demostracion en desarrollo local', () => {
+    expect(demoAccountsVisible(undefined)).toBe(true);
+    expect(demoAccountsVisible('local')).toBe(true);
+    expect(demoAccountsVisible('closed_beta')).toBe(false);
+    expect(demoAccountsVisible('preproduction')).toBe(false);
+    expect(demoAccountsVisible('production')).toBe(false);
   });
 });

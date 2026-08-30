@@ -3,6 +3,10 @@ export type PublicStage = {
   footer: string;
 };
 
+export function demoAccountsVisible(value: string | undefined): boolean {
+  return value === undefined || value === 'local';
+}
+
 export function publicStage(value: string | undefined): PublicStage {
   if (value === 'preproduction') {
     return { badge: 'Preproducción', footer: 'Preproducción · datos sintéticos' };

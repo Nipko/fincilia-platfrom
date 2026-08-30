@@ -60,7 +60,7 @@ test.describe('recorrido publico sin secretos', () => {
     await expect(page.getByRole('heading', { level: 1, name: 'Política de privacidad' }))
       .toBeVisible();
     await expect(page.getByText('Borrador de preproducción')).toBeVisible();
-    await expect(page.getByText(/support@parallext.com/).first()).toBeVisible();
+    await expect(page.getByText(/privacy@fincilia.com/).first()).toBeVisible();
   });
 
   test('una ruta protegida sin sesion vuelve al ingreso', async ({ page }) => {

@@ -1,6 +1,7 @@
 import Link from 'next/link';
 
 import { managedOidcEnabled } from '@/lib/managed-oidc';
+import { demoAccountsVisible } from '@/lib/public-stage';
 
 import { LocalSignInForm } from './local-signin-form';
 
@@ -16,6 +17,7 @@ const ERROR_MESSAGES: Record<string, string> = {
 
 export default async function SignInPage({ searchParams }: SignInPageProps) {
   const managed = managedOidcEnabled();
+  const showDemoAccounts = demoAccountsVisible(process.env.FINCILIA_PUBLIC_STAGE);
   const supplied = (await searchParams).error;
   const errorCode = Array.isArray(supplied) ? supplied[0] : supplied;
   const error = errorCode ? ERROR_MESSAGES[errorCode] : undefined;
@@ -42,7 +44,8 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
           <h2 id="signin-form-title">Entra a tu espacio</h2>
           <p className="meta">
             {managed ? 'Usa la cuenta Google asociada a tu espacio.' :
-              'Usa una cuenta local para continuar.'}
+              showDemoAccounts ? 'Usa una cuenta local para continuar.' :
+                'Usa la cuenta sintetica creada con tu invitacion.'}
           </p>
         </div>
         {error ? <p className="notice error" role="alert">{error}</p> : null}
@@ -54,7 +57,7 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
               Continuar con Google
             </button>
           </form>
-        ) : <LocalSignInForm />}
+        ) : <LocalSignInForm showDemoAccounts={showDemoAccounts} />}
 
         <div className="auth-switch">
           <span>¿Es tu primera vez?</span>

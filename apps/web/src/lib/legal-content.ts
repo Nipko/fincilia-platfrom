@@ -5,7 +5,7 @@ export const PRIVACY_SECTIONS: readonly LegalSection[] = [
     title: 'Quiénes somos y alcance',
     paragraphs: [
       'Fincilia es una plataforma de conciliación y control financiero desarrollada por Parallext.com. El entorno de preproducción actual opera exclusivamente con datos inventados y no admite documentos financieros reales.',
-      'La entidad jurídica que actuará como responsable o encargado, su domicilio y los canales formales se completarán con revisión legal antes de habilitar datos reales. El contacto provisional de privacidad es support@parallext.com.',
+      'La entidad jurídica que actuará como responsable o encargado y su domicilio se completarán con revisión legal antes de habilitar datos reales. El canal de privacidad de Fincilia es privacy@fincilia.com y el contacto general es info@fincilia.com.',
     ],
   },
   {
@@ -43,7 +43,7 @@ export const PRIVACY_SECTIONS: readonly LegalSection[] = [
   {
     title: 'Tus opciones y derechos',
     paragraphs: [
-      'Puedes pedir acceso, corrección, eliminación, restricción o información sobre tu cuenta escribiendo a support@parallext.com. Verificaremos la identidad antes de actuar y explicaremos cualquier conservación obligatoria o bloqueo técnico.',
+      'Puedes pedir acceso, corrección, eliminación, restricción o información sobre tu cuenta escribiendo a privacy@fincilia.com. Verificaremos la identidad antes de actuar y explicaremos cualquier conservación obligatoria o bloqueo técnico.',
       'Fincilia no está dirigida a menores de edad. Si detectamos una cuenta de un menor, la suspenderemos y coordinaremos su eliminación.',
     ],
   },
@@ -86,6 +86,7 @@ export const TERMS_SECTIONS: readonly LegalSection[] = [
     title: 'Disponibilidad, suspensión y cambios',
     paragraphs: [
       'Podemos modificar, detener o reiniciar el entorno de preproducción para corregir fallos o protegerlo. Podemos suspender cuentas ante abuso o riesgo. Cuando sea razonable avisaremos cambios materiales por los canales de soporte publicados.',
+      'Para ayuda con el acceso o el uso de la plataforma escribe a support@fincilia.com. No envíes contraseñas, documentos ni información financiera por correo.',
       'La ley aplicable, jurisdicción, limitaciones de responsabilidad y datos corporativos definitivos deben ser aprobados por Legal antes de convertir estos términos en condiciones productivas.',
     ],
   },
@@ -133,7 +134,7 @@ export const SECURITY_SECTIONS: readonly LegalSection[] = [
   {
     title: 'Reporte responsable',
     paragraphs: [
-      'Envía hallazgos de forma privada a support@parallext.com con una descripción, impacto y pasos mínimos de reproducción. No incluyas secretos ni datos de terceros. Confirmaremos recepción y coordinaremos la divulgación responsable.',
+      'Envía hallazgos de forma privada a security@fincilia.com con una descripción, impacto y pasos mínimos de reproducción. No incluyas secretos ni datos de terceros. Confirmaremos recepción y coordinaremos la divulgación responsable.',
     ],
   },
 ];
@@ -158,7 +159,7 @@ export const DPA_SECTIONS: readonly LegalSection[] = [
   {
     title: 'Cómo solicitarlo',
     paragraphs: [
-      'Escribe a support@parallext.com indicando la organización, país y caso de uso. Legal debe responder con la entidad contratante y versión aplicable; la aceptación de términos web no firma automáticamente este DPA.',
+      'Escribe a legal@fincilia.com indicando la organización, país y caso de uso. Legal debe responder con la entidad contratante y versión aplicable; la aceptación de términos web no firma automáticamente este DPA.',
     ],
   },
 ];
@@ -184,7 +185,7 @@ export const DELETION_SECTIONS: readonly LegalSection[] = [
   {
     title: 'Solicitar eliminación',
     paragraphs: [
-      'Escribe desde el correo asociado a support@parallext.com con el asunto “Eliminar cuenta Fincilia”. No incluyas contraseñas, documentos o información financiera. Podemos pedir una verificación adicional para impedir que otra persona elimine tu cuenta.',
+      'Escribe desde el correo asociado a privacy@fincilia.com con el asunto “Eliminar cuenta Fincilia”. No incluyas contraseñas, documentos o información financiera. Podemos pedir una verificación adicional para impedir que otra persona elimine tu cuenta.',
     ],
   },
   {
