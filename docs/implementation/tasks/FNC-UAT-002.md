@@ -1,9 +1,11 @@
 ---
 id: FNC-UAT-002
 title: Aceptación integral desechable desde esquema vacío
-status: in_progress
+status: review_pending
 implementer: Codex principal dev + Integration Steward
 base_sha: ba91e70
+implementation_shas: [1f4f2d7, 2bc936a]
+tested_sha: 2bc936a
 gate: DRG-00/DRG-01
 gate_effect: none
 data_ceiling: synthetic_only

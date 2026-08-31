@@ -1,9 +1,11 @@
 ---
 id: FNC-ADM-002
 title: Diagnóstico operativo agregado del plano de control
-status: ready
+status: review_pending
 implementer: Codex principal dev + Integration Steward
 base_sha: ba91e70
+implementation_sha: 8e7dbaf
+tested_sha: 2bc936a
 gate: S1-READY
 gate_effect: none
 data_ceiling: synthetic_only

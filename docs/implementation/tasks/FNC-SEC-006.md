@@ -1,9 +1,11 @@
 ---
 id: FNC-SEC-006
 title: Endurecimiento HTTP verificable para UAT
-status: ready
+status: review_pending
 implementer: Codex principal dev + Integration Steward
 base_sha: ba91e70
+implementation_sha: b44c115
+tested_sha: 2bc936a
 gate: S1-READY
 gate_effect: none
 data_ceiling: synthetic_only

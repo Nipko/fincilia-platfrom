@@ -1,9 +1,11 @@
 ---
 id: FNC-REC-007
 title: Productividad segura del explorador de conciliación
-status: ready
+status: review_pending
 implementer: Codex principal dev + Integration Steward
 base_sha: ba91e70
+implementation_sha: 6b29121
+tested_sha: 2bc936a
 gate: S1-READY
 gate_effect: none
 data_ceiling: synthetic_only
