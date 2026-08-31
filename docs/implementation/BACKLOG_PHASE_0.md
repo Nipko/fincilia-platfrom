@@ -138,6 +138,7 @@ dependencias de `FNC-GAT-002` ni afirmar que Sprint 1 está habilitado.
 | FNC-REC-004 | A5/A6 | REC-002, REC-003 | Review pending | Exclusividad uno-a-uno de confirmaciones bajo concurrencia, sin efecto financiero ni cierre |
 | FNC-REC-005 | A5/A6 | REC-004, DOM-003, DOM-005 | Review pending | Borradores manuales 1:N/N:1 de movimientos completos, append-only, idempotentes y sin asignaciones ni efecto financiero; revisión independiente pendiente |
 | FNC-REC-006 | A5/A6 | REC-002, REC-003 | Review pending | Expediente append-only consultable por ID estable aunque su dataset ya no sea elegible o el candidato no esté en la página visible; revisión independiente pendiente |
+| FNC-REC-007 | A5/A6 | REC-001, REC-006 | Ready | Filtro determinista por relación de referencia, conservado en URL y paginación; sin score, tolerancia, auto-match ni efecto financiero |
 | FNC-ING-001 | A4/A5/A6 | DOM-005, PLT-008, WEB-001 | Review pending | Ingesta segura y determinista de XLSX sintetico de una hoja con localizador exacto; libros activos o ambiguos permanecen en cuarentena |
 | FNC-ING-002 | A4/A5/A6 | ING-001, QA-010 | Review pending | Seleccion company-scoped de una hoja XLSX segura, seguida de perfil, extraccion y limpieza visual en el estudio de mapeo; revision independiente pendiente |
 | FNC-ING-003 | A4/A5/A6 | ING-002, CLN-004, WEB-003 | Review pending | Fuente autoritativa e inmutable en cada recepcion nueva y centro web keyset de documentos; legacy permanece sin atribucion inferida |
@@ -165,11 +166,14 @@ dependencias de `FNC-GAT-002` ni afirmar que Sprint 1 está habilitado.
 | FNC-IAM-004 | A2/A3/A6 | IAM-001, IAM-002, IAM-003, ONB-001, LEG-002 | Review pending | Alta pública Google sin invitaciones, login no creador, aceptación legal versionada y firma/owner atómicos; activación externa y revisión independiente pendientes |
 | FNC-ADM-001 | A2/A3/A5/A6 | IAM-004, SEC-001, AUD-001 | Review pending | Superadmin inicial y plano de control separados de roles/datos financieros; PostgreSQL, API, web y consola local verificados |
 | FNC-UAT-001 | A2/A3/A4/A5 | ADM-001, REL-001, SUP-002 | In progress | Promoción por digest sin datos, producción separada y reset UAT por reemplazo; ensayo desechable y revisiones pendientes |
+| FNC-UAT-002 | A2/A3/A5/A6 | UAT-001, QA-009, ONB-002 | In progress | Alta sintética desde esquema vacío y regresión completa en dos runtimes desechables con cleanup verificado |
+| FNC-ADM-002 | A2/A3/A6 | ADM-001, SEC-001 | Ready | Diagnóstico operativo agregado sin nombres, IDs, documentos, importes ni acceso financiero transversal |
 | FNC-ACC-001 | A4/A5/A6 | ING-005, REC-006, CLS-005, RPT-001 | Review pending | Recorrido contable web guiado sin cambiar semántica ni ejecutar cierre |
 | FNC-UX-003 | A6 | WEB-004, UX-001, IAM-002, ACC-001 | Review pending | Shell SaaS premium, navegación jerárquica, motion accesible y responsive |
 | FNC-LEG-002 | A3/A6 | PRV-001, LEG-001 | In progress | Centro legal público Fincilia desarrollado por Parallext.com; textos sujetos a revisión jurídica |
 | FNC-SEC-004 | A3/A5 | SEC-001, PLT-005, DB-002 | Review pending | Contexto durable company-scoped con emision idempotente, revalidacion online, revocacion append-only, HMAC y V0021; sin consumidor artificial ni datos reales |
 | FNC-SEC-005 | A3/A5 | SEC-004, DB-002, P3.6 | Review pending | Trabajos nuevos ligados a issued context y revalidados al reclamar, escribir y cerrar; fase expand compatible con filas legacy |
+| FNC-SEC-006 | A3/A6 | SEC-002, IAM-004, UAT-001 | Ready | Baseline HTTP verificable para API/web sin asumir HSTS local ni alterar OAuth |
 | FNC-PLT-009 | A2/A6 | PLT-002, PLT-007, QA-006 | Review pending | Runtime local persistente de Windows/WSL con keepalive oculto, PID verificado, salida minima y lifecycle que conserva volumenes |
 | FNC-PLT-010 | A2/A6 | ARC-003, SEC-003, FIN-001 | Review pending | OpenTofu aplico 8 recursos bootstrap y 45 de control plane sin drift; runtime/datos reales excluidos; revisión Security/Architecture/Platform/QA pendiente |
 | FNC-PLT-011 | A2/A6 | PLT-010, REL-001, CFG-001 | Review pending | Laboratorio t3.small SSM-only desplegado por digest; runtime, tenancy, promocion, backup/restore y autostop verificados solo con datos sinteticos |

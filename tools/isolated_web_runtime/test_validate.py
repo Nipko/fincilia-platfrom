@@ -117,7 +117,11 @@ class ContractTests(unittest.TestCase):
         )))
 
     def test_omitting_each_browser_suite_bites(self) -> None:
-        for scripts in (["test:e2e"], ["test:a11y"]):
+        for scripts in (
+            ["test:e2e", "test:a11y"],
+            ["test:bootstrap", "test:a11y"],
+            ["test:bootstrap", "test:e2e"],
+        ):
             with self.subTest(scripts=scripts):
                 self.assertIn("IWR-SUITES", codes(validate_contract(
                     self.mutate("execution", "npm_scripts", scripts)
@@ -141,7 +145,7 @@ class EntrypointTests(unittest.TestCase):
     def test_shell_project_cannot_come_from_input(self) -> None:
         findings = self.validate(
             'PROJECT=${PROJECT:-fincilia-e2e}\nEXPECTED_PROJECT=fincilia-e2e\n',
-            "finally test:e2e test:a11y http://127.0.0.1:53100 "
+            "finally up-empty test:bootstrap test:e2e test:a11y http://127.0.0.1:53100 "
             "test-web-isolated.sh 'down' 'assert-clean'",
         )
         self.assertIn("IWR-PROJECT-INPUT", findings)
@@ -153,7 +157,7 @@ class EntrypointTests(unittest.TestCase):
                 "PRIVATE_NETWORK=fincilia_e2e_private\nEDGE_NETWORK=fincilia_e2e_edge\n"
                 "compose down --volumes --remove-orphans\npython -m db.seed.local\n"
                 "/health/ready\nassert_isolated\nassert_absent\n")
-        powershell = ("finally test:e2e test:a11y http://127.0.0.1:53100 "
+        powershell = ("finally up-empty test:bootstrap test:e2e test:a11y http://127.0.0.1:53100 "
                       "http://127.0.0.1:58180 FINCILIA_E2E_API_URL "
                       "test-web-isolated.sh 'down' 'assert-clean'")
         for resource in ("fincilia_local_pgdata", "fincilia_local_private"):

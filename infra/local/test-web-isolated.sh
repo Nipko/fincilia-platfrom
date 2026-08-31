@@ -113,7 +113,13 @@ assert_absent() {
   done
 }
 
-up() {
+start_runtime() {
+  mode=$1
+  case "$mode" in
+    empty|seeded) ;;
+    *) echo "unsupported internal runtime mode" >&2; exit 3 ;;
+  esac
+
   echo "==> preclean exact disposable project"
   compose down --volumes --remove-orphans
   assert_absent
@@ -127,11 +133,15 @@ up() {
   echo "==> verified schema"
   compose --profile migrate run --rm migrate
 
-  echo "==> synthetic seed"
-  compose --profile migrate run --rm migrate python -m db.seed.local
+  if [ "$mode" = "seeded" ]; then
+    echo "==> synthetic seed"
+    compose --profile migrate run --rm migrate python -m db.seed.local
 
-  echo "==> isolated acceptance fixture"
-  compose --profile migrate run --rm migrate python /checks/e2e_fixture.py
+    echo "==> isolated acceptance fixture"
+    compose --profile migrate run --rm migrate python /checks/e2e_fixture.py
+  else
+    echo "==> intentionally empty product state"
+  fi
 
   echo "==> isolated applications"
   compose up -d --wait --force-recreate api worker web
@@ -154,6 +164,14 @@ if len(schema) != 1 or schema[0].get("status") != "up":
   assert_isolated
 }
 
+up_empty() {
+  start_runtime empty
+}
+
+up() {
+  start_runtime seeded
+}
+
 down() {
   echo "==> cleanup exact disposable project"
   compose down --volumes --remove-orphans
@@ -161,11 +179,12 @@ down() {
 
 validate_constants
 [ "$#" -eq 1 ] || {
-  echo "usage: test-web-isolated.sh {up|down|assert-isolated|assert-clean}" >&2
+  echo "usage: test-web-isolated.sh {up-empty|up|down|assert-isolated|assert-clean}" >&2
   exit 3
 }
 
 case "$1" in
+  up-empty) up_empty ;;
   up) up ;;
   down) down ;;
   assert-isolated) assert_isolated ;;

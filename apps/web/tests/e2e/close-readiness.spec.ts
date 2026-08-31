@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 
 import { ESPIGA, signInOwner } from './operations-helpers';
 
-test('FNC-CLS-004 integra statements sin habilitar un cierre', async ({
+test('FNC-CLS-006 mantiene bloqueado un cierre sin expediente apto', async ({
   page,
 }) => {
   await signInOwner(page);
@@ -11,8 +11,10 @@ test('FNC-CLS-004 integra statements sin habilitar un cierre', async ({
   await expect(page.getByRole('heading', { level: 1, name: 'Preparacion de cierre' }))
     .toBeVisible();
   await expect(page.getByRole('status').filter({
-    hasText: 'La operacion de cierre permanece deshabilitada',
+    hasText: 'El cierre exige expediente revisado y segregacion de funciones',
   })).toBeVisible();
+  await expect(page.locator('.close-control').filter({ hasText: 'Cierre productivo' }))
+    .toContainText('Aun no disponible');
   await expect(page.getByText(/Evidencia bloqueada|Evidencia lista para revision/).first())
     .toBeVisible();
   await expect(page.getByRole('button', { name: /cerrar|ejecutar cierre/i }))

@@ -61,7 +61,10 @@ proyecto desechable `fincilia-e2e`:
 ```
 
 El runner usa web/API/MinIO en 53100/58180/59100/59101, redes y volúmenes
-exclusivos, y una base sintética nueva. En un bloque `finally` elimina únicamente
+exclusivos. Primero levanta un esquema sin seed y comprueba por navegador el
+registro sintético y la creación del primer espacio; después elimina todo y
+crea una segunda base sintética para Chromium y Axe completos. En un bloque
+`finally` elimina únicamente
 los recursos `fincilia-e2e` y verifica que no quede ninguno, tanto si las pruebas
 pasan como si fallan. No acepta nombres de proyecto, puertos, volúmenes, redes ni
 archivos proporcionados por el invocador, y nunca conecta los contenedores E2E a

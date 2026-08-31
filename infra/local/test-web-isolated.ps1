@@ -17,7 +17,7 @@ $Npm = Get-Command 'npm.cmd' -ErrorAction SilentlyContinue
 
 function Invoke-WslAction {
     param([Parameter(Mandatory = $true)][string]$Action)
-    if ($Action -notin @('up', 'down', 'assert-isolated', 'assert-clean')) {
+    if ($Action -notin @('up-empty', 'up', 'down', 'assert-isolated', 'assert-clean')) {
         throw 'Accion WSL fuera del allowlist del runtime E2E.'
     }
     & $WslExe --distribution $Distribution --cd $RepositoryRoot `
@@ -29,7 +29,7 @@ function Invoke-WslAction {
 
 function Invoke-WebSuite {
     param([Parameter(Mandatory = $true)][string]$Script)
-    if ($Script -notin @('test:e2e', 'test:a11y')) {
+    if ($Script -notin @('test:bootstrap', 'test:e2e', 'test:a11y')) {
         throw 'Suite web fuera del allowlist.'
     }
     & $Npm.Source --prefix $WebRoot run $Script
@@ -76,10 +76,21 @@ try {
         throw 'Docker no respondio dentro de 45 segundos.'
     }
 
-    Invoke-WslAction 'up'
-    Invoke-WslAction 'assert-isolated'
     $env:FINCILIA_E2E_BASE_URL = $BaseUrl
     $env:FINCILIA_E2E_API_URL = $ApiUrl
+
+    # Primera instalación realista: solo esquema, sin semilla ni fixture. El
+    # navegador debe crear la identidad sintética y su primer espacio.
+    Invoke-WslAction 'up-empty'
+    Invoke-WslAction 'assert-isolated'
+    Invoke-WebSuite 'test:bootstrap'
+    Invoke-WslAction 'down'
+    Invoke-WslAction 'assert-clean'
+
+    # Segunda instalación independiente: fixtures sintéticos completos para
+    # toda la regresión funcional y de accesibilidad.
+    Invoke-WslAction 'up'
+    Invoke-WslAction 'assert-isolated'
     Invoke-WebSuite 'test:e2e'
     Invoke-WebSuite 'test:a11y'
 }
@@ -129,7 +140,8 @@ if ($null -ne $CleanupFailure) {
     project = 'fincilia-e2e'
     base_url = $BaseUrl
     api_url = $ApiUrl
-    suites = @('test:e2e', 'test:a11y')
+    suites = @('test:bootstrap', 'test:e2e', 'test:a11y')
+    fresh_install_verified = $true
     cleanup_verified = $true
     data_ceiling = 'synthetic_only'
     elapsed_seconds = [math]::Round(

@@ -26,6 +26,16 @@ class Finding:
 
 REQUIRED_PHASES = (
     "validate_constants",
+    "empty_preclean",
+    "empty_build",
+    "empty_dependencies",
+    "empty_migrate",
+    "empty_applications",
+    "empty_readiness",
+    "empty_isolation_probe",
+    "bootstrap_journey",
+    "interphase_cleanup",
+    "interphase_absence_probe",
     "preclean",
     "build",
     "dependencies",
@@ -131,8 +141,10 @@ def validate_contract(model: dict[str, Any]) -> list[Finding]:
         findings.append(Finding("IWR-BASE-URL", "browser must target isolated web port"))
     if execution.get("api_base_url") != "http://127.0.0.1:58180":
         findings.append(Finding("IWR-API-URL", "test helpers must target isolated API port"))
-    if execution.get("npm_scripts") != ["test:e2e", "test:a11y"]:
-        findings.append(Finding("IWR-SUITES", "Chromium and Axe are both mandatory"))
+    if execution.get("npm_scripts") != ["test:bootstrap", "test:e2e", "test:a11y"]:
+        findings.append(Finding(
+            "IWR-SUITES", "empty bootstrap, Chromium and Axe are all mandatory",
+        ))
     if execution.get("playwright_workers") != 1:
         findings.append(Finding("IWR-WORKERS", "shared synthetic fixtures require one worker"))
     for field in ("cleanup_in_finally", "cleanup_after_success", "cleanup_after_failure"):
@@ -175,6 +187,8 @@ def validate_scripts(shell: str, powershell: str, compose: str) -> list[Finding]
 
     ps_required = (
         "finally",
+        "up-empty",
+        "test:bootstrap",
         "test:e2e",
         "test:a11y",
         "http://127.0.0.1:53100",
