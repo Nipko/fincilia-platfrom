@@ -135,6 +135,7 @@ export default async function ReconciliationPage({
         selection.leftDatasetId,
         selection.rightDatasetId,
         selection.maxDays,
+        selection.referenceMode,
         selection.page * CANDIDATE_PAGE_SIZE,
         CANDIDATE_PAGE_SIZE,
       );
@@ -256,6 +257,14 @@ export default async function ReconciliationPage({
             <option value="7">7 dias</option>
             <option value="15">15 dias</option>
             <option value="31">31 dias</option>
+          </select>
+        </label>
+        <label>
+          Relacion de referencia
+          <select name="referencia" defaultValue={selection.referenceMode}>
+            <option value="all">Todas las referencias</option>
+            <option value="matching">Solo misma referencia</option>
+            <option value="different">Referencia diferente o ausente</option>
           </select>
         </label>
         <button type="submit">Buscar candidatos</button>
@@ -443,7 +452,8 @@ export default async function ReconciliationPage({
             <h2 id="candidate-results-title">Pares candidatos</h2>
             <p className="meta">
               Importe y moneda exactos, direccion opuesta, cuentas distintas y
-              fecha dentro de la ventana. La referencia solo explica y ordena.
+              fecha dentro de la ventana. El filtro de referencia solo reduce la
+              bandeja visible: no decide ni confirma una conciliacion.
             </p>
           </div>
           {result ? <span className="tag">pagina {selection.page + 1}</span> : null}

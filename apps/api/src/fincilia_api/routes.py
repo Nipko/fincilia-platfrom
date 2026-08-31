@@ -2222,6 +2222,7 @@ def reconciliation_candidates(
         request: Request, company_id: str, left_dataset_id: str,
         right_dataset_id: str,
         max_days: int = reconciliation.DEFAULT_DATE_WINDOW_DAYS,
+        reference_mode: str = "all",
         offset: int = 0, limit: int = reconciliation.DEFAULT_CANDIDATE_LIMIT,
         principal: Principal = Depends(principal_dependency)) -> dict:
     """Explora hipotesis exactas; nunca confirma ni persiste un match."""
@@ -2242,7 +2243,7 @@ def reconciliation_candidates(
             return reconciliation.explore_candidates(
                 connection, left_dataset_id=left_dataset_id,
                 right_dataset_id=right_dataset_id, max_days=max_days,
-                offset=offset, limit=limit)
+                offset=offset, limit=limit, reference_mode=reference_mode)
         except reconciliation.CandidateQueryError as error:
             if error.code == "candidate-scope-unavailable":
                 raise forbidden() from None

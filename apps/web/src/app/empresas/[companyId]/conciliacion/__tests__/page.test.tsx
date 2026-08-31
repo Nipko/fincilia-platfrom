@@ -77,7 +77,8 @@ describe('ReconciliationPage', () => {
       mode: 'candidate_only',
       proves_balance_reconciliation: false,
       rules: ['exact_amount'],
-      reference_role: 'explanatory_order_only',
+      reference_role: 'optional_non_decisive_filter_and_order',
+      reference_mode: 'matching',
       max_days: 3,
       offset: 0,
       limit: 25,
@@ -107,7 +108,7 @@ describe('ReconciliationPage', () => {
     render(await ReconciliationPage({
       params: Promise.resolve({ companyId: COMPANY }),
       searchParams: Promise.resolve({
-        izquierda: LEFT, derecha: RIGHT, ventana: '3', pagina: '0',
+        izquierda: LEFT, derecha: RIGHT, ventana: '3', referencia: 'matching', pagina: '0',
       }),
     }));
 
@@ -116,6 +117,7 @@ describe('ReconciliationPage', () => {
     expect(screen.getByText('Solo candidatos.')).toBeInTheDocument();
     expect(screen.getAllByText('1.234,56 COP')).toHaveLength(2);
     expect(screen.getByText('misma referencia normalizada')).toBeInTheDocument();
+    expect(screen.getByLabelText('Relacion de referencia')).toHaveValue('matching');
     expect(screen.getByRole('link', { name: 'Ver evidencia izquierda' }))
       .toHaveAttribute('href', expect.stringContaining('/movimientos/aaaaaaaa'));
     expect(screen.getByRole('link', { name: 'Ver evidencia derecha' }))

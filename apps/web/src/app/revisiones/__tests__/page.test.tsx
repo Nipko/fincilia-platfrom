@@ -85,7 +85,7 @@ describe('ReviewsPage', () => {
     expect(screen.getByRole('link', { name: 'Abrir expediente' })).toHaveAttribute(
       'href',
       '/empresas/company-synthetic-a/conciliacion?' +
-        'izquierda=dataset-left&derecha=dataset-right&ventana=3&pagina=0&' +
+        'izquierda=dataset-left&derecha=dataset-right&ventana=3&referencia=all&pagina=0&' +
         'revision=candidate-synthetic-a' +
         '#revision-candidate-synthetic-a',
     );

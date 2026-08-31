@@ -32,6 +32,7 @@ test('FNC-REC-001 abre una estacion read-only con estados explicitos', async ({
   await expect(page.getByLabel('Dataset izquierdo')).toBeVisible();
   await expect(page.getByLabel('Dataset derecho')).toBeVisible();
   await expect(page.getByLabel('Ventana maxima entre fechas')).toHaveValue('3');
+  await expect(page.getByLabel('Relacion de referencia')).toHaveValue('all');
   await expect(page.getByRole('button', { name: 'Buscar candidatos' })).toBeVisible();
   await expect(
     page.getByRole('button', { name: /confirmar|aprobar|automatic/i }),
@@ -45,8 +46,9 @@ test('FNC-REC-001 abre una estacion read-only con estados explicitos', async ({
   } else {
     await left.selectOption({ index: 1 });
     await right.selectOption({ index: 2 });
+    await page.getByLabel('Relacion de referencia').selectOption('matching');
     await page.getByRole('button', { name: 'Buscar candidatos' }).click();
-    await expect(page).toHaveURL(/izquierda=.+&derecha=.+&ventana=3/);
+    await expect(page).toHaveURL(/izquierda=.+&derecha=.+&ventana=3&referencia=matching/);
     await expect(
       page.getByText('Los datasets no estan disponibles').or(
         page.getByText('No hay candidatos con estas reglas'),
@@ -121,7 +123,7 @@ test('FNC-REC-003 prioriza revisiones multiempresa y abre el expediente exacto',
   await expect(first).toBeVisible();
   await first.click();
   await expect(page).toHaveURL(
-    /\/conciliacion\?izquierda=.+&derecha=.+&ventana=\d+&pagina=\d+&revision=.+#revision-/,
+    /\/conciliacion\?izquierda=.+&derecha=.+&ventana=\d+&referencia=all&pagina=\d+&revision=.+#revision-/,
   );
   await expect(page.getByLabel('Estado de revision').first()).toBeVisible();
   await expect(page.getByText(/sin efecto financiero/i).first()).toBeVisible();

@@ -26,6 +26,7 @@ MAX_CANDIDATE_OFFSET = 10_000
 MAX_DATE_WINDOW_DAYS = 31
 DEFAULT_CANDIDATE_LIMIT = 50
 DEFAULT_DATE_WINDOW_DAYS = 3
+REFERENCE_MODES = frozenset(("all", "matching", "different"))
 
 ELIGIBLE_DATASET_STATES = frozenset(("validated", "published"))
 ELIGIBLE_COMPLETENESS_STATES = frozenset(("verified", "accepted_exception"))
@@ -98,6 +99,7 @@ class CandidateQuery:
     max_days: int = DEFAULT_DATE_WINDOW_DAYS
     offset: int = 0
     limit: int = DEFAULT_CANDIDATE_LIMIT
+    reference_mode: str = "all"
 
     def validated(self) -> "CandidateQuery":
         if self.left_dataset_id == self.right_dataset_id:
@@ -112,6 +114,10 @@ class CandidateQuery:
         if not 1 <= self.limit <= MAX_CANDIDATE_LIMIT:
             raise CandidateQueryError(
                 "candidate-limit-invalid", "limit must be between 1 and 200")
+        if self.reference_mode not in REFERENCE_MODES:
+            raise CandidateQueryError(
+                "reference-mode-invalid",
+                "reference_mode must be all, matching or different")
         return self
 
 
@@ -190,12 +196,14 @@ def explore_candidates(connection: psycopg.Connection, *,
                        left_dataset_id: str, right_dataset_id: str,
                        max_days: int = DEFAULT_DATE_WINDOW_DAYS,
                        offset: int = 0,
-                       limit: int = DEFAULT_CANDIDATE_LIMIT) -> dict[str, Any]:
+                       limit: int = DEFAULT_CANDIDATE_LIMIT,
+                       reference_mode: str = "all") -> dict[str, Any]:
     """Compara dos datasets autorizados en SQL y devuelve una pagina estable."""
     query = CandidateQuery(
         left_dataset_id=left_dataset_id,
         right_dataset_id=right_dataset_id,
-        max_days=int(max_days), offset=int(offset), limit=int(limit)).validated()
+        max_days=int(max_days), offset=int(offset), limit=int(limit),
+        reference_mode=reference_mode).validated()
     left_dataset, right_dataset = _load_eligible_pair(connection, query)
 
     with connection.cursor() as cursor:
@@ -226,10 +234,20 @@ def explore_candidates(connection: psycopg.Connection, *,
             "WHERE l.dataset_version_id = %s "
             "  AND l.state IN ('proposed', 'confirmed') "
             "  AND l.lineage_state = 'complete' "
+            "  AND CASE %s "
+            "        WHEN 'matching' THEN COALESCE("
+            "          l.reference_normalised IS NOT NULL AND "
+            "          l.reference_normalised = r.reference_normalised, FALSE) "
+            "        WHEN 'different' THEN NOT COALESCE("
+            "          l.reference_normalised IS NOT NULL AND "
+            "          l.reference_normalised = r.reference_normalised, FALSE) "
+            "        ELSE TRUE "
+            "      END "
             "ORDER BY reference_match DESC, date_distance_days, "
             "         lr.record_ordinal, rr.record_ordinal, l.movement_id, r.movement_id "
             "LIMIT %s OFFSET %s",
             (query.right_dataset_id, query.max_days, query.left_dataset_id,
+             query.reference_mode,
              query.limit + 1, query.offset))
         rows = list(cursor)
 
@@ -239,7 +257,8 @@ def explore_candidates(connection: psycopg.Connection, *,
         "mode": "candidate_only",
         "proves_balance_reconciliation": False,
         "rules": list(RULES),
-        "reference_role": "explanatory_order_only",
+        "reference_role": "optional_non_decisive_filter_and_order",
+        "reference_mode": query.reference_mode,
         "max_days": query.max_days,
         "offset": query.offset,
         "limit": query.limit,

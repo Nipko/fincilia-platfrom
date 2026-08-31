@@ -161,6 +161,32 @@ class ReconciliationCandidateTests(VerticalHarness):
         # Los importes 300, 400 y 999 prueban direccion, ventana e importe
         # exacto al no aparecer en ninguna pagina.
 
+        matching = self.client.get(
+            endpoint, headers=self.auth(PREPARER),
+            params={**query, "reference_mode": "matching", "limit": 10})
+        self.assertEqual(200, matching.status_code, matching.text)
+        self.assertEqual("matching", matching.json()["reference_mode"])
+        self.assertEqual(2, len(matching.json()["candidates"]))
+        self.assertTrue(all(
+            "same_normalised_reference" in item["signals"]
+            for item in matching.json()["candidates"]))
+
+        different = self.client.get(
+            endpoint, headers=self.auth(PREPARER),
+            params={**query, "reference_mode": "different", "limit": 10})
+        self.assertEqual(200, different.status_code, different.text)
+        self.assertEqual(1, len(different.json()["candidates"]))
+        self.assertNotIn(
+            "same_normalised_reference", different.json()["candidates"][0]["signals"])
+
+        invalid_reference_mode = self.client.get(
+            endpoint, headers=self.auth(PREPARER),
+            params={**query, "reference_mode": "similar"})
+        self.assertEqual(422, invalid_reference_mode.status_code,
+                         invalid_reference_mode.text)
+        self.assertEqual("reference-mode-invalid",
+                         invalid_reference_mode.json()["type"].rsplit("/", 1)[-1])
+
         same = self.client.get(
             endpoint, headers=self.auth(PREPARER),
             params={"left_dataset_id": left, "right_dataset_id": left})

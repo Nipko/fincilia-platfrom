@@ -820,7 +820,8 @@ export type CandidatePage = {
   mode: 'candidate_only';
   proves_balance_reconciliation: false;
   rules: string[];
-  reference_role: 'explanatory_order_only';
+  reference_role: 'optional_non_decisive_filter_and_order';
+  reference_mode: 'all' | 'matching' | 'different';
   max_days: number;
   offset: number;
   limit: number;
@@ -1437,6 +1438,7 @@ export function fetchReconciliationCandidates(
   leftDatasetId: string,
   rightDatasetId: string,
   maxDays: number,
+  referenceMode: 'all' | 'matching' | 'different',
   offset: number,
   limit: number,
 ): Promise<CandidatePage> {
@@ -1445,6 +1447,7 @@ export function fetchReconciliationCandidates(
     left_dataset_id: leftDatasetId,
     right_dataset_id: rightDatasetId,
     max_days: String(maxDays),
+    reference_mode: referenceMode,
     offset: String(offset),
     limit: String(limit),
   });

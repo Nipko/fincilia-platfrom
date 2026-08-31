@@ -44,6 +44,7 @@ function expedienteUrl(companyId: string, review: MatchReview): string {
     leftDatasetId: review.left_dataset_id,
     rightDatasetId: review.right_dataset_id,
     maxDays: review.date_window_days,
+    referenceMode: 'all',
     page: 0,
   }, review.candidate_id);
 }

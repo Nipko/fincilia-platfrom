@@ -22,6 +22,7 @@ describe('selectReconciliation', () => {
       leftDatasetId: 'left',
       rightDatasetId: 'right',
       maxDays: 7,
+      referenceMode: 'all',
       page: 3,
     });
   });
@@ -33,6 +34,7 @@ describe('selectReconciliation', () => {
       leftDatasetId: '',
       rightDatasetId: '',
       maxDays: 3,
+      referenceMode: 'all',
       page: 0,
     });
   });
@@ -42,6 +44,7 @@ describe('selectReconciliation', () => {
     [{ izquierda: 'left', derecha: 'foreign' }, 'dataset ajeno'],
     [{ izquierda: ['left', 'third'], derecha: 'right' }, 'query repetida'],
     [{ izquierda: 'left', derecha: 'right', ventana: '32' }, 'ventana amplia'],
+    [{ izquierda: 'left', derecha: 'right', referencia: 'similar' }, 'referencia abierta'],
     [{ izquierda: 'left', derecha: 'right', pagina: '-1' }, 'pagina negativa'],
     [{ izquierda: 'left', derecha: 'right', pagina: String(MAX_CANDIDATE_PAGE + 1) }, 'pagina excesiva'],
   ])('rechaza %s (%s)', (query, _label) => {
@@ -62,20 +65,22 @@ describe('reconciliationUrl', () => {
       leftDatasetId: 'left one',
       rightDatasetId: 'right/two',
       maxDays: 3,
+      referenceMode: 'matching',
       page: 2,
     })).toBe(
       '/empresas/company/conciliacion?' +
-      'izquierda=left+one&derecha=right%2Ftwo&ventana=3&pagina=2',
+      'izquierda=left+one&derecha=right%2Ftwo&ventana=3&referencia=matching&pagina=2',
     );
   });
 
   it('conserva el identificador estable del expediente en query y fragmento', () => {
     const candidate = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
     expect(reconciliationReviewUrl('company', {
-      leftDatasetId: 'left', rightDatasetId: 'right', maxDays: 3, page: 0,
+      leftDatasetId: 'left', rightDatasetId: 'right', maxDays: 3,
+      referenceMode: 'all', page: 0,
     }, candidate)).toBe(
       '/empresas/company/conciliacion?' +
-      'izquierda=left&derecha=right&ventana=3&pagina=0&' +
+      'izquierda=left&derecha=right&ventana=3&referencia=all&pagina=0&' +
       `revision=${candidate}#revision-${candidate}`,
     );
   });

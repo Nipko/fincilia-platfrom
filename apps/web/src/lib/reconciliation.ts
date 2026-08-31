@@ -3,6 +3,8 @@ export const MAX_CANDIDATE_PAGE = 400;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 type QueryValue = string | string[] | undefined;
+export type ReferenceMode = 'all' | 'matching' | 'different';
+const REFERENCE_MODES = new Set<ReferenceMode>(['all', 'matching', 'different']);
 
 export type ReconciliationSelection = {
   requested: boolean;
@@ -10,6 +12,7 @@ export type ReconciliationSelection = {
   leftDatasetId: string;
   rightDatasetId: string;
   maxDays: number;
+  referenceMode: ReferenceMode;
   page: number;
 };
 
@@ -42,13 +45,19 @@ export function selectReconciliation(
 ): ReconciliationSelection {
   const left = single(query.izquierda);
   const right = single(query.derecha);
-  const requested = query.izquierda !== undefined || query.derecha !== undefined;
+  const requested = query.izquierda !== undefined || query.derecha !== undefined
+    || query.referencia !== undefined;
   const maxDays = boundedInteger(query.ventana, 3, 0, 31);
+  const reference = single(query.referencia) ?? 'all';
+  const referenceMode = REFERENCE_MODES.has(reference as ReferenceMode)
+    ? reference as ReferenceMode
+    : null;
   const page = boundedInteger(query.pagina, 0, 0, MAX_CANDIDATE_PAGE);
   const authorised = new Set(authorisedDatasetIds);
   const valid = Boolean(
     requested && left && right && left !== right && authorised.has(left)
-      && authorised.has(right) && maxDays !== null && page !== null,
+      && authorised.has(right) && maxDays !== null && referenceMode !== null
+      && page !== null,
   );
   return {
     requested,
@@ -56,6 +65,7 @@ export function selectReconciliation(
     leftDatasetId: left ?? '',
     rightDatasetId: right ?? '',
     maxDays: maxDays ?? 3,
+    referenceMode: referenceMode ?? 'all',
     page: page ?? 0,
   };
 }
@@ -63,12 +73,13 @@ export function selectReconciliation(
 export function reconciliationUrl(
   companyId: string,
   selection: Pick<ReconciliationSelection,
-    'leftDatasetId' | 'rightDatasetId' | 'maxDays' | 'page'>,
+    'leftDatasetId' | 'rightDatasetId' | 'maxDays' | 'referenceMode' | 'page'>,
 ): string {
   const params = new URLSearchParams({
     izquierda: selection.leftDatasetId,
     derecha: selection.rightDatasetId,
     ventana: String(selection.maxDays),
+    referencia: selection.referenceMode,
     pagina: String(selection.page),
   });
   return `/empresas/${encodeURIComponent(companyId)}/conciliacion?${params.toString()}`;
@@ -88,7 +99,7 @@ export function selectReconciliationReview(
 export function reconciliationReviewUrl(
   companyId: string,
   selection: Pick<ReconciliationSelection,
-    'leftDatasetId' | 'rightDatasetId' | 'maxDays' | 'page'>,
+    'leftDatasetId' | 'rightDatasetId' | 'maxDays' | 'referenceMode' | 'page'>,
   candidateId: string,
 ): string {
   const params = new URLSearchParams({ revision: candidateId });

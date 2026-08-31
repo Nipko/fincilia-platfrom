@@ -91,6 +91,7 @@ class CandidateQueryTests(unittest.TestCase):
             CandidateQuery(LEFT, RIGHT, offset=10_001),
             CandidateQuery(LEFT, RIGHT, limit=0),
             CandidateQuery(LEFT, RIGHT, limit=201),
+            CandidateQuery(LEFT, RIGHT, reference_mode="closest"),
         )
         for query in invalid:
             with self.subTest(query=query), self.assertRaises(CandidateQueryError):
@@ -122,10 +123,27 @@ class CandidateQueryTests(unittest.TestCase):
         self.assertFalse(result["proves_balance_reconciliation"])
         self.assertTrue(result["truncated"])
         self.assertEqual(2, len(result["candidates"]))
+        self.assertEqual("all", result["reference_mode"])
+        self.assertEqual("optional_non_decisive_filter_and_order",
+                         result["reference_role"])
         statement, params = connection.calls[1]
         self.assertIn("LIMIT %s OFFSET %s", statement)
         self.assertIn("ORDER BY reference_match DESC", statement)
-        self.assertEqual((RIGHT, 7, LEFT, 3, 4), params)
+        self.assertIn("AND CASE %s", statement)
+        self.assertEqual((RIGHT, 7, LEFT, "all", 3, 4), params)
+
+    def test_reference_filter_is_explicit_and_never_adds_a_score(self) -> None:
+        for mode in ("matching", "different"):
+            with self.subTest(mode=mode):
+                connection = FakeConnection(
+                    [dataset_row(LEFT), dataset_row(RIGHT)],
+                    [candidate_row(reference_match=mode == "matching")])
+                result = explore_candidates(
+                    connection, left_dataset_id=LEFT, right_dataset_id=RIGHT,
+                    reference_mode=mode)
+                self.assertEqual(mode, result["reference_mode"])
+                self.assertEqual(mode, connection.calls[1][1][3])
+                self.assertNotIn("score", result["candidates"][0])
 
     def test_missing_foreign_or_ineligible_dataset_is_neutral(self) -> None:
         cases = (
