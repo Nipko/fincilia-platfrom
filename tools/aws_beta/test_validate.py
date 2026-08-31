@@ -94,6 +94,9 @@ class ClosedBetaContractTests(unittest.TestCase):
             ('writers_are_stopped', 'assume_writers_stopped'),
             ('docker volume rm "$PG_VOLUME" "$OBJECT_VOLUME"', 'docker volume prune'),
             ('reset-evidence/uat/', 'reset-evidence/unknown/'),
+            ('"ssm:DeleteParameter"', '"ssm:GetParameter"'),
+            ('"reset-evidence/uat/*"', '"reset-evidence/unknown/*"'),
+            ('"Fincilia/UAT"', '"Fincilia/Unknown"'),
         )
         for original, replacement in mutations:
             with self.subTest(original=original):

@@ -37,6 +37,7 @@ data "aws_iam_policy_document" "beta" {
         "${local.bundle_prefix}/*",
         "${local.backup_prefix}/*",
         "restore-checks/beta/*",
+        "reset-evidence/uat/*",
       ]
     }
   }
@@ -58,6 +59,7 @@ data "aws_iam_policy_document" "beta" {
     resources = [
       "arn:aws:s3:::${data.terraform_remote_state.t0.outputs.object_bucket_name}/${local.backup_prefix}/*",
       "arn:aws:s3:::${data.terraform_remote_state.t0.outputs.object_bucket_name}/restore-checks/beta/*",
+      "arn:aws:s3:::${data.terraform_remote_state.t0.outputs.object_bucket_name}/reset-evidence/uat/*",
     ]
   }
 
@@ -74,6 +76,7 @@ data "aws_iam_policy_document" "beta" {
     actions = [
       "ssm:GetParameter",
       "ssm:PutParameter",
+      "ssm:DeleteParameter",
     ]
     resources = [
       "arn:aws:ssm:${var.region}:${data.aws_caller_identity.current.account_id}:parameter/fincilia/closed-beta/runtime-env-v1",
@@ -100,7 +103,7 @@ data "aws_iam_policy_document" "beta" {
     condition {
       test     = "StringEquals"
       variable = "cloudwatch:namespace"
-      values   = ["Fincilia/ClosedBeta"]
+      values   = ["Fincilia/ClosedBeta", "Fincilia/UAT"]
     }
   }
 }
