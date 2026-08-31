@@ -8,6 +8,23 @@ PG_VOLUME=fincilia_local_pgdata
 OBJECT_VOLUME=fincilia_local_objectdata
 HERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 COMPOSE_FILE="$HERE/compose.yaml"
+MIGRATIONS_DIR="$HERE/../../db/migrations"
+
+migration_files=$(find "$MIGRATIONS_DIR" -maxdepth 1 -type f \
+  -name 'V[0-9][0-9][0-9][0-9]__*.sql' -print | sort)
+EXPECTED_MIGRATION_COUNT=$(printf '%s\n' "$migration_files" | sed '/^$/d' | \
+  wc -l | tr -d ' ')
+EXPECTED_MIGRATION_HEAD=$(printf '%s\n' "$migration_files" | tail -n 1 | \
+  sed -E 's|.*/(V[0-9]{4})__.*|\1|')
+
+case "$EXPECTED_MIGRATION_COUNT:$EXPECTED_MIGRATION_HEAD" in
+  [1-9][0-9]*:V[0-9][0-9][0-9][0-9]) ;;
+  *)
+    printf 'refusing reset: migration source inventory is invalid (%s:%s)\n' \
+      "$EXPECTED_MIGRATION_COUNT" "$EXPECTED_MIGRATION_HEAD" >&2
+    exit 66
+    ;;
+esac
 
 usage() {
   printf 'usage: %s --plan | --execute fincilia-local\n' "$0" >&2
@@ -84,6 +101,15 @@ echo "==> reconstruir desde migraciones sin semilla demo"
 sh "$HERE/up.sh" --empty
 
 echo "==> verificar que todas las tablas de producto estan vacias"
+actual_history=$(compose exec -T postgres psql -v ON_ERROR_STOP=1 \
+  -U fincilia_local_admin -d fincilia_local -At -F '|' \
+  -c "SELECT count(*), coalesce(max(version), '') FROM fincilia.schema_history")
+[ "$actual_history" = "$EXPECTED_MIGRATION_COUNT|$EXPECTED_MIGRATION_HEAD" ] || {
+  printf 'migration history mismatch: expected=%s|%s actual=%s\n' \
+    "$EXPECTED_MIGRATION_COUNT" "$EXPECTED_MIGRATION_HEAD" "$actual_history" >&2
+  exit 67
+}
+
 compose exec -T postgres psql -v ON_ERROR_STOP=1 \
   -U fincilia_local_admin -d fincilia_local <<'SQL'
 DO $verify_empty$
@@ -96,7 +122,8 @@ BEGIN
     FROM pg_tables
     WHERE schemaname = 'fincilia'
       AND tablename NOT IN (
-        'schema_history', 'subject', 'legal_document_version'
+        'schema_history', 'subject', 'legal_document_version',
+        'billing_plan_version'
       )
     ORDER BY tablename
   LOOP
@@ -111,11 +138,6 @@ $verify_empty$;
 
 DO $verify_system_rows$
 BEGIN
-  IF (SELECT count(*) FROM fincilia.schema_history) <> 46
-     OR (SELECT max(version) FROM fincilia.schema_history) <> 'V0046' THEN
-    RAISE EXCEPTION 'migration history does not match the current release';
-  END IF;
-
   IF (SELECT count(*) FROM fincilia.subject) <> 1
      OR NOT EXISTS (
        SELECT 1 FROM fincilia.subject
@@ -141,6 +163,19 @@ BEGIN
          AND active_for_registration
      ) THEN
     RAISE EXCEPTION 'legal registration references are not canonical';
+  END IF;
+
+  IF (SELECT count(*) FROM fincilia.billing_plan_version) <> 3
+     OR (SELECT array_agg(plan_code ORDER BY plan_code)
+         FROM fincilia.billing_plan_version)
+        <> ARRAY['accountant', 'business', 'starter']::text[]
+     OR EXISTS (
+       SELECT 1 FROM fincilia.billing_plan_version
+       WHERE version <> 1 OR catalog_state <> 'evaluation'
+          OR currency_code IS NOT NULL OR unit_amount_minor IS NOT NULL
+          OR trial_days IS NOT NULL
+     ) THEN
+    RAISE EXCEPTION 'billing evaluation catalog is not canonical';
   END IF;
 END
 $verify_system_rows$;

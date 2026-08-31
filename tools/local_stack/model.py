@@ -285,8 +285,14 @@ def validate_empty_reset_script(text: str | None) -> list[Finding]:
         '[ "$2" = "$PROJECT" ]',
         'docker volume rm "$PG_VOLUME" "$OBJECT_VOLUME"',
         'sh "$HERE/up.sh" --empty',
+        'MIGRATIONS_DIR="$HERE/../../db/migrations"',
+        'EXPECTED_MIGRATION_COUNT=$(printf',
+        'EXPECTED_MIGRATION_HEAD=$(printf',
+        'actual_history=',
         "tablename NOT IN (",
         "'schema_history', 'subject', 'legal_document_version'",
+        "'billing_plan_version'",
+        "billing evaluation catalog is not canonical",
         "object zones empty",
     ):
         if required not in text:

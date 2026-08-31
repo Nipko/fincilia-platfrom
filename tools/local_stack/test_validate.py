@@ -262,6 +262,11 @@ class LocalStackContractTests(unittest.TestCase):
              "LOCAL-RESET-ALLOWLIST"),
             ('docker volume rm "$PG_VOLUME" "$OBJECT_VOLUME"',
              'docker volume prune', "LOCAL-RESET-ALLOWLIST"),
+            ('EXPECTED_MIGRATION_HEAD=$(printf',
+             'HARDCODED_MIGRATION_HEAD=$(printf',
+             "LOCAL-RESET-ALLOWLIST"),
+            ("'billing_plan_version'", "'missing_reference_catalog'",
+             "LOCAL-RESET-ALLOWLIST"),
         )
         for original, replacement, expected in mutations:
             with self.subTest(original=original):
