@@ -65,6 +65,11 @@ datos:
 - `D01-CHANNELS`: email ingest, SFTP, conectores y webhooks no tienen rutas; IA,
   pagos y datos reales siguen deshabilitados en el runtime protegido.
 
-El gate permanece `not_met` con 15 blockers. Identidad en runtime protegido,
-cloud, restore, derechos/incidente, cadena de suministro y las aprobaciones
+FNC-PRV-004 añade un ensayo sintético de 12 pasos para derechos e incidente:
+referencias opacas, verificación AAL, inventario, preservación digest-only,
+revocación, tombstone, purga, restore cerrado y post-revisión separada. El flujo
+mantiene notificabilidad, plazos, aplicabilidad y excepciones en `pending_legal`.
+
+El gate permanece `not_met` con 14 blockers. Identidad en runtime protegido,
+cloud, restore del entorno objetivo, cadena de suministro y las aprobaciones
 humanas no se infieren de esta evidencia.

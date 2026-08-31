@@ -319,6 +319,7 @@ jobs:
         working-directory: ../..
         run: |
           python -m tools.drg01_technical.cli
+          PYTHONPATH=packages/contracts/python python -m tools.rights_incident_drill.cli
           python -m tools.drg01_readiness.validate
 
       # Las suites son dueñas de sus fixtures y las retiran. El navegador no

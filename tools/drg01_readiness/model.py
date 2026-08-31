@@ -37,6 +37,7 @@ DRG00_TECHNICAL_IDS = {
 }
 DRG01_TECHNICAL_EVIDENCE = "docs/implementation/evidence/FNC-GAT-006.json"
 DRG01_ADJUDICATED_IDS = {"D01-XTENANT", "D01-INGRESS", "D01-CHANNELS"}
+RIGHTS_INCIDENT_EVIDENCE = "docs/implementation/evidence/FNC-PRV-004.json"
 PROHIBITED_DATA = [
     "payment_card", "payroll", "government_identity", "health", "credentials",
 ]
@@ -132,6 +133,18 @@ def _validate_drg01_technical_evidence() -> list[Finding]:
         errors = [str(error)]
     return [
         Finding("DRG01-TECH-EVIDENCE", DRG01_TECHNICAL_EVIDENCE, error)
+        for error in errors
+    ]
+
+
+def _validate_rights_incident_evidence() -> list[Finding]:
+    try:
+        from tools.rights_incident_drill.drill import load_evidence, validate_evidence
+        errors = validate_evidence(load_evidence())
+    except (ImportError, OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
+        errors = [str(error)]
+    return [
+        Finding("DRG01-RIGHTS-IR-EVIDENCE", RIGHTS_INCIDENT_EVIDENCE, error)
         for error in errors
     ]
 
@@ -233,6 +246,11 @@ def validate(model: dict[str, Any]) -> list[Finding]:
                 findings.append(Finding(
                     "DRG01-TECH-REF", str(identifier),
                     "DRG-01 bounded technical controls require the adjudicated evidence"))
+        if identifier == "D01-RIGHTS-IR" and control.get("state") == "passed":
+            if control.get("evidence_refs") != [RIGHTS_INCIDENT_EVIDENCE]:
+                findings.append(Finding(
+                    "DRG01-RIGHTS-IR-REF", str(identifier),
+                    "rights and incident control requires its adjudicated drill evidence"))
 
     if any(by_id.get(identifier, {}).get("state") == "passed"
            for identifier in DRG00_TECHNICAL_IDS):
@@ -240,6 +258,8 @@ def validate(model: dict[str, Any]) -> list[Finding]:
     if any(by_id.get(identifier, {}).get("state") == "passed"
            for identifier in DRG01_ADJUDICATED_IDS):
         findings.extend(_validate_drg01_technical_evidence())
+    if by_id.get("D01-RIGHTS-IR", {}).get("state") == "passed":
+        findings.extend(_validate_rights_incident_evidence())
 
     drg00_ready = all(
         _control_satisfied(by_id.get(identifier, {}), False)

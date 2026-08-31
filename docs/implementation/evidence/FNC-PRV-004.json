@@ -1,0 +1,41 @@
+{
+  "data_classification": "completely_synthetic",
+  "evidence_sha256": "4fc1b9f5ee0edd5027cdef64d71f5a97321c9189080f13be8d04dcdcd0c21280",
+  "executed_at": "2026-08-31T02:10:00Z",
+  "failed_count": 0,
+  "limitations": [
+    "legal_applicability_sla_exceptions_and_notification_deadlines_remain_pending",
+    "drill_uses_only_completely_synthetic_data",
+    "protected_cloud_runtime_replay_remains_pending",
+    "independent_privacy_security_and_qa_review_remain_pending"
+  ],
+  "notification_decision": "pending_legal",
+  "passed_count": 12,
+  "real_data_authorized": false,
+  "request_type": "deletion_or_suppression_synthetic_fixture",
+  "schema_version": "1.0.0",
+  "source_sha256": {
+    "docs/privacy/privacy-map.json": "b6bdd3427c3520730e045c580c66d5d3a20570f57fbf35d09f626844dd28fd70",
+    "packages/contracts/python/fincilia_contracts/ingestion.py": "13eedde32b9da90ce7a48efedc162c4fadab8a7cb8a702853150a786813a52b5",
+    "tools/corpus_inventory/ledger.py": "e80156d2a7ad8a8e5c7f8de55f1d1219695e95f1ae8be40cfe98ab5faa159fe4",
+    "tools/data_disposal/service.py": "aa05bda4494a3d9a73f75e5cba180dc440afa1751eed5672c4708a9a54dda6fb",
+    "tools/drg00_lab/lab.py": "1e4139e3e6d7f9d2be80eeb7db4c27e735f077e74bdbb32dac0edb4829a675f2",
+    "tools/rights_incident_drill/drill.py": "d96c0649a3d190e09975e1aa107f63424bcee104d5729030b585981262fec03a"
+  },
+  "task_id": "FNC-PRV-004",
+  "test_count": 12,
+  "tests": [
+    {"assertion":"request_is_opaque_and_company_scoped","evidence_sha256":"6fe98b826f115fb3e70367c527c085f75f370c3b0a51494b1d62771644286749","id":"RIR-T01","state":"passed"},
+    {"assertion":"requester_and_authority_are_verified_before_scope","evidence_sha256":"25ccfc24ca3347bb41005497625c4adffaf7fc93d66457e8103df2973b6e177f","id":"RIR-T02","state":"passed"},
+    {"assertion":"authoritative_inventory_resolves_every_copy","evidence_sha256":"df1b0196f8e7f2e5cf81ae49151d6881a8d1410c83c0d303475ffd285c282c4f","id":"RIR-T03","state":"passed"},
+    {"assertion":"legal_hold_and_applicability_fail_closed","evidence_sha256":"6883c145bf9856cd4ccab2f667b472907447e63dfc27a54623330ddf06ce5f74","id":"RIR-T04","state":"passed"},
+    {"assertion":"incident_timestamps_are_distinct_fields_and_notification_is_legal","evidence_sha256":"2be49770295bfc7f6033d45a39e4ec86da822c183caef92c0f670dbf3eae60a6","id":"RIR-T05","state":"passed"},
+    {"assertion":"incident_evidence_is_digest_only_and_preserved_before_remediation","evidence_sha256":"59c2882870c16efdb648bbedceeb95861a8b397da4ec97aef71fc15ade093ccf","id":"RIR-T06","state":"passed"},
+    {"assertion":"containment_revokes_stale_access_before_remediation","evidence_sha256":"ed9ee64e609ec8c22388efb0fb975f37bd868185c1f3bf194ddd3a83f99b3cb7","id":"RIR-T07","state":"passed"},
+    {"assertion":"tombstone_precedes_every_unlink","evidence_sha256":"1caedd6a03a44aefab69e398ba79cba3a282feed1e56ddd3ba036911cdfe7c84","id":"RIR-T08","state":"passed"},
+    {"assertion":"purge_is_inventory_reconciled_and_idempotent","evidence_sha256":"5c28180dbaa3b4744197c420c0ad86a61a6ff3bd2f00489ea5ab34cb1dc143a2","id":"RIR-T09","state":"passed"},
+    {"assertion":"restore_is_not_ready_before_tombstone_reapplication","evidence_sha256":"86ea1dc446c81e2f713bd1ab0ab3c3575e3b59ea3980c552d75aff80cb57ac70","id":"RIR-T10","state":"passed"},
+    {"assertion":"restore_reapplies_tombstones_before_reopen","evidence_sha256":"b2ab5831ae4eded7067c9d6e2d0ea87aa086ba18e45dd4aaa6aa51b1b36f53a7","id":"RIR-T11","state":"passed"},
+    {"assertion":"incident_closure_requires_distinct_post_review","evidence_sha256":"67d82a9a40a0166632211a24984dfeb57aebd454ea5fc7744ec8a532dde70ca2","id":"RIR-T12","state":"passed"}
+  ]
+}

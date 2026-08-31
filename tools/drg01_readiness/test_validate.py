@@ -17,7 +17,7 @@ class Drg01ReadinessTests(unittest.TestCase):
         payload = report(self.model)
         self.assertTrue(payload["ok"])
         self.assertFalse(payload["real_data_authorized"])
-        self.assertEqual(15, payload["blocker_count"])
+        self.assertEqual(14, payload["blocker_count"])
         self.assertEqual(["DRG-00", "DRG-01"], [item["id"] for item in payload["gates"]])
         technical = {
             item["id"]: item["state"] for item in self.model["controls"]
@@ -75,6 +75,12 @@ class Drg01ReadinessTests(unittest.TestCase):
         control = next(item for item in candidate["controls"] if item["id"] == "D01-XTENANT")
         control["evidence_refs"] = ["docs/security/DRG01_READINESS.md"]
         self.assertIn("DRG01-TECH-REF", self.codes(candidate))
+
+    def test_rights_incident_control_cannot_point_to_narrative(self) -> None:
+        candidate = copy.deepcopy(self.model)
+        control = next(item for item in candidate["controls"] if item["id"] == "D01-RIGHTS-IR")
+        control["evidence_refs"] = ["docs/security/DRG01_READINESS.md"]
+        self.assertIn("DRG01-RIGHTS-IR-REF", self.codes(candidate))
 
     def test_drg00_technical_control_cannot_point_to_narrative(self) -> None:
         candidate = copy.deepcopy(self.model)
