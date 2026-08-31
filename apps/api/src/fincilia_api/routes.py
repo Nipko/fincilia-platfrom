@@ -29,7 +29,7 @@ from fincilia_platform.identity import AuthenticationError
 from fincilia_platform.objects import ObjectStoreError, object_key
 from fincilia_platform.tokens import issue
 
-from . import (access, audit as audit_query, balance_reconciliation, balances,
+from . import (access, audit as audit_query, balance_reconciliation, balances, billing,
                close_period, close_readiness, close_review, datasets, exports, financial_lineage,
                notifications, onboarding, oidc, operations, quality, reconciliation, registration,
                reports, repository, platform_admin)
@@ -231,6 +231,12 @@ class NotificationPreferenceRequest(BaseModel):
     timezone: str = Field(min_length=3, max_length=64)
     quiet_from: str = Field(min_length=5, max_length=5)
     quiet_until: str = Field(min_length=5, max_length=5)
+
+
+class BillingPlanSelectionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    plan_code: Literal["starter", "business", "accountant"]
+    idempotency_key: uuid.UUID
 
 
 class QualityTriageRequest(BaseModel):
@@ -785,6 +791,72 @@ def manageable_firms(
     return [ManagedFirm(**row) for row in rows]
 
 
+def _billing_problem(error: billing.BillingError) -> ProblemError:
+    return ProblemError(problem(
+        error.code, "Billing request rejected", error.status, error.detail))
+
+
+@router.get("/billing/plans", tags=["billing"])
+def billing_plans(
+        request: Request,
+        _principal: Principal = Depends(principal_dependency)) -> list[dict]:
+    with request.app.state.database.session() as connection:
+        return billing.list_plans(connection)
+
+
+@router.get("/firms/{firm_id}/billing", tags=["billing"])
+def billing_overview(
+        request: Request, firm_id: uuid.UUID,
+        principal: Principal = Depends(principal_dependency)) -> dict:
+    with request.app.state.database.session(
+            subject_id=principal.subject_id) as connection:
+        try:
+            return billing.read_overview(
+                connection, firm_id=str(firm_id), subject_id=principal.subject_id)
+        except billing.BillingError as error:
+            raise _billing_problem(error) from None
+
+
+@router.post("/firms/{firm_id}/billing/evaluation", tags=["billing"])
+def select_billing_evaluation(
+        request: Request, firm_id: uuid.UUID, body: BillingPlanSelectionRequest,
+        principal: Principal = Depends(principal_dependency)) -> dict:
+    if request.app.state.settings.payments_enabled:
+        raise ProblemError(problem(
+            "billing-evaluation-disabled", "Evaluation unavailable", 409,
+            "payment configuration is active; use the verified checkout flow"))
+    with request.app.state.database.session(
+            subject_id=principal.subject_id) as connection:
+        try:
+            result = billing.select_evaluation(
+                connection, firm_id=str(firm_id), subject_id=principal.subject_id,
+                plan_code=body.plan_code,
+                idempotency_key=str(body.idempotency_key))
+        except billing.BillingError as error:
+            raise _billing_problem(error) from None
+        repository.record_audit(
+            connection, subject_id=principal.subject_id, company_id=None,
+            action="billing.evaluation.select", resource_kind="firm",
+            resource_ref=str(firm_id), outcome="allowed",
+            detail={"plan_code": body.plan_code, "replayed": result["replayed"]})
+    return result
+
+
+@router.post("/firms/{firm_id}/billing/checkout", tags=["billing"])
+def billing_checkout_disabled(
+        request: Request, firm_id: uuid.UUID,
+        principal: Principal = Depends(principal_dependency)) -> dict:
+    with request.app.state.database.session(
+            subject_id=principal.subject_id) as connection:
+        try:
+            billing.read_overview(
+                connection, firm_id=str(firm_id), subject_id=principal.subject_id)
+            billing.DisabledPaymentPort().checkout()
+        except billing.BillingError as error:
+            raise _billing_problem(error) from None
+    raise RuntimeError("disabled payment port returned")
+
+
 def _company_onboarding_problem(
         error: company_onboarding.CompanyOnboardingError) -> ProblemError:
     return ProblemError(problem(
@@ -1098,6 +1170,10 @@ def upload_document(request: Request, company_id: str,
                 connection, company_id=context.company_id,
                 artifact_id=artifact.artifact_id, kind="scan",
                 issued_context_id=issued.context_id)
+            billing.record_usage(
+                connection, firm_id=context.firm_id,
+                company_id=context.company_id, subject_id=principal.subject_id,
+                artifact_id=artifact.artifact_id, byte_size=admission.byte_size)
         # La auditoria distingue una entrega nueva de una repetida. Contarlas
         # igual haria imposible saber si alguien reintenta o si algo se duplica.
         repository.record_audit(

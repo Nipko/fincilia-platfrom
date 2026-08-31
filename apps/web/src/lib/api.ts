@@ -155,6 +155,68 @@ export type ManagedFirm = {
   firm_role: string;
 };
 
+export type BillingPlan = {
+  plan_version_id: string;
+  plan_code: 'starter' | 'business' | 'accountant';
+  version: number;
+  display_name: string;
+  audience_code: 'small_business' | 'growing_team' | 'accounting_practice';
+  catalog_state: 'evaluation' | 'commercial' | 'retired';
+  features: {
+    multi_company_portfolio: boolean;
+    team_review_workflows: boolean;
+    advanced_quality_controls: boolean;
+    foundational_security: true;
+    basic_data_export: true;
+  };
+  limits: {
+    companies: number | null;
+    active_members: number | null;
+    monthly_documents: number | null;
+    storage_bytes: number | null;
+  };
+  commercial: {
+    configured: boolean;
+    currency_code: string | null;
+    unit_amount_minor: number | null;
+    trial_days: number | null;
+  };
+};
+
+export type BillingOverview = {
+  firm_id: string;
+  manager_role: 'owner' | 'firm_admin';
+  subscription: null | {
+    subscription_id: string;
+    status: 'evaluation' | 'trialing' | 'active' | 'past_due' | 'superseded' | 'canceled';
+    sequence: number;
+    source_code: string;
+    started_at: string;
+    trial_ends_at: string | null;
+    plan: BillingPlan;
+  };
+  billing_account: {
+    configuration_state: 'unconfigured' | 'ready' | 'suspended';
+    provider_code: string | null;
+    billing_country: string | null;
+    tax_profile_state: 'unconfigured' | 'pending' | 'verified';
+  };
+  usage: {
+    period_start: string;
+    documents_uploaded: number;
+    storage_bytes: number;
+    meter_state: 'observed_append_only';
+  };
+  history: {
+    event_code: string;
+    reason_code: string;
+    occurred_at: string;
+    plan_code: string;
+  }[];
+  payments_state: 'disabled';
+  replayed?: boolean;
+};
+
 export type InitialCompanySetup = {
   account_family: string;
   account_name: string;
@@ -1133,6 +1195,35 @@ export function fetchAuditPage(
 
 export function fetchManageableFirms(token: string): Promise<ManagedFirm[]> {
   return request<ManagedFirm[]>('/api/v1/firms/manageable', { token });
+}
+
+export function fetchBillingPlans(token: string): Promise<BillingPlan[]> {
+  return request<BillingPlan[]>('/api/v1/billing/plans', { token });
+}
+
+export function fetchBillingOverview(
+  token: string,
+  firmId: string,
+): Promise<BillingOverview> {
+  return request<BillingOverview>(
+    `/api/v1/firms/${encodeURIComponent(firmId)}/billing`, { token },
+  );
+}
+
+export function selectEvaluationPlan(
+  token: string,
+  firmId: string,
+  planCode: BillingPlan['plan_code'],
+  idempotencyKey: string,
+): Promise<BillingOverview> {
+  return request<BillingOverview>(
+    `/api/v1/firms/${encodeURIComponent(firmId)}/billing/evaluation`, {
+      token,
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ plan_code: planCode, idempotency_key: idempotencyKey }),
+    },
+  );
 }
 
 export function provisionCompany(

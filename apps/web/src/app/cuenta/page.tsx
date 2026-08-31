@@ -1,9 +1,16 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
-import { ApiError, fetchMe } from '@/lib/api';
+import {
+  ApiError,
+  fetchBillingOverview,
+  fetchBillingPlans,
+  fetchManageableFirms,
+  fetchMe,
+} from '@/lib/api';
 import { readSession } from '@/lib/session';
 import { SignOut } from '@/app/empresas/sign-out';
+import { BillingPanel } from './billing-panel';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,6 +35,14 @@ export default async function AccountPage() {
   }
 
   const managed = me.identity_mode === 'managed_oidc';
+  const [plans, firms] = await Promise.all([
+    fetchBillingPlans(session.token),
+    fetchManageableFirms(session.token),
+  ]);
+  const billing = await Promise.all(firms.map(async (firm) => ({
+    firm,
+    overview: await fetchBillingOverview(session.token, firm.firm_id),
+  })));
 
   return (
     <main className="account-page">
@@ -135,6 +150,22 @@ export default async function AccountPage() {
           </p>
         </div>
         <Link href="/seguridad">Ver controles de seguridad</Link>
+      </section>
+
+      <section className="workspace-section" aria-labelledby="billing-title">
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">Capacidad y suscripción</p>
+            <h2 id="billing-title">Planes de Fincilia</h2>
+          </div>
+          <span className="tag">Catálogo de evaluación</span>
+        </div>
+        {billing.length ? billing.map((item) => (
+          <BillingPanel key={item.firm.firm_id} firm={item.firm}
+            plans={plans} overview={item.overview} />
+        )) : (
+          <p className="card">Solo owners y administradores pueden gestionar el plan de una firma.</p>
+        )}
       </section>
     </main>
   );

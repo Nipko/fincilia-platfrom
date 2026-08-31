@@ -30,6 +30,7 @@ import {
   syncNotificationReminders,
   updateNotificationPreference,
   fetchSource,
+  selectEvaluationPlan,
   grantMemberRole,
   generateExpectations,
   linkAccount,
@@ -60,6 +61,37 @@ import {
 import { clearSession, readSession, writeSession } from '@/lib/session';
 
 export type NotificationActionState = { error: string | null; done: string | null };
+
+export type BillingActionState = { error: string | null; done: string | null };
+
+export async function selectEvaluationPlanAction(
+  _previous: BillingActionState,
+  formData: FormData,
+): Promise<BillingActionState> {
+  const session = await readSession();
+  if (!session) redirect('/entrar');
+  const firmId = String(formData.get('firmId') ?? '');
+  const planCode = String(formData.get('planCode') ?? '');
+  if (!['starter', 'business', 'accountant'].includes(planCode)) {
+    return { error: 'El plan solicitado no es válido.', done: null };
+  }
+  try {
+    const result = await selectEvaluationPlan(
+      session.token,
+      firmId,
+      planCode as 'starter' | 'business' | 'accountant',
+      crypto.randomUUID(),
+    );
+    revalidatePath('/cuenta');
+    return {
+      error: null,
+      done: `Evaluación ${result.subscription?.plan.display_name ?? ''} activada sin cobro.`,
+    };
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) redirect('/entrar');
+    return { error: 'No se pudo cambiar la evaluación del plan.', done: null };
+  }
+}
 
 export async function updateNotificationPreferenceAction(
   _previous: NotificationActionState,

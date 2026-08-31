@@ -12,6 +12,9 @@ const mocks = vi.hoisted(() => {
   return {
     ApiError,
     fetchMe: vi.fn(),
+    fetchBillingPlans: vi.fn(),
+    fetchManageableFirms: vi.fn(),
+    fetchBillingOverview: vi.fn(),
     readSession: vi.fn(),
     redirect: vi.fn((): never => { throw new Error('NEXT_REDIRECT'); }),
   };
@@ -19,8 +22,15 @@ const mocks = vi.hoisted(() => {
 
 vi.mock('next/navigation', () => ({ redirect: mocks.redirect }));
 vi.mock('@/lib/session', () => ({ readSession: mocks.readSession }));
-vi.mock('@/lib/api', () => ({ ApiError: mocks.ApiError, fetchMe: mocks.fetchMe }));
+vi.mock('@/lib/api', () => ({
+  ApiError: mocks.ApiError,
+  fetchMe: mocks.fetchMe,
+  fetchBillingPlans: mocks.fetchBillingPlans,
+  fetchManageableFirms: mocks.fetchManageableFirms,
+  fetchBillingOverview: mocks.fetchBillingOverview,
+}));
 vi.mock('@/app/empresas/sign-out', () => ({ SignOut: () => <button>Salir</button> }));
+vi.mock('../billing-panel', () => ({ BillingPanel: () => <div>Panel de planes</div> }));
 
 import AccountPage from '../page';
 
@@ -43,6 +53,9 @@ describe('AccountPage', () => {
         roles: ['owner', 'preparer'],
       }],
     });
+    mocks.fetchBillingPlans.mockResolvedValue([]);
+    mocks.fetchManageableFirms.mockResolvedValue([]);
+    mocks.fetchBillingOverview.mockResolvedValue({});
   });
 
   it('explica el modo sintetico y enlaza solo alcances devueltos por la API', async () => {
