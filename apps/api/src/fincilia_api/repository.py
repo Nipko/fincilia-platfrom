@@ -556,6 +556,19 @@ def spreadsheet_workspace(connection: psycopg.Connection,
     return workspace
 
 
+def pdf_workspace(connection: psycopg.Connection, artifact_id: str) -> dict | None:
+    """Metadatos seguros del PDF; nunca incluye texto ni valores financieros."""
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT run.result -> 'document' FROM fincilia.processing_run run "
+            "WHERE run.artifact_id = %s AND run.kind = 'scan' "
+            "  AND run.status = 'succeeded' AND run.result ? 'document' "
+            "ORDER BY run.finished_at DESC, run.run_id DESC LIMIT 1",
+            (artifact_id,))
+        row = cursor.fetchone()
+    return dict(row[0]) if row and row[0] else None
+
+
 def select_spreadsheet_sheet(
         connection: psycopg.Connection, *, company_id: str, artifact_id: str,
         workbook_identity: str, sheet_identity: str, sheet_name: str,

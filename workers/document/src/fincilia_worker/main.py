@@ -336,7 +336,7 @@ def _extract_streaming(database: Database, store, claim: "jobs.Claim") -> bool:
         outcome = StreamOutcome()
         stream = None
         try:
-            if artifact["internal_type"] in {"xlsx", "ods"}:
+            if artifact["internal_type"] in {"xlsx", "ods", "pdf"}:
                 if artifact["internal_type"] == "ods":
                     from fincilia_contracts.open_document import (
                         OpenDocumentOutcome,
@@ -355,7 +355,7 @@ def _extract_streaming(database: Database, store, claim: "jobs.Claim") -> bool:
                             payload, preamble, outcome=ods_outcome,
                             artifact_sha256=artifact["content_sha256"]))
                     result = open_document_summary(preamble, ods_outcome)
-                else:
+                elif artifact["internal_type"] == "xlsx":
                     from fincilia_contracts.spreadsheet import (
                         SpreadsheetOutcome,
                         sniff_workbook,
@@ -373,6 +373,23 @@ def _extract_streaming(database: Database, store, claim: "jobs.Claim") -> bool:
                             payload, preamble, outcome=xlsx_outcome,
                             artifact_sha256=artifact["content_sha256"]))
                     result = spreadsheet_summary(preamble, xlsx_outcome)
+                else:
+                    from fincilia_contracts.pdf_document import (
+                        PdfOutcome,
+                        pdf_summary,
+                        sniff_pdf,
+                        stream_pdf_rows,
+                    )
+
+                    payload = store.get("raw", artifact["object_key"])
+                    _, preamble = sniff_pdf(payload)
+                    pdf_outcome = PdfOutcome()
+                    written = _store_stream(
+                        database, claim, artifact,
+                        stream_pdf_rows(
+                            payload, preamble, outcome=pdf_outcome,
+                            artifact_sha256=artifact["content_sha256"]))
+                    result = pdf_summary(preamble, pdf_outcome)
             else:
                 stream = store.open("raw", artifact["object_key"])
                 preamble, reader = sniff(stream)

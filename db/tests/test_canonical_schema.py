@@ -648,6 +648,45 @@ class CanonicalSchemaTests(unittest.TestCase):
                          digest(f"bad-xlsx-{index}")))
                 self.assertIn("ck_raw_locator", str(caught.exception))
 
+    def test_a_pdf_locator_is_typed_bounded_and_matches_the_stored_block(self) -> None:
+        artifact = self.fixture.artifact(uploader=self.preparer)
+        run = self.fixture.run(artifact)
+        locator = {
+            "locator_kind": "pdf_text",
+            "artifact_sha256": digest(artifact),
+            "record_ordinal": 1,
+            "field_count": 1,
+            "page_number": 1,
+            "block_ordinal": 1,
+            "bbox": [0.1, 0.2, 0.8, 0.25],
+            "confidence": 1,
+            "parser_release": "pypdf-6.16.2/fincilia-pdf-1",
+        }
+        self.cursor.execute(
+            "INSERT INTO fincilia.raw_record (raw_record_id, company_id, "
+            "artifact_id, processing_run_id, record_ordinal, origin_locator, "
+            "raw_values, values_digest) VALUES (%s, %s, %s, %s, 1, %s, %s, %s)",
+            (new_id(), self.company_a, artifact, run, json.dumps(locator),
+             json.dumps(["Texto sintetico"]), digest("pdf-block")))
+
+        invalid = (
+            {**locator, "page_number": 0},
+            {**locator, "bbox": [-0.1, 0.2, 0.8, 0.25]},
+            {**locator, "confidence": 1.01},
+            {**locator, "field_count": 2},
+        )
+        for index, candidate in enumerate(invalid, start=2):
+            with self.subTest(candidate=index):
+                with self.assertRaises(psycopg.errors.CheckViolation) as caught:
+                    self.cursor.execute(
+                        "INSERT INTO fincilia.raw_record (raw_record_id, company_id, "
+                        "artifact_id, processing_run_id, record_ordinal, origin_locator, "
+                        "raw_values, values_digest) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+                        (new_id(), self.company_a, artifact, run, index,
+                         json.dumps(candidate), json.dumps(["Texto sintetico"]),
+                         digest(f"bad-pdf-{index}")))
+                self.assertIn("ck_raw_locator", str(caught.exception))
+
 
 class RuntimePrivilegeTests(unittest.TestCase):
     """Lo que cada rol **no** puede hacer, afirmado desde ese mismo rol.

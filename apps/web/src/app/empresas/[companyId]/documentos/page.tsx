@@ -45,6 +45,8 @@ const PROMOTION_REASON_LABELS: Record<string, string> = {
   formula_review_required: 'Formulas pendientes de revision',
   worksheet_selection_required: 'Seleccion de hoja requerida',
   unsafe_or_malformed_workbook: 'Hoja de calculo danada o no segura',
+  unsafe_or_active_pdf: 'PDF danado, cifrado o activo',
+  ocr_required: 'PDF pendiente de OCR',
   unscannable: 'No fue posible examinar el contenido',
 };
 

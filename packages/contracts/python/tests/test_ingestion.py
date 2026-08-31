@@ -292,12 +292,12 @@ class PromotionTests(unittest.TestCase):
         # El hallazgo dice donde y de que tipo, nunca el valor.
         self.assertNotIn("4111111111111111", str(decision.as_dict()))
 
-    def test_a_pdf_is_never_promoted_without_being_inspected(self) -> None:
+    def test_a_malformed_pdf_is_never_promoted_without_being_inspected(self) -> None:
         # El defecto que motivo esta rebanada: un PDF llegaba a la zona de evidencia
         # sin que nadie hubiera mirado su contenido.
         decision = decide_promotion(PDF, "factura.pdf")
         self.assertFalse(decision.promoted)
-        self.assertEqual("no_scanner_for_format", decision.reason_code)
+        self.assertEqual("unsafe_or_active_pdf", decision.reason_code)
 
     def test_a_clean_single_sheet_workbook_is_promoted_after_full_inspection(self) -> None:
         payload = build_xlsx([

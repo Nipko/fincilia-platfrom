@@ -504,9 +504,21 @@ export type SpreadsheetWorkspace = {
   selection: SpreadsheetSelection | null;
 };
 
+export type PdfWorkspace = {
+  document_kind: 'pdf';
+  artifact_sha256?: string;
+  page_count?: number;
+  object_count?: number;
+  embedded_text?: boolean;
+  parser_release?: string;
+  ocr_state: 'not_required' | 'required';
+  requires_human_review: true;
+};
+
 export type ArtifactDetail = ArtifactSummary & {
   runs: ProcessingRun[];
   spreadsheet: SpreadsheetWorkspace | null;
+  pdf: PdfWorkspace | null;
 };
 
 export type ColumnProfile = {

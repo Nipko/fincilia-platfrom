@@ -30,6 +30,8 @@ const PROMOTION_REASONS: Record<string, string> = {
   formula_review_required: 'el libro contiene formulas y requiere revision explicita',
   worksheet_selection_required: 'el libro requiere elegir una hoja de forma explicita',
   unsafe_or_malformed_workbook: 'el libro esta danado o usa una estructura no segura',
+  unsafe_or_active_pdf: 'el PDF esta danado, cifrado o contiene funciones activas',
+  ocr_required: 'el PDF es pasivo pero necesita reconocimiento optico (OCR)',
   unscannable: 'no se pudo examinar',
 };
 
@@ -254,6 +256,36 @@ export default async function DocumentPage({
               />
             </section>
           )}
+        </>
+      ) : null}
+
+      {document.pdf ? (
+        <>
+          <h2>Espacio de trabajo PDF</h2>
+          <section className="card">
+            <strong>
+              {document.pdf.ocr_state === 'required'
+                ? 'OCR pendiente'
+                : 'Texto embebido inspeccionado'}
+            </strong>
+            <p className="meta">
+              {document.pdf.page_count
+                ? `${document.pdf.page_count} pagina(s) · ${document.pdf.object_count ?? 0} objetos · `
+                : ''}
+              {document.pdf.requires_human_review
+                ? 'requiere revision humana antes de mapear o publicar'
+                : ''}
+              {document.pdf.parser_release
+                ? ` · parser ${document.pdf.parser_release}`
+                : ''}
+            </p>
+            {document.pdf.ocr_state === 'required' ? (
+              <p className="notice">
+                El OCR externo permanece desactivado hasta aprobar proveedor,
+                region, presupuesto y retencion. El original sigue en cuarentena.
+              </p>
+            ) : null}
+          </section>
         </>
       ) : null}
 

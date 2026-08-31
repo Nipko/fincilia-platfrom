@@ -41,6 +41,7 @@ from .open_document import (
     inspect_open_document,
     iter_open_document_texts,
 )
+from .pdf_document import OcrRequired, PdfError, PdfOutcome, inspect_pdf, sniff_pdf, stream_pdf_rows
 
 # --------------------------------------------------------------------------- #
 # Limites
@@ -299,6 +300,7 @@ class Decision:
     findings: tuple[Finding, ...]
     workbook: dict[str, object] | None = None
     requires_selection: bool = False
+    document: dict[str, object] | None = None
 
     @property
     def promoted(self) -> bool:
@@ -312,6 +314,8 @@ class Decision:
                 "requires_selection": self.requires_selection}
         if self.workbook is not None:
             result["workbook"] = self.workbook
+        if self.document is not None:
+            result["document"] = self.document
         return result
 
 
@@ -332,6 +336,43 @@ def decide_promotion(payload: bytes, filename: str) -> Decision:
             "extension_mismatch", filename,
             f"the name suggests {detection.declared_type}, the bytes say "
             f"{detection.media_type}"))
+
+    if detection.media_type == "application/pdf":
+        try:
+            inspection, preamble = sniff_pdf(payload)
+            outcome = PdfOutcome()
+            rows = stream_pdf_rows(
+                payload, preamble, outcome=outcome,
+                artifact_sha256=inspection.artifact_sha256)
+            for row in rows:
+                for value in row.values:
+                    if len(findings) >= 50:
+                        break
+                    for item in scan_secrets(
+                            value.encode("utf-8"), max_findings=50 - len(findings)):
+                        findings.append(Finding(
+                            item.kind,
+                            f"page:{row.page_number}:block:{row.block_ordinal}",
+                            item.detail))
+        except OcrRequired:
+            return Decision(
+                "quarantined", "ocr_required", detection.media_type, "pdf",
+                tuple(findings), document={
+                    "document_kind": "pdf", "ocr_state": "required",
+                    "requires_human_review": True})
+        except PdfError:
+            findings.append(Finding(
+                "unsafe_pdf_structure", "pdf",
+                "the document is active, encrypted, malformed or outside safe limits"))
+            return Decision("rejected", "unsafe_or_active_pdf", detection.media_type,
+                            "pdf", tuple(findings))
+        if any(item.kind in SENSITIVE_KINDS for item in findings):
+            return Decision(
+                "quarantined", "sensitive_content", detection.media_type, "pdf",
+                tuple(findings), document=inspection.manifest())
+        return Decision(
+            "promoted", "content_inspected", detection.media_type, "pdf",
+            tuple(findings), document=inspection.manifest())
 
     if detection.media_type == "application/zip":
         findings.extend(inspect_archive(payload))

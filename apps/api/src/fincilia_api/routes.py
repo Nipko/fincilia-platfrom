@@ -252,6 +252,7 @@ class ArtifactSummary(BaseModel):
 class ArtifactDetail(ArtifactSummary):
     runs: list[dict]
     spreadsheet: dict | None = None
+    pdf: dict | None = None
 
 
 class DocumentHistoryItem(BaseModel):
@@ -1212,13 +1213,14 @@ def read_document(request: Request, company_id: str, artifact_id: str,
         runs = repository.list_runs(connection, artifact_id)
         decision = repository.latest_decision(connection, artifact_id)
         spreadsheet = repository.spreadsheet_workspace(connection, artifact_id)
+        pdf = repository.pdf_workspace(connection, artifact_id)
     payload = artifact.as_dict()
     # La zona que se publica es la efectiva, no la de la fila: el artefacto es
     # inmutable y siempre dice `quarantine`; quien decide donde vive la evidencia
     # es la decision de promocion.
     payload["zone"] = repository.effective_zone(decision)
     return ArtifactDetail(**payload, runs=runs, promotion=decision,
-                          spreadsheet=spreadsheet)
+                          spreadsheet=spreadsheet, pdf=pdf)
 
 
 @router.post(

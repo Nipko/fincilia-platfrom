@@ -30,6 +30,8 @@ const PROMOTION_REASONS: Record<string, string> = {
   formula_review_required: 'el libro contiene formulas y requiere revision explicita',
   worksheet_selection_required: 'el libro requiere elegir una hoja de forma explicita',
   unsafe_or_malformed_workbook: 'el libro esta danado o usa una estructura no segura',
+  unsafe_or_active_pdf: 'el PDF esta danado, cifrado o contiene funciones activas',
+  ocr_required: 'el PDF necesita OCR y permanece en cuarentena',
   unscannable: 'no se pudo examinar',
 };
 

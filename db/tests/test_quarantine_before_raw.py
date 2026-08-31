@@ -209,13 +209,13 @@ class QuarantineBeforeRawTests(unittest.TestCase):
         # El original se conserva en cuarentena: promover copia, no mueve.
         self.assertTrue(self.store.exists("quarantine", key))
 
-    def test_a_pdf_never_reaches_raw(self) -> None:
+    def test_a_malformed_pdf_never_reaches_raw(self) -> None:
         # El defecto que motivo esta rebanada: un PDF llegaba a la zona de
         # evidencia sin que nadie hubiera leido su contenido.
         document = self.settle(PDF, "factura.pdf")
         self.assertEqual("quarantine", document["zone"])
-        self.assertEqual("quarantined", document["promotion"]["decision"])
-        self.assertEqual("no_scanner_for_format", document["promotion"]["reason_code"])
+        self.assertEqual("rejected", document["promotion"]["decision"])
+        self.assertEqual("unsafe_or_active_pdf", document["promotion"]["reason_code"])
         self.assertFalse(self.store.exists("raw", object_key(ESPIGA,
                                                              document["content_sha256"])))
 
