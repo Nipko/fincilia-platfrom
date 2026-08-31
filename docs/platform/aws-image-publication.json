@@ -1,0 +1,91 @@
+{
+  "schema_version": "1.0.0",
+  "task_id": "FNC-SUP-003",
+  "status": "in_progress",
+  "data_ceiling": "synthetic_only",
+  "deployment_authorized": false,
+  "execution_authorized": false,
+  "real_data_authorized": false,
+  "aws": {
+    "account_id": "632144225293",
+    "region": "sa-east-1",
+    "credential_mode": "github_oidc_temporary_session",
+    "maximum_session_seconds": 3600,
+    "static_access_keys_allowed": false
+  },
+  "github": {
+    "owner": "Nipko",
+    "owner_id": "16093741",
+    "repository": "fincilia-platfrom",
+    "repository_id": "1342497632",
+    "environment": "private-pilot",
+    "issuer": "https://token.actions.githubusercontent.com",
+    "audience": "sts.amazonaws.com",
+    "immutable_subject": "repo:Nipko@16093741/fincilia-platfrom@1342497632:environment:private-pilot",
+    "workflow": ".github/workflows/publish-private-pilot.yml",
+    "trigger": "workflow_dispatch",
+    "trusted_branch": "refs/heads/main",
+    "runner": "ubuntu-24.04",
+    "permissions": {
+      "attestations": "write",
+      "contents": "read",
+      "id-token": "write"
+    }
+  },
+  "actions": {
+    "actions/attest": "a1948c3f048ba23858d222213b7c278aabede763",
+    "actions/checkout": "3d3c42e5aac5ba805825da76410c181273ba90b1",
+    "actions/setup-python": "5fda3b95a4ea91299a34e894583c3862153e4b97",
+    "actions/upload-artifact": "043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+    "aws-actions/configure-aws-credentials": "e6de054238d6b7531b4efff3b6587d9aade6a06c"
+  },
+  "iam": {
+    "role_name": "fincilia-private-pilot-ecr-publisher",
+    "global_actions": [
+      "ecr:GetAuthorizationToken"
+    ],
+    "repository_actions": [
+      "ecr:BatchCheckLayerAvailability",
+      "ecr:BatchGetImage",
+      "ecr:CompleteLayerUpload",
+      "ecr:DescribeImages",
+      "ecr:DescribeImageScanFindings",
+      "ecr:GetDownloadUrlForLayer",
+      "ecr:InitiateLayerUpload",
+      "ecr:PutImage",
+      "ecr:UploadLayerPart"
+    ],
+    "repository_arns": [
+      "arn:aws:ecr:sa-east-1:632144225293:repository/fincilia/private-pilot/api",
+      "arn:aws:ecr:sa-east-1:632144225293:repository/fincilia/private-pilot/web",
+      "arn:aws:ecr:sa-east-1:632144225293:repository/fincilia/private-pilot/worker"
+    ],
+    "wildcard_subject_allowed": false,
+    "repository_delete_allowed": false,
+    "image_delete_allowed": false,
+    "infrastructure_mutation_allowed": false
+  },
+  "publication": {
+    "repositories": {
+      "api": "fincilia/private-pilot/api",
+      "web": "fincilia/private-pilot/web",
+      "worker": "fincilia/private-pilot/worker"
+    },
+    "tag": "full_release_sha",
+    "deployment_reference": "ecr_digest_only",
+    "build_test_push_same_run": true,
+    "all_three_required": true,
+    "scan_status_required": "COMPLETE",
+    "maximum_critical_findings": 0,
+    "image_attestation_required": true,
+    "aggregate_sbom_attestation_required": true,
+    "partial_release_deployable": false,
+    "deploys_runtime": false,
+    "accepts_gates": false
+  },
+  "gate_claims": {
+    "DRG-00": "not_met",
+    "DRG-01": "not_met",
+    "GA-01": "not_met"
+  }
+}

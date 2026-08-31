@@ -9,6 +9,8 @@ Lee primero:
 
 - `docs/platform/AWS_PRIVATE_PILOT.md`
 - `docs/platform/aws-private-pilot.json`
+- `docs/platform/AWS_IMAGE_PUBLICATION.md`
+- `docs/platform/aws-image-publication.json`
 - `docs/security/DRG01_READINESS.md`
 - `docs/adr/ADR-032-aws-private-real-data-pilot.md`
 
@@ -21,10 +23,17 @@ DNS que aparece en `required_dns_records`; `certificate_ready` permanece `false`
 hasta verificar que AWS emitió el certificado. Los cuatro secretos se crean sin
 valor y deben poblarse fuera de OpenTofu.
 
+La foundation crea además un proveedor GitHub OIDC y el rol
+`fincilia-private-pilot-ecr-publisher`. Su confianza exige el sujeto inmutable
+del repositorio y el ambiente `private-pilot`; el output
+`github_ecr_publisher_role_arn` se configura como variable no secreta del
+ambiente GitHub. El rol no despliega, no borra y no administra infraestructura.
+
 No uses datos reales para validar la infraestructura. Un plan se revisa con:
 
 ```text
 python -m tools.aws_private_pilot.validate --plan infra/aws/private-pilot/pilot-plan.json
+python -m tools.aws_image_publication.cli validate --plan infra/aws/private-pilot/pilot-plan.json
 ```
 
 La salida correcta antes de DRG-01 conserva `real_data_authorized: false`.

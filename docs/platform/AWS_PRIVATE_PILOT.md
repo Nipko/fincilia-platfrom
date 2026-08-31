@@ -11,7 +11,7 @@ infraestructura persistente de la temporal:
 
 | Modo | Conserva | Retira o mantiene detenido |
 | --- | --- | --- |
-| `cold` | VPC, S3, KMS, Cognito, secretos vacíos, ECR, CloudTrail, backups y almacenamiento RDS | NAT, endpoints Interface, ALB/WAF, Valkey, tareas ECS; solicita detener RDS |
+| `cold` | VPC, S3, KMS, Cognito, secretos vacíos, ECR, rol GitHub OIDC de publicación, CloudTrail, backups y almacenamiento RDS | NAT, endpoints Interface, ALB/WAF, Valkey, tareas ECS; solicita detener RDS |
 | `warm` | Todo lo anterior y el plano runtime | API y worker continúan con `desired_count=0` |
 
 `warm` no es sinónimo de “aceptar usuarios o datos”. Sólo prepara la red y los
@@ -71,9 +71,15 @@ operaciones. Nunca se usa `tofu destroy` para este ciclo.
 ## Despliegue en dos fases
 
 La fase **foundation** crea red, cifrado, stores, identidad, observabilidad y
-secretos vacíos. El plano runtime se solicita con `warm` y nace con capacidad
-cero. Puede planificarse con datos sintéticos para producir evidencia de
-arquitectura.
+secretos vacíos. También crea el proveedor GitHub OIDC y el rol mínimo que sólo
+publica las tres imágenes ECR; no crea access keys. El plano runtime se solicita
+con `warm` y nace con capacidad cero. Puede planificarse con datos sintéticos
+para producir evidencia de arquitectura.
+
+La publicación de imágenes se rige por
+`docs/platform/AWS_IMAGE_PUBLICATION.md`. Es manual, usa el ambiente GitHub
+`private-pilot` y produce digests y attestations, pero no aplica OpenTofu ni
+escala ECS.
 
 La fase **activation** solo ocurre después de poblar secretos fuera de OpenTofu,
 validar ACM/DNS, configurar Google en Cognito y obtener las firmas de los gates.
@@ -103,7 +109,9 @@ versiona el contenido.
 
 ```text
 python -m tools.aws_private_pilot.validate
+python -m tools.aws_image_publication.cli validate
 python -m unittest tools.aws_private_pilot.test_validate
+python -m unittest tools.aws_image_publication.test_model
 tofu -chdir=infra/aws/private-pilot fmt -check -recursive
 tofu -chdir=infra/aws/private-pilot validate
 ```
@@ -113,6 +121,7 @@ Cuando exista un plan guardado:
 ```text
 tofu -chdir=infra/aws/private-pilot show -json pilot.plan > pilot-plan.json
 python -m tools.aws_private_pilot.validate --plan infra/aws/private-pilot/pilot-plan.json
+python -m tools.aws_image_publication.cli validate --plan infra/aws/private-pilot/pilot-plan.json
 ```
 
 No se activa capacidad de aplicación hasta revisar el plan, costo, DNS y

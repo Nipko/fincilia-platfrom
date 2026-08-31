@@ -79,7 +79,8 @@
     "rds_stop_limit_days": 7,
     "persistent_resource_types": [
       "aws_acm_certificate", "aws_cloudtrail", "aws_cognito_user_pool",
-      "aws_db_instance", "aws_ecr_repository", "aws_kms_key",
+      "aws_db_instance", "aws_ecr_repository", "aws_iam_openid_connect_provider",
+      "aws_iam_role", "aws_iam_role_policy", "aws_kms_key",
       "aws_s3_bucket", "aws_secretsmanager_secret", "aws_vpc"
     ],
     "runtime_only_resource_types": [
@@ -112,7 +113,8 @@
     "aws_db_instance", "aws_db_subnet_group", "aws_ecr_repository",
     "aws_ecs_cluster", "aws_ecs_service", "aws_ecs_task_definition",
     "aws_elasticache_replication_group", "aws_elasticache_subnet_group",
-    "aws_iam_role", "aws_kms_key", "aws_lb", "aws_lb_listener",
+    "aws_iam_openid_connect_provider", "aws_iam_role", "aws_iam_role_policy",
+    "aws_kms_key", "aws_lb", "aws_lb_listener",
     "aws_lb_target_group", "aws_nat_gateway", "aws_s3_bucket",
     "aws_s3_bucket_public_access_block", "aws_s3_bucket_server_side_encryption_configuration",
     "aws_s3_bucket_versioning", "aws_secretsmanager_secret", "aws_security_group",

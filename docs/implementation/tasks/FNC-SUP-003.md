@@ -39,6 +39,7 @@ acepta gates y no autoriza datos reales.
 - Datos autorizados: exclusivamente sintéticos.
 - Rutas permitidas: `.github/workflows/publish-private-pilot.yml`,
   `infra/aws/private-pilot/**`, `tools/aws_image_publication/**`,
+  `tools/aws_private_pilot/**`, `tools/aws_pilot_control/**`,
   `tools/quality_gate/**`, `tools/supply_chain/**`, `docs/platform/**`,
   `docs/adr/ADR-034-github-oidc-ecr-publication.md`,
   `docs/architecture/adr-readiness.json`, `tools/adr_readiness/**`, esta ficha,

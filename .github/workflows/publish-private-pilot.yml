@@ -1,0 +1,304 @@
+name: Publish immutable private-pilot images
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_sha:
+        description: Commit completo, alcanzable desde main, que se publicara
+        required: true
+        type: string
+      confirmation:
+        description: Escriba PUBLISH para confirmar solo la publicacion
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+  attestations: write
+
+concurrency:
+  group: fincilia-publish-private-pilot
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Build, test, scan and attest exact images
+    environment: private-pilot
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      AWS_ACCOUNT_ID: "632144225293"
+      AWS_REGION: sa-east-1
+      FINCILIA_BUILD_REVISION: ${{ inputs.release_sha }}
+      FINCILIA_REAL_DATA_ENABLED: "false"
+      RELEASE_SHA: ${{ inputs.release_sha }}
+      RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      WORKFLOW_SHA: ${{ github.sha }}
+    steps:
+      - name: Refuse ambiguous operator input
+        env:
+          CONFIRMATION: ${{ inputs.confirmation }}
+        run: |
+          set -euo pipefail
+          test "$CONFIRMATION" = "PUBLISH"
+          case "$RELEASE_SHA" in
+            (*[!0-9a-f]*|'') exit 1 ;;
+          esac
+          test "${#RELEASE_SHA}" -eq 40
+          test "$GITHUB_REF" = "refs/heads/main"
+          test "$RELEASE_SHA" = "$WORKFLOW_SHA"
+
+      - name: Checkout trusted main history without credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Prove and detach the exact release revision
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse --verify "${RELEASE_SHA}^{commit}")" = "$RELEASE_SHA"
+          git merge-base --is-ancestor "$RELEASE_SHA" origin/main
+          git checkout --detach "$RELEASE_SHA"
+          test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
+
+      - name: Set up the exact Python runtime
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Refuse contract or policy drift before building
+        run: |
+          set -euo pipefail
+          python -m tools.quality_gate.cli
+          python -m tools.runtime_config.validate
+          python -m tools.aws_image_publication.cli validate
+          python -m unittest tools.aws_image_publication.test_model -v
+          python -m unittest tools.release_candidate.test_release_candidate -v
+          python -m unittest discover -s packages/platform/python -t packages/platform/python -v
+
+      - name: Build all three images before requesting AWS credentials
+        run: |
+          set -euo pipefail
+          docker build -f apps/api/Dockerfile -t "fincilia-api:${RELEASE_SHA}" .
+          docker build -f workers/document/Dockerfile -t "fincilia-worker:${RELEASE_SHA}" .
+          docker build -f apps/web/Dockerfile -t "fincilia-web:${RELEASE_SHA}" .
+          test "$(docker image inspect --format '{{.Config.User}}' "fincilia-api:${RELEASE_SHA}")" = "10001"
+          test "$(docker image inspect --format '{{.Config.User}}' "fincilia-worker:${RELEASE_SHA}")" = "10002"
+          test "$(docker image inspect --format '{{.Config.User}}' "fincilia-web:${RELEASE_SHA}")" = "10002"
+          printf 'API_IMAGE_ID=%s\n' "$(docker image inspect --format '{{.Id}}' "fincilia-api:${RELEASE_SHA}")" >> "$GITHUB_ENV"
+          printf 'WORKER_IMAGE_ID=%s\n' "$(docker image inspect --format '{{.Id}}' "fincilia-worker:${RELEASE_SHA}")" >> "$GITHUB_ENV"
+          printf 'WEB_IMAGE_ID=%s\n' "$(docker image inspect --format '{{.Id}}' "fincilia-web:${RELEASE_SHA}")" >> "$GITHUB_ENV"
+
+      - name: Exercise the API and worker candidate images
+        run: |
+          set -euo pipefail
+          docker run --rm --entrypoint python "fincilia-api:${RELEASE_SHA}" \
+            -m unittest discover -s /app/tests -t /app/tests
+          docker run --rm --entrypoint python "fincilia-worker:${RELEASE_SHA}" \
+            -m unittest discover -s /app/tests -t /app/tests
+
+      - name: Smoke the shipped web runtime
+        run: |
+          set -euo pipefail
+          docker run -d --rm --name fincilia-publish-web \
+            -p 127.0.0.1:33000:3000 \
+            -e FINCILIA_API_BASE_URL=http://127.0.0.1:9 \
+            -e FINCILIA_WEB_SECURE_COOKIES=false \
+            "fincilia-web:${RELEASE_SHA}"
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:33000/entrar | grep -q Fincilia; then
+              docker rm -f fincilia-publish-web
+              exit 0
+            fi
+            sleep 1
+          done
+          docker logs fincilia-publish-web
+          exit 1
+
+      - name: Reproduce and verify the unpublished evidence bundle
+        run: |
+          set -euo pipefail
+          python -m tools.release_candidate.cli create \
+            --root . --output "$RUNNER_TEMP/fincilia-release" \
+            --revision "$RELEASE_SHA" --classification neutral \
+            --api-image-id "$API_IMAGE_ID" \
+            --worker-image-id "$WORKER_IMAGE_ID" \
+            --web-image-id "$WEB_IMAGE_ID" --ci-run-url "$RUN_URL"
+          python -m tools.release_candidate.cli create \
+            --root . --output "$RUNNER_TEMP/fincilia-release-replay" \
+            --revision "$RELEASE_SHA" --classification neutral \
+            --api-image-id "$API_IMAGE_ID" \
+            --worker-image-id "$WORKER_IMAGE_ID" \
+            --web-image-id "$WEB_IMAGE_ID" --ci-run-url "$RUN_URL"
+          diff -ru "$RUNNER_TEMP/fincilia-release" "$RUNNER_TEMP/fincilia-release-replay"
+          python -m tools.release_candidate.cli archive \
+            --bundle "$RUNNER_TEMP/fincilia-release" \
+            --output "$RUNNER_TEMP/fincilia-release.tar.gz"
+          python -m tools.release_candidate.cli verify-archive \
+            --bundle "$RUNNER_TEMP/fincilia-release" \
+            --archive "$RUNNER_TEMP/fincilia-release.tar.gz"
+
+      - name: Attest release bundle provenance
+        id: bundle_provenance
+        uses: actions/attest@a1948c3f048ba23858d222213b7c278aabede763 # v4.1.1
+        with:
+          subject-path: ${{ runner.temp }}/fincilia-release.tar.gz
+
+      - name: Attest aggregate release SBOM
+        id: bundle_sbom
+        uses: actions/attest@a1948c3f048ba23858d222213b7c278aabede763 # v4.1.1
+        with:
+          subject-path: ${{ runner.temp }}/fincilia-release.tar.gz
+          sbom-path: ${{ runner.temp }}/fincilia-release/release-dependencies.spdx.json
+
+      - name: Obtain a bounded AWS session through GitHub OIDC
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+        with:
+          aws-region: sa-east-1
+          role-to-assume: ${{ vars.AWS_PRIVATE_PILOT_PUBLISH_ROLE_ARN }}
+          role-duration-seconds: 3600
+          role-session-name: fincilia-${{ github.run_id }}-${{ github.run_attempt }}
+          allowed-account-ids: 632144225293
+          mask-aws-account-id: true
+          unset-current-credentials: true
+
+      - name: Confirm account and login to the exact ECR registry
+        run: |
+          set -euo pipefail
+          test "$(aws sts get-caller-identity --query Account --output text)" = "$AWS_ACCOUNT_ID"
+          registry="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+          aws ecr get-login-password --region "$AWS_REGION" | \
+            docker login --username AWS --password-stdin "$registry"
+          printf 'REGISTRY=%s\n' "$registry" >> "$GITHUB_ENV"
+          printf 'API_IMAGE=%s\n' "$registry/fincilia/private-pilot/api" >> "$GITHUB_ENV"
+          printf 'WEB_IMAGE=%s\n' "$registry/fincilia/private-pilot/web" >> "$GITHUB_ENV"
+          printf 'WORKER_IMAGE=%s\n' "$registry/fincilia/private-pilot/worker" >> "$GITHUB_ENV"
+
+      - name: Publish immutable full-SHA tags and resolve ECR digests
+        run: |
+          set -euo pipefail
+          docker tag "fincilia-api:${RELEASE_SHA}" "${API_IMAGE}:${RELEASE_SHA}"
+          docker tag "fincilia-web:${RELEASE_SHA}" "${WEB_IMAGE}:${RELEASE_SHA}"
+          docker tag "fincilia-worker:${RELEASE_SHA}" "${WORKER_IMAGE}:${RELEASE_SHA}"
+          docker push "${API_IMAGE}:${RELEASE_SHA}"
+          docker push "${WEB_IMAGE}:${RELEASE_SHA}"
+          docker push "${WORKER_IMAGE}:${RELEASE_SHA}"
+          for name in api web worker; do
+            repository="fincilia/private-pilot/${name}"
+            digest="$(aws ecr describe-images --repository-name "$repository" \
+              --image-ids "imageTag=${RELEASE_SHA}" \
+              --query 'imageDetails[0].imageDigest' --output text)"
+            case "$digest" in
+              (sha256:[0-9a-f][0-9a-f]*) ;;
+              (*) exit 1 ;;
+            esac
+            test "${#digest}" -eq 71
+            upper="$(printf '%s' "$name" | tr '[:lower:]' '[:upper:]')"
+            printf '%s_DIGEST=%s\n' "$upper" "$digest" >> "$GITHUB_ENV"
+          done
+
+      - name: Wait for complete ECR scans and preserve their bounded findings
+        run: |
+          set -euo pipefail
+          for name in api web worker; do
+            upper="$(printf '%s' "$name" | tr '[:lower:]' '[:upper:]')"
+            eval "digest=\${${upper}_DIGEST}"
+            repository="fincilia/private-pilot/${name}"
+            aws ecr wait image-scan-complete \
+              --repository-name "$repository" --image-id "imageDigest=${digest}"
+            aws ecr describe-image-scan-findings \
+              --repository-name "$repository" --image-id "imageDigest=${digest}" \
+              > "$RUNNER_TEMP/${name}-scan.json"
+          done
+
+      - name: Attest the exact API image digest
+        id: api_attest
+        uses: actions/attest@a1948c3f048ba23858d222213b7c278aabede763 # v4.1.1
+        with:
+          subject-name: ${{ env.API_IMAGE }}
+          subject-digest: ${{ env.API_DIGEST }}
+
+      - name: Attest the exact web image digest
+        id: web_attest
+        uses: actions/attest@a1948c3f048ba23858d222213b7c278aabede763 # v4.1.1
+        with:
+          subject-name: ${{ env.WEB_IMAGE }}
+          subject-digest: ${{ env.WEB_DIGEST }}
+
+      - name: Attest the exact worker image digest
+        id: worker_attest
+        uses: actions/attest@a1948c3f048ba23858d222213b7c278aabede763 # v4.1.1
+        with:
+          subject-name: ${{ env.WORKER_IMAGE }}
+          subject-digest: ${{ env.WORKER_DIGEST }}
+
+      - name: Verify attestations and build the canonical publication manifest
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SIGNER_WORKFLOW: github.com/${{ github.repository }}/.github/workflows/publish-private-pilot.yml
+        run: |
+          set -euo pipefail
+          gh attestation verify "$RUNNER_TEMP/fincilia-release.tar.gz" \
+            --bundle "${{ steps.bundle_provenance.outputs.bundle-path }}" \
+            --repo "$GITHUB_REPOSITORY" --signer-workflow "$SIGNER_WORKFLOW" \
+            --source-digest "$RELEASE_SHA" --source-ref "$GITHUB_REF" \
+            --deny-self-hosted-runners --format json \
+            > "$RUNNER_TEMP/bundle-provenance-verification.json"
+          gh attestation verify "$RUNNER_TEMP/fincilia-release.tar.gz" \
+            --bundle "${{ steps.bundle_sbom.outputs.bundle-path }}" \
+            --repo "$GITHUB_REPOSITORY" --signer-workflow "$SIGNER_WORKFLOW" \
+            --source-digest "$RELEASE_SHA" --source-ref "$GITHUB_REF" \
+            --predicate-type "https://spdx.dev/Document/v2.3" \
+            --deny-self-hosted-runners --format json \
+            > "$RUNNER_TEMP/bundle-sbom-verification.json"
+          gh attestation verify "oci://${API_IMAGE}@${API_DIGEST}" \
+            --bundle "${{ steps.api_attest.outputs.bundle-path }}" \
+            --repo "$GITHUB_REPOSITORY" --signer-workflow "$SIGNER_WORKFLOW" \
+            --source-digest "$RELEASE_SHA" --source-ref "$GITHUB_REF" \
+            --deny-self-hosted-runners
+          gh attestation verify "oci://${WEB_IMAGE}@${WEB_DIGEST}" \
+            --bundle "${{ steps.web_attest.outputs.bundle-path }}" \
+            --repo "$GITHUB_REPOSITORY" --signer-workflow "$SIGNER_WORKFLOW" \
+            --source-digest "$RELEASE_SHA" --source-ref "$GITHUB_REF" \
+            --deny-self-hosted-runners
+          gh attestation verify "oci://${WORKER_IMAGE}@${WORKER_DIGEST}" \
+            --bundle "${{ steps.worker_attest.outputs.bundle-path }}" \
+            --repo "$GITHUB_REPOSITORY" --signer-workflow "$SIGNER_WORKFLOW" \
+            --source-digest "$RELEASE_SHA" --source-ref "$GITHUB_REF" \
+            --deny-self-hosted-runners
+          python -m tools.aws_image_publication.cli manifest \
+            --release-sha "$RELEASE_SHA" --run-url "$RUN_URL" \
+            --api-digest "$API_DIGEST" --api-scan "$RUNNER_TEMP/api-scan.json" \
+            --api-attestation "${{ steps.api_attest.outputs.bundle-path }}" \
+            --web-digest "$WEB_DIGEST" --web-scan "$RUNNER_TEMP/web-scan.json" \
+            --web-attestation "${{ steps.web_attest.outputs.bundle-path }}" \
+            --worker-digest "$WORKER_DIGEST" --worker-scan "$RUNNER_TEMP/worker-scan.json" \
+            --worker-attestation "${{ steps.worker_attest.outputs.bundle-path }}" \
+            --output "$RUNNER_TEMP/private-pilot-publication.json"
+          python -m tools.aws_image_publication.cli verify-manifest \
+            --manifest "$RUNNER_TEMP/private-pilot-publication.json"
+
+      - name: Preserve only sanitized publication evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: fincilia-private-pilot-images-${{ inputs.release_sha }}
+          path: |
+            ${{ runner.temp }}/private-pilot-publication.json
+            ${{ runner.temp }}/*-scan.json
+            ${{ runner.temp }}/bundle-*-verification.json
+            ${{ steps.bundle_provenance.outputs.bundle-path }}
+            ${{ steps.bundle_sbom.outputs.bundle-path }}
+            ${{ steps.api_attest.outputs.bundle-path }}
+            ${{ steps.web_attest.outputs.bundle-path }}
+            ${{ steps.worker_attest.outputs.bundle-path }}
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Cleanup registry session and smoke container
+        if: always()
+        run: |
+          docker logout "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com" 2>/dev/null || true
+          docker rm -f fincilia-publish-web 2>/dev/null || true

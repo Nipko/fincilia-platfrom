@@ -74,6 +74,17 @@ class RepositoryPolicyTest(unittest.TestCase):
         codes = self._codes({".github/workflows/release-candidate.yml": safe})
         self.assertNotIn("POL-WORKFLOW-WRITE-PERMISSION", codes)
 
+    def test_manual_private_pilot_publish_can_request_same_bounded_writes(self) -> None:
+        safe = (
+            "on:\n  workflow_dispatch:\npermissions:\n"
+            "  contents: read\n  id-token: write\n  attestations: write\nsteps:\n"
+            "  - uses: actions/attest@" + "a" * 40 + "\n"
+        ).encode()
+        codes = self._codes({
+            ".github/workflows/publish-private-pilot.yml": safe,
+        })
+        self.assertNotIn("POL-WORKFLOW-WRITE-PERMISSION", codes)
+
     def test_attestation_writes_fail_outside_the_exact_manual_workflow(self) -> None:
         body = (
             "on:\n  workflow_dispatch:\npermissions:\n"
@@ -93,12 +104,16 @@ class RepositoryPolicyTest(unittest.TestCase):
             "on:\n  workflow_dispatch:\npermissions:\n  contents: read\njobs:\n"
             "  candidate:\n    permissions:\n      id-token: write\n",
         )
-        for body in cases:
-            with self.subTest(body=body):
-                self.assertIn(
-                    "POL-WORKFLOW-WRITE-PERMISSION",
-                    self._codes({".github/workflows/release-candidate.yml": body.encode()}),
-                )
+        for path in (
+            ".github/workflows/release-candidate.yml",
+            ".github/workflows/publish-private-pilot.yml",
+        ):
+            for body in cases:
+                with self.subTest(path=path, body=body):
+                    self.assertIn(
+                        "POL-WORKFLOW-WRITE-PERMISSION",
+                        self._codes({path: body.encode()}),
+                    )
 
     def test_anonymous_todo_fails_but_task_linked_todo_passes(self) -> None:
         marker = "TO" + "DO"

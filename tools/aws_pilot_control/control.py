@@ -14,6 +14,13 @@ from tools.aws_private_pilot.model import (
     validate_plan,
     validate_sources,
 )
+from tools.aws_image_publication.model import (
+    CONTRACT_PATH as PUBLICATION_CONTRACT_PATH,
+    load_json as load_publication_json,
+    validate_contract as validate_publication_contract,
+    validate_plan as validate_publication_plan,
+    validate_sources as validate_publication_sources,
+)
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -302,7 +309,15 @@ class PilotController:
         )
         assert isinstance(shown, dict)
         contract = load_json(CONTRACT_PATH)
-        errors = validate_contract(contract) + validate_sources() + validate_plan(shown, contract)
+        publication_contract = load_publication_json(PUBLICATION_CONTRACT_PATH)
+        errors = (
+            validate_contract(contract)
+            + validate_sources()
+            + validate_plan(shown, contract)
+            + validate_publication_contract(publication_contract)
+            + validate_publication_sources()
+            + validate_publication_plan(shown)
+        )
         if errors:
             raise ControlError("el plan fue rechazado por el contrato de seguridad")
         action_counts: dict[str, int] = {}

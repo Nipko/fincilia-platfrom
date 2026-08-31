@@ -28,7 +28,10 @@ TASK_ID_PATTERN = re.compile(r"\bFNC-[A-Z]+-\d{3}\b")
 WRITE_PERMISSION = re.compile(
     r"(?m)^(?P<indent>[ \t]+)(?P<name>[a-z][a-z0-9-]*)\s*:\s*write\s*$"
 )
-ATTESTATION_WORKFLOW = ".github/workflows/release-candidate.yml"
+ATTESTATION_WORKFLOWS = frozenset({
+    ".github/workflows/release-candidate.yml",
+    ".github/workflows/publish-private-pilot.yml",
+})
 ATTESTATION_WRITE_PERMISSIONS = frozenset({"attestations", "id-token"})
 SECRET_PATTERNS = {
     "POL-AWS-ACCESS-KEY": re.compile(rb"AKIA[A-Z0-9]{16}"),
@@ -73,7 +76,7 @@ def _scan_workflow(path: str, text: str) -> Iterable[Finding]:
         yield Finding("POL-WORKFLOW-DANGEROUS-TRIGGER", path, "pull_request_target is prohibited")
     write_permissions = list(WRITE_PERMISSION.finditer(lowered))
     attestation_only = (
-        path == ATTESTATION_WORKFLOW
+        path in ATTESTATION_WORKFLOWS
         and re.search(r"(?m)^\s{2}workflow_dispatch\s*:", text) is not None
         and re.search(r"(?m)^\s{2}(?:pull_request|pull_request_target|push)\s*:", text) is None
         and all(

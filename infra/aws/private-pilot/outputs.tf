@@ -47,6 +47,11 @@ output "gate_key_arn" {
   value = aws_kms_key.gate.arn
 }
 
+output "github_ecr_publisher_role_arn" {
+  description = "ARN no secreto para AWS_PRIVATE_PILOT_PUBLISH_ROLE_ARN en el ambiente GitHub private-pilot."
+  value       = aws_iam_role.github_ecr_publisher.arn
+}
+
 output "object_buckets" {
   value = { for zone, bucket in aws_s3_bucket.objects : zone => bucket.id }
 }
