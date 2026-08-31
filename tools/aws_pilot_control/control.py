@@ -87,6 +87,10 @@ def safe_environment(profile: str, region: str) -> dict[str, str]:
         "AWS_CA_BUNDLE",
     )
     environment = {key: os.environ[key] for key in allowed if key in os.environ}
+    user_bin = str(Path.home() / ".local" / "bin")
+    environment["PATH"] = os.pathsep.join(
+        item for item in (user_bin, environment.get("PATH", "")) if item
+    )
     environment.update({
         "AWS_PROFILE": profile,
         "AWS_REGION": region,

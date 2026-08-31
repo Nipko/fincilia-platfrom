@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import tempfile
 import unittest
 from contextlib import redirect_stdout
@@ -178,6 +179,10 @@ class PilotControllerTests(unittest.TestCase):
         self.assertNotIn("FINCILIA_DATABASE_URL", allowed)
         self.assertNotIn("AWS_SECRET_ACCESS_KEY", allowed)
         self.assertEqual(controller.environment["AWS_PROFILE"], "fincilia-sandbox")
+        self.assertEqual(
+            str(Path.home() / ".local" / "bin"),
+            controller.environment["PATH"].split(os.pathsep)[0],
+        )
 
 
 if __name__ == "__main__":
