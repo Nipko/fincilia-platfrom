@@ -68,6 +68,15 @@
       "aws_kms_key",
       "aws_secretsmanager_secret"
     ],
+    "allowed_in_place_updates": [
+      {
+        "address": "aws_cognito_user_pool.t0",
+        "resource_type": "aws_cognito_user_pool",
+        "field": "deletion_protection",
+        "before": "INACTIVE",
+        "after": "ACTIVE"
+      }
+    ],
     "runtime_enabled": false
   },
   "required_controls": [
@@ -93,7 +102,7 @@
     "control_tower_forbidden": true
   },
   "deployment_evidence": {
-    "observed_at": "2026-08-30T16:44:33Z",
+    "observed_at": "2026-08-31T01:22:45Z",
     "bootstrap_managed_resources": 8,
     "control_plane_managed_resources": 46,
     "bootstrap_post_apply_plan": "no_changes",
@@ -111,12 +120,14 @@
     },
     "cognito": {
       "mfa": "ON",
+      "deletion_protection": "ACTIVE",
       "admin_create_only": true,
       "user_count": 0,
       "google_provider_configured": true,
       "google_web_client_managed": true,
       "google_web_callback": "https://fincilia.com/api/auth/callback/cognito",
-      "google_web_runtime_enabled": false
+      "google_web_runtime_enabled": false,
+      "identity_live_probe_passed": "16/16"
     },
     "ecr": {
       "repository_count": 3,

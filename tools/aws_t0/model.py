@@ -76,6 +76,18 @@ def validate_contract(contract: dict[str, Any]) -> list[str]:
     overlap = set(allowed) & set(forbidden)
     if overlap:
         errors.append(f"tipos simultaneamente permitidos y prohibidos: {sorted(overlap)}")
+    updates = scope.get("allowed_in_place_updates")
+    expected_update = [{
+        "address": "aws_cognito_user_pool.t0",
+        "resource_type": "aws_cognito_user_pool",
+        "field": "deletion_protection",
+        "before": "INACTIVE",
+        "after": "ACTIVE",
+    }]
+    if updates != expected_update:
+        errors.append(
+            "allowed_in_place_updates debe autorizar solo la proteccion "
+            "destructiva de Cognito")
 
     cost = contract.get("cost_control", {})
     if cost.get("gross_monthly_budget_usd") != 5:
@@ -109,6 +121,7 @@ def validate_sources(root: Path | None = None) -> list[str]:
         'supported_identity_providers         = ["Google"]',
         'callback_urls                        = ["https://fincilia.com/api/auth/callback/cognito"]',
         'logout_urls                          = ["https://fincilia.com/entrar"]',
+        'deletion_protection      = "ACTIVE"',
     ):
         if required not in merged:
             errors.append(f"fuente no contiene control requerido: {required}")
@@ -128,6 +141,9 @@ def validate_plan(plan: dict[str, Any], contract: dict[str, Any]) -> list[str]:
     scope = contract["apply_scope"]
     allowed = set(scope["allowed_resource_types"])
     forbidden = set(scope["forbidden_resource_types"])
+    allowed_updates = {
+        item["address"]: item for item in scope["allowed_in_place_updates"]
+    }
     changes = list(_iter_managed_changes(plan))
     if not changes:
         errors.append("plan no contiene resource_changes administrados")
@@ -140,7 +156,24 @@ def validate_plan(plan: dict[str, Any], contract: dict[str, Any]) -> list[str]:
             errors.append(f"{address}: tipo prohibido {resource_type}")
         if resource_type not in allowed:
             errors.append(f"{address}: tipo no allowlisted {resource_type}")
-        if actions not in (["create"], ["no-op"]):
+        if actions == ["update"]:
+            update = allowed_updates.get(address)
+            before = item.get("change", {}).get("before") or {}
+            after = item.get("change", {}).get("after") or {}
+            if update is None or resource_type != update["resource_type"]:
+                errors.append(f"{address}: update no allowlisted")
+            else:
+                field = update["field"]
+                before_rest = dict(before)
+                after_rest = dict(after)
+                observed_before = before_rest.pop(field, None)
+                observed_after = after_rest.pop(field, None)
+                if observed_before != update["before"] \
+                        or observed_after != update["after"]:
+                    errors.append(f"{address}: transicion {field} no permitida")
+                if before_rest != after_rest:
+                    errors.append(f"{address}: update modifica campos adicionales")
+        elif actions not in (["create"], ["no-op"]):
             errors.append(f"{address}: acciones no permitidas {actions}")
 
         if resource_type in TAGGABLE_TYPES and actions == ["create"]:

@@ -4,7 +4,7 @@ resource "aws_cognito_user_pool" "t0" {
   auto_verified_attributes = ["email"]
   mfa_configuration        = "ON"
   user_pool_tier           = "ESSENTIALS"
-  deletion_protection      = "INACTIVE"
+  deletion_protection      = "ACTIVE"
 
   software_token_mfa_configuration {
     enabled = true
@@ -28,6 +28,10 @@ resource "aws_cognito_user_pool" "t0" {
       name     = "verified_email"
       priority = 1
     }
+  }
+
+  lifecycle {
+    prevent_destroy = true
   }
 }
 

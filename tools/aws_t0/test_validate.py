@@ -84,6 +84,17 @@ class ContractTests(unittest.TestCase):
         value["apply_scope"]["allowed_resource_types"].append("aws_instance")
         self.assertTrue(validate_contract(value))
 
+    def test_rejects_broadened_update_allowlist(self) -> None:
+        value = copy.deepcopy(self.contract)
+        value["apply_scope"]["allowed_in_place_updates"].append({
+            "address": "aws_cognito_user_pool_client.google_web",
+            "resource_type": "aws_cognito_user_pool_client",
+            "field": "supported_identity_providers",
+            "before": ["Google"],
+            "after": ["COGNITO", "Google"],
+        })
+        self.assertTrue(validate_contract(value))
+
     def test_sibling_runtime_module_does_not_contaminate_t0_sources(self) -> None:
         sibling_source = Path(__file__).resolve().parents[2] / "infra" / "aws" / "t1" / "compute.tf"
         self.assertIn('resource "aws_instance"', sibling_source.read_text(encoding="utf-8"))
@@ -121,6 +132,12 @@ class ContractTests(unittest.TestCase):
             self.assertIn(required, client)
         self.assertNotIn("localhost", client)
 
+    def test_user_pool_is_protected_from_deletion(self) -> None:
+        source = (T0_SOURCE_ROOTS[1] / "cognito.tf").read_text(encoding="utf-8")
+        pool = source[:source.index('resource "aws_cognito_user_pool_client"')]
+        self.assertIn('deletion_protection      = "ACTIVE"', pool)
+        self.assertIn('prevent_destroy = true', pool)
+
 
 class PlanTests(unittest.TestCase):
     def setUp(self) -> None:
@@ -133,6 +150,39 @@ class PlanTests(unittest.TestCase):
         plan = valid_plan()
         plan["resource_changes"][0]["change"]["actions"] = ["no-op"]
         self.assertEqual([], validate_plan(plan, self.contract))
+
+    def test_accepts_only_the_protective_user_pool_update(self) -> None:
+        plan = valid_plan("aws_cognito_user_pool")
+        change = plan["resource_changes"][0]
+        change["address"] = "aws_cognito_user_pool.t0"
+        change["change"] = {
+            "actions": ["update"],
+            "before": {"name": "fincilia-t0", "deletion_protection": "INACTIVE"},
+            "after": {"name": "fincilia-t0", "deletion_protection": "ACTIVE"},
+        }
+        self.assertEqual([], validate_plan(plan, self.contract))
+
+    def test_rejects_extra_field_in_protective_update(self) -> None:
+        plan = valid_plan("aws_cognito_user_pool")
+        change = plan["resource_changes"][0]
+        change["address"] = "aws_cognito_user_pool.t0"
+        change["change"] = {
+            "actions": ["update"],
+            "before": {"deletion_protection": "INACTIVE", "mfa_configuration": "ON"},
+            "after": {"deletion_protection": "ACTIVE", "mfa_configuration": "OFF"},
+        }
+        self.assertTrue(validate_plan(plan, self.contract))
+
+    def test_rejects_reverse_deletion_protection_update(self) -> None:
+        plan = valid_plan("aws_cognito_user_pool")
+        change = plan["resource_changes"][0]
+        change["address"] = "aws_cognito_user_pool.t0"
+        change["change"] = {
+            "actions": ["update"],
+            "before": {"deletion_protection": "ACTIVE"},
+            "after": {"deletion_protection": "INACTIVE"},
+        }
+        self.assertTrue(validate_plan(plan, self.contract))
 
     def test_accepts_provider_default_tags_from_tags_all(self) -> None:
         plan = valid_plan()
