@@ -1,7 +1,7 @@
 {
   "data_classification": "completely_synthetic",
   "database_engine": "PostgreSQL 17",
-  "evidence_sha256": "a4e69c80abe73e351fabadff982ba298eabf58c5969e0e44ade9748fb06fe38b",
+  "evidence_sha256": "cf77417f95b02e6bf944a212ef984eae7e1142271c17aad988dbcef64484465b",
   "executed_suite": {
     "command": "python -m unittest db.tests.test_managed_oidc_identity db.tests.test_api_authorization db.tests.test_issued_authorization_context db.tests.test_processing_authorization_context db.tests.test_api_documents db.tests.test_quarantine_before_raw -v",
     "errors": 0,
@@ -15,7 +15,7 @@
     "independent_human_review_remains_pending"
   ],
   "object_store": "MinIO S3-compatible",
-  "observed_at": "2026-08-31T01:38:46Z",
+  "observed_at": "2026-08-31T04:45:29Z",
   "real_data_authorized": false,
   "schema_version": "1.0.0",
   "source_sha256": {
@@ -27,7 +27,7 @@
     "db/tests/test_issued_authorization_context.py": "f43100ed6712961391f89722a7d214d7d57d1ee187d1a558b41e69adf99bff78",
     "db/tests/test_processing_authorization_context.py": "94f28f1a7c519540a39c476473f61de08c2dfac583afb148a1766debed432edb",
     "db/tests/test_quarantine_before_raw.py": "c6e62a513d182a2d3b5d2e03400a7e5ac0c9f700048681a1059b5ce8401debcd",
-    "docs/platform/aws-private-pilot.json": "6e0fedd7b9d87d58c02cb0060766fd5b3b674fe6114d6a9403722fd7009d40fa",
+    "docs/platform/aws-private-pilot.json": "215eb0eb5bd692a61ea8104ed456e5678f05ee6ab6d1f644393decbe4624e313",
     "infra/aws/private-pilot/compute.tf": "8016304e15502c4617f5c93698d53d3d3f983a667b3c129aa5a79a23296a8af0",
     "packages/contracts/python/fincilia_contracts/ingestion.py": "767bd65488e3eed6da63b7bdb6cb5bbf5fb9642aec257e5f5d086f1fb67f652d",
     "workers/document/src/fincilia_worker/main.py": "d021be77e0fbbefa508571f05002acfd56fdf9dad910037da90b5df6c9fe89ab"

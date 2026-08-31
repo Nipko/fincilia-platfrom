@@ -152,7 +152,7 @@ def build_evidence() -> dict[str, Any]:
         "task_id": "FNC-GAT-006",
         "data_classification": "completely_synthetic",
         "real_data_authorized": False,
-        "observed_at": "2026-08-31T01:38:46Z",
+        "observed_at": "2026-08-31T04:45:29Z",
         "database_engine": "PostgreSQL 17",
         "object_store": "MinIO S3-compatible",
         "executed_suite": {
