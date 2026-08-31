@@ -175,16 +175,20 @@ dependencias de `FNC-GAT-002` ni afirmar que Sprint 1 está habilitado.
 | FNC-PLT-011 | A2/A6 | PLT-010, REL-001, CFG-001 | Review pending | Laboratorio t3.small SSM-only desplegado por digest; runtime, tenancy, promocion, backup/restore y autostop verificados solo con datos sinteticos |
 | FNC-REL-001 | A2/A5/A6 | CFG-001, SUP-001, QA-010, PLT-009 | Review pending | Candidato reproducible Linux/Windows, SBOM SPDX, observabilidad redactada, workflow manual y CI verdes; sin publicar ni habilitar producción |
 | FNC-AUD-001 | A5/A6 | SEC-001, QA-007, WEB-003 | Review pending | Centro de auditoria company-scoped con actor, filtros exactos, cursor estable y vista multiempresa sin exponer payload ni convertir fallos en cero |
+| FNC-CLS-006 | A2/A5/A6 | CLS-005, LIN-001, SEC-001 | In progress | Cierre/reapertura append-only con snapshot digest-only, bloqueo PostgreSQL, SoD y web; solo sintético |
+| FNC-ING-006 | A4/A5/A6 | ING-005, ARC-001 | Proposed | PDF seguro en worker, texto embebido y port OCR; proveedor externo desactivado; ADR-009 conserva el gateway obligatorio |
+| FNC-NTF-001 | A2/A4/A6 | OPS-001, ARC-004 | Proposed | Preferencias, outbox y entrega verificable; adaptador real desactivado |
+| FNC-BIL-001 | A2/A4/A6 | ARC-001, SEC-001 | Proposed | Tres planes, suscripciones, entitlements y uso; cobro real desactivado |
 
-## No codificar todavía
+## No codificar todavía salvo autorización posterior explícita
 
 - Ingesta de documentos reales o conectores reales.
-- Operación de cierres, auto-match o informes certificados.
-- Parser universal, PDF/OCR general o contraseñas PDF.
+- Auto-match o informes financieros certificados.
+- Parser universal, contraseñas PDF u OCR externo sin AI Gateway/DPA.
 - Alertas que declaren fraude.
 - IA externa, entrenamiento o Needle.
 - Aplicación móvil productiva.
-- Billing y precios definitivos.
+- Precios definitivos o cobros reales sin proveedor/configuración aprobados.
 - Warehouse, Kafka, Kubernetes, OpenSearch, pgvector o múltiples celdas.
 - Producción cloud antes de A-02/L-02.
 - Autenticación propia; se evaluará IdP B2B administrado.

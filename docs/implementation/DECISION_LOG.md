@@ -24,6 +24,7 @@ Registro append-only. Una corrección crea una nueva decisión que sustituye a l
 | IMP-018 | 2026-08-26 | PRODUCT/ADR | Proposed | Modelar primero propuestas manuales 1:N/N:1 de movimientos completos, sin N:M, asignaciones, confirmación ni efecto financiero | Accounting + Architecture + Product | ADR-028; FNC-REC-005; revisión independiente pendiente |
 | IMP-019 | 2026-08-29 | SECURITY/IDENTITY | Superseded | La propuesta de beta por invitación deja de ser la dirección del producto; se conserva únicamente la prohibición de afirmar MFA federado no demostrado | Security + Product | Sustituida por la decisión de producto siguiente y por la solicitud revisada `decision_requests/FNC-IAM-003-FEDERATED-MFA.md` |
 | IMP-020 | 2026-08-29 | PRODUCT/IDENTITY | Accepted | Fincilia adopta alta pública definitiva con Google, sin invitaciones: `login` jamás crea cuenta y `register` exige perfil y aceptación legal versionada antes de crear sujeto, firma y owner atómicamente | FOUNDER-01 | Instrucción humana vigente; FNC-IAM-004 y ADR-012 propuesto; no sustituye revisión independiente, no prueba MFA y no habilita datos reales |
+| IMP-021 | 2026-08-31 | PRODUCT | Accepted | Construir en orden cierre de periodo, PDF/OCR, notificaciones externas y tres planes/facturación; decisiones de proveedor, credenciales, precios y activación externa se consolidan al final | FOUNDER-01 | Instrucción humana vigente; FNC-CLS-006, FNC-ING-006, FNC-NTF-001 y FNC-BIL-001; datos reales, cobros y egress continúan desactivados |
 
 ## Campos para nuevas decisiones
 

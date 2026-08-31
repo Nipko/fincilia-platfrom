@@ -41,6 +41,11 @@ owners nominales, revisión independiente ni el gate S1-READY.
 | [031](ADR-031-closed-synthetic-beta.md) | Beta cerrada sintetica antes de DRG-01 | Proposed; BETA-01 condicionado a evidencia y revision independiente |
 | [032](ADR-032-aws-private-real-data-pilot.md) | Entorno AWS separado para piloto privado real | Proposed; bloqueado por DRG-00/01 y revisión independiente |
 | [033](ADR-033-uat-production-platform-administration.md) | UAT separado, promoción limpia y administración de plataforma | Proposed; dirección del Founder registrada, revisión independiente pendiente |
+| [034](ADR-034-github-oidc-ecr-publication.md) | Publicación OIDC de imágenes a ECR | Proposed; implementación y evidencia integradas, revisión independiente pendiente |
+| [035](ADR-035-accounting-period-close.md) | Cierre y reapertura de periodos | Proposed; implementación sintética autorizada, revisión Accounting/Security/Database pendiente |
+| [036](ADR-036-safe-pdf-ocr.md) | PDF seguro y OCR desacoplado | Proposed; parser local primero, proveedor externo pendiente |
+| [037](ADR-037-notification-delivery.md) | Entrega externa de notificaciones | Proposed; adaptadores reales desactivados |
+| [038](ADR-038-plans-entitlements-billing.md) | Planes, entitlements y facturación | Proposed; cobros reales desactivados |
 
 ## Estados
 
