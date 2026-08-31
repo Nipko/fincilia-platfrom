@@ -193,6 +193,12 @@ class TenancyTests(unittest.TestCase):
                          "match.propose")
         self.assertEqual(violates_segregation("close.approve", {"close.prepare"}),
                          "close.prepare")
+        self.assertEqual(violates_segregation(
+            "close.reopen.approve", {"close.reopen.request"}),
+            "close.reopen.request")
+        self.assertEqual(violates_segregation(
+            "close.reopen.request", {"close.reopen.approve"}),
+            "close.reopen.approve")
         self.assertIsNone(violates_segregation("match.confirm", {"document.upload"}))
 
     def test_an_owner_holding_both_still_violates_segregation_per_object(self) -> None:

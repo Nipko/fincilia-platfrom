@@ -2223,6 +2223,123 @@ export function decideCloseReviewPacket(
   );
 }
 
+export type AccountingCloseSnapshot = {
+  schema_version: 'accounting-close-v1';
+  packet_id: string;
+  packet_version: number;
+  manifest_digest: string;
+  controls: CloseReviewManifest['controls'];
+  sources: CloseReviewManifest['sources'];
+  accounts: CloseReviewManifest['accounts'];
+};
+
+export type AccountingPeriodReopen = {
+  request_id: string;
+  reason_code: string;
+  rationale: string;
+  requested_by: string;
+  requester_name: string;
+  requested_at: string;
+  decision_id: string | null;
+  decision: 'approved' | 'rejected' | null;
+  decision_reason_code: string | null;
+  decided_by: string | null;
+  decider_name: string | null;
+  decided_at: string | null;
+};
+
+export type AccountingPeriodClose = {
+  close_id: string;
+  period_start: string;
+  period_end: string;
+  version: number;
+  packet_id: string;
+  observed_manifest_digest: string;
+  snapshot_schema_version: 'accounting-close-v1';
+  snapshot: AccountingCloseSnapshot;
+  snapshot_digest: string;
+  closed_by: string;
+  closer_name: string;
+  closed_at: string;
+  status: 'closed' | 'reopen_requested' | 'reopened';
+  reopen_request: AccountingPeriodReopen | null;
+  replayed: boolean;
+  financial_effect: 'period_state_only';
+  certifies_financial_statements: false;
+};
+
+export type AccountingPeriodPage = {
+  items: AccountingPeriodClose[];
+  has_more: boolean;
+  limit: number;
+};
+
+export function fetchAccountingPeriods(
+  token: string,
+  companyId: string,
+  limit = 100,
+): Promise<AccountingPeriodPage> {
+  const bounded = Math.max(1, Math.min(100, limit));
+  return request<AccountingPeriodPage>(
+    `/api/v1/companies/${encodeURIComponent(companyId)}/accounting-periods?limit=${bounded}`,
+    { token },
+  );
+}
+
+export function closeAccountingPeriod(
+  token: string,
+  companyId: string,
+  packetId: string,
+  idempotencyKey: string,
+): Promise<AccountingPeriodClose> {
+  return request<AccountingPeriodClose>(
+    `/api/v1/companies/${encodeURIComponent(companyId)}/accounting-periods/close`,
+    {
+      method: 'POST', token,
+      headers: { 'content-type': 'application/json', 'idempotency-key': idempotencyKey },
+      body: JSON.stringify({ packet_id: packetId }),
+    },
+  );
+}
+
+export function requestAccountingPeriodReopen(
+  token: string,
+  companyId: string,
+  closeId: string,
+  idempotencyKey: string,
+  input: { reason_code: string; rationale: string },
+): Promise<AccountingPeriodClose> {
+  const company = encodeURIComponent(companyId);
+  const close = encodeURIComponent(closeId);
+  return request<AccountingPeriodClose>(
+    `/api/v1/companies/${company}/accounting-periods/${close}/reopen-requests`,
+    {
+      method: 'POST', token,
+      headers: { 'content-type': 'application/json', 'idempotency-key': idempotencyKey },
+      body: JSON.stringify(input),
+    },
+  );
+}
+
+export function decideAccountingPeriodReopen(
+  token: string,
+  companyId: string,
+  requestId: string,
+  idempotencyKey: string,
+  input: { decision: 'approved' | 'rejected'; reason_code: string },
+): Promise<AccountingPeriodClose> {
+  const company = encodeURIComponent(companyId);
+  const reopen = encodeURIComponent(requestId);
+  return request<AccountingPeriodClose>(
+    `/api/v1/companies/${company}/accounting-periods/reopen-requests/${reopen}/decision`,
+    {
+      method: 'POST', token,
+      headers: { 'content-type': 'application/json', 'idempotency-key': idempotencyKey },
+      body: JSON.stringify(input),
+    },
+  );
+}
+
 export type AccountBalance = {
   balance_id: string;
   financial_account_id: string;

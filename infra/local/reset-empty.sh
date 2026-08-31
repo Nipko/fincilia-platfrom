@@ -111,8 +111,8 @@ $verify_empty$;
 
 DO $verify_system_rows$
 BEGIN
-  IF (SELECT count(*) FROM fincilia.schema_history) <> 45
-     OR (SELECT max(version) FROM fincilia.schema_history) <> 'V0045' THEN
+  IF (SELECT count(*) FROM fincilia.schema_history) <> 46
+     OR (SELECT max(version) FROM fincilia.schema_history) <> 'V0046' THEN
     RAISE EXCEPTION 'migration history does not match the current release';
   END IF;
 

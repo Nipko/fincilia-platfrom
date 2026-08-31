@@ -1,7 +1,7 @@
 ---
 id: FNC-CLS-006
 title: Cierre y reapertura real de periodo con snapshot inmutable
-status: in_progress
+status: review_pending
 implementer: Codex principal dev + Integration Steward
 base_sha: b2a7603
 gate: S1-READY/DRG-00/DRG-01
@@ -37,3 +37,10 @@ superficie de preparación de cierre, contratos web, ADR-035 y handoff.
 Solo sintético; no certifica estados financieros, no crea asientos, no acepta
 materialidad y no supera gates ni revisión independiente.
 
+# Evidencia de implementación
+
+V0046 quedó aplicada sobre PostgreSQL 17 real. El recorrido sintético integrado
+preparó y revisó un expediente, cerró el periodo, demostró que PostgreSQL
+rechaza un saldo nuevo aun evitando la API, rechazó la autoaprobación de una
+reapertura y permitió que otra persona reabriera conservando todo el historial.
+El detalle reproducible está en `docs/implementation/handoffs/FNC-CLS-006.md`.

@@ -7,9 +7,15 @@ import { SignOut } from '@/app/empresas/sign-out';
 import {
   ApiError,
   fetchMe,
+  type AccountingPeriodClose,
   type CloseReadinessControl,
   type CloseReadinessPeriod,
 } from '@/lib/api';
+import {
+  closeForPeriod,
+  loadClosePeriodCenter,
+  type ClosePeriodSnapshot,
+} from '@/lib/close-period';
 import {
   packetsForPeriod,
   loadCloseReviewCenter,
@@ -29,8 +35,11 @@ import {
 import { readSession } from '@/lib/session';
 
 import {
+  CloseAccountingPeriodControl,
   CloseReviewDecisionControls,
   PrepareCloseReviewForm,
+  ReopenDecisionControls,
+  RequestPeriodReopenForm,
 } from './review-controls';
 
 export const dynamic = 'force-dynamic';
@@ -141,11 +150,15 @@ function CloseReviewPanel({
   period,
   actorId,
   snapshot,
+  periodClose,
+  periodPermissions,
 }: {
   companyId: string;
   period: CloseReadinessPeriod;
   actorId: string;
   snapshot: CloseReviewSnapshot | undefined;
+  periodClose: AccountingPeriodClose | undefined;
+  periodPermissions: string[];
 }) {
   const accessibleLabel = `Expediente de revision ${formatClosePeriod(
     period.period_start, period.period_end)}`;
@@ -163,6 +176,8 @@ function CloseReviewPanel({
   const reviewers = snapshot.reviewers.filter((reviewer) => reviewer.subject_id !== actorId);
   const canPrepare = snapshot.permissions.includes('close.prepare');
   const canApprove = snapshot.permissions.includes('close.approve');
+  const activeClose = periodClose?.status === 'reopened' ? undefined : periodClose;
+  const latestPacketId = packets[0]?.packet_id;
   return (
     <section className="close-review-panel" aria-label={accessibleLabel}>
       <header>
@@ -215,13 +230,21 @@ function CloseReviewPanel({
                     <dd><code className="digest">{packet.manifest_digest}</code></dd></div>
                 </dl>
                 {packet.decision ? (
-                  <p className="notice ok" role="status">
-                    <strong>{REVIEW_STATUS_LABELS[packet.decision]}</strong>{' '}
-                    por {packet.decider_name}.{' '}
-                    {packet.reason_code
-                      ? REVIEW_REASON_LABELS[packet.reason_code] ?? packet.reason_code
-                      : null}.
-                  </p>
+                  <>
+                    <p className="notice ok" role="status">
+                      <strong>{REVIEW_STATUS_LABELS[packet.decision]}</strong>{' '}
+                      por {packet.decider_name}.{' '}
+                      {packet.reason_code
+                        ? REVIEW_REASON_LABELS[packet.reason_code] ?? packet.reason_code
+                        : null}.
+                    </p>
+                    {packet.decision === 'evidence_reviewed' && !activeClose
+                        && canApprove && packet.decided_by === actorId
+                        && packet.packet_id === latestPacketId ? (
+                      <CloseAccountingPeriodControl companyId={companyId} packet={packet}
+                        commandKey={`cls006-close-${randomUUID()}`} />
+                    ) : null}
+                  </>
                 ) : canDecide ? (
                   <CloseReviewDecisionControls companyId={companyId} packet={packet}
                     reviewCommandKey={`cls005-reviewed-${randomUUID()}`}
@@ -240,16 +263,56 @@ function CloseReviewPanel({
       ) : (
         <p className="meta" role="status">Aun no hay un expediente fijado para este periodo.</p>
       )}
+
+      {periodClose ? (
+        <section className={`notice ${periodClose.status === 'reopened' ? '' : 'ok'}`}
+          aria-label="Estado del periodo contable">
+          <p className="eyebrow">Estado contable versionado</p>
+          <h5>
+            {periodClose.status === 'closed' ? 'Periodo cerrado'
+              : periodClose.status === 'reopen_requested' ? 'Reapertura solicitada'
+                : 'Periodo reabierto'} · version {periodClose.version}
+          </h5>
+          <p className="meta">
+            Cerrado por {periodClose.closer_name} el{' '}
+            {formatReviewTimestamp(periodClose.closed_at)}. Snapshot{' '}
+            <code className="digest">{periodClose.snapshot_digest}</code>
+          </p>
+          {periodClose.reopen_request ? (
+            <p>
+              <strong>Solicitud:</strong> {periodClose.reopen_request.reason_code} por{' '}
+              {periodClose.reopen_request.requester_name}.{' '}
+              {periodClose.reopen_request.decision
+                ? `Decision: ${periodClose.reopen_request.decision}.`
+                : 'Pendiente de una segunda persona.'}
+            </p>
+          ) : null}
+          {periodClose.status === 'closed'
+              && periodPermissions.includes('close.reopen.request') ? (
+            <RequestPeriodReopenForm companyId={companyId} close={periodClose}
+              commandKey={`cls006-reopen-request-${randomUUID()}`} />
+          ) : null}
+          {periodClose.status === 'reopen_requested'
+              && periodPermissions.includes('close.reopen.approve')
+              && periodClose.reopen_request?.requested_by !== actorId ? (
+            <ReopenDecisionControls companyId={companyId} close={periodClose}
+              approveCommandKey={`cls006-reopen-approve-${randomUUID()}`}
+              rejectCommandKey={`cls006-reopen-reject-${randomUUID()}`} />
+          ) : null}
+        </section>
+      ) : null}
     </section>
   );
 }
 
-function PeriodCard({ period, companyId, actorId, statementLineages, review }: {
+function PeriodCard({ period, companyId, actorId, statementLineages, review,
+  periodSnapshot }: {
   period: CloseReadinessPeriod;
   companyId: string;
   actorId: string;
   statementLineages: Record<string, StatementLineageSnapshot>;
   review: CloseReviewSnapshot | undefined;
+  periodSnapshot: ClosePeriodSnapshot | undefined;
 }) {
   return (
     <article className="card close-period">
@@ -344,7 +407,9 @@ function PeriodCard({ period, companyId, actorId, statementLineages, review }: {
       </details>
 
       <CloseReviewPanel companyId={companyId} period={period}
-        actorId={actorId} snapshot={review} />
+        actorId={actorId} snapshot={review}
+        periodClose={closeForPeriod(periodSnapshot, period.period_start, period.period_end)}
+        periodPermissions={periodSnapshot?.permissions ?? []} />
 
       <footer className="close-period__actions">
         <Link href={`/recordatorios?empresa=${companyId}`}>Revisar ciclos</Link>
@@ -355,10 +420,11 @@ function PeriodCard({ period, companyId, actorId, statementLineages, review }: {
   );
 }
 
-function CompanyReadiness({ snapshot, actorId, review }: {
+function CompanyReadiness({ snapshot, actorId, review, periodSnapshot }: {
   snapshot: CloseReadinessSnapshot;
   actorId: string;
   review: CloseReviewSnapshot | undefined;
+  periodSnapshot: ClosePeriodSnapshot | undefined;
 }) {
   const { company, result, statementLineages } = snapshot;
   if (!result) {
@@ -388,7 +454,8 @@ function CompanyReadiness({ snapshot, actorId, review }: {
             <PeriodCard key={`${period.period_start}:${period.period_end}`}
               period={period} companyId={company.company_id}
               actorId={actorId} review={review}
-              statementLineages={statementLineages} />
+              statementLineages={statementLineages}
+              periodSnapshot={periodSnapshot} />
           ))}
         </div>
       ) : (
@@ -419,10 +486,12 @@ export default async function CloseReadinessPage({ searchParams }: {
   const selected = companies.length === 1 ? companies[0]?.company_id : 'todas';
   let snapshots;
   let reviewSnapshots;
+  let periodSnapshots;
   try {
-    [snapshots, reviewSnapshots] = await Promise.all([
+    [snapshots, reviewSnapshots, periodSnapshots] = await Promise.all([
       loadCloseReadinessCenter(session.token, companies),
       loadCloseReviewCenter(session.token, companies),
+      loadClosePeriodCenter(session.token, companies),
     ]);
   } catch (error) {
     if (error instanceof ApiError && error.status === 401) redirect('/entrar');
@@ -433,6 +502,9 @@ export default async function CloseReadinessPage({ searchParams }: {
   const displayedSnapshots = filterCloseReadinessPeriod(snapshots, selectedPeriod);
   const reviewsByCompany = new Map(
     reviewSnapshots.map((snapshot) => [snapshot.company.company_id, snapshot]),
+  );
+  const periodsByCompany = new Map(
+    periodSnapshots.map((snapshot) => [snapshot.company.company_id, snapshot]),
   );
   const totals = aggregateCloseReadinessCounts(displayedSnapshots);
   const partial = snapshots.filter((snapshot) => snapshot.access !== 'available');
@@ -448,12 +520,13 @@ export default async function CloseReadinessPage({ searchParams }: {
 
       <p className="lede">
         Centro de evidencia y bloqueos por empresa y periodo. Es un diagnostico
-        explicable: consulta observaciones, no certifica conciliaciones ni ejecuta cierres.
+        explicable que permite cerrar solo tras revision independiente. El cierre
+        bloquea nuevas escrituras del periodo, pero no certifica estados financieros.
       </p>
       <p className="notice close-readiness-warning" role="status">
-        <strong>La operacion de cierre permanece deshabilitada.</strong>{' '}
+        <strong>El cierre exige expediente revisado y segregacion de funciones.</strong>{' '}
         {totals.reviewReadyPeriods
-          ? `${totals.reviewReadyPeriods} periodo(s) tienen evidencia lista para revision humana; esto no constituye un cierre.`
+          ? `${totals.reviewReadyPeriods} periodo(s) tienen evidencia lista para revision y cierre controlado.`
           : 'Los periodos visibles conservan bloqueos de evidencia o conciliacion.'}
       </p>
 
@@ -501,7 +574,8 @@ export default async function CloseReadinessPage({ searchParams }: {
         {displayedSnapshots.map((snapshot) => (
           <CompanyReadiness key={snapshot.company.company_id} snapshot={snapshot}
             actorId={me.subject_id}
-            review={reviewsByCompany.get(snapshot.company.company_id)} />
+            review={reviewsByCompany.get(snapshot.company.company_id)}
+            periodSnapshot={periodsByCompany.get(snapshot.company.company_id)} />
         ))}
       </div>
     </main>

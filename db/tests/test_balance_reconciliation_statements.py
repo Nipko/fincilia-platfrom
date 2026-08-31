@@ -34,6 +34,8 @@ class BalanceReconciliationDatabaseTests(VerticalHarness):
     assessments: set[str] = set()
     expectations: set[str] = set()
     lineage_entities: set[str] = set()
+    accounting_closes: set[str] = set()
+    close_packets: set[str] = set()
 
     @classmethod
     def tearDownClass(cls) -> None:
@@ -46,6 +48,65 @@ class BalanceReconciliationDatabaseTests(VerticalHarness):
                     "SELECT set_config('fincilia.company_id', %s, true)",
                     (ESPIGA,),
                 )
+                # El cierre y su expediente son append-only y referencian los
+                # statements que esta suite crea. La limpieza sintetica debe
+                # retirarlos primero y reponer cada guarda inmediatamente.
+                if cls.accounting_closes:
+                    close_ids = list(cls.accounting_closes)
+                    packet_ids = list(cls.close_packets)
+                    trigger_pairs = (
+                        ("accounting_period_command_receipt",
+                         "accounting_period_receipt_append_only"),
+                        ("accounting_period_reopen_decision",
+                         "accounting_period_reopen_decision_append_only"),
+                        ("accounting_period_reopen_request",
+                         "accounting_period_reopen_request_append_only"),
+                        ("accounting_period_close",
+                         "accounting_period_close_append_only"),
+                        ("close_review_command_receipt",
+                         "close_review_receipt_append_only"),
+                        ("close_review_decision",
+                         "close_review_decision_append_only"),
+                        ("close_review_packet", "close_review_packet_append_only"),
+                    )
+                    for table, trigger in trigger_pairs:
+                        cursor.execute(
+                            f"ALTER TABLE fincilia.{table} DISABLE TRIGGER {trigger}")
+                    cursor.execute(
+                        "DELETE FROM fincilia.accounting_period_command_receipt "
+                        "WHERE company_id=%s AND (result_ref=ANY(%s::uuid[]) OR "
+                        "result_ref IN (SELECT request_id FROM "
+                        "fincilia.accounting_period_reopen_request WHERE close_id="
+                        "ANY(%s::uuid[])) OR result_ref IN (SELECT decision_id FROM "
+                        "fincilia.accounting_period_reopen_decision WHERE request_id IN "
+                        "(SELECT request_id FROM fincilia.accounting_period_reopen_request "
+                        "WHERE close_id=ANY(%s::uuid[]))))",
+                        (ESPIGA, close_ids, close_ids, close_ids))
+                    cursor.execute(
+                        "DELETE FROM fincilia.accounting_period_reopen_decision "
+                        "WHERE request_id IN (SELECT request_id FROM "
+                        "fincilia.accounting_period_reopen_request WHERE close_id="
+                        "ANY(%s::uuid[]))", (close_ids,))
+                    cursor.execute(
+                        "DELETE FROM fincilia.accounting_period_reopen_request "
+                        "WHERE close_id=ANY(%s::uuid[])", (close_ids,))
+                    cursor.execute(
+                        "DELETE FROM fincilia.accounting_period_close "
+                        "WHERE close_id=ANY(%s::uuid[])", (close_ids,))
+                    cursor.execute(
+                        "DELETE FROM fincilia.close_review_command_receipt "
+                        "WHERE result_ref=ANY(%s::uuid[]) OR result_ref IN (SELECT "
+                        "decision_id FROM fincilia.close_review_decision WHERE "
+                        "packet_id=ANY(%s::uuid[]))", (packet_ids, packet_ids))
+                    cursor.execute(
+                        "DELETE FROM fincilia.close_review_decision "
+                        "WHERE packet_id=ANY(%s::uuid[])", (packet_ids,))
+                    cursor.execute(
+                        "DELETE FROM fincilia.close_review_packet "
+                        "WHERE packet_id=ANY(%s::uuid[])", (packet_ids,))
+                    for table, trigger in reversed(trigger_pairs):
+                        cursor.execute(
+                            f"ALTER TABLE fincilia.{table} ENABLE TRIGGER {trigger}")
                 immutable_triggers = (
                     ("reconciliation_statement", "reconciliation_statement_immutable"),
                     ("reconciling_item", "reconciling_item_immutable"),
@@ -425,6 +486,18 @@ class BalanceReconciliationDatabaseTests(VerticalHarness):
         self.assertEqual("0.000000000000", statement["unexplained_difference"])
         self.assertFalse(statement["certifies_close"])
 
+        # Fixture sintetica: representa tres fechas contables confirmadas por
+        # una persona antes de preparar el cierre. No es una inferencia del
+        # producto; el flujo normal las materializa mediante overlays revisados.
+        with psycopg.connect(MIGRATOR_DSN) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT set_config('fincilia.company_id', %s, true)",
+                               (ESPIGA,))
+                cursor.execute(
+                    "UPDATE fincilia.canonical_movement SET accounting_date=%s "
+                    "WHERE company_id=%s AND dataset_version_id=%s",
+                    (period_start, ESPIGA, dataset))
+
         readiness = self.client.get(
             f"/api/v1/companies/{ESPIGA}/close-readiness",
             headers=self.auth(OWNER), params={"limit": 24})
@@ -443,12 +516,82 @@ class BalanceReconciliationDatabaseTests(VerticalHarness):
         self.assertEqual("pass", readiness_controls["reconciliation_statements"]["state"])
         self.assertEqual(
             "pass", readiness_controls["reconciliation_statement_lineage"]["state"])
-        # El linaje deja de ser el bloqueo; otros controles diagnosticos del
-        # periodo pueden mantenerlo bloqueado y no se relajan en esta tarea.
-        self.assertEqual("blocked", readiness_period["status"])
+        self.assertEqual(
+            "ready_for_review", readiness_period["status"],
+            {item["code"]: item for item in readiness_period["controls"]
+             if item["state"] != "pass" and item["code"] != "product_close"})
         self.assertFalse(readiness_period["close_ready"])
         self.assertFalse(readiness_period["can_execute_close"])
         self.assertNotIn("amount", str(readiness_period).lower())
+
+        packet_response = self.client.post(
+            f"/api/v1/companies/{ESPIGA}/close-review/packets",
+            headers={**self.auth(PREPARER),
+                     "Idempotency-Key": f"cls006-packet-{uuid.uuid4()}"},
+            json={"period_start": period_start, "period_end": period_end,
+                  "assigned_reviewer_id": REVIEWER_ID})
+        self.assertEqual(201, packet_response.status_code, packet_response.text)
+        packet = packet_response.json()
+        type(self).close_packets.add(packet["packet_id"])
+        reviewed_response = self.client.post(
+            f"/api/v1/companies/{ESPIGA}/close-review/packets/"
+            f"{packet['packet_id']}/decision",
+            headers={**self.auth(REVIEWER),
+                     "Idempotency-Key": f"cls006-review-{uuid.uuid4()}"},
+            json={"decision": "evidence_reviewed",
+                  "reason_code": "controls_reviewed"})
+        self.assertEqual(201, reviewed_response.status_code, reviewed_response.text)
+
+        close_response = self.client.post(
+            f"/api/v1/companies/{ESPIGA}/accounting-periods/close",
+            headers={**self.auth(REVIEWER),
+                     "Idempotency-Key": f"cls006-close-{uuid.uuid4()}"},
+            json={"packet_id": packet["packet_id"]})
+        self.assertEqual(201, close_response.status_code, close_response.text)
+        accounting_close = close_response.json()
+        type(self).accounting_closes.add(accounting_close["close_id"])
+        self.assertEqual("closed", accounting_close["status"])
+        self.assertEqual("period_state_only", accounting_close["financial_effect"])
+        self.assertFalse(accounting_close["certifies_financial_statements"])
+
+        # La guarda vive en PostgreSQL: evitar la API tampoco permite escribir
+        # un saldo dentro de un periodo cerrado.
+        with psycopg.connect(MIGRATOR_DSN) as blocked_connection:
+            with blocked_connection.cursor() as cursor:
+                cursor.execute("SELECT set_config('fincilia.company_id', %s, true)",
+                               (ESPIGA,))
+                with self.assertRaises(psycopg.errors.ObjectNotInPrerequisiteState):
+                    self._insert_balance(
+                        cursor, source_record=source_record, balance_type="closing",
+                        amount="2501.000000000000", release_id=release_id,
+                        schema=schema)
+
+        reopen_response = self.client.post(
+            f"/api/v1/companies/{ESPIGA}/accounting-periods/"
+            f"{accounting_close['close_id']}/reopen-requests",
+            headers={**self.auth(OWNER),
+                     "Idempotency-Key": f"cls006-reopen-{uuid.uuid4()}"},
+            json={"reason_code": "late_evidence",
+                  "rationale": "Nueva evidencia sintetica documentada para la prueba."})
+        self.assertEqual(201, reopen_response.status_code, reopen_response.text)
+        request_id = reopen_response.json()["reopen_request"]["request_id"]
+        self_decision = self.client.post(
+            f"/api/v1/companies/{ESPIGA}/accounting-periods/reopen-requests/"
+            f"{request_id}/decision",
+            headers={**self.auth(OWNER),
+                     "Idempotency-Key": f"cls006-self-{uuid.uuid4()}"},
+            json={"decision": "approved",
+                  "reason_code": "documented_basis_confirmed"})
+        self.assertEqual(409, self_decision.status_code, self_decision.text)
+        approved_reopen = self.client.post(
+            f"/api/v1/companies/{ESPIGA}/accounting-periods/reopen-requests/"
+            f"{request_id}/decision",
+            headers={**self.auth(REVIEWER),
+                     "Idempotency-Key": f"cls006-approve-{uuid.uuid4()}"},
+            json={"decision": "approved",
+                  "reason_code": "documented_basis_confirmed"})
+        self.assertEqual(201, approved_reopen.status_code, approved_reopen.text)
+        self.assertEqual("reopened", approved_reopen.json()["status"])
 
         lineage = self.client.get(
             f"/api/v1/companies/{ESPIGA}/balance-reconciliation/statements/"

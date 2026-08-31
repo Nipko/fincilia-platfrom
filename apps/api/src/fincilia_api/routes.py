@@ -30,7 +30,7 @@ from fincilia_platform.objects import ObjectStoreError, object_key
 from fincilia_platform.tokens import issue
 
 from . import (access, audit as audit_query, balance_reconciliation, balances,
-               close_readiness, close_review, datasets, exports, financial_lineage,
+               close_period, close_readiness, close_review, datasets, exports, financial_lineage,
                onboarding, oidc, operations, quality, reconciliation, registration,
                reports, repository, platform_admin)
 from . import company_onboarding
@@ -198,6 +198,23 @@ class CloseReviewPrepareRequest(BaseModel):
 class CloseReviewDecisionRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     decision: str = Field(min_length=16, max_length=17)
+    reason_code: str = Field(min_length=3, max_length=40)
+
+
+class AccountingPeriodCloseRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    packet_id: uuid.UUID
+
+
+class AccountingPeriodReopenRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    reason_code: str = Field(min_length=3, max_length=40)
+    rationale: str = Field(min_length=10, max_length=500)
+
+
+class AccountingPeriodReopenDecisionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    decision: str = Field(min_length=8, max_length=8)
     reason_code: str = Field(min_length=3, max_length=40)
 
 
@@ -2997,6 +3014,170 @@ def decide_close_review_packet(
         raise _close_review_problem(refusal)
     if result is None:
         raise RuntimeError("close review decision completed without a result")
+    if result["replayed"]:
+        response.status_code = 200
+    return result
+
+
+# --------------------------------------------------------------------------- #
+# Cierre y reapertura de periodo (FNC-CLS-006)
+# --------------------------------------------------------------------------- #
+
+def _close_period_problem(error: close_period.ClosePeriodError) -> ProblemError:
+    if error.code in {
+            "accounting-period-packet-unavailable",
+            "accounting-period-unavailable",
+            "accounting-period-reopen-unavailable"}:
+        return forbidden()
+    conflicts = {
+        "accounting-period-idempotency-conflict",
+        "accounting-period-not-reviewed",
+        "accounting-period-segregation-of-duties",
+        "accounting-period-evidence-stale",
+        "accounting-period-reopen-already-decided",
+    }
+    status = 409 if error.code in conflicts else 422
+    return ProblemError(problem(
+        error.code, "Accounting period request rejected", status, error.detail))
+
+
+@router.get("/companies/{company_id}/accounting-periods", tags=["accounting-periods"])
+def list_accounting_periods(
+        request: Request, company_id: str, limit: int = close_period.DEFAULT_LIMIT,
+        period_start: str | None = None, period_end: str | None = None,
+        principal: Principal = Depends(principal_dependency)) -> dict:
+    context = company_context(request, principal, company_id)
+    require(context, "report.read")
+    _close_review_synthetic_only(request)
+    with request.app.state.database.session(
+            company_id=context.company_id,
+            subject_id=principal.subject_id) as connection:
+        try:
+            result = close_period.list_closes(
+                connection, limit=limit, period_start=period_start,
+                period_end=period_end)
+        except close_period.ClosePeriodError as error:
+            raise _close_period_problem(error) from None
+        repository.record_audit(
+            connection, subject_id=principal.subject_id,
+            company_id=context.company_id, action="accounting.period.list",
+            resource_kind="company", resource_ref=context.company_id,
+            outcome="allowed", detail={"returned": len(result["items"]),
+                                         "has_more": result["has_more"]})
+    return result
+
+
+@router.post("/companies/{company_id}/accounting-periods/close",
+             tags=["accounting-periods"], status_code=201)
+def close_accounting_period(
+        request: Request, response: Response, company_id: str,
+        body: AccountingPeriodCloseRequest,
+        principal: Principal = Depends(principal_dependency)) -> dict:
+    context = company_context(request, principal, company_id)
+    require(context, "close.approve")
+    _close_review_synthetic_only(request)
+    key = request.headers.get("idempotency-key", "")
+    refusal: close_period.ClosePeriodError | None = None
+    result: dict[str, object] | None = None
+    with request.app.state.database.session(
+            company_id=context.company_id,
+            subject_id=principal.subject_id) as connection:
+        try:
+            result = close_period.close_period(
+                connection, company_id=context.company_id,
+                actor_id=principal.subject_id, idempotency_key=key,
+                packet_id=str(body.packet_id))
+        except close_period.ClosePeriodError as error:
+            refusal = error
+            repository.record_audit(
+                connection, subject_id=principal.subject_id,
+                company_id=context.company_id, action="accounting.period.close",
+                resource_kind="accounting_period", resource_ref="unmaterialized",
+                outcome="denied", detail={"reason": error.code})
+    if refusal is not None:
+        raise _close_period_problem(refusal)
+    if result is None:
+        raise RuntimeError("accounting period close completed without a result")
+    if result["replayed"]:
+        response.status_code = 200
+    return result
+
+
+@router.post("/companies/{company_id}/accounting-periods/{close_id}/reopen-requests",
+             tags=["accounting-periods"], status_code=201)
+def request_accounting_period_reopen(
+        request: Request, response: Response, company_id: str, close_id: str,
+        body: AccountingPeriodReopenRequest,
+        principal: Principal = Depends(principal_dependency)) -> dict:
+    context = company_context(request, principal, company_id)
+    require(context, "close.reopen.request")
+    _close_review_synthetic_only(request)
+    key = request.headers.get("idempotency-key", "")
+    refusal: close_period.ClosePeriodError | None = None
+    result: dict[str, object] | None = None
+    with request.app.state.database.session(
+            company_id=context.company_id,
+            subject_id=principal.subject_id) as connection:
+        try:
+            result = close_period.request_reopen(
+                connection, company_id=context.company_id,
+                actor_id=principal.subject_id, idempotency_key=key,
+                close_id=close_id, reason_code=body.reason_code,
+                rationale=body.rationale)
+        except close_period.ClosePeriodError as error:
+            refusal = error
+            reference = close_id if len(close_id) <= 80 else "invalid"
+            repository.record_audit(
+                connection, subject_id=principal.subject_id,
+                company_id=context.company_id,
+                action="accounting.period.reopen.request",
+                resource_kind="accounting_period", resource_ref=reference,
+                outcome="denied", detail={"reason": error.code})
+    if refusal is not None:
+        raise _close_period_problem(refusal)
+    if result is None:
+        raise RuntimeError("reopen request completed without a result")
+    if result["replayed"]:
+        response.status_code = 200
+    return result
+
+
+@router.post(
+    "/companies/{company_id}/accounting-periods/reopen-requests/{request_id}/decision",
+    tags=["accounting-periods"], status_code=201)
+def decide_accounting_period_reopen(
+        request: Request, response: Response, company_id: str, request_id: str,
+        body: AccountingPeriodReopenDecisionRequest,
+        principal: Principal = Depends(principal_dependency)) -> dict:
+    context = company_context(request, principal, company_id)
+    require(context, "close.reopen.approve")
+    _close_review_synthetic_only(request)
+    key = request.headers.get("idempotency-key", "")
+    refusal: close_period.ClosePeriodError | None = None
+    result: dict[str, object] | None = None
+    with request.app.state.database.session(
+            company_id=context.company_id,
+            subject_id=principal.subject_id) as connection:
+        try:
+            result = close_period.decide_reopen(
+                connection, company_id=context.company_id,
+                actor_id=principal.subject_id, idempotency_key=key,
+                request_id=request_id, decision=body.decision,
+                reason_code=body.reason_code)
+        except close_period.ClosePeriodError as error:
+            refusal = error
+            reference = request_id if len(request_id) <= 80 else "invalid"
+            repository.record_audit(
+                connection, subject_id=principal.subject_id,
+                company_id=context.company_id,
+                action="accounting.period.reopen.decision",
+                resource_kind="accounting_period_reopen_request",
+                resource_ref=reference, outcome="denied",
+                detail={"reason": error.code})
+    if refusal is not None:
+        raise _close_period_problem(refusal)
+    if result is None:
+        raise RuntimeError("reopen decision completed without a result")
     if result["replayed"]:
         response.status_code = 200
     return result

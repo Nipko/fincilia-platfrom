@@ -52,6 +52,8 @@ PERMISSIONS: Final[tuple[str, ...]] = (
     "match.reject",
     "close.prepare",
     "close.approve",
+    "close.reopen.request",
+    "close.reopen.approve",
     "audit.read",
     "member.manage",
     "quality.read",
@@ -67,6 +69,7 @@ ROLE_PERMISSIONS: Final[dict[str, frozenset[str]]] = {
         "company.read", "document.upload", "document.read", "dataset.map",
         "financial_account.manage", "data_source.manage",
         "movement.read", "match.propose", "match.reject", "close.prepare",
+        "close.reopen.request",
         "audit.read", "member.manage", "quality.read", "quality.manage",
         "report.read",
     }),
@@ -74,11 +77,13 @@ ROLE_PERMISSIONS: Final[dict[str, frozenset[str]]] = {
         "company.read", "document.upload", "document.read", "dataset.map",
         "dataset.export", "movement.read", "match.propose", "match.reject",
         "close.prepare", "quality.read", "quality.manage", "report.read",
+        "close.reopen.request",
         "report.export",
     }),
     "reviewer": frozenset({
         "company.read", "document.read", "dataset.publish", "dataset.export",
         "movement.read", "match.confirm", "match.reject", "close.approve",
+        "close.reopen.approve",
         "audit.read", "quality.read", "quality.manage", "report.read",
         "report.export",
     }),
@@ -98,6 +103,7 @@ ROLE_PERMISSIONS: Final[dict[str, frozenset[str]]] = {
 SEGREGATED_PAIRS: Final[tuple[tuple[str, str], ...]] = (
     ("match.propose", "match.confirm"),
     ("close.prepare", "close.approve"),
+    ("close.reopen.request", "close.reopen.approve"),
     ("dataset.map", "dataset.publish"),
 )
 

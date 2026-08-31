@@ -139,6 +139,16 @@ def _exact_period(connection: psycopg.Connection, *, period_start: dt.date,
         "the requested period is not in the current company diagnostic window")
 
 
+def current_manifest(connection: psycopg.Connection, *, period_start: str | dt.date,
+                     period_end: str | dt.date) -> tuple[dict[str, Any], str]:
+    """Materializa la evidencia vigente que una transición de cierre puede fijar."""
+    period = _exact_period(
+        connection, period_start=_date(period_start, field="period_start"),
+        period_end=_date(period_end, field="period_end"))
+    manifest = build_manifest(period)
+    return manifest, _digest(manifest)
+
+
 def eligible_reviewers(connection: psycopg.Connection,
                        *, company_id: str) -> list[dict[str, Any]]:
     """Personas vigentes con capacidad de revision, sin correo ni otros tenants."""

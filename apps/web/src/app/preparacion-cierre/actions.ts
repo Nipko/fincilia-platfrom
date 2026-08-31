@@ -5,8 +5,11 @@ import { redirect } from 'next/navigation';
 
 import {
   ApiError,
+  closeAccountingPeriod,
+  decideAccountingPeriodReopen,
   decideCloseReviewPacket,
   prepareCloseReviewPacket,
+  requestAccountingPeriodReopen,
 } from '@/lib/api';
 import { readSession } from '@/lib/session';
 
@@ -56,6 +59,18 @@ function failure(error: unknown): CloseReviewActionState {
       error: 'El revisor asignado ya no conserva el rol requerido.', done: null,
     };
   }
+  if (error.code === 'accounting-period-evidence-stale') {
+    return {
+      error: 'La evidencia cambio despues de la revision. Crea y revisa un expediente nuevo.',
+      done: null,
+    };
+  }
+  if (error.code === 'accounting-period-not-reviewed') {
+    return { error: 'El expediente aun no tiene una revision positiva.', done: null };
+  }
+  if (error.code === 'accounting-period-reopen-already-decided') {
+    return { error: 'La solicitud de reapertura ya tiene una decision final.', done: null };
+  }
   if (error.status === 409) {
     return {
       error: 'El estado cambio, la clave ya se uso o la segregacion lo impide.', done: null,
@@ -67,6 +82,114 @@ function failure(error: unknown): CloseReviewActionState {
       : 'No se pudo registrar la operacion. Intenta de nuevo.',
     done: null,
   };
+}
+
+export async function closeAccountingPeriodAction(
+  _previous: CloseReviewActionState,
+  formData: FormData,
+): Promise<CloseReviewActionState> {
+  const session = await readSession();
+  if (!session) redirect('/entrar');
+  const companyId = String(formData.get('companyId') ?? '');
+  const packetId = String(formData.get('packetId') ?? '');
+  const idempotencyKey = String(formData.get('idempotencyKey') ?? '');
+  if (!UUID_PATTERN.test(companyId) || !UUID_PATTERN.test(packetId)
+      || !KEY_PATTERN.test(idempotencyKey)) {
+    return { error: 'El expediente de cierre no es valido.', done: null };
+  }
+  try {
+    const result = await closeAccountingPeriod(
+      session.token, companyId, packetId, idempotencyKey);
+    revalidatePath('/preparacion-cierre');
+    return {
+      error: null,
+      done: result.replayed
+        ? `El cierre v${result.version} ya existia; no se duplico.`
+        : `Periodo cerrado como version ${result.version}. Las nuevas escrituras quedaron bloqueadas.`,
+    };
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) redirect('/entrar');
+    return failure(error);
+  }
+}
+
+const REOPEN_REASONS = new Set([
+  'late_evidence', 'material_error', 'regulatory_adjustment',
+  'scope_correction', 'other_documented',
+]);
+
+export async function requestAccountingPeriodReopenAction(
+  _previous: CloseReviewActionState,
+  formData: FormData,
+): Promise<CloseReviewActionState> {
+  const session = await readSession();
+  if (!session) redirect('/entrar');
+  const companyId = String(formData.get('companyId') ?? '');
+  const closeId = String(formData.get('closeId') ?? '');
+  const reasonCode = String(formData.get('reasonCode') ?? '');
+  const rationale = String(formData.get('rationale') ?? '').trim();
+  const idempotencyKey = String(formData.get('idempotencyKey') ?? '');
+  if (!UUID_PATTERN.test(companyId) || !UUID_PATTERN.test(closeId)
+      || !KEY_PATTERN.test(idempotencyKey) || !REOPEN_REASONS.has(reasonCode)
+      || rationale.length < 10 || rationale.length > 500
+      || Array.from(rationale).some((char) => char.charCodeAt(0) < 32)) {
+    return { error: 'El motivo de reapertura no es valido.', done: null };
+  }
+  try {
+    const result = await requestAccountingPeriodReopen(
+      session.token, companyId, closeId, idempotencyKey,
+      { reason_code: reasonCode, rationale });
+    revalidatePath('/preparacion-cierre');
+    return {
+      error: null,
+      done: result.replayed
+        ? 'La solicitud ya existia; no se duplico.'
+        : 'Solicitud de reapertura registrada para una segunda persona.',
+    };
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) redirect('/entrar');
+    return failure(error);
+  }
+}
+
+const REOPEN_DECISIONS: Record<'approved' | 'rejected', ReadonlySet<string>> = {
+  approved: new Set(['documented_basis_confirmed']),
+  rejected: new Set(['insufficient_basis', 'wrong_scope', 'duplicate_request']),
+};
+
+export async function decideAccountingPeriodReopenAction(
+  _previous: CloseReviewActionState,
+  formData: FormData,
+): Promise<CloseReviewActionState> {
+  const session = await readSession();
+  if (!session) redirect('/entrar');
+  const companyId = String(formData.get('companyId') ?? '');
+  const requestId = String(formData.get('requestId') ?? '');
+  const decision = String(formData.get('decision') ?? '') as 'approved' | 'rejected';
+  const reasonCode = String(formData.get('reasonCode') ?? '');
+  const idempotencyKey = String(formData.get('idempotencyKey') ?? '');
+  const reasons = REOPEN_DECISIONS[decision];
+  if (!UUID_PATTERN.test(companyId) || !UUID_PATTERN.test(requestId)
+      || !KEY_PATTERN.test(idempotencyKey) || !reasons || !reasons.has(reasonCode)) {
+    return { error: 'La decision de reapertura no es valida.', done: null };
+  }
+  try {
+    const result = await decideAccountingPeriodReopen(
+      session.token, companyId, requestId, idempotencyKey,
+      { decision, reason_code: reasonCode });
+    revalidatePath('/preparacion-cierre');
+    return {
+      error: null,
+      done: result.replayed
+        ? 'La decision ya estaba registrada; no se duplico.'
+        : decision === 'approved'
+          ? 'Reapertura aprobada. El periodo vuelve a admitir trabajo financiero.'
+          : 'Solicitud de reapertura rechazada; el periodo permanece cerrado.',
+    };
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) redirect('/entrar');
+    return failure(error);
+  }
 }
 
 export async function prepareCloseReviewAction(

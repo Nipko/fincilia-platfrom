@@ -6,6 +6,7 @@ vi.mock('server-only', () => ({}));
 const mocks = vi.hoisted(() => ({
   fetchMe: vi.fn(), loadCloseReadinessCenter: vi.fn(),
   loadCloseReviewCenter: vi.fn(), readSession: vi.fn(),
+  loadClosePeriodCenter: vi.fn(),
   redirect: vi.fn((): never => { throw new Error('NEXT_REDIRECT'); }),
 }));
 
@@ -23,6 +24,10 @@ vi.mock('@/lib/close-readiness', async (importOriginal) => ({
 vi.mock('@/lib/close-review', async (importOriginal) => ({
   ...await importOriginal<typeof import('@/lib/close-review')>(),
   loadCloseReviewCenter: mocks.loadCloseReviewCenter,
+}));
+vi.mock('@/lib/close-period', async (importOriginal) => ({
+  ...await importOriginal<typeof import('@/lib/close-period')>(),
+  loadClosePeriodCenter: mocks.loadClosePeriodCenter,
 }));
 
 import CloseReadinessPage from '../page';
@@ -46,6 +51,9 @@ describe('CloseReadinessPage lineage drill-down', () => {
     mocks.loadCloseReviewCenter.mockResolvedValue([{
       company, access: 'available', permissions: ['report.read'],
       reviewers: [], packets: [],
+    }]);
+    mocks.loadClosePeriodCenter.mockResolvedValue([{
+      company, access: 'available', permissions: ['report.read'], periods: [],
     }]);
     mocks.loadCloseReadinessCenter.mockResolvedValue([{
       company, access: 'available',
