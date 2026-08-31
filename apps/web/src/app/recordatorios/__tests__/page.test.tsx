@@ -14,6 +14,8 @@ const mocks = vi.hoisted(() => {
   return {
     ApiError,
     fetchMe: vi.fn(),
+    fetchNotificationPreference: vi.fn(),
+    fetchNotificationDeliveries: vi.fn(),
     loadOperationsCenter: vi.fn(),
     readSession: vi.fn(),
     redirect: vi.fn((): never => { throw new Error('NEXT_REDIRECT'); }),
@@ -22,7 +24,12 @@ const mocks = vi.hoisted(() => {
 
 vi.mock('next/navigation', () => ({ redirect: mocks.redirect }));
 vi.mock('@/lib/session', () => ({ readSession: mocks.readSession }));
-vi.mock('@/lib/api', () => ({ ApiError: mocks.ApiError, fetchMe: mocks.fetchMe }));
+vi.mock('@/lib/api', () => ({
+  ApiError: mocks.ApiError,
+  fetchMe: mocks.fetchMe,
+  fetchNotificationPreference: mocks.fetchNotificationPreference,
+  fetchNotificationDeliveries: mocks.fetchNotificationDeliveries,
+}));
 vi.mock('@/lib/operations', () => ({
   loadOperationsCenter: mocks.loadOperationsCenter,
   parseOperationsFilter: (value: unknown) => value === 'todos' ? 'todos' : 'atencion',
@@ -39,6 +46,9 @@ vi.mock('@/lib/operations', () => ({
       due_today: 0, due_soon: 0, upcoming: 0, satisfied: 0, waived: 0,
       filtered_total: 0, oldest_due_on: null, newest_due_on: null,
     },
+}));
+vi.mock('../notification-controls', () => ({
+  NotificationControls: () => <section>Avisos por correo</section>,
 }));
 
 import OperationsPage from '../page';
@@ -95,6 +105,13 @@ describe('OperationsPage', () => {
     mocks.fetchMe.mockResolvedValue({
       display_name: 'Sofia Propietaria', companies: [company],
     });
+    mocks.fetchNotificationPreference.mockResolvedValue({
+      preference_id: null, channel: 'email', purpose_code: 'operational_reminder',
+      enabled: false, locale: 'es-CO', timezone: 'America/Bogota',
+      quiet_from: '20:00', quiet_until: '07:00', updated_at: null,
+      destination_state: 'provider_configuration_pending',
+    });
+    mocks.fetchNotificationDeliveries.mockResolvedValue([]);
   });
 
   it('muestra prioridad responsable fechas y accion exacta', async () => {

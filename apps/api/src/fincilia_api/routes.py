@@ -31,7 +31,7 @@ from fincilia_platform.tokens import issue
 
 from . import (access, audit as audit_query, balance_reconciliation, balances,
                close_period, close_readiness, close_review, datasets, exports, financial_lineage,
-               onboarding, oidc, operations, quality, reconciliation, registration,
+               notifications, onboarding, oidc, operations, quality, reconciliation, registration,
                reports, repository, platform_admin)
 from . import company_onboarding
 from .issued_contexts import issue_context
@@ -222,6 +222,15 @@ class RoleChangeRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     role: str = Field(min_length=3, max_length=40)
     reason_code: str = Field(min_length=3, max_length=40)
+
+
+class NotificationPreferenceRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    enabled: bool
+    locale: str = Field(min_length=5, max_length=5)
+    timezone: str = Field(min_length=3, max_length=64)
+    quiet_from: str = Field(min_length=5, max_length=5)
+    quiet_until: str = Field(min_length=5, max_length=5)
 
 
 class QualityTriageRequest(BaseModel):
@@ -2825,6 +2834,99 @@ def operational_periods(
                 "truncated": result["has_more"],
             })
     return result
+
+
+def _notification_problem(error: notifications.NotificationError) -> ProblemError:
+    return ProblemError(problem(
+        error.code, "Notification request invalid", 422, error.detail))
+
+
+@router.get("/companies/{company_id}/notifications/preferences/me",
+            tags=["notifications"])
+def read_notification_preference(
+        request: Request, company_id: str,
+        principal: Principal = Depends(principal_dependency)) -> dict:
+    context = company_context(request, principal, company_id)
+    require(context, "company.read")
+    with request.app.state.database.session(
+            company_id=context.company_id,
+            subject_id=principal.subject_id) as connection:
+        return notifications.read_preference(
+            connection, subject_id=principal.subject_id)
+
+
+@router.put("/companies/{company_id}/notifications/preferences/me",
+            tags=["notifications"])
+def update_notification_preference(
+        request: Request, company_id: str, body: NotificationPreferenceRequest,
+        principal: Principal = Depends(principal_dependency)) -> dict:
+    context = company_context(request, principal, company_id)
+    require(context, "company.read")
+    if request.app.state.settings.real_data_enabled:
+        raise ProblemError(problem(
+            "notifications-disabled", "Notifications unavailable", 503,
+            "external notifications are not enabled for real data"))
+    with request.app.state.database.session(
+            company_id=context.company_id,
+            subject_id=principal.subject_id) as connection:
+        try:
+            result = notifications.write_preference(
+                connection, company_id=context.company_id,
+                subject_id=principal.subject_id, **body.model_dump())
+        except notifications.NotificationError as error:
+            raise _notification_problem(error) from None
+        repository.record_audit(
+            connection, subject_id=principal.subject_id,
+            company_id=context.company_id, action="notification.preference.update",
+            resource_kind="company", resource_ref=context.company_id,
+            outcome="allowed", detail={
+                "channel": "email", "enabled": body.enabled,
+                "locale": body.locale, "timezone": body.timezone})
+    return result
+
+
+@router.post("/companies/{company_id}/notifications/reminders/sync",
+             tags=["notifications"])
+def sync_notification_reminders(
+        request: Request, company_id: str,
+        principal: Principal = Depends(principal_dependency)) -> dict:
+    context = company_context(request, principal, company_id)
+    require(context, "company.read")
+    if request.app.state.settings.real_data_enabled:
+        raise ProblemError(problem(
+            "notifications-disabled", "Notifications unavailable", 503,
+            "external notifications are not enabled for real data"))
+    with request.app.state.database.session(
+            company_id=context.company_id,
+            subject_id=principal.subject_id) as connection:
+        result = notifications.sync_reminders(
+            connection, company_id=context.company_id,
+            subject_id=principal.subject_id,
+            evaluated_at=dt.datetime.now(dt.timezone.utc))
+        repository.record_audit(
+            connection, subject_id=principal.subject_id,
+            company_id=context.company_id, action="notification.reminders.sync",
+            resource_kind="company", resource_ref=context.company_id,
+            outcome="allowed", detail=result)
+    return {**result, "adapter_state": "disabled",
+            "notice": "no external message was sent"}
+
+
+@router.get("/companies/{company_id}/notifications/deliveries/me",
+            tags=["notifications"])
+def list_notification_deliveries(
+        request: Request, company_id: str, limit: int = 50,
+        principal: Principal = Depends(principal_dependency)) -> list[dict]:
+    context = company_context(request, principal, company_id)
+    require(context, "company.read")
+    with request.app.state.database.session(
+            company_id=context.company_id,
+            subject_id=principal.subject_id) as connection:
+        try:
+            return notifications.list_deliveries(
+                connection, subject_id=principal.subject_id, limit=limit)
+        except notifications.NotificationError as error:
+            raise _notification_problem(error) from None
 
 
 @router.get("/companies/{company_id}/close-readiness", tags=["close-readiness"])

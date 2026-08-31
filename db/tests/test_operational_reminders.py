@@ -25,6 +25,7 @@ from fincilia_api.main import create_app
 
 ESPIGA = stable_id("company", "espiga")
 ANDINOS = stable_id("company", "andinos")
+SANDBOX_A = stable_id("company", "sandbox_a")
 ANA = stable_id("subject", "ana")
 OWNER = "sofia@demo.local"
 REVIEWER = "beto@demo.local"
@@ -52,6 +53,12 @@ class OperationalReminderTests(unittest.TestCase):
                     cursor.execute(
                         "SELECT set_config('fincilia.company_id', %s, false)",
                         (company,))
+                    cursor.execute(
+                        "DELETE FROM fincilia.notification_delivery")
+                    cursor.execute(
+                        "DELETE FROM fincilia.notification_intent")
+                    cursor.execute(
+                        "DELETE FROM fincilia.notification_preference")
                     cursor.execute(
                         "DELETE FROM fincilia.source_expectation "
                         "WHERE data_source_id = ANY(%s)", (list(cls.sources),))
@@ -204,6 +211,66 @@ class OperationalReminderTests(unittest.TestCase):
                     "SELECT expectation_id FROM fincilia.source_expectation "
                     "WHERE expectation_id = %s", (foreign_id,))
                 self.assertIsNone(cursor.fetchone())
+
+    def test_notification_preferences_sync_and_delivery_states_are_honest(self) -> None:
+        today = dt.datetime.now(ZoneInfo("America/Bogota")).date()
+        _, expectation_id = self.create_period(
+            company=ESPIGA, marker=f"notify-{uuid.uuid4().hex[:8]}", anchor=today)
+        ana = self.auth("ana@demo.local")
+
+        default = self.client.get(
+            f"/api/v1/companies/{ESPIGA}/notifications/preferences/me",
+            headers=ana)
+        self.assertEqual(200, default.status_code, default.text)
+        self.assertFalse(default.json()["enabled"])
+        self.assertEqual("provider_configuration_pending",
+                         default.json()["destination_state"])
+
+        enabled = self.client.put(
+            f"/api/v1/companies/{ESPIGA}/notifications/preferences/me",
+            headers=ana, json={
+                "enabled": True, "locale": "es-CO",
+                "timezone": "America/Bogota", "quiet_from": "20:00",
+                "quiet_until": "07:00"})
+        self.assertEqual(200, enabled.status_code, enabled.text)
+        self.assertTrue(enabled.json()["enabled"])
+
+        first = self.client.post(
+            f"/api/v1/companies/{ESPIGA}/notifications/reminders/sync",
+            headers=ana)
+        self.assertEqual(200, first.status_code, first.text)
+        self.assertGreaterEqual(first.json()["created"], 1)
+        self.assertEqual("disabled", first.json()["adapter_state"])
+        replay = self.client.post(
+            f"/api/v1/companies/{ESPIGA}/notifications/reminders/sync",
+            headers=ana)
+        self.assertEqual(0, replay.json()["created"])
+        self.assertGreaterEqual(replay.json()["replayed"], 1)
+
+        history = self.client.get(
+            f"/api/v1/companies/{ESPIGA}/notifications/deliveries/me",
+            headers=ana)
+        self.assertEqual(200, history.status_code, history.text)
+        selected = next(item for item in history.json()
+                        if expectation_id in repr(item["context"]) or
+                        item["context"]["due_on"] == today.isoformat())
+        self.assertEqual("suppressed", selected["status"])
+        self.assertEqual("adapter_unconfigured", selected["suppression_reason"])
+        rendered = repr(selected).lower()
+        for forbidden in ("amount", "balance", "account", "tax_id", "attachment"):
+            self.assertNotIn(forbidden, rendered)
+
+        invalid = self.client.put(
+            f"/api/v1/companies/{ESPIGA}/notifications/preferences/me",
+            headers=ana, json={
+                "enabled": True, "locale": "es-CO", "timezone": "Mars/Base",
+                "quiet_from": "20:00", "quiet_until": "07:00"})
+        self.assertEqual(422, invalid.status_code, invalid.text)
+
+        denied = self.client.get(
+            f"/api/v1/companies/{SANDBOX_A}/notifications/preferences/me",
+            headers=ana)
+        self.assertEqual(403, denied.status_code, denied.text)
 
 
 if __name__ == "__main__":

@@ -27,6 +27,8 @@ import {
   fetchDataset,
   fetchMapping,
   fetchOverrides,
+  syncNotificationReminders,
+  updateNotificationPreference,
   fetchSource,
   grantMemberRole,
   generateExpectations,
@@ -56,6 +58,57 @@ import {
   type MappingPreview,
 } from '@/lib/api';
 import { clearSession, readSession, writeSession } from '@/lib/session';
+
+export type NotificationActionState = { error: string | null; done: string | null };
+
+export async function updateNotificationPreferenceAction(
+  _previous: NotificationActionState,
+  formData: FormData,
+): Promise<NotificationActionState> {
+  const session = await readSession();
+  if (!session) redirect('/entrar');
+  const companyId = String(formData.get('companyId') ?? '');
+  const locale = String(formData.get('locale') ?? 'es-CO');
+  const timezone = String(formData.get('timezone') ?? '');
+  const quietFrom = String(formData.get('quietFrom') ?? '');
+  const quietUntil = String(formData.get('quietUntil') ?? '');
+  try {
+    const result = await updateNotificationPreference(session.token, companyId, {
+      enabled: formData.get('enabled') === 'yes', locale: locale as 'es-CO' | 'en-US',
+      timezone, quiet_from: quietFrom, quiet_until: quietUntil,
+    });
+    revalidatePath('/recordatorios');
+    return {
+      error: null,
+      done: result.enabled
+        ? 'Preferencia guardada. La entrega externa sigue desactivada hasta configurar proveedor.'
+        : 'Avisos por correo desactivados para esta empresa.',
+    };
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) redirect('/entrar');
+    return { error: 'No se pudo guardar la preferencia.', done: null };
+  }
+}
+
+export async function syncNotificationRemindersAction(
+  _previous: NotificationActionState,
+  formData: FormData,
+): Promise<NotificationActionState> {
+  const session = await readSession();
+  if (!session) redirect('/entrar');
+  const companyId = String(formData.get('companyId') ?? '');
+  try {
+    const result = await syncNotificationReminders(session.token, companyId);
+    revalidatePath('/recordatorios');
+    return {
+      error: null,
+      done: `${result.created} intencion(es) nuevas; ${result.replayed} ya existian. Ningun correo fue enviado.`,
+    };
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) redirect('/entrar');
+    return { error: 'No se pudieron sincronizar los avisos.', done: null };
+  }
+}
 
 export type SignInState = { error: string | null };
 

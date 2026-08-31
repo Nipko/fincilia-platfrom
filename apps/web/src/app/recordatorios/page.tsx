@@ -2,7 +2,15 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
 import { SignOut } from '@/app/empresas/sign-out';
-import { ApiError, fetchMe, type OperationalReminderState } from '@/lib/api';
+import {
+  ApiError,
+  fetchMe,
+  fetchNotificationDeliveries,
+  fetchNotificationPreference,
+  type NotificationDelivery,
+  type NotificationPreference,
+  type OperationalReminderState,
+} from '@/lib/api';
 import {
   aggregateOperationalSummary,
   loadOperationsCenter,
@@ -13,6 +21,7 @@ import {
   type OperationsFilter,
 } from '@/lib/operations';
 import { readSession } from '@/lib/session';
+import { NotificationControls } from './notification-controls';
 
 export const dynamic = 'force-dynamic';
 
@@ -77,6 +86,19 @@ export default async function OperationsPage({
   const selectedCompany = selectedCompanies.length === 1
     ? selectedCompanies[0]?.company_id
     : undefined;
+  let notificationPreference: NotificationPreference | null = null;
+  let notificationDeliveries: NotificationDelivery[] = [];
+  if (selectedCompany) {
+    try {
+      [notificationPreference, notificationDeliveries] = await Promise.all([
+        fetchNotificationPreference(session.token, selectedCompany),
+        fetchNotificationDeliveries(session.token, selectedCompany),
+      ]);
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401) redirect('/entrar');
+      if (!(error instanceof ApiError) || ![403, 404].includes(error.status)) throw error;
+    }
+  }
   let snapshots;
   try {
     snapshots = await loadOperationsCenter(
@@ -111,6 +133,14 @@ export default async function OperationsPage({
         dentro de Fincilia: no prueban que se envio correo, que un saldo cuadre,
         que exista fraude o que un cierre este certificado.
       </p>
+
+      {selectedCompany && notificationPreference ? (
+        <NotificationControls
+          companyId={selectedCompany}
+          preference={notificationPreference}
+          deliveries={notificationDeliveries}
+        />
+      ) : null}
 
       <section className="operations-toolbar" aria-label="Filtros de ciclos">
         <form method="get" className="operations-company-filter">

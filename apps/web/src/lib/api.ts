@@ -1774,6 +1774,73 @@ export type OperationalPeriodPage = {
   notice: string;
 };
 
+export type NotificationPreference = {
+  preference_id: string | null;
+  channel: 'email';
+  purpose_code: 'operational_reminder';
+  enabled: boolean;
+  locale: 'es-CO' | 'en-US';
+  timezone: string;
+  quiet_from: string;
+  quiet_until: string;
+  updated_at: string | null;
+  destination_state: 'provider_configuration_pending';
+};
+
+export type NotificationDelivery = {
+  delivery_id: string;
+  template_code: string;
+  context: { period_label: string; due_on: string; action_url: string };
+  status: 'queued' | 'sent' | 'delivered' | 'failed' | 'suppressed';
+  suppression_reason: string | null;
+  attempt_count: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export function fetchNotificationPreference(
+  token: string, companyId: string,
+): Promise<NotificationPreference> {
+  return request<NotificationPreference>(
+    `/api/v1/companies/${encodeURIComponent(companyId)}/notifications/preferences/me`,
+    { token },
+  );
+}
+
+export function updateNotificationPreference(
+  token: string,
+  companyId: string,
+  body: Omit<NotificationPreference,
+    'preference_id' | 'channel' | 'purpose_code' | 'updated_at' | 'destination_state'>,
+): Promise<NotificationPreference> {
+  return request<NotificationPreference>(
+    `/api/v1/companies/${encodeURIComponent(companyId)}/notifications/preferences/me`,
+    {
+      method: 'PUT', token, headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    },
+  );
+}
+
+export function syncNotificationReminders(token: string, companyId: string): Promise<{
+  created: number; replayed: number; suppressed: number;
+  adapter_state: 'disabled'; notice: string;
+}> {
+  return request(
+    `/api/v1/companies/${encodeURIComponent(companyId)}/notifications/reminders/sync`,
+    { method: 'POST', token },
+  );
+}
+
+export function fetchNotificationDeliveries(
+  token: string, companyId: string,
+): Promise<NotificationDelivery[]> {
+  return request<NotificationDelivery[]>(
+    `/api/v1/companies/${encodeURIComponent(companyId)}/notifications/deliveries/me?limit=20`,
+    { token },
+  );
+}
+
 export type SourceDetail = Source & {
   links: SourceLink[];
   cycle: SourceCycle | null;
