@@ -15,6 +15,7 @@ COPY apps/web/package.json apps/web/package-lock.json ./
 RUN npm ci --ignore-scripts --include=dev
 
 COPY apps/web/next.config.mjs apps/web/tsconfig.json apps/web/eslint.config.mjs apps/web/vitest.config.mts apps/web/vitest.setup.ts ./
+COPY apps/web/public ./public
 COPY apps/web/src ./src
 RUN npm run typecheck && npm run build
 
@@ -34,6 +35,7 @@ WORKDIR /app
 # usa. `node_modules` entero en la imagen final es superficie que nadie audita.
 COPY --from=build /build/.next/standalone ./
 COPY --from=build /build/.next/static ./.next/static
+COPY --from=build /build/public ./public
 
 RUN useradd --system --uid 10002 --create-home fincilia
 USER 10002

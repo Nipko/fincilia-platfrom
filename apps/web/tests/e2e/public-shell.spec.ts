@@ -51,7 +51,7 @@ test.describe('recorrido publico sin secretos', () => {
       level: 1,
       name: 'De documentos dispersos a diferencias explicables.',
     })).toBeVisible();
-    await expect(page.getByText('Registro público con Google · datos reales pendientes de autorización'))
+    await expect(page.getByText('Entorno UAT · identidad administrada pendiente de activación.'))
       .toBeVisible();
     await expect(page.getByText(/No pedirá acceso a Gmail, Drive/)).toBeVisible();
     await page.getByRole('link', { name: 'Leer política de privacidad' }).click();
