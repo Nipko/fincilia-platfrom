@@ -316,7 +316,7 @@ jobs:
           python -m unittest discover -s /app/db/tests -t /app -v
 
       - name: Adjudicate bounded DRG-01 technical evidence
-        working-directory: ../..
+        working-directory: .
         run: |
           python -m tools.drg01_technical.cli
           PYTHONPATH=packages/contracts/python python -m tools.rights_incident_drill.cli

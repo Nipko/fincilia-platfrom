@@ -64,6 +64,8 @@
 | FNC-QA-001 | A5 | PLT-004, PRV-003 | Ensayo sintético recepción→inventario→purga |
 | FNC-GAT-001 | A0 + humanos | Todos | Checklist y firmas Legal, Security y Product |
 | FNC-GAT-005 | A0/A3/A4 + humanos | SEC-003, PLT-004, QA-001 | Readiness fail-closed para el primer piloto privado con datos reales |
+| FNC-GAT-006 | A0/A3/A4 | GAT-005, QA-001 | Evidencia adjudicada de aislamiento, ingreso y canales DRG-01 |
+| FNC-PRV-004 | A3/A5 | PRV-003, GAT-005 | Ensayo sintético de derechos, incidente, tombstones y restore cerrado |
 
 FNC-GAT-001 es la única tarea que puede autorizar el primer artefacto real de investigación.
 
