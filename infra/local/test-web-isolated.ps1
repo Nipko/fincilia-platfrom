@@ -17,7 +17,7 @@ $Npm = Get-Command 'npm.cmd' -ErrorAction SilentlyContinue
 
 function Invoke-WslAction {
     param([Parameter(Mandatory = $true)][string]$Action)
-    if ($Action -notin @('up-empty', 'up', 'down', 'assert-isolated', 'assert-clean')) {
+    if ($Action -notin @('up-empty', 'up', 'verify-backend', 'down', 'assert-isolated', 'assert-clean')) {
         throw 'Accion WSL fuera del allowlist del runtime E2E.'
     }
     & $WslExe --distribution $Distribution --cd $RepositoryRoot `
@@ -91,6 +91,7 @@ try {
     # toda la regresión funcional y de accesibilidad.
     Invoke-WslAction 'up'
     Invoke-WslAction 'assert-isolated'
+    Invoke-WslAction 'verify-backend'
     Invoke-WebSuite 'test:e2e'
     Invoke-WebSuite 'test:a11y'
 }
@@ -142,6 +143,7 @@ if ($null -ne $CleanupFailure) {
     api_url = $ApiUrl
     suites = @('test:bootstrap', 'test:e2e', 'test:a11y')
     fresh_install_verified = $true
+    backend_contracts_verified = $true
     cleanup_verified = $true
     data_ceiling = 'synthetic_only'
     elapsed_seconds = [math]::Round(

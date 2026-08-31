@@ -45,6 +45,7 @@ REQUIRED_PHASES = (
     "applications",
     "readiness",
     "isolation_probe",
+    "backend_contracts",
     "chromium",
     "axe",
     "cleanup",
@@ -188,6 +189,7 @@ def validate_scripts(shell: str, powershell: str, compose: str) -> list[Finding]
     ps_required = (
         "finally",
         "up-empty",
+        "verify-backend",
         "test:bootstrap",
         "test:e2e",
         "test:a11y",

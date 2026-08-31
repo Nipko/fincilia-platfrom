@@ -66,6 +66,7 @@
       "applications",
       "readiness",
       "isolation_probe",
+      "backend_contracts",
       "chromium",
       "axe",
       "cleanup",

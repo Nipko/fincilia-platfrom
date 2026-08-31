@@ -177,15 +177,29 @@ down() {
   compose down --volumes --remove-orphans
 }
 
+verify_backend() {
+  echo "==> API and reconciliation unit contracts"
+  compose --profile migrate run --rm migrate \
+    python /app/tests/test_api.py
+  compose --profile migrate run --rm migrate \
+    python /app/tests/test_reconciliation.py
+
+  echo "==> focused PostgreSQL platform and reconciliation contracts"
+  compose --profile migrate run --rm migrate \
+    python -m unittest db.tests.test_reconciliation_candidates \
+      db.tests.test_platform_administration
+}
+
 validate_constants
 [ "$#" -eq 1 ] || {
-  echo "usage: test-web-isolated.sh {up-empty|up|down|assert-isolated|assert-clean}" >&2
+  echo "usage: test-web-isolated.sh {up-empty|up|verify-backend|down|assert-isolated|assert-clean}" >&2
   exit 3
 }
 
 case "$1" in
   up-empty) up_empty ;;
   up) up ;;
+  verify-backend) verify_backend ;;
   down) down ;;
   assert-isolated) assert_isolated ;;
   assert-clean) assert_absent ;;
