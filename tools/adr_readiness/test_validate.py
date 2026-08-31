@@ -30,6 +30,7 @@ class AdrReadinessTest(unittest.TestCase):
             [
                 "ADR-012", "ADR-020", "ADR-026", "ADR-027", "ADR-028",
                 "ADR-029", "ADR-030", "ADR-031", "ADR-032", "ADR-033",
+                "ADR-034",
             ],
             report["blocked"],
         )

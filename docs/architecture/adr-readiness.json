@@ -544,6 +544,31 @@
         "QA"
       ],
       "scope": "uat_reset_and_production_promotion_contract_only"
+    },
+    {
+      "blockers": [
+        "aws_foundation_apply",
+        "github_environment_protection",
+        "independent_security_qa_platform_review",
+        "DRG-01"
+      ],
+      "evidence": [
+        "docs/implementation/tasks/FNC-SUP-003.md",
+        "docs/adr/ADR-034-github-oidc-ecr-publication.md"
+      ],
+      "id": "ADR-034",
+      "owners": [
+        "Architecture",
+        "Platform"
+      ],
+      "path": "docs/adr/ADR-034-github-oidc-ecr-publication.md",
+      "readiness": "blocked",
+      "reviewers": [
+        "Security",
+        "QA",
+        "Platform/SRE"
+      ],
+      "scope": "github_oidc_ecr_publication_only"
     }
   ],
   "agent_may_accept": false,

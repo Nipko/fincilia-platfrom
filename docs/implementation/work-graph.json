@@ -54,5 +54,21 @@
       "agent_may_accept": false
     }
   ],
-  "active_reservations": []
+  "active_reservations": [
+    {
+      "task": "FNC-SUP-003",
+      "holder": "Codex-Integration-Steward",
+      "paths": [
+        ".github/workflows/publish-private-pilot.yml",
+        "infra/aws/private-pilot",
+        "tools/aws_image_publication",
+        "tools/quality_gate",
+        "tools/supply_chain",
+        "docs/platform",
+        "docs/adr/ADR-034-github-oidc-ecr-publication.md",
+        "docs/implementation/tasks/FNC-SUP-003.md",
+        "docs/implementation/handoffs/FNC-SUP-003.md"
+      ]
+    }
+  ]
 }
