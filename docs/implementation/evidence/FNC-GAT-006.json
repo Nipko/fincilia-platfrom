@@ -1,0 +1,89 @@
+{
+  "data_classification": "completely_synthetic",
+  "database_engine": "PostgreSQL 17",
+  "evidence_sha256": "0ba79c2edfce948df685abea651f59d89b9d75fe9f8342429ddc32793581833d",
+  "executed_suite": {
+    "command": "python -m unittest db.tests.test_managed_oidc_identity db.tests.test_api_authorization db.tests.test_issued_authorization_context db.tests.test_processing_authorization_context db.tests.test_api_documents db.tests.test_quarantine_before_raw -v",
+    "errors": 0,
+    "failures": 0,
+    "tests_run": 90
+  },
+  "limitations": [
+    "identity_control_plane_is_configured_but_not_active_in_protected_runtime",
+    "cloud_restore_rights_incident_and_supply_chain_controls_remain_pending",
+    "pdf_and_other_unscannable_formats_remain_in_quarantine",
+    "independent_human_review_remains_pending"
+  ],
+  "object_store": "MinIO S3-compatible",
+  "observed_at": "2026-08-31T01:38:46Z",
+  "real_data_authorized": false,
+  "schema_version": "1.0.0",
+  "source_sha256": {
+    "apps/api/src/fincilia_api/corrections.py": "150cab9267887a9dd72e3d4cf73dc64dd33fad01f8ca45953bd467a5369e3867",
+    "apps/api/src/fincilia_api/main.py": "0a9c818b4ff804965db224d91e657ac2b1c1c5e6b77f0e132732214f3b8948ec",
+    "apps/api/src/fincilia_api/routes.py": "bd4654cb57373326477c736a6abcdd46f237e41d34c95077431ffa3ec1b5a432",
+    "db/tests/test_api_authorization.py": "9abebcf5253678eb675e83c7c4b5a1142982e3f15530aa510d7e6f643fecfd6f",
+    "db/tests/test_api_documents.py": "a5504a288288e51d902250fe44a5ce9a6355c68f0b6a2cce709fd97a0f8b7f87",
+    "db/tests/test_issued_authorization_context.py": "f43100ed6712961391f89722a7d214d7d57d1ee187d1a558b41e69adf99bff78",
+    "db/tests/test_processing_authorization_context.py": "94f28f1a7c519540a39c476473f61de08c2dfac583afb148a1766debed432edb",
+    "db/tests/test_quarantine_before_raw.py": "a7f1db417c6d758d628bae9207e7ac0c123ea8ef07f8181200afc4fee6a9dee3",
+    "docs/platform/aws-private-pilot.json": "6e0fedd7b9d87d58c02cb0060766fd5b3b674fe6114d6a9403722fd7009d40fa",
+    "infra/aws/private-pilot/compute.tf": "8016304e15502c4617f5c93698d53d3d3f983a667b3c129aa5a79a23296a8af0",
+    "packages/contracts/python/fincilia_contracts/ingestion.py": "13eedde32b9da90ce7a48efedc162c4fadab8a7cb8a702853150a786813a52b5",
+    "workers/document/src/fincilia_worker/main.py": "d021be77e0fbbefa508571f05002acfd56fdf9dad910037da90b5df6c9fe89ab"
+  },
+  "task_id": "FNC-GAT-006",
+  "technical_controls": {
+    "D01-CHANNELS": {
+      "assertion": "unused_intake_channels_absent_and_external_capabilities_fail_closed",
+      "disabled_capabilities": [
+        "api_connectors",
+        "automatic_close",
+        "email_ingest",
+        "external_ai",
+        "payments",
+        "sftp",
+        "webhooks"
+      ],
+      "forbidden_route_matches": [],
+      "observed_http_route_count": 83,
+      "state": "passed"
+    },
+    "D01-INGRESS": {
+      "assertion": "quarantine_before_parser_full_scan_before_raw_and_sensitive_content_denied",
+      "state": "passed",
+      "test_selectors": [
+        "db/tests/test_api_documents.py::test_a_file_with_a_card_stays_in_quarantine",
+        "db/tests/test_api_documents.py::test_a_renamed_executable_is_refused",
+        "db/tests/test_api_documents.py::test_a_zip_bomb_is_refused",
+        "db/tests/test_api_documents.py::test_everything_lands_in_quarantine_and_nothing_in_raw",
+        "db/tests/test_api_documents.py::test_nothing_is_queued_for_profiling_before_it_is_scanned",
+        "db/tests/test_quarantine_before_raw.py::test_a_clean_csv_is_promoted_only_after_being_read_whole",
+        "db/tests/test_quarantine_before_raw.py::test_a_csv_with_a_card_stays_quarantined",
+        "db/tests/test_quarantine_before_raw.py::test_a_generic_zip_never_reaches_raw",
+        "db/tests/test_quarantine_before_raw.py::test_a_pdf_never_reaches_raw",
+        "db/tests/test_quarantine_before_raw.py::test_a_quarantined_file_never_feeds_a_profile",
+        "db/tests/test_quarantine_before_raw.py::test_a_refusal_to_promote_is_audited_as_denied",
+        "db/tests/test_quarantine_before_raw.py::test_an_upload_always_lands_in_quarantine"
+      ]
+    },
+    "D01-XTENANT": {
+      "assertion": "server_resolved_company_scope_rls_revocation_and_context_fencing",
+      "state": "passed",
+      "test_selectors": [
+        "db/tests/test_api_authorization.py::test_reading_another_company_is_denied",
+        "db/tests/test_api_authorization.py::test_revoking_the_engagement_removes_access_without_deleting_facts",
+        "db/tests/test_api_documents.py::test_a_source_from_another_company_is_neutral_and_writes_nothing",
+        "db/tests/test_api_documents.py::test_documents_are_not_visible_across_companies",
+        "db/tests/test_api_documents.py::test_reading_another_companys_document_by_id_is_denied",
+        "db/tests/test_api_documents.py::test_uploading_into_another_company_is_denied",
+        "db/tests/test_issued_authorization_context.py::test_composite_engagement_scope_rejects_a_mixed_company",
+        "db/tests/test_issued_authorization_context.py::test_rls_hides_another_company_and_runtime_cannot_rewrite_history",
+        "db/tests/test_processing_authorization_context.py::test_context_from_another_company_cannot_be_attached",
+        "db/tests/test_processing_authorization_context.py::test_revocation_after_claim_blocks_batches_and_success",
+        "db/tests/test_processing_authorization_context.py::test_revoked_context_is_rejected_before_claim",
+        "db/tests/test_processing_authorization_context.py::test_runtime_cannot_rebind_a_run_to_another_context"
+      ]
+    }
+  }
+}

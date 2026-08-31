@@ -17,7 +17,7 @@ class Drg01ReadinessTests(unittest.TestCase):
         payload = report(self.model)
         self.assertTrue(payload["ok"])
         self.assertFalse(payload["real_data_authorized"])
-        self.assertEqual(18, payload["blocker_count"])
+        self.assertEqual(15, payload["blocker_count"])
         self.assertEqual(["DRG-00", "DRG-01"], [item["id"] for item in payload["gates"]])
         technical = {
             item["id"]: item["state"] for item in self.model["controls"]
@@ -59,16 +59,22 @@ class Drg01ReadinessTests(unittest.TestCase):
 
     def test_fake_technical_pass_without_evidence_bites_derivation(self) -> None:
         candidate = copy.deepcopy(self.model)
-        control = next(item for item in candidate["controls"] if item["id"] == "D01-XTENANT")
+        control = next(item for item in candidate["controls"] if item["id"] == "D01-IDENTITY")
         control["state"] = "passed"
         self.assertIn("DRG-EVIDENCE", self.codes(candidate))
         self.assertFalse(report(candidate)["real_data_authorized"])
 
     def test_unknown_evidence_bites(self) -> None:
         candidate = copy.deepcopy(self.model)
-        control = next(item for item in candidate["controls"] if item["id"] == "D01-XTENANT")
+        control = next(item for item in candidate["controls"] if item["id"] == "D01-IDENTITY")
         control.update({"state": "passed", "evidence_refs": ["docs/missing-evidence.json"]})
         self.assertIn("DRG-EVIDENCE", self.codes(candidate))
+
+    def test_adjudicated_drg01_control_cannot_point_to_narrative(self) -> None:
+        candidate = copy.deepcopy(self.model)
+        control = next(item for item in candidate["controls"] if item["id"] == "D01-XTENANT")
+        control["evidence_refs"] = ["docs/security/DRG01_READINESS.md"]
+        self.assertIn("DRG01-TECH-REF", self.codes(candidate))
 
     def test_drg00_technical_control_cannot_point_to_narrative(self) -> None:
         candidate = copy.deepcopy(self.model)

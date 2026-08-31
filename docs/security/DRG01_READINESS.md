@@ -51,3 +51,20 @@ hasta admitir una release firmada/provenanced y un IdP administrado.
 DRG-00 permanece `not_met`: además de los cuatro controles humanos siguen
 pendientes `G00-ISOLATED-ENV` y `G00-SUPPLY-CHAIN`. Por tanto el techo continúa
 sintético y ninguna release está admitida para documentos reales.
+
+## Evidencia técnica DRG-01 acotada — 2026-08-31
+
+FNC-GAT-006 repitió 90 pruebas contra PostgreSQL 17 y MinIO y ligó por SHA-256
+los selectores y fuentes que demuestran tres controles sin ampliar el techo de
+datos:
+
+- `D01-XTENANT`: RLS, empresa resuelta por servidor, revocación y contexto de
+  autorización fallan cerrados.
+- `D01-INGRESS`: todo aterriza en cuarentena; PAN, credenciales, contenido activo
+  y formatos sin inspección completa no llegan a `raw`.
+- `D01-CHANNELS`: email ingest, SFTP, conectores y webhooks no tienen rutas; IA,
+  pagos y datos reales siguen deshabilitados en el runtime protegido.
+
+El gate permanece `not_met` con 15 blockers. Identidad en runtime protegido,
+cloud, restore, derechos/incidente, cadena de suministro y las aprobaciones
+humanas no se infieren de esta evidencia.

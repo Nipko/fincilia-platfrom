@@ -315,6 +315,12 @@ jobs:
           docker compose --profile migrate run --rm migrate
           python -m unittest discover -s /app/db/tests -t /app -v
 
+      - name: Adjudicate bounded DRG-01 technical evidence
+        working-directory: ../..
+        run: |
+          python -m tools.drg01_technical.cli
+          python -m tools.drg01_readiness.validate
+
       # Las suites son dueñas de sus fixtures y las retiran. El navegador no
       # puede depender de residuos accidentales: prepara su estado sintetico una
       # vez terminada la suite PostgreSQL y antes de arrancar las aplicaciones.

@@ -35,6 +35,8 @@ DRG00_TECHNICAL_EVIDENCE = "docs/implementation/evidence/FNC-QA-001.json"
 DRG00_TECHNICAL_IDS = {
     "G00-ISOLATED-ENV", "G00-INVENTORY", "G00-DELETE", "G00-DRILL",
 }
+DRG01_TECHNICAL_EVIDENCE = "docs/implementation/evidence/FNC-GAT-006.json"
+DRG01_ADJUDICATED_IDS = {"D01-XTENANT", "D01-INGRESS", "D01-CHANNELS"}
 PROHIBITED_DATA = [
     "payment_card", "payroll", "government_identity", "health", "credentials",
 ]
@@ -120,6 +122,18 @@ def _validate_drg00_technical_evidence() -> list[Finding]:
             "DRG-TECH-DIGEST", DRG00_TECHNICAL_EVIDENCE,
             "technical evidence digest does not match its content"))
     return findings
+
+
+def _validate_drg01_technical_evidence() -> list[Finding]:
+    try:
+        from tools.drg01_technical.model import load_evidence, validate_evidence
+        errors = validate_evidence(load_evidence())
+    except (ImportError, OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
+        errors = [str(error)]
+    return [
+        Finding("DRG01-TECH-EVIDENCE", DRG01_TECHNICAL_EVIDENCE, error)
+        for error in errors
+    ]
 
 
 def validate(model: dict[str, Any]) -> list[Finding]:
@@ -214,10 +228,18 @@ def validate(model: dict[str, Any]) -> list[Finding]:
                 findings.append(Finding(
                     "DRG-TECH-REF", str(identifier),
                     "DRG-00 technical controls require the adjudicated drill evidence"))
+        if identifier in DRG01_ADJUDICATED_IDS and control.get("state") == "passed":
+            if control.get("evidence_refs") != [DRG01_TECHNICAL_EVIDENCE]:
+                findings.append(Finding(
+                    "DRG01-TECH-REF", str(identifier),
+                    "DRG-01 bounded technical controls require the adjudicated evidence"))
 
     if any(by_id.get(identifier, {}).get("state") == "passed"
            for identifier in DRG00_TECHNICAL_IDS):
         findings.extend(_validate_drg00_technical_evidence())
+    if any(by_id.get(identifier, {}).get("state") == "passed"
+           for identifier in DRG01_ADJUDICATED_IDS):
+        findings.extend(_validate_drg01_technical_evidence())
 
     drg00_ready = all(
         _control_satisfied(by_id.get(identifier, {}), False)

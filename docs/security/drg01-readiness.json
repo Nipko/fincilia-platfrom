@@ -37,9 +37,9 @@
 
     {"id":"D01-DRG00","gate":"DRG-01","domain":"governance","kind":"prerequisite","owner_role":"Integration Steward","reviewer_roles":["Legal","Security","Product"],"state":"pending","evidence_refs":[],"reviewer_id":null,"reviewed_at":null},
     {"id":"D01-IDENTITY","gate":"DRG-01","domain":"identity","kind":"automated","owner_role":"Security","reviewer_roles":["Privacy","QA"],"state":"pending","evidence_refs":[],"reviewer_id":null,"reviewed_at":null},
-    {"id":"D01-XTENANT","gate":"DRG-01","domain":"security","kind":"automated","owner_role":"Security","reviewer_roles":["Database","QA"],"state":"pending","evidence_refs":[],"reviewer_id":null,"reviewed_at":null},
-    {"id":"D01-INGRESS","gate":"DRG-01","domain":"ingestion","kind":"automated","owner_role":"Security","reviewer_roles":["Data","QA"],"state":"pending","evidence_refs":[],"reviewer_id":null,"reviewed_at":null},
-    {"id":"D01-CHANNELS","gate":"DRG-01","domain":"integrations","kind":"automated","owner_role":"Architecture","reviewer_roles":["Security"],"state":"pending","evidence_refs":[],"reviewer_id":null,"reviewed_at":null},
+    {"id":"D01-XTENANT","gate":"DRG-01","domain":"security","kind":"automated","owner_role":"Security","reviewer_roles":["Database","QA"],"state":"passed","evidence_refs":["docs/implementation/evidence/FNC-GAT-006.json"],"reviewer_id":null,"reviewed_at":null},
+    {"id":"D01-INGRESS","gate":"DRG-01","domain":"ingestion","kind":"automated","owner_role":"Security","reviewer_roles":["Data","QA"],"state":"passed","evidence_refs":["docs/implementation/evidence/FNC-GAT-006.json"],"reviewer_id":null,"reviewed_at":null},
+    {"id":"D01-CHANNELS","gate":"DRG-01","domain":"integrations","kind":"automated","owner_role":"Architecture","reviewer_roles":["Security"],"state":"passed","evidence_refs":["docs/implementation/evidence/FNC-GAT-006.json"],"reviewer_id":null,"reviewed_at":null},
     {"id":"D01-CLOUD-CONTROLS","gate":"DRG-01","domain":"platform","kind":"automated","owner_role":"Platform","reviewer_roles":["Security"],"state":"pending","evidence_refs":[],"reviewer_id":null,"reviewed_at":null},
     {"id":"D01-RESTORE","gate":"DRG-01","domain":"resilience","kind":"automated","owner_role":"Platform","reviewer_roles":["Privacy","Security"],"state":"pending","evidence_refs":[],"reviewer_id":null,"reviewed_at":null},
     {"id":"D01-PCI","gate":"DRG-01","domain":"legal_security","kind":"human","owner_role":"Security","reviewer_roles":["Qualified adviser","Legal"],"state":"pending","evidence_refs":[],"reviewer_id":null,"reviewed_at":null},

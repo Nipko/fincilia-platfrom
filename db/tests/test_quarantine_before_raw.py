@@ -9,10 +9,11 @@ La regla que se prueba una y otra vez, desde angulos distintos: **nada llega a l
 zona de evidencia sin que su contenido se haya inspeccionado entero**. Un formato
 que hoy no se sabe inspeccionar se queda donde esta, con el motivo escrito.
 
-Esto **no resuelve** S-01 ni TM-005: la deteccion de PAN antes de `raw` sigue
-dependiendo de una decision humana pendiente, y un fichero con PAN sigue
-aterrizando en cuarentena antes de que nadie lo mire. Lo que cambia es que ya no
-sale de ahi sin inspeccion.
+Esto cierra la parte automatizable de PAN y credenciales antes de `raw`: el
+contenido se recorre completo, el PAN se confirma con Luhn y el hallazgo nunca
+incluye el valor. No afirma antivirus. Un formato sin analizador completo
+(incluido PDF hoy) permanece en cuarentena; S-01 y TM-005 conservan la revision
+humana y el control de malware del entorno objetivo como limites separados.
 """
 
 from __future__ import annotations
