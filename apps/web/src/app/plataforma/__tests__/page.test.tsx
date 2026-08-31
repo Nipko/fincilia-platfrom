@@ -70,6 +70,13 @@ describe('PlatformPage', () => {
     mocks.fetchDiagnostics.mockResolvedValue({
       environment: 'test', release_id: 'fnc-uat-candidate', revision: 'a'.repeat(40),
       services: [{ name: 'postgresql', status: 'up', detail: 'PostgreSQL 17' }],
+      operations: {
+        jobs: { queued: 3, running: 1, failed: 2, failed_last_24h: 1 },
+        evidence: { artifacts: 8, quarantined: 2, stored_bytes: '4096' },
+        dead_letters: { open: 1, requires_human: 2 },
+        notifications: { queued: 4, failed: 1, suppressed: 3 },
+        subscriptions: { evaluation: 2, trialing: 0, active: 1, past_due: 0 },
+      },
       capabilities: {
         real_data: false, managed_identity: true, ai_gateway: false,
         payments: false, break_glass: false,
@@ -86,6 +93,12 @@ describe('PlatformPage', () => {
     })).toBeInTheDocument();
     expect(screen.getByText('Firma UAT')).toBeInTheDocument();
     expect(screen.getByText('PostgreSQL 17')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Colas y capacidad' }))
+      .toBeInTheDocument();
+    expect(screen.getByText('1 ejecutándose · 1 fallidos en 24 h'))
+      .toBeInTheDocument();
+    expect(screen.getByText(/No incluyen nombres, IDs, documentos/))
+      .toBeInTheDocument();
     expect(screen.getByText(/Break-glass:/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Asignar' })).toBeInTheDocument();
     expect(screen.queryByText(/monto|saldo bancario|tax id/i)).not.toBeInTheDocument();

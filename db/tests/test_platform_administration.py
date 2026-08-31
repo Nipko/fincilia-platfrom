@@ -144,9 +144,13 @@ class PlatformAdministrationTests(unittest.TestCase):
 
     def test_ordinary_subject_is_denied_the_global_overview(self) -> None:
         with self._runtime(self.other_id) as connection:
-            with self.assertRaises(psycopg.errors.InsufficientPrivilege):
-                with connection.cursor() as cursor:
-                    cursor.execute("SELECT fincilia.platform_admin_overview()")
+            for function in (
+                    "fincilia.platform_admin_overview()",
+                    "fincilia.platform_operational_diagnostics()"):
+                with self.subTest(function=function), self.assertRaises(
+                        psycopg.errors.InsufficientPrivilege):
+                    with connection.transaction(), connection.cursor() as cursor:
+                        cursor.execute(f"SELECT {function}")
 
     def test_superadmin_gets_metadata_not_financial_payload(self) -> None:
         self._claim()
@@ -164,6 +168,39 @@ class PlatformAdministrationTests(unittest.TestCase):
                           "bootstrap_claimed"}, set(overview))
         for forbidden in ("amount", "movement", "document", "tax_id", "email"):
             self.assertNotIn(forbidden, str(overview).lower())
+
+    def test_operational_diagnostics_are_aggregate_and_acl_is_closed(self) -> None:
+        self._claim()
+        with self._runtime(self.admin_id) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT fincilia.platform_operational_diagnostics()")
+                diagnostics = cursor.fetchone()[0]
+        self.assertEqual(
+            {"jobs", "evidence", "dead_letters", "notifications", "subscriptions"},
+            set(diagnostics),
+        )
+        self.assertEqual(
+            {"queued", "running", "failed", "failed_last_24h"},
+            set(diagnostics["jobs"]),
+        )
+        self.assertIsInstance(diagnostics["evidence"]["stored_bytes"], str)
+        serialized = str(diagnostics).lower()
+        for forbidden in (
+                "company_id", "subject_id", "artifact_id", "filename", "amount",
+                "balance", "currency", "error_code", "reason_code", "payload"):
+            self.assertNotIn(forbidden, serialized)
+
+        with psycopg.connect(MIGRATOR_DSN) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT has_function_privilege('public', "
+                    "'fincilia.platform_operational_diagnostics()', 'EXECUTE'), "
+                    "has_function_privilege('fincilia_app', "
+                    "'fincilia.platform_operational_diagnostics()', 'EXECUTE')"
+                )
+                public_execute, runtime_execute = cursor.fetchone()
+        self.assertFalse(public_execute)
+        self.assertTrue(runtime_execute)
 
     def test_status_change_is_audited_and_self_suspension_is_denied(self) -> None:
         self._claim()
@@ -245,6 +282,15 @@ class PlatformAdministrationTests(unittest.TestCase):
             )
             self.assertEqual(200, overview.status_code, overview.text)
             self.assertTrue(overview.json()["bootstrap_claimed"])
+
+            diagnostics = client.get(
+                "/api/v1/platform/diagnostics", headers=self._auth(self.admin_id),
+            )
+            self.assertEqual(200, diagnostics.status_code, diagnostics.text)
+            self.assertEqual(
+                {"jobs", "evidence", "dead_letters", "notifications", "subscriptions"},
+                set(diagnostics.json()["operations"]),
+            )
 
             granted = client.post(
                 f"/api/v1/platform/identities/{self.other_id}/roles",

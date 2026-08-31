@@ -31,6 +31,13 @@ def overview(connection: psycopg.Connection) -> dict:
     return dict(row[0]) if row else {}
 
 
+def operational_diagnostics(connection: psycopg.Connection) -> dict:
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT fincilia.platform_operational_diagnostics()")
+        row = cursor.fetchone()
+    return dict(row[0]) if row else {}
+
+
 def identities(connection: psycopg.Connection, *, limit: int) -> list[dict]:
     with connection.cursor() as cursor:
         cursor.execute(

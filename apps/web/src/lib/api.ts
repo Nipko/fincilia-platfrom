@@ -115,6 +115,15 @@ export type PlatformDiagnostics = {
   release_id: string;
   revision: string;
   services: { name: string; status: string; detail?: string; latency_ms?: number }[];
+  operations: {
+    jobs: { queued: number; running: number; failed: number; failed_last_24h: number };
+    evidence: { artifacts: number; quarantined: number; stored_bytes: string };
+    dead_letters: { open: number; requires_human: number };
+    notifications: { queued: number; failed: number; suppressed: number };
+    subscriptions: {
+      evaluation: number; trialing: number; active: number; past_due: number;
+    };
+  };
   capabilities: {
     real_data: boolean;
     managed_identity: boolean;

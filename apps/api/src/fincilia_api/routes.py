@@ -667,8 +667,15 @@ def platform_diagnostics(
         request: Request,
         principal: Principal = Depends(principal_dependency),
         ) -> dict:
-    # Autorizar en la base antes de ejecutar sondas; un token firmado no basta.
-    platform_overview(request, principal)
+    # Autorizar y agregar en la base; un token firmado no basta y la API nunca
+    # necesita abrir tablas company-scoped para construir este diagnóstico.
+    try:
+        with request.app.state.database.session(
+                subject_id=principal.subject_id) as connection:
+            operations = platform_admin.operational_diagnostics(connection)
+    except psycopg.Error as error:
+        _platform_forbidden(error)
+        raise forbidden() from None
     settings = request.app.state.settings
     results = [probe.probe().as_dict() for probe in request.app.state.probes]
     return {
@@ -676,6 +683,7 @@ def platform_diagnostics(
         "release_id": settings.release_id,
         "revision": settings.build_revision,
         "services": results,
+        "operations": operations,
         "capabilities": {
             "real_data": settings.real_data_enabled,
             "managed_identity": settings.oidc_enabled,

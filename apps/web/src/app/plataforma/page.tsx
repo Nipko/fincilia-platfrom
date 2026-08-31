@@ -89,6 +89,47 @@ export default async function PlatformPage() {
           <p className="platform-boundary">Break-glass: <strong>deshabilitado</strong>. El soporte financiero excepcional exige un flujo separado, temporal y con segundo aprobador.</p>
         </section>
 
+        <section className="workspace-section" aria-labelledby="platform-operations-title">
+          <div className="section-heading">
+            <div>
+              <p className="eyebrow">Operación agregada</p>
+              <h2 id="platform-operations-title">Colas y capacidad</h2>
+            </div>
+            <span>sin datos por empresa</span>
+          </div>
+          <div className="platform-metrics" aria-label="Diagnóstico operativo agregado">
+            <article className="card">
+              <span>Trabajos pendientes</span>
+              <strong>{diagnostics.operations.jobs.queued}</strong>
+              <small>{diagnostics.operations.jobs.running} ejecutándose · {diagnostics.operations.jobs.failed_last_24h} fallidos en 24 h</small>
+            </article>
+            <article className="card">
+              <span>Evidencias</span>
+              <strong>{diagnostics.operations.evidence.artifacts}</strong>
+              <small>{diagnostics.operations.evidence.quarantined} en cuarentena · {diagnostics.operations.evidence.stored_bytes} bytes</small>
+            </article>
+            <article className="card">
+              <span>Intervención humana</span>
+              <strong>{diagnostics.operations.dead_letters.requires_human}</strong>
+              <small>{diagnostics.operations.dead_letters.open} dead letters abiertas</small>
+            </article>
+            <article className="card">
+              <span>Notificaciones</span>
+              <strong>{diagnostics.operations.notifications.queued}</strong>
+              <small>{diagnostics.operations.notifications.failed} fallidas · {diagnostics.operations.notifications.suppressed} suprimidas</small>
+            </article>
+            <article className="card">
+              <span>Suscripciones activas</span>
+              <strong>{diagnostics.operations.subscriptions.active}</strong>
+              <small>{diagnostics.operations.subscriptions.evaluation} evaluación · {diagnostics.operations.subscriptions.past_due} vencidas</small>
+            </article>
+          </div>
+          <p className="platform-boundary">
+            Estos son conteos globales operativos. No incluyen nombres, IDs,
+            documentos, movimientos, importes ni saldos.
+          </p>
+        </section>
+
         {canReadIdentities ? <section className="workspace-section" aria-labelledby="platform-users-title">
           <div className="section-heading"><div><p className="eyebrow">Identidad</p><h2 id="platform-users-title">Usuarios de la plataforma</h2></div><span>{identities.length} visibles</span></div>
           <div className="table-wrap"><table><thead><tr><th>Persona</th><th>Estado</th><th>Firmas</th><th>Autoridad</th><th>Acción</th></tr></thead><tbody>
