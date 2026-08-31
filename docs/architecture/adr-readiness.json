@@ -554,7 +554,10 @@
       ],
       "evidence": [
         "docs/implementation/tasks/FNC-SUP-003.md",
-        "docs/adr/ADR-034-github-oidc-ecr-publication.md"
+        "docs/adr/ADR-034-github-oidc-ecr-publication.md",
+        "docs/platform/AWS_IMAGE_PUBLICATION.md",
+        "docs/platform/aws-image-publication.json",
+        "docs/implementation/handoffs/FNC-SUP-003.md"
       ],
       "id": "ADR-034",
       "owners": [

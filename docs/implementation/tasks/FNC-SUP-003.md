@@ -5,13 +5,15 @@ epic: FNC-EP-PLATFORM
 phase: F0
 iteration: E1
 type: implementation
-status: in_progress
+status: review_pending
 priority: P0
 accountable_owner: FOUNDER-01
 agent_lane: Platform/SRE
 implementer: Codex principal dev + Integration Steward
 independent_reviewer: Security + QA + Platform/SRE
 base_sha: f15ae9c
+implementation_sha: 37d390ca0a47fb634908bd30a384ef6a99642fcc
+evidence_correction_sha: 2743b26385a30f103f4f344aef8410891f9d9448
 plan_refs: [29, 32, 36, 54]
 adr_refs: [ADR-020, ADR-032, ADR-034]
 dependencies: [FNC-SUP-002, FNC-PLT-012, FNC-PLT-013]
