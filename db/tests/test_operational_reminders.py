@@ -37,6 +37,20 @@ class OperationalReminderTests(unittest.TestCase):
         if not MIGRATOR_DSN or not RUNTIME_DSN:
             raise unittest.SkipTest("migrator and runtime DSNs are required")
         seed(MIGRATOR_DSN, secret=DEFAULT_SECRET)
+        # La suite debe ser repetible sobre el volumen persistente local. Una
+        # corrida interrumpida no puede convertir la preferencia inicial en true.
+        with psycopg.connect(MIGRATOR_DSN, autocommit=True) as connection:
+            with connection.cursor() as cursor:
+                for company in (ESPIGA, ANDINOS):
+                    cursor.execute(
+                        "SELECT set_config('fincilia.company_id', %s, false)",
+                        (company,))
+                    cursor.execute(
+                        "SELECT set_config('fincilia.subject_id', %s, false)",
+                        (ANA,))
+                    cursor.execute("DELETE FROM fincilia.notification_delivery")
+                    cursor.execute("DELETE FROM fincilia.notification_intent")
+                    cursor.execute("DELETE FROM fincilia.notification_preference")
         cls.client = TestClient(create_app(build_settings()))
         cls.client.__enter__()
         cls.sources: set[str] = set()
