@@ -1,0 +1,85 @@
+{
+  "schema_version": 1,
+  "task_id": "FNC-SUP-002",
+  "status": "externally_verified",
+  "data_ceiling": "synthetic_only",
+  "generated_at": "2026-08-31T02:15:30Z",
+  "run": {
+    "id": 33349841370,
+    "url": "https://github.com/Nipko/fincilia-platfrom/actions/runs/33349841370",
+    "conclusion": "success",
+    "event": "workflow_dispatch",
+    "source_ref": "refs/heads/main",
+    "source_revision": "f05fdbd6cc6e207cfeff3bc028bdd1a15b704256",
+    "signer_workflow": "github.com/Nipko/fincilia-platfrom/.github/workflows/release-candidate.yml",
+    "self_hosted_runner_denied": true
+  },
+  "subject": {
+    "name": "fincilia-release.tar.gz",
+    "sha256": "963dd6231381ead4369c14d3ad9eedf5014a12518f11ca2d9ebd4618e7c93e71",
+    "size_bytes": 223974,
+    "schema_head": "V0045",
+    "bundle_schema_version": "1.1.0",
+    "source_verified_against_checkout": true,
+    "archive_verified_outside_runner": true
+  },
+  "attestations": [
+    {
+      "id": "provenance",
+      "predicate_type": "https://slsa.dev/provenance/v1",
+      "sigstore_bundle_sha256": "c4b61a60aad188aa83e7c741bef13904af52dff01b43acfd556d338aa48ad11d",
+      "verification_output_sha256": "adcb855ad8af09e02118ad1607ea5af186f78ce09a20de18960f262a16b8cd39",
+      "signature_verified_in_runner": true,
+      "signature_verified_outside_runner": true
+    },
+    {
+      "id": "sbom",
+      "predicate_type": "https://spdx.dev/Document/v2.3",
+      "predicate_sha256": "c093f3b9c87443d6397cccab0a961bec8dc3b9b2ee6a628c302b791a5620794b",
+      "sigstore_bundle_sha256": "5a618a7dbc5b97303a89ca2fa87d1d0fa39e84ac629aae268b015f3830f7cc0f",
+      "verification_output_sha256": "c6bc5d1e547b9aa21e3e8d03a1a3c286de599a2ccf233aa866f1862c7114a3e9",
+      "signature_verified_in_runner": true,
+      "signature_verified_outside_runner": true
+    }
+  ],
+  "action_source_observations": [
+    {
+      "action": "actions/checkout",
+      "tag": "v7.0.1",
+      "sha": "3d3c42e5aac5ba805825da76410c181273ba90b1",
+      "official_ref": "https://api.github.com/repos/actions/checkout/git/ref/tags/v7.0.1"
+    },
+    {
+      "action": "actions/setup-python",
+      "tag": "v7.0.0",
+      "sha": "5fda3b95a4ea91299a34e894583c3862153e4b97",
+      "official_ref": "https://api.github.com/repos/actions/setup-python/git/ref/tags/v7.0.0"
+    },
+    {
+      "action": "actions/attest",
+      "tag": "v4.1.1",
+      "sha": "a1948c3f048ba23858d222213b7c278aabede763",
+      "official_ref": "https://api.github.com/repos/actions/attest/git/ref/tags/v4.1.1"
+    },
+    {
+      "action": "actions/upload-artifact",
+      "tag": "v7.0.1",
+      "sha": "043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+      "official_ref": "https://api.github.com/repos/actions/upload-artifact/git/ref/tags/v7.0.1"
+    },
+    {
+      "action": "actions/setup-node",
+      "tag": "v7.0.0",
+      "sha": "820762786026740c76f36085b0efc47a31fe5020",
+      "official_ref": "https://api.github.com/repos/actions/setup-node/git/ref/tags/v7.0.0"
+    }
+  ],
+  "independent_review": {
+    "state": "pending",
+    "required_roles": ["Security", "QA"],
+    "agent_observation_is_not_acceptance": true
+  },
+  "gate_effect": "evidence_only",
+  "real_data_authorized": false,
+  "production_authorized": false
+}

@@ -75,10 +75,10 @@ datos ni runtime persistente.
 
 # Evidencia obtenida
 
-- Workflow `33256843904`, SHA fuente
-  `1aa44c29af51709e7f675cdeee76c453fc30f416`, conclusión `success`.
+- Workflow `33349841370`, SHA fuente
+  `f05fdbd6cc6e207cfeff3bc028bdd1a15b704256`, conclusión `success`.
 - Sujeto `fincilia-release.tar.gz` con SHA-256
-  `81b87a7d161f002bc74acf08c3b26ab2009bfcaa8870d5a7f5c538817560d32e`.
+  `963dd6231381ead4369c14d3ad9eedf5014a12518f11ca2d9ebd4618e7c93e71`.
 - Predicados verificados dentro y fuera del runner:
   `https://slsa.dev/provenance/v1` y `https://spdx.dev/Document/v2.3`.
 - 27 pruebas de release, 80 de supply-chain y 10 de política focales verdes.

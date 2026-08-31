@@ -387,9 +387,9 @@
         "TM-005"
       ],
       "reason": "el candidato contiene SPDX 2.3 por servicio y agregado; el predicado agregado fue firmado y verificado dentro y fuera del runner",
-      "verification_ref": "docs/implementation/evidence/FNC-SUP-002.json",
-      "verification_sha256": "ed6b6838ad41dd25daf5647fcd10ae4128d389f1edd05991baed8953ac4b67d7",
-      "external_verification_url": "https://github.com/Nipko/fincilia-platfrom/actions/runs/33256843904"
+      "verification_ref": "docs/implementation/evidence/FNC-SUP-002-R2.json",
+      "verification_sha256": "844f59727339499a74ca6153afad9e45e0d904ee6c6d3337e0bbf45882088917",
+      "external_verification_url": "https://github.com/Nipko/fincilia-platfrom/actions/runs/33349841370"
     },
     {
       "id": "EVC-SIGNATURE",
@@ -401,9 +401,9 @@
         "TM-005"
       ],
       "reason": "el archivo determinista del candidato tiene dos bundles Sigstore firmados con la identidad OIDC del workflow y verificados contra esa identidad",
-      "verification_ref": "docs/implementation/evidence/FNC-SUP-002.json",
-      "verification_sha256": "ed6b6838ad41dd25daf5647fcd10ae4128d389f1edd05991baed8953ac4b67d7",
-      "external_verification_url": "https://github.com/Nipko/fincilia-platfrom/actions/runs/33256843904"
+      "verification_ref": "docs/implementation/evidence/FNC-SUP-002-R2.json",
+      "verification_sha256": "844f59727339499a74ca6153afad9e45e0d904ee6c6d3337e0bbf45882088917",
+      "external_verification_url": "https://github.com/Nipko/fincilia-platfrom/actions/runs/33349841370"
     },
     {
       "id": "EVC-PROVENANCE",
@@ -415,9 +415,9 @@
         "TM-005"
       ],
       "reason": "la attestation SLSA liga el archivo sha256 al commit, ref, repositorio, workflow firmante y runner hospedado exactos",
-      "verification_ref": "docs/implementation/evidence/FNC-SUP-002.json",
-      "verification_sha256": "ed6b6838ad41dd25daf5647fcd10ae4128d389f1edd05991baed8953ac4b67d7",
-      "external_verification_url": "https://github.com/Nipko/fincilia-platfrom/actions/runs/33256843904"
+      "verification_ref": "docs/implementation/evidence/FNC-SUP-002-R2.json",
+      "verification_sha256": "844f59727339499a74ca6153afad9e45e0d904ee6c6d3337e0bbf45882088917",
+      "external_verification_url": "https://github.com/Nipko/fincilia-platfrom/actions/runs/33349841370"
     },
     {
       "id": "EVC-SOURCE-VERIFIED",
