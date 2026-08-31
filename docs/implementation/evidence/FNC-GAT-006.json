@@ -1,7 +1,7 @@
 {
   "data_classification": "completely_synthetic",
   "database_engine": "PostgreSQL 17",
-  "evidence_sha256": "0ba79c2edfce948df685abea651f59d89b9d75fe9f8342429ddc32793581833d",
+  "evidence_sha256": "a4e69c80abe73e351fabadff982ba298eabf58c5969e0e44ade9748fb06fe38b",
   "executed_suite": {
     "command": "python -m unittest db.tests.test_managed_oidc_identity db.tests.test_api_authorization db.tests.test_issued_authorization_context db.tests.test_processing_authorization_context db.tests.test_api_documents db.tests.test_quarantine_before_raw -v",
     "errors": 0,
@@ -20,16 +20,16 @@
   "schema_version": "1.0.0",
   "source_sha256": {
     "apps/api/src/fincilia_api/corrections.py": "150cab9267887a9dd72e3d4cf73dc64dd33fad01f8ca45953bd467a5369e3867",
-    "apps/api/src/fincilia_api/main.py": "0a9c818b4ff804965db224d91e657ac2b1c1c5e6b77f0e132732214f3b8948ec",
+    "apps/api/src/fincilia_api/main.py": "affda74a0922a3e98b59c5d4f2e8ae20d72bec71354f1d58f678284ea7268e2e",
     "apps/api/src/fincilia_api/routes.py": "bd4654cb57373326477c736a6abcdd46f237e41d34c95077431ffa3ec1b5a432",
     "db/tests/test_api_authorization.py": "9abebcf5253678eb675e83c7c4b5a1142982e3f15530aa510d7e6f643fecfd6f",
-    "db/tests/test_api_documents.py": "a5504a288288e51d902250fe44a5ce9a6355c68f0b6a2cce709fd97a0f8b7f87",
+    "db/tests/test_api_documents.py": "31dbae128307782532471a03a3765766fba5571b84822f7eb41db757bbb2f68c",
     "db/tests/test_issued_authorization_context.py": "f43100ed6712961391f89722a7d214d7d57d1ee187d1a558b41e69adf99bff78",
     "db/tests/test_processing_authorization_context.py": "94f28f1a7c519540a39c476473f61de08c2dfac583afb148a1766debed432edb",
-    "db/tests/test_quarantine_before_raw.py": "a7f1db417c6d758d628bae9207e7ac0c123ea8ef07f8181200afc4fee6a9dee3",
+    "db/tests/test_quarantine_before_raw.py": "c6e62a513d182a2d3b5d2e03400a7e5ac0c9f700048681a1059b5ce8401debcd",
     "docs/platform/aws-private-pilot.json": "6e0fedd7b9d87d58c02cb0060766fd5b3b674fe6114d6a9403722fd7009d40fa",
     "infra/aws/private-pilot/compute.tf": "8016304e15502c4617f5c93698d53d3d3f983a667b3c129aa5a79a23296a8af0",
-    "packages/contracts/python/fincilia_contracts/ingestion.py": "13eedde32b9da90ce7a48efedc162c4fadab8a7cb8a702853150a786813a52b5",
+    "packages/contracts/python/fincilia_contracts/ingestion.py": "767bd65488e3eed6da63b7bdb6cb5bbf5fb9642aec257e5f5d086f1fb67f652d",
     "workers/document/src/fincilia_worker/main.py": "d021be77e0fbbefa508571f05002acfd56fdf9dad910037da90b5df6c9fe89ab"
   },
   "task_id": "FNC-GAT-006",

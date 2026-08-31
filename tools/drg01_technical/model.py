@@ -76,7 +76,9 @@ class EvidenceError(RuntimeError):
 
 
 def _digest(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+    text = path.read_text(encoding="utf-8")
+    canonical = text.replace("\r\n", "\n").replace("\r", "\n").encode("utf-8")
+    return hashlib.sha256(canonical).hexdigest()
 
 
 def _test_methods(path: Path) -> set[str]:

@@ -43,6 +43,12 @@ def _sha(value: Any) -> str:
     return hashlib.sha256(body).hexdigest()
 
 
+def _source_digest(path: Path) -> str:
+    text = path.read_text(encoding="utf-8")
+    canonical = text.replace("\r\n", "\n").replace("\r", "\n").encode("utf-8")
+    return hashlib.sha256(canonical).hexdigest()
+
+
 def _step(identifier: str, assertion: str, evidence: Any) -> dict[str, Any]:
     return {
         "id": identifier,
@@ -198,7 +204,7 @@ def run_drill() -> dict[str, Any]:
         "failed_count": 0,
         "tests": steps,
         "source_sha256": {
-            path: hashlib.sha256((ROOT / path).read_bytes()).hexdigest()
+            path: _source_digest(ROOT / path)
             for path in SOURCE_PATHS
         },
         "limitations": [

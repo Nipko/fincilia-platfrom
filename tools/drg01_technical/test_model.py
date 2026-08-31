@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import copy
+import tempfile
 import unittest
+from pathlib import Path
 
-from .model import build_evidence, load_evidence, validate_evidence
+from .model import _digest, build_evidence, load_evidence, validate_evidence
 
 
 class Drg01TechnicalEvidenceTests(unittest.TestCase):
@@ -33,6 +35,14 @@ class Drg01TechnicalEvidenceTests(unittest.TestCase):
         payload = copy.deepcopy(load_evidence())
         payload["real_data_authorized"] = True
         self.assertTrue(validate_evidence(payload))
+
+    def test_source_digest_is_platform_neutral(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            source = Path(temporary) / "source.py"
+            source.write_bytes(b"first\r\nsecond\r\n")
+            windows_digest = _digest(source)
+            source.write_bytes(b"first\nsecond\n")
+            self.assertEqual(windows_digest, _digest(source))
 
 
 if __name__ == "__main__":

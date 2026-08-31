@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import copy
+import tempfile
 import unittest
+from pathlib import Path
 
-from .drill import load_evidence, run_drill, validate_evidence
+from .drill import _source_digest, load_evidence, run_drill, validate_evidence
 
 
 class RightsIncidentDrillTests(unittest.TestCase):
@@ -31,6 +33,14 @@ class RightsIncidentDrillTests(unittest.TestCase):
         evidence = copy.deepcopy(load_evidence())
         evidence["real_data_authorized"] = True
         self.assertTrue(validate_evidence(evidence))
+
+    def test_source_digest_is_platform_neutral(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            source = Path(temporary) / "source.json"
+            source.write_bytes(b'{\r\n  "ok": true\r\n}\r\n')
+            windows_digest = _source_digest(source)
+            source.write_bytes(b'{\n  "ok": true\n}\n')
+            self.assertEqual(windows_digest, _source_digest(source))
 
 
 if __name__ == "__main__":
