@@ -4,7 +4,21 @@ test.describe('recorrido publico sin secretos', () => {
   test('la pagina de ingreso tiene formulario etiquetado y skip link funcional', async ({
     page,
   }) => {
-    await page.goto('/entrar');
+    const response = await page.goto('/entrar');
+
+    expect(response?.headers()).toMatchObject({
+      'x-content-type-options': 'nosniff',
+      'x-frame-options': 'DENY',
+      'referrer-policy': 'no-referrer',
+      'permissions-policy': 'camera=(), microphone=(), geolocation=(), payment=()',
+      'cross-origin-opener-policy': 'same-origin-allow-popups',
+      'cross-origin-resource-policy': 'same-origin',
+      'x-permitted-cross-domain-policies': 'none',
+    });
+    const contentSecurityPolicy = response?.headers()['content-security-policy'] ?? '';
+    expect(contentSecurityPolicy).toContain("object-src 'none'");
+    expect(contentSecurityPolicy).toContain("frame-src 'none'");
+    expect(contentSecurityPolicy).not.toContain("'unsafe-eval'");
 
     await expect(page.getByRole('heading', { level: 1, name: 'Fincilia' })).toBeVisible();
     await expect(page.getByLabel('Usuario')).toBeVisible();

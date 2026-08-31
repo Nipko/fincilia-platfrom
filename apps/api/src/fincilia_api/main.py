@@ -44,6 +44,14 @@ PROBLEM_MEDIA_TYPE = "application/problem+json"
 
 logger = logging.getLogger("fincilia.api")
 REQUEST_ID_HEADER = "X-Request-ID"
+SECURITY_HEADERS = {
+    "Cache-Control": "no-store",
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "no-referrer",
+    "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=()",
+    "Cross-Origin-Resource-Policy": "same-site",
+}
 
 
 def _problem_response(detail: ProblemDetail) -> JSONResponse:
@@ -139,6 +147,12 @@ def create_app(settings: ApiSettings | None = None,
                 response = await call_next(request)
                 status_code = response.status_code
                 response.headers[REQUEST_ID_HEADER] = request_id
+                for header, value in SECURITY_HEADERS.items():
+                    # Una descarga puede declarar una variante mas estricta
+                    # (`private, no-store`). Nunca se debilita sobrescribiendola.
+                    if header == "Cache-Control" and header in response.headers:
+                        continue
+                    response.headers[header] = value
                 return response
             finally:
                 route = request.scope.get("route")

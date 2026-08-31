@@ -220,6 +220,25 @@ class HealthTests(unittest.TestCase):
                 self.assertRegex(generated, r"^[0-9a-f]{32}$")
                 self.assertNotEqual(generated, transmitted)
 
+    def test_security_headers_cover_success_and_controlled_errors(self) -> None:
+        expected = {
+            "cache-control": "no-store",
+            "x-content-type-options": "nosniff",
+            "x-frame-options": "DENY",
+            "referrer-policy": "no-referrer",
+            "permissions-policy": "camera=(), microphone=(), geolocation=(), payment=()",
+            "cross-origin-resource-policy": "same-site",
+        }
+        api = client(self.all_up())
+        for path, status in (("/health/live", 200), ("/does-not-exist", 404)):
+            with self.subTest(path=path):
+                response = api.get(path)
+                self.assertEqual(status, response.status_code)
+                for header, value in expected.items():
+                    self.assertEqual(value, response.headers.get(header))
+                # TLS termina en el edge. Una API HTTP local no debe afirmar HSTS.
+                self.assertNotIn("strict-transport-security", response.headers)
+
     def test_health_exposes_non_secret_build_identity(self) -> None:
         settings = api_settings(
             build_revision="b" * 40, release_id="fnc-candidate-bbbbbbbbbbbb")

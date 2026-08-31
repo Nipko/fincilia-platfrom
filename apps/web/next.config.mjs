@@ -21,6 +21,13 @@ const nextConfig = {
           { key: 'Referrer-Policy', value: 'no-referrer' },
           { key: 'X-Frame-Options', value: 'DENY' },
           {
+            key: 'Permissions-Policy',
+            value: 'camera=(), microphone=(), geolocation=(), payment=()',
+          },
+          { key: 'Cross-Origin-Opener-Policy', value: 'same-origin-allow-popups' },
+          { key: 'Cross-Origin-Resource-Policy', value: 'same-origin' },
+          { key: 'X-Permitted-Cross-Domain-Policies', value: 'none' },
+          {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
@@ -28,6 +35,8 @@ const nextConfig = {
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data:",
               "connect-src 'self'",
+              "object-src 'none'",
+              "frame-src 'none'",
               "frame-ancestors 'none'",
               "form-action 'self'",
               "base-uri 'none'",
