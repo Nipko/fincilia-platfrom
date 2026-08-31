@@ -53,6 +53,21 @@ class LabTests(unittest.TestCase):
         self.assertEqual(0, receipt["active_object_count"])
         self.assertEqual([], self.lab.inventory.reconcile(self.root))
 
+    def test_durable_writes_preserve_exact_bytes_on_every_platform(self) -> None:
+        artifact = self.lab.intake(CSV, "movimientos.csv", self.grant, NOW)
+        quarantine = next((self.root / "quarantine").iterdir())
+        self.assertEqual(CSV, quarantine.read_bytes())
+
+        self.lab.inspect(artifact, "movimientos.csv", self.grant, NOW)
+        self.lab.backup(artifact, self.grant, NOW)
+        self.lab.destroy(self.grant, NOW)
+        for path in (
+            self.root / "archive" / "audit.ndjson",
+            self.root / "archive" / "delete-ledger.ndjson",
+            self.root / "control" / "inventory.ndjson",
+        ):
+            self.assertNotIn(b"\r\n", path.read_bytes())
+
     def test_sensitive_and_unscannable_content_never_reaches_evidence(self) -> None:
         pan = "4111" + "1111" + "1111" + "1111"
         artifact = self.lab.intake(

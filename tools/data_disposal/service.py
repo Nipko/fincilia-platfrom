@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import stat
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -13,6 +14,15 @@ from tools.corpus_inventory.ledger import HEX64, ZONES
 
 class DisposalError(RuntimeError):
     """La purga no puede demostrarse completa o la política no está vigente."""
+
+
+def _unlink(path: Path) -> None:
+    """Borra evidencia inmutable también cuando Windows aplica read-only."""
+    try:
+        path.unlink()
+    except PermissionError:
+        path.chmod(path.stat().st_mode | stat.S_IWUSR)
+        path.unlink()
 
 
 def _canonical(value: dict[str, Any]) -> bytes:
@@ -106,7 +116,9 @@ class TombstoneLedger:
         payload["tombstone_sha256"] = hashlib.sha256(_canonical(payload)).hexdigest()
         self.path.parent.mkdir(parents=True, exist_ok=True)
         descriptor = os.open(
-            self.path, os.O_APPEND | os.O_CREAT | os.O_WRONLY, 0o600,
+            self.path,
+            os.O_APPEND | os.O_CREAT | os.O_WRONLY | getattr(os, "O_BINARY", 0),
+            0o600,
         )
         try:
             os.write(descriptor, _canonical(payload) + b"\n")
@@ -166,7 +178,7 @@ class DisposalService:
         for reference in active_refs:
             path = self.root.joinpath(*reference.split("/"))
             if path.exists():
-                path.unlink()
+                _unlink(path)
                 removed += 1
         self.inventory.append(
             operation_ref=self._op("purge", artifact_ref),
@@ -205,7 +217,7 @@ class DisposalService:
             for reference in sorted(historical_refs):
                 path = self.root.joinpath(*reference.split("/"))
                 if path.exists():
-                    path.unlink()
+                    _unlink(path)
                     removed += 1
             snapshot = self.inventory.snapshot()
             if snapshot.artifact_states.get(tombstone["artifact_ref"]) == "purged":

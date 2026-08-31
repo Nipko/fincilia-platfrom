@@ -215,7 +215,8 @@ class InventoryLedger:
         self.snapshot([*existing, payload])
         self.path.parent.mkdir(parents=True, exist_ok=True)
         descriptor = os.open(
-            self.path, os.O_APPEND | os.O_CREAT | os.O_WRONLY,
+            self.path,
+            os.O_APPEND | os.O_CREAT | os.O_WRONLY | getattr(os, "O_BINARY", 0),
             0o600,
         )
         try:

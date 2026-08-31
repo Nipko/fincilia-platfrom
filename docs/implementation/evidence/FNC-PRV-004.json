@@ -1,6 +1,6 @@
 {
   "data_classification": "completely_synthetic",
-  "evidence_sha256": "33e595d4b065a80f112c9c4d610e5d1992952ee311a6919cd6a55d6d4c983def",
+  "evidence_sha256": "6cde7f5a1055db9bcb6f13d9e7ec27f75325c9e7d6fb7b141b96ba7d02e6df9c",
   "executed_at": "2026-08-31T02:10:00Z",
   "failed_count": 0,
   "limitations": [
@@ -17,9 +17,9 @@
   "source_sha256": {
     "docs/privacy/privacy-map.json": "b6bdd3427c3520730e045c580c66d5d3a20570f57fbf35d09f626844dd28fd70",
     "packages/contracts/python/fincilia_contracts/ingestion.py": "767bd65488e3eed6da63b7bdb6cb5bbf5fb9642aec257e5f5d086f1fb67f652d",
-    "tools/corpus_inventory/ledger.py": "e80156d2a7ad8a8e5c7f8de55f1d1219695e95f1ae8be40cfe98ab5faa159fe4",
-    "tools/data_disposal/service.py": "aa05bda4494a3d9a73f75e5cba180dc440afa1751eed5672c4708a9a54dda6fb",
-    "tools/drg00_lab/lab.py": "1e4139e3e6d7f9d2be80eeb7db4c27e735f077e74bdbb32dac0edb4829a675f2",
+    "tools/corpus_inventory/ledger.py": "4b8a198f14fc23bc033984a6b843d1b5a4430bc4c9a602b0f429b300ccef0249",
+    "tools/data_disposal/service.py": "66de1e191274d24ef44366a1e10902fc27ac57fe772080a45859855da54db6ff",
+    "tools/drg00_lab/lab.py": "90c10f6e917a086351fa431d3ef8cffb703df423256e1d489d25fd14abd36bce",
     "tools/rights_incident_drill/drill.py": "ebc2371877781167e7ba347d77ab61fd1404d7b9c97359c3c98e42fca1760454"
   },
   "task_id": "FNC-PRV-004",

@@ -4,6 +4,7 @@ import hashlib
 import json
 import os
 import shutil
+import stat
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -16,6 +17,14 @@ from tools.data_disposal import DisposalPolicy, DisposalService
 
 class LabError(RuntimeError):
     """La operación no puede demostrar que conserva el aislamiento."""
+
+
+def _unlink(path: Path) -> None:
+    try:
+        path.unlink()
+    except PermissionError:
+        path.chmod(path.stat().st_mode | stat.S_IWUSR)
+        path.unlink()
 
 
 def opaque(value: str) -> str:
@@ -134,7 +143,11 @@ class LabController:
         if set(payload) != self.AUDIT_FIELDS:
             raise LabError("audit fields drifted")
         path = self.root / "archive" / "audit.ndjson"
-        descriptor = os.open(path, os.O_APPEND | os.O_CREAT | os.O_WRONLY, 0o600)
+        descriptor = os.open(
+            path,
+            os.O_APPEND | os.O_CREAT | os.O_WRONLY | getattr(os, "O_BINARY", 0),
+            0o600,
+        )
         try:
             os.write(descriptor, _canonical(payload) + b"\n")
             os.fsync(descriptor)
@@ -162,7 +175,11 @@ class LabController:
         if destination.exists() and destination.read_bytes() != payload:
             raise LabError("content-addressed quarantine object diverged")
         if not destination.exists():
-            descriptor = os.open(destination, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+            descriptor = os.open(
+                destination,
+                os.O_CREAT | os.O_EXCL | os.O_WRONLY | getattr(os, "O_BINARY", 0),
+                0o600,
+            )
             try:
                 os.write(descriptor, payload)
                 os.fsync(descriptor)
@@ -310,7 +327,7 @@ class LabController:
         for zone in ("quarantine", "evidence", "derived", "backup", "scratch"):
             for path in (self.root / zone).iterdir():
                 if path.is_file():
-                    path.unlink()
+                    _unlink(path)
         drift = self.inventory.reconcile(self.root)
         if drift:
             raise LabError(f"destroy reconciliation drifted: {drift}")
