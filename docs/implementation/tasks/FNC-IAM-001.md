@@ -1,9 +1,11 @@
 ---
 id: FNC-IAM-001
 title: Inicio de sesión Google mediante IdP administrado
-status: in_progress
+status: review_pending
 implementer: Codex principal dev + Integration Steward
 base_sha: 93dac84
+implementation_shas: [3ec2893, 99c9445, 987778d]
+tested_sha: b099c64
 gate: DRG-00
 gate_effect: none
 data_ceiling: synthetic_only_until_gate
@@ -45,8 +47,8 @@ fuente de autorización financiera o activar OAuth real antes de DRG-00.
 - Handoff reproducible: `docs/implementation/handoffs/FNC-IAM-001.md`.
 - Runbook de dominio, branding, Google y doble callback:
   `docs/platform/GOOGLE_OAUTH_PUBLICATION.md`.
-- Estado: implementación lista para revisión; configuración externa, DRG-00 y
-  revisores independientes continúan pendientes.
+- Estado: implementación entregada a revisión; DRG-00 y revisores
+  independientes continúan pendientes.
 
 ## Evidencia externa R1 — 2026-08-30
 
@@ -59,3 +61,7 @@ fuente de autorización financiera o activar OAuth real antes de DRG-00.
   `No changes`. La comprobación directa observó solo Google como IdP.
 - La configuración externa deja de estar pendiente. La activación sigue cerrada
   por DRG-00, atestación KMS y revisión independiente.
+
+El estado `review_pending` describe únicamente el cierre técnico. No activa
+OIDC con datos reales, no supera DRG-00 y no convierte a `FOUNDER-01` en revisor
+independiente.

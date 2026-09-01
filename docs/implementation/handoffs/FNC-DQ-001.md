@@ -3,6 +3,7 @@ task: FNC-DQ-001
 status: REVIEW_PENDING
 base_sha: 0ac623c
 implementation_commits: [47fd260, 9e5bc04, 3d604e1, 317b0eb]
+tested_sha: b099c64efba1307ae2d93cf438be441f60003928
 data_ceiling: synthetic_only
 reviewers_pending: [Product/Accounting, Security, Backend/Architecture, Accessibility/QA]
 ---
@@ -24,6 +25,9 @@ fraude.
 - Web: typecheck y lint OK; 151 pruebas unitarias OK; build Next OK.
 - Navegador: 2 E2E chromium OK y 1 axe/WCAG automatizado OK.
 - `tools.work_graph.validate` y `tools.quality_gate.cli`: OK.
+- Revalidación de cierre: 7 contratos API en la imagen reproducible, 6 pruebas
+  web, TypeScript y lint focales verdes. El CI integral `33473978646` sobre
+  `b099c64` cubre PostgreSQL, Chromium y Axe sin regresión.
 
 # Limites conservados
 

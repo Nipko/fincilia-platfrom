@@ -3,6 +3,7 @@ id: FNC-IAM-001
 status: REVIEW_PENDING
 base_sha: 3ec2893
 integration_sha: 99c9445
+tested_sha: b099c64efba1307ae2d93cf438be441f60003928
 data_ceiling: synthetic_only_until_DRG-00
 author: Codex principal dev + Integration Steward
 independent_reviewers: [Security, Privacy/Legal, Architecture, QA]

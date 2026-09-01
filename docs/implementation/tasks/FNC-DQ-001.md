@@ -1,9 +1,11 @@
 ---
 id: FNC-DQ-001
 title: Centro de alertas de calidad y anomalias deterministas
-status: in_progress
+status: review_pending
 implementer: Codex principal dev + Integration Steward
 base_sha: 0ac623c
+implementation_shas: [47fd260, 9e5bc04, 3d604e1, 317b0eb]
+tested_sha: b099c64
 gate: S1-READY
 gate_effect: none
 data_ceiling: synthetic_only
@@ -34,3 +36,12 @@ auto-match, cierre ni reporte certificado.
 
 Rutas reservadas en `work-graph.json`. V0018 es solo local sintetica bajo
 `migration-tooling.local_build`; no acepta ADR-002, S1-READY ni ningun data gate.
+
+# Cierre técnico
+
+La implementación se entrega a revisión independiente. La verificación vigente
+incluye siete contratos API dentro de la imagen reproducible, seis pruebas web,
+TypeScript y lint focales; el CI integral `33473978646` ejerció además
+PostgreSQL, Chromium y Axe sobre `b099c64`. No quedan criterios de código
+abiertos. Product/Accounting, Security, Backend/Architecture y Accessibility/QA
+continúan pendientes y por eso el estado no es `done`.
