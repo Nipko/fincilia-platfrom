@@ -404,6 +404,16 @@
       "reason": "revocar una autoridad de plataforma con razon, actor y auditoria sin UPDATE directo, autorevocacion ni perdida del ultimo superadmin",
       "gate": "DB-G03",
       "human_review_state": "pending"
+    },
+    {
+      "function": "fincilia.platform_operational_diagnostics",
+      "owner_role": "fincilia_identity",
+      "granted_to": [
+        "fincilia_app"
+      ],
+      "reason": "producir exclusivamente conteos operativos agregados y allowlisted para diagnostico del plano de control, sin SELECT transversal ni datos financieros",
+      "gate": "DB-G03",
+      "human_review_state": "pending"
     }
   ]
 }

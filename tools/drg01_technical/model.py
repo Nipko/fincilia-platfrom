@@ -44,7 +44,7 @@ CONTROL_TESTS = {
         "db/tests/test_quarantine_before_raw.py": [
             "test_an_upload_always_lands_in_quarantine",
             "test_a_clean_csv_is_promoted_only_after_being_read_whole",
-            "test_a_pdf_never_reaches_raw",
+            "test_a_malformed_pdf_never_reaches_raw",
             "test_a_generic_zip_never_reaches_raw",
             "test_a_csv_with_a_card_stays_quarantined",
             "test_a_quarantined_file_never_feeds_a_profile",

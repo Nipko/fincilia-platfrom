@@ -572,6 +572,117 @@
         "Platform/SRE"
       ],
       "scope": "github_oidc_ecr_publication_only"
+    },
+    {
+      "blockers": [
+        "accounting_period_semantics_review",
+        "independent_accounting_database_security_review",
+        "DRG-00",
+        "DRG-01"
+      ],
+      "evidence": [
+        "docs/implementation/tasks/FNC-CLS-006.md",
+        "docs/adr/ADR-035-accounting-period-close.md",
+        "db/migrations/V0046__accounting_period_close.sql",
+        "docs/implementation/handoffs/FNC-CLS-006.md"
+      ],
+      "id": "ADR-035",
+      "owners": [
+        "Accounting",
+        "Architecture",
+        "Security"
+      ],
+      "path": "docs/adr/ADR-035-accounting-period-close.md",
+      "readiness": "blocked",
+      "reviewers": [
+        "Database",
+        "QA"
+      ],
+      "scope": "synthetic_accounting_period_close_only"
+    },
+    {
+      "blockers": [
+        "DRG-00",
+        "DRG-01",
+        "ocr_provider_region_retention_decisions",
+        "independent_security_privacy_data_qa_review"
+      ],
+      "evidence": [
+        "docs/implementation/tasks/FNC-ING-006.md",
+        "docs/adr/ADR-036-safe-pdf-ocr.md",
+        "db/migrations/V0047__pdf_origin_locator.sql",
+        "docs/implementation/handoffs/FNC-ING-006.md"
+      ],
+      "id": "ADR-036",
+      "owners": [
+        "Data",
+        "Security",
+        "Privacy"
+      ],
+      "path": "docs/adr/ADR-036-safe-pdf-ocr.md",
+      "readiness": "blocked",
+      "reviewers": [
+        "Architecture",
+        "QA"
+      ],
+      "scope": "safe_pdf_embedded_text_only"
+    },
+    {
+      "blockers": [
+        "DRG-00",
+        "DRG-01",
+        "notification_provider_and_sender_configuration",
+        "independent_privacy_security_platform_review"
+      ],
+      "evidence": [
+        "docs/implementation/tasks/FNC-NTF-001.md",
+        "docs/adr/ADR-037-notification-delivery.md",
+        "db/migrations/V0048__notification_intent_and_delivery.sql",
+        "db/migrations/V0049__notification_subject_isolation.sql",
+        "docs/implementation/handoffs/FNC-NTF-001.md"
+      ],
+      "id": "ADR-037",
+      "owners": [
+        "Product",
+        "Platform",
+        "Privacy"
+      ],
+      "path": "docs/adr/ADR-037-notification-delivery.md",
+      "readiness": "blocked",
+      "reviewers": [
+        "Security",
+        "QA"
+      ],
+      "scope": "notification_intent_and_synthetic_delivery_only"
+    },
+    {
+      "blockers": [
+        "DRG-00",
+        "DRG-01",
+        "GA-01",
+        "payment_provider_pricing_tax_decisions",
+        "independent_product_finance_security_review"
+      ],
+      "evidence": [
+        "docs/implementation/tasks/FNC-BIL-001.md",
+        "docs/adr/ADR-038-plans-entitlements-billing.md",
+        "db/migrations/V0050__plans_subscriptions_and_usage.sql",
+        "db/migrations/V0051__billing_fail_closed_guards.sql",
+        "docs/implementation/handoffs/FNC-BIL-001.md"
+      ],
+      "id": "ADR-038",
+      "owners": [
+        "Product",
+        "Finance",
+        "Security"
+      ],
+      "path": "docs/adr/ADR-038-plans-entitlements-billing.md",
+      "readiness": "blocked",
+      "reviewers": [
+        "Architecture",
+        "QA"
+      ],
+      "scope": "evaluation_catalog_entitlements_and_usage_only"
     }
   ],
   "agent_may_accept": false,

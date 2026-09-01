@@ -1,6 +1,6 @@
 {
   "data_classification": "completely_synthetic",
-  "evidence_sha256": "6cde7f5a1055db9bcb6f13d9e7ec27f75325c9e7d6fb7b141b96ba7d02e6df9c",
+  "evidence_sha256": "e174db767a4c890cf91d3863b15b103ddfd0e7ff60a63260ce02082f53969373",
   "executed_at": "2026-08-31T02:10:00Z",
   "failed_count": 0,
   "limitations": [
@@ -16,7 +16,7 @@
   "schema_version": "1.0.0",
   "source_sha256": {
     "docs/privacy/privacy-map.json": "b6bdd3427c3520730e045c580c66d5d3a20570f57fbf35d09f626844dd28fd70",
-    "packages/contracts/python/fincilia_contracts/ingestion.py": "767bd65488e3eed6da63b7bdb6cb5bbf5fb9642aec257e5f5d086f1fb67f652d",
+    "packages/contracts/python/fincilia_contracts/ingestion.py": "6ff01af42e9836bbf2aca37fbf268f599282cc1ad31e124d42c44feba4fd8d19",
     "tools/corpus_inventory/ledger.py": "4b8a198f14fc23bc033984a6b843d1b5a4430bc4c9a602b0f429b300ccef0249",
     "tools/data_disposal/service.py": "66de1e191274d24ef44366a1e10902fc27ac57fe772080a45859855da54db6ff",
     "tools/drg00_lab/lab.py": "90c10f6e917a086351fa431d3ef8cffb703df423256e1d489d25fd14abd36bce",

@@ -155,6 +155,7 @@ class MigrationTest(unittest.TestCase):
                     "fincilia.platform_admin_overview",
                     "fincilia.platform_admin_revoke_role",
                     "fincilia.platform_admin_set_subject_status",
+                    "fincilia.platform_operational_diagnostics",
                     "fincilia.platform_roles_for_current_subject",
                      "fincilia.record_overlay_application_run",
                      "fincilia.register_external_account_public",
