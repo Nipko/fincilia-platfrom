@@ -92,6 +92,16 @@ class ClosedBetaContractTests(unittest.TestCase):
             ('com.docker.compose.project', 'missing.compose.project'),
             ('latest_backup_and_restore', 'skip_backup_and_restore'),
             ('writers_are_stopped', 'assume_writers_stopped'),
+            ('--cancel CONFIRMATION_TOKEN', '--cancel-without-token'),
+            ('validate_plan_file', 'trust_plan_file'),
+            ('stat -c %U "$PLAN_FILE"', 'assume-plan-owner'),
+            ('stat -c %a "$PLAN_FILE"', 'assume-plan-mode'),
+            ('resume_writers_before_cut', 'leave_writers_stopped'),
+            ('trap resume_writers_before_cut ERR', 'trap - ERR'),
+            ('FAILURE_MARKER=/run/fincilia-uat-reset.recovery-required',
+             'FAILURE_MARKER=/run/unknown-reset-state'),
+            ('state=recovery_required', 'state=ready'),
+            ('restore the verified backup before reopening', 'restart partial plane'),
             ('docker volume rm "$PG_VOLUME" "$OBJECT_VOLUME"', 'docker volume prune'),
             ('reset-evidence/uat/', 'reset-evidence/unknown/'),
             ('"ssm:DeleteParameter"', '"ssm:GetParameter"'),
@@ -103,6 +113,19 @@ class ClosedBetaContractTests(unittest.TestCase):
                 self.assertIn(original, source)
                 errors = validate_sources(source.replace(original, replacement))
                 self.assertTrue(any(original in item for item in errors), errors)
+
+    def test_uat_reset_never_reopens_a_partial_post_cut_plane(self) -> None:
+        source = source_text()
+        marker = (
+            "printf 'UAT reset crossed the destructive cut and remains stopped; "
+            "restore the verified backup before reopening\\n' >&2"
+        )
+        self.assertIn(marker, source)
+        mutated = source.replace(
+            marker, marker + '\n  /opt/fincilia/up.sh >/dev/null 2>&1 || true', 1)
+        errors = validate_sources(mutated)
+        self.assertIn(
+            "reset UAT no puede reabrir automaticamente tras el corte", errors)
 
     def test_release_updates_preserve_the_instance_and_have_rollback(self) -> None:
         mutated = source_text().replace(

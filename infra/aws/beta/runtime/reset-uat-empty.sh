@@ -15,6 +15,7 @@ OBJECT_VOLUME=fincilia-beta_objectdata
 CADDY_DATA_VOLUME=fincilia-beta_caddy_data
 CADDY_CONFIG_VOLUME=fincilia-beta_caddy_config
 PLAN_FILE=/run/fincilia-uat-reset.plan
+FAILURE_MARKER=/run/fincilia-uat-reset.recovery-required
 TOKEN_TTL_SECONDS=900
 
 compose=(docker compose --env-file /opt/fincilia/runtime.env \
@@ -27,8 +28,39 @@ flock -n 9 || {
 }
 
 usage() {
-  printf 'usage: %s --plan | --execute CONFIRMATION_TOKEN\n' "$0" >&2
+  printf 'usage: %s --plan | --execute CONFIRMATION_TOKEN | --cancel CONFIRMATION_TOKEN\n' "$0" >&2
   exit 64
+}
+
+validate_plan_file() {
+  test -s "$PLAN_FILE"
+  test "$(stat -c %U "$PLAN_FILE")" = root
+  test "$(stat -c %a "$PLAN_FILE")" = 600
+  # El plan lo escribio root con valores de formato cerrado; nunca incorpora
+  # payloads de usuario ni nombres de recurso aportados por el cliente.
+  source "$PLAN_FILE"
+  [[ "$TOKEN_DIGEST" =~ ^[0-9a-f]{64}$ ]]
+  [[ "$EXPIRES_AT" =~ ^[0-9]{10}$ ]]
+  [[ "$BACKUP_KEY" =~ ^backups/beta/[0-9]{4}/[0-9]{2}/[0-9]{2}/[0-9TZ]+$ ]]
+  [[ "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]]
+  [[ "$PG_FINGERPRINT" =~ ^[0-9a-f]{64}$ ]]
+  [[ "$OBJECT_FINGERPRINT" =~ ^[0-9a-f]{64}$ ]]
+}
+
+token_matches_plan() {
+  test "$(printf '%s' "$1" | sha256sum | cut -d ' ' -f 1)" = "$TOKEN_DIGEST"
+}
+
+resume_writers_before_cut() {
+  local original_exit=$?
+  trap - ERR
+  if /opt/fincilia/up.sh >/dev/null 2>&1; then
+    rm -f "$PLAN_FILE"
+    printf 'UAT reset aborted before destructive cut; writers resumed\n' >&2
+  else
+    printf 'UAT reset aborted before destructive cut; writer recovery requires operator action\n' >&2
+  fi
+  exit "$original_exit"
 }
 
 verify_volume() {
@@ -139,12 +171,15 @@ trap cleanup EXIT
 case "${1:-}" in
   --plan)
     test "$#" -eq 1 || usage
+    test ! -e "$PLAN_FILE"
+    rm -f "$FAILURE_MARKER"
     test "${FINCILIA_REAL_DATA_ENABLED:-false}" = false
     test "$FINCILIA_BACKUP_PREFIX" = backups/beta
     verify_inventory
     backup_key="$(latest_backup_and_restore "$workdir" | tail -n 1)"
 
     # Congelar el plano de escritura solo despues de probar backup y restore.
+    trap resume_writers_before_cut ERR
     "${compose[@]}" stop caddy nginx web api worker >/dev/null
     if ! writers_are_stopped; then
       /opt/fincilia/up.sh >/dev/null 2>&1 || true
@@ -172,33 +207,47 @@ case "${1:-}" in
       "$CADDY_DATA_VOLUME" "$CADDY_CONFIG_VOLUME"
     printf 'backup_key=%s\nexpires_at_epoch=%s\nconfirmation_token=%s\n' \
       "$backup_key" "$expires_at" "$token"
+    trap - ERR
     exit 0
     ;;
   --execute)
     test "$#" -eq 2 || usage
-    test -s "$PLAN_FILE"
-    # El plan lo escribio root con valores de formato cerrado; nunca incorpora
-    # payloads de usuario ni nombres de recurso aportados por el cliente.
-    source "$PLAN_FILE"
-    [[ "$TOKEN_DIGEST" =~ ^[0-9a-f]{64}$ ]]
-    [[ "$EXPIRES_AT" =~ ^[0-9]{10}$ ]]
-    [[ "$BACKUP_KEY" =~ ^backups/beta/[0-9]{4}/[0-9]{2}/[0-9]{2}/[0-9TZ]+$ ]]
-    [[ "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]]
+    trap resume_writers_before_cut ERR
+    validate_plan_file
     test "$(date -u +%s)" -le "$EXPIRES_AT"
-    test "$(printf '%s' "$2" | sha256sum | cut -d ' ' -f 1)" = "$TOKEN_DIGEST"
+    token_matches_plan "$2"
     test "$FINCILIA_RELEASE_SHA" = "$RELEASE_SHA"
     verify_inventory
     test "$(volume_fingerprint "$PG_VOLUME")" = "$PG_FINGERPRINT"
     test "$(volume_fingerprint "$OBJECT_VOLUME")" = "$OBJECT_FINGERPRINT"
     writers_are_stopped
+    trap - ERR
+    ;;
+  --cancel)
+    test "$#" -eq 2 || usage
+    validate_plan_file
+    token_matches_plan "$2"
+    verify_inventory
+    test "$(volume_fingerprint "$PG_VOLUME")" = "$PG_FINGERPRINT"
+    test "$(volume_fingerprint "$OBJECT_VOLUME")" = "$OBJECT_FINGERPRINT"
+    /opt/fincilia/up.sh >/dev/null
+    rm -f "$PLAN_FILE"
+    printf 'UAT reset cancelled before destructive cut; writers resumed\n'
+    exit 0
     ;;
   *) usage ;;
 esac
 
 failed() {
+  local backup_digest
+  trap - ERR
+  backup_digest="$(printf '%s' "$BACKUP_KEY" | sha256sum | cut -d ' ' -f 1)"
   aws cloudwatch put-metric-data --namespace Fincilia/UAT \
     --metric-data MetricName=ResetSuccess,Value=0,Unit=Count || true
-  /opt/fincilia/up.sh >/dev/null 2>&1 || true
+  umask 077
+  printf 'environment=uat operation=replace_data_plane state=recovery_required release=%s backup_key_sha256=%s\n' \
+    "$RELEASE_SHA" "$backup_digest" > "$FAILURE_MARKER"
+  printf 'UAT reset crossed the destructive cut and remains stopped; restore the verified backup before reopening\n' >&2
 }
 trap failed ERR
 

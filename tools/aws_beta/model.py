@@ -124,6 +124,16 @@ def validate_sources(sources: str | None = None) -> list[str]:
         'com.docker.compose.volume',
         'latest_backup_and_restore',
         'writers_are_stopped',
+        '--cancel CONFIRMATION_TOKEN',
+        'validate_plan_file',
+        'stat -c %U "$PLAN_FILE"',
+        'stat -c %a "$PLAN_FILE"',
+        'resume_writers_before_cut',
+        'trap resume_writers_before_cut ERR',
+        'UAT reset aborted before destructive cut; writers resumed',
+        'FAILURE_MARKER=/run/fincilia-uat-reset.recovery-required',
+        'state=recovery_required',
+        'restore the verified backup before reopening',
         'docker volume rm "$PG_VOLUME" "$OBJECT_VOLUME"',
         'aws ssm delete-parameter --name "$FINCILIA_RUNTIME_PARAMETER"',
         '"ssm:DeleteParameter"',
@@ -163,6 +173,17 @@ def validate_sources(sources: str | None = None) -> list[str]:
     for token in forbidden:
         if token in sources:
             errors.append(f"fuente contiene patron prohibido: {token}")
+
+    failure_marker = 'FAILURE_MARKER=/run/fincilia-uat-reset.recovery-required'
+    marker_at = sources.find(failure_marker)
+    function_at = sources.find('failed() {', marker_at)
+    trap_at = sources.find('\n}\ntrap failed ERR', function_at)
+    if marker_at < 0 or function_at < 0 or trap_at < 0:
+        errors.append("reset UAT no delimita el manejo de fallo post-corte")
+    else:
+        post_cut_failure = sources[function_at:trap_at]
+        if '/opt/fincilia/up.sh' in post_cut_failure:
+            errors.append("reset UAT no puede reabrir automaticamente tras el corte")
 
     compose = (INFRA_ROOT / "runtime" / "compose.yaml.tftpl").read_text(encoding="utf-8")
     image_lines = [line.strip() for line in compose.splitlines() if line.strip().startswith("image:")]

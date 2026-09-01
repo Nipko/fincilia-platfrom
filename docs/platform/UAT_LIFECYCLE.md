@@ -27,6 +27,10 @@ La estrategia es reemplazar el plano de datos UAT, no recorrer tablas con
 3. Crear backup cifrado y completar un restore drill desechable.
 4. Generar un plan con allowlist exacta y un token de confirmación de máximo 15
    minutos. El plan debe fallar si aparece un patrón de producción.
+   Mientras el plan está armado los escritores permanecen congelados. El mismo
+   token permite cancelarlo incluso después de expirar y reanudar el plano sin
+   cruzar el corte destructivo. Cualquier error de validación previo al corte
+   invalida el plan y reanuda escritores; nunca deja un reset medio armado.
 5. Provisionar un plano UAT vacío y aislado, aplicar migraciones desde cero y
    ejecutar sondas de RLS, tenancy, almacenamiento y colas.
 6. Configurar de nuevo la referencia HMAC del correo Google del Founder. No se
@@ -36,6 +40,12 @@ La estrategia es reemplazar el plano de datos UAT, no recorrer tablas con
    que el nuevo plano esté sano y la evidencia esté guardada.
 8. Conservar un manifiesto digest-only de la operación; no conservar payloads,
    correos, documentos ni secretos dentro de la evidencia.
+
+Después de eliminar los volúmenes o rotar secretos ya no existe rollback por
+simple reinicio. Un fallo posterior a ese corte mantiene la superficie detenida,
+escribe un marcador digest-only `recovery_required` y exige restaurar el backup
+verificado antes de reabrir. Reiniciar automáticamente un plano parcial está
+prohibido.
 
 ## Controles de salida antes de producción
 

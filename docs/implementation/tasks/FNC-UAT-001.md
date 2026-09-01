@@ -32,3 +32,12 @@ ensayada para retirar cuentas/datos de prueba sin confundirla con despliegue.
 - Ejecutar un reset ahora.
 - Declarar producción o superar gates automáticamente.
 - Copiar cuentas de prueba a producción.
+
+# Ronda operativa R1
+
+Base `3fc23b4`. El ensayo previo al reset endurece la frontera del corte: plan y
+token con owner/modo verificados, cancelación autenticada, reanudación automática
+ante fallos predestructivos y estado `recovery_required` sin reapertura si el
+fallo ocurre después de reemplazar volúmenes o secretos. La ejecución pública
+continúa deshabilitada y la restauración automática post-corte sigue pendiente
+de un ensayo desechable.
