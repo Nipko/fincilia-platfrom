@@ -139,6 +139,26 @@ class ClosedBetaContractTests(unittest.TestCase):
         self.assertTrue(any("fincilia-beta-deploy.lock" in item
                             for item in errors))
 
+    def test_release_requires_pinned_images_fresh_recovery_and_public_smoke(self) -> None:
+        source = source_text()
+        mutations = (
+            ('validate_staged_compose', 'trust-staged-compose'),
+            ('fincilia/t0/{component}@sha256:', 'floating-image:'),
+            ('require_recent_object', 'assume-recovery-evidence'),
+            ("'manifest.sha256' 93600 'backup'", "'manifest.sha256' 999999 'backup'"),
+            ("'.json' 691200 'restore-check'", "'.json' 9999999 'restore-check'"),
+            ('public_https_smoke', 'skip-public-smoke'),
+            ('FINCILIA_UAT_DOMAIN=', 'UNBOUNDED_PUBLIC_DOMAIN='),
+            ('deployment-evidence/uat/', 'deployment-evidence/unknown/'),
+            ('"deployment-evidence/uat/*"', '"deployment-evidence/unknown/*"'),
+            ('"public_https_smoke":true', '"public_https_smoke":false'),
+        )
+        for original, replacement in mutations:
+            with self.subTest(original=original):
+                self.assertIn(original, source)
+                errors = validate_sources(source.replace(original, replacement))
+                self.assertTrue(any(original in item for item in errors), errors)
+
     def test_restore_waits_for_the_final_database_not_pg_isready(self) -> None:
         mutated = source_text().replace(
             "psql -U postgres -d fincilia_restore",

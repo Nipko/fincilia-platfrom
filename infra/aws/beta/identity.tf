@@ -38,6 +38,7 @@ data "aws_iam_policy_document" "beta" {
         "${local.backup_prefix}/*",
         "restore-checks/beta/*",
         "reset-evidence/uat/*",
+        "deployment-evidence/uat/*",
       ]
     }
   }
@@ -60,6 +61,7 @@ data "aws_iam_policy_document" "beta" {
       "arn:aws:s3:::${data.terraform_remote_state.t0.outputs.object_bucket_name}/${local.backup_prefix}/*",
       "arn:aws:s3:::${data.terraform_remote_state.t0.outputs.object_bucket_name}/restore-checks/beta/*",
       "arn:aws:s3:::${data.terraform_remote_state.t0.outputs.object_bucket_name}/reset-evidence/uat/*",
+      "arn:aws:s3:::${data.terraform_remote_state.t0.outputs.object_bucket_name}/deployment-evidence/uat/*",
     ]
   }
 

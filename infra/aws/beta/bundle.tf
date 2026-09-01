@@ -14,6 +14,7 @@ locals {
     FINCILIA_RELEASE_SHA=${var.release_sha}
     FINCILIA_REGISTRY=${local.registry}
     FINCILIA_RUNTIME_PARAMETER=/fincilia/closed-beta/runtime-env-v1
+    FINCILIA_UAT_DOMAIN=${var.beta_domain}
   EOT
 
   bundle_files = {

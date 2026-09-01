@@ -96,6 +96,16 @@ before testers publish canonical datasets.
 No friend receives an invitation until Security, Platform, Privacy/Legal and QA
 have independently reviewed this evidence.
 
+## Actualización de release UAT
+
+El bundle nuevo se acepta únicamente si sus tres imágenes de aplicación apuntan
+al ECR T0 por digest, mantiene datos reales, IA externa y OIDC apagados, y existe
+un backup menor a 26 horas con restore-check menor a ocho días. Tras el reinicio,
+`deploy-release.sh` comprueba `https://<dominio>/entrar` y guarda evidencia
+minimizada bajo `deployment-evidence/uat/<release_sha>/`. Un fallo de arranque,
+HTTPS, temporizadores o persistencia de evidencia restaura los archivos del
+release anterior y registra la métrica de fallo.
+
 ## Incident and rollback
 
 For an application fault, keep the EIP and restore the previous release bundle

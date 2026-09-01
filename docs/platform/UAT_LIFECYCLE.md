@@ -9,6 +9,13 @@ DNS o una variable no convierte UAT en producción.
 El techo de datos vigente continúa definido por `CURRENT_PHASE.md` y los gates
 DRG-00/DRG-01. Nombrar el entorno UAT no autoriza documentos financieros reales.
 
+Cada actualización in-place comprueba además que API, web y worker vienen del
+ECR T0 por digest, conserva datos reales, IA externa y Google OIDC apagados hasta
+DRG-00, y exige un backup menor a 26 horas y un restore-check menor a ocho días.
+El reinicio solo se declara exitoso después de responder por HTTPS en
+`/entrar`; entonces persiste evidencia minimizada bajo
+`deployment-evidence/uat/<release_sha>/`. Si falla, restaura el bundle anterior.
+
 ## Promoción
 
 La unidad de promoción es el digest inmutable del artefacto que superó UAT,
