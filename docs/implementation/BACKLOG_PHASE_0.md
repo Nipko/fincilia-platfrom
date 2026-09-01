@@ -165,7 +165,7 @@ dependencias de `FNC-GAT-002` ni afirmar que Sprint 1 está habilitado.
 | FNC-IAM-003 | A2/A3/A6 | IAM-001, IAM-002, PLT-012 | Review pending | Logout federado, SignUp nativo cerrado y contrato de assurance Google sin sobreafirmar MFA |
 | FNC-IAM-004 | A2/A3/A6 | IAM-001, IAM-002, IAM-003, ONB-001, LEG-002 | Review pending | Alta pública Google sin invitaciones, login no creador, aceptación legal versionada y firma/owner atómicos; activación externa y revisión independiente pendientes |
 | FNC-ADM-001 | A2/A3/A5/A6 | IAM-004, SEC-001, AUD-001 | Review pending | Superadmin inicial y plano de control separados de roles/datos financieros; PostgreSQL, API, web y consola local verificados |
-| FNC-UAT-001 | A2/A3/A4/A5 | ADM-001, REL-001, SUP-002 | In progress | Promoción por digest sin datos, producción separada y reset UAT por reemplazo; ensayo desechable y revisiones pendientes |
+| FNC-UAT-001 | A2/A3/A4/A5 | ADM-001, REL-001, SUP-002 | In progress | `b099c64` probado y firmado sin publicar; deploy UAT por digest exige backup/restore fresco, smoke público, evidencia y rollback; reset público, ensayo desechable y revisiones pendientes |
 | FNC-UAT-002 | A2/A3/A5/A6 | UAT-001, QA-009, ONB-002 | Review pending | Dos corridas desde esquema vacío y regresión completa en runtimes desechables; cleanup exacto verificado |
 | FNC-ADM-002 | A2/A3/A6 | ADM-001, SEC-001 | Review pending | V0052, ACL, API y consola de diagnóstico agregado probadas; sin nombres, IDs, documentos, importes ni acceso financiero transversal |
 | FNC-ACC-001 | A4/A5/A6 | ING-005, REC-006, CLS-005, RPT-001 | Review pending | Recorrido contable web guiado sin cambiar semántica ni ejecutar cierre |

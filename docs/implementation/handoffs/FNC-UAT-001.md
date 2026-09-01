@@ -2,7 +2,7 @@
 id: FNC-UAT-001
 status: IN_PROGRESS
 base_sha: 501f65415182bed42494e66abe0ddac75ef38747
-implementation_sha: 90f833fba83b876cd5a4b0a736876c85b9e0911d
+implementation_sha: b099c64efba1307ae2d93cf438be441f60003928
 integration_sha: 9ba610f75f327967382653c7306cc0f36f7ecc6e
 data_ceiling: current_gate_remains_authoritative
 ---
@@ -29,16 +29,34 @@ mutación demuestran que el contrato rechaza compartir estado, convertir UAT en
 producción, copiar cuentas/base, reset in-place, botón web, token de más de 15
 minutos, ausencia de restore drill, copia del superadmin o activación prematura.
 
+La ronda R2 añade evidencia ejecutada sobre
+`b099c64efba1307ae2d93cf438be441f60003928`:
+
+- CI `33473978646`, completo y verde, incluido PostgreSQL real, Chromium y WCAG;
+- candidato no publicado `33474841341`, completo y verde;
+- bundle determinista, SBOM SPDX y procedencia SLSA firmados por OIDC y
+  verificados contra fuente, ref y workflow exactos;
+- validador técnico DRG-01 con 90 casos, cero errores y el techo sintético
+  intacto;
+- readiness válido, 14 blockers visibles y datos reales no autorizados.
+
+El despliegue quedó endurecido para aceptar sólo imágenes T0 por digest, flags
+de UAT sintético cerrados, backup menor de 26 horas y restore-check menor de
+ocho días. Después de reiniciar exige HTTPS público sano y persiste evidencia
+minimizada en `deployment-evidence/uat/<sha>/`; cualquier fallo restaura el
+bundle anterior.
+
 ## Pendiente para cerrar la tarea
 
-1. Provisionar un entorno desechable que replique la topología UAT.
-2. Ejecutar freeze, backup, restore drill, reemplazo, migración, bootstrap y
-   smoke test con datos completamente sintéticos.
-3. Persistir evidencia digest-only y demostrar que ningún objetivo de
-   producción estuvo en el plan.
-4. Obtener revisiones Security, Privacy/Legal, Architecture/Database, SRE y QA.
-5. Solo después habilitar la operación para UAT público. No se ejecutó reset en
-   este lote.
+1. Renovar la sesión temporal AWS y comprobar cuenta/región antes de cualquier
+   plan o escritura.
+2. Crear backup y restore-check frescos, publicar las tres imágenes T0 por
+   digest y aplicar únicamente el delta del bundle de la release.
+3. Ejecutar el despliegue in-place y conservar su evidencia; no ejecutar el
+   reset público, que continúa deshabilitado hasta ensayo desechable y revisión.
+4. Ensayar freeze, reemplazo, migración, bootstrap y recuperación en una
+   topología desechable con datos completamente sintéticos.
+5. Obtener revisiones Security, Privacy/Legal, Architecture/Database, SRE y QA.
 
 ## Rollback
 
