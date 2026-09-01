@@ -1,9 +1,11 @@
 ---
 id: FNC-ONB-002
 title: Registro autoservicio y primer espacio desde la web
-status: in_progress
+status: review_pending
 implementer: Codex principal dev + Integration Steward
 base_sha: f604c84
+implementation_shas: [f3bbd4b, f4e553c, 93dac84]
+tested_sha: b099c64
 gate: S1-READY
 gate_effect: none
 data_ceiling: synthetic_only
@@ -57,3 +59,12 @@ En esta rebanada histórica quedaron fuera autorregistro Cognito, correo real,
 OAuth social y aceptación legal. FNC-IAM-004 los sustituye para el recorrido
 Google definitivo sin contraseñas propias. Cobro, datos reales y mover
 DRG-00/DRG-01 continúan fuera de alcance.
+
+# Cierre técnico
+
+El recorrido histórico queda cerrado para el laboratorio sintético local y se
+entrega a revisión independiente. Cinco contratos API y dos pruebas focales de
+acciones web pasaron en la revalidación; el CI integral `33473978646` sobre
+`b099c64` cubre además esquema vacío, PostgreSQL, Chromium y Axe. El acceso
+público final no reutiliza contraseñas locales: FNC-IAM-004 lo sustituye por
+Google/Cognito y aceptación legal versionada.
