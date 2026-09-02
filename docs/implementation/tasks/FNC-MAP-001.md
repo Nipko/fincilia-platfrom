@@ -1,7 +1,7 @@
 ---
 id: FNC-MAP-001
 title: Integridad de fuente entre evidencia y plantilla de mapeo
-status: in_progress
+status: review_pending
 implementer: Codex principal dev + Integration Steward
 base_sha: 1ce4e4c87e456d2c178d7b0d94c2ec3c36e8301e
 gate: S1-READY

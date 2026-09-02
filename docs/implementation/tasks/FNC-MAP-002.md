@@ -1,7 +1,7 @@
 ---
 id: FNC-MAP-002
 title: Inmutabilidad y transiciones cerradas de versiones de mapeo
-status: in_progress
+status: review_pending
 implementer: Codex principal dev + Integration Steward
 base_sha: 6ff14cc
 gate: S1-READY
