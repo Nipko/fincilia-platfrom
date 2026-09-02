@@ -303,6 +303,10 @@ def create_mapping(connection: psycopg.Connection, *, company_id: str,
                 "fk_mapping_source", "fk_mapping_version_artifact"}:
             raise MappingReferenceRefused from None
         raise
+    except psycopg.errors.CheckViolation as error:
+        if error.diag.constraint_name == "ck_mapping_artifact_source":
+            raise MappingReferenceRefused from None
+        raise
     return {"mapping_id": mapping_id, "mapping_version_id": version_id,
             "version_number": 1, "state": "draft"}
 
@@ -441,6 +445,10 @@ def create_mapping_version(connection: psycopg.Connection, *, company_id: str,
                 version_id = str(cursor.fetchone()[0])
     except psycopg.errors.ForeignKeyViolation as error:
         if error.diag.constraint_name == "fk_mapping_version_artifact":
+            raise MappingReferenceRefused from None
+        raise
+    except psycopg.errors.CheckViolation as error:
+        if error.diag.constraint_name == "ck_mapping_artifact_source":
             raise MappingReferenceRefused from None
         raise
     return {"mapping_id": mapping_id, "mapping_version_id": version_id,

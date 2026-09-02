@@ -390,12 +390,13 @@ class VerticalHarness(unittest.TestCase):
         finally:
             database.close()
 
-    def promoted(self, payload: bytes, filename: str) -> str:
+    def promoted(self, payload: bytes, filename: str, *,
+                 data_source_id: str = SOURCE) -> str:
         """Sube un fichero y lo lleva hasta la zona de evidencia, ya extraido."""
         type(self).created.add(sha256_bytes(payload))
         response = self.client.post(
             f"/api/v1/companies/{ESPIGA}/documents", headers=self.auth(PREPARER),
-            params={"data_source_id": SOURCE},
+            params={"data_source_id": data_source_id},
             files={"file": (filename, io.BytesIO(payload), "application/octet-stream")})
         self.assertEqual(200, response.status_code, response.text)
         artifact_id = response.json()["artifact_id"]

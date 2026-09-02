@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import json
 import uuid
 
 import psycopg
 
+from db.seed.local import stable_id
 from db.tests.test_api_authorization import MIGRATOR_DSN
+from db.tests.test_api_authorization import RUNTIME_DSN
 from db.tests.test_p3_vertical import (
     ACCOUNT,
     ANDINOS,
@@ -85,7 +88,8 @@ class ReconciliationCandidateTests(VerticalHarness):
 
     def dataset(self, rows: list[tuple[str, str, str, str]], *, marker: str,
                 source: str, account: str, currency: str = "COP") -> str:
-        artifact = self.promoted(csv(rows), f"{marker}.csv")
+        artifact = self.promoted(
+            csv(rows), f"{marker}.csv", data_source_id=source)
         mapping = self.create_mapping(
             artifact, definition={**MAPPING, "currency": currency},
             data_source_id=source,
@@ -102,6 +106,67 @@ class ReconciliationCandidateTests(VerticalHarness):
                   "financial_account_id": account})
         self.assertEqual(201, prepared.status_code, prepared.text)
         return prepared.json()["dataset_version_id"]
+
+    def test_mapping_versions_cannot_relabel_artifact_source(self) -> None:
+        other_source, _ = self.second_channel()
+        payload = csv([
+            ("13/02/2026", "Origen declarado", "REF-SOURCE", "-10,00"),
+        ])
+        artifact = self.promoted(
+            payload, "source-guard.csv", data_source_id=SOURCE)
+
+        refused_name = f"source-refused-{uuid.uuid4().hex[:8]}"
+        refused = self.create_mapping(
+            artifact, data_source_id=other_source, display_name=refused_name)
+        self.assertEqual(403, refused.status_code, refused.text)
+        self.assertEqual("forbidden", refused.json()["type"].rsplit("/", 1)[-1])
+        self.assertEqual((0, 0), self.mapping_row_counts(refused_name))
+
+        # Evitar la API tampoco permite reinterpretar la procedencia. La
+        # transaccion completa se revierte, incluida la plantilla provisional.
+        bypass_name = f"source-bypass-{uuid.uuid4().hex[:8]}"
+        with psycopg.connect(RUNTIME_DSN, autocommit=False) as connection:
+            with self.assertRaises(psycopg.errors.CheckViolation) as raised:
+                with connection.transaction():
+                    with connection.cursor() as cursor:
+                        cursor.execute(
+                            "SELECT set_config('fincilia.company_id', %s, true)",
+                            (ESPIGA,))
+                        cursor.execute(
+                            "SELECT set_config('fincilia.subject_id', %s, true)",
+                            (stable_id("subject", "ana"),))
+                        cursor.execute(
+                            "INSERT INTO fincilia.column_mapping "
+                            "(company_id, data_source_id, display_name, created_by) "
+                            "VALUES (%s, %s, %s, %s) RETURNING mapping_id",
+                            (ESPIGA, other_source, bypass_name,
+                             stable_id("subject", "ana")))
+                        mapping_id = str(cursor.fetchone()[0])
+                        cursor.execute(
+                            "INSERT INTO fincilia.column_mapping_version "
+                            "(company_id, mapping_id, version_number, artifact_id, "
+                            " definition, definition_digest, source_schema_digest, "
+                            " created_by) VALUES (%s, %s, 1, %s, %s::jsonb, %s, %s, %s)",
+                            (ESPIGA, mapping_id, artifact, json.dumps(MAPPING),
+                             "0" * 64, "1" * 64,
+                             stable_id("subject", "ana")))
+        self.assertEqual(
+            "ck_mapping_artifact_source", raised.exception.diag.constraint_name)
+        self.assertEqual((0, 0), self.mapping_row_counts(bypass_name))
+
+        template_name = f"source-template-{uuid.uuid4().hex[:8]}"
+        original = self.create_mapping(
+            artifact, data_source_id=SOURCE, display_name=template_name)
+        self.assertEqual(201, original.status_code, original.text)
+        other_artifact = self.promoted(
+            payload, "source-guard-other.csv", data_source_id=other_source)
+        reused = self.client.post(
+            f"/api/v1/companies/{ESPIGA}/mapping-templates/"
+            f"{original.json()['mapping_id']}/versions",
+            headers=self.auth(PREPARER),
+            json={**MAPPING, "artifact_id": other_artifact})
+        self.assertEqual(403, reused.status_code, reused.text)
+        self.assertEqual((1, 1), self.mapping_row_counts(template_name))
 
     def test_exact_candidates_are_explained_paginated_and_many_to_many(self) -> None:
         source, account = self.second_channel()
