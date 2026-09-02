@@ -134,7 +134,7 @@ dependencias de `FNC-GAT-002` ni afirmar que Sprint 1 está habilitado.
 | FNC-QA-010 | A5/A6 | QA-009, SUP-001, SEC-004, SEC-005, LIN-001 | Review pending | CI de main verde y reproducible: suites PostgreSQL aisladas, fixture E2E explicita, inventario ACL completo y monitoreo de dependencias sin entradas ficticias |
 | FNC-REC-001 | A5/A6 | DOM-003, DOM-004, WEB-003, QA-006 | Review pending | Exploración sintética read-only de candidatos explicados; sin decisión, auto-match ni cierre |
 | FNC-REC-002 | A5/A6 | REC-001, DOM-004, SEC-001 | Review pending | Propuesta y decisión humana append-only, con SoD e idempotencia; sin efecto financiero ni cierre |
-| FNC-REC-003 | A5/A6 | REC-002, WEB-003 | Review pending | Bandeja multiempresa company-by-company para priorizar revisiones sin agregar importes ni decidir fuera del expediente |
+| FNC-REC-003 | A5/A6 | REC-002, WEB-003 | Review pending | R2 company-by-company: empresa, paginacion, prioridad y retorno cerrado; sin agregar importes ni decidir fuera del expediente |
 | FNC-REC-004 | A5/A6 | REC-002, REC-003 | Review pending | Exclusividad uno-a-uno de confirmaciones bajo concurrencia, sin efecto financiero ni cierre |
 | FNC-REC-005 | A5/A6 | REC-004, DOM-003, DOM-005 | Review pending | Borradores manuales 1:N/N:1 de movimientos completos, append-only, idempotentes y sin asignaciones ni efecto financiero; revisión independiente pendiente |
 | FNC-REC-006 | A5/A6 | REC-002, REC-003 | Review pending | Expediente append-only consultable por ID estable aunque su dataset ya no sea elegible o el candidato no esté en la página visible; revisión independiente pendiente |

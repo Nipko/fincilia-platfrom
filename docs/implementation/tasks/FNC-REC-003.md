@@ -78,3 +78,22 @@ ruta `/revisiones`; no toca propuestas, decisiones ni auditoria existentes.
 - AC-01..AC-08 con evidencia reproducible y commits incrementales.
 - Sin migracion ni efecto financiero; ADR-027 permanece Proposed.
 - Rutas liberadas, handoff `REVIEW_PENDING` y CI verde.
+
+# Ronda R2 — productividad y continuidad de la bandeja
+
+Base: `796b62d46c34676b32df47b072cd08628915ff2c`. La ronda conserva el mismo
+alcance y agrega los siguientes criterios sin modificar el ledger ni la API:
+
+- **AC-R2-01.** El usuario filtra por una empresa autorizada o por todo su
+  portafolio; un ID desconocido, repetido o una pagina invalida falla cerrado y
+  nunca se convierte silenciosamente en todas las empresas.
+- **AC-R2-02.** Una empresa seleccionada pagina de 50 en 50 hasta offset 10000,
+  conservando estado y empresa en cada enlace. La vista multiempresa no simula
+  una paginacion global: ante truncamiento exige elegir empresa.
+- **AC-R2-03.** La carga visible se resume por empresa sin importes ni saldos y
+  el siguiente pendiente es siempre el expediente visible mas antiguo.
+- **AC-R2-04.** Abrir un expediente incorpora exclusivamente un contexto de
+  retorno cerrado (`estado`, empresa actual o `todas`, pagina acotada). No se
+  acepta una URL de retorno arbitraria ni una empresa distinta.
+- **AC-R2-05.** Chromium recorre filtro, expediente y retorno; Axe no reporta
+  violaciones en la bandeja seleccionada y el laboratorio efimero queda limpio.
