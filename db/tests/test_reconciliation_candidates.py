@@ -190,6 +190,9 @@ class ReconciliationCandidateTests(VerticalHarness):
         with psycopg.connect(MIGRATOR_DSN) as connection:
             with connection.cursor() as cursor:
                 cursor.execute(
+                    "SELECT set_config('fincilia.company_id', %s, false)",
+                    (ESPIGA,))
+                cursor.execute(
                     "SELECT artifact_id FROM fincilia.column_mapping_version "
                     "WHERE mapping_version_id = %s",
                     (original.json()["mapping_version_id"],))
