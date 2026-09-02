@@ -6,8 +6,10 @@ import {
   formatExactMoney,
   reconciliationReviewUrl,
   reconciliationUrl,
+  reviewInboxReturnUrl,
   selectReconciliation,
   selectReconciliationReview,
+  selectReviewInboxReturn,
 } from '../reconciliation';
 
 describe('selectReconciliation', () => {
@@ -84,6 +86,18 @@ describe('reconciliationUrl', () => {
       `revision=${candidate}#revision-${candidate}`,
     );
   });
+
+  it('adjunta un retorno cerrado a la bandeja sin aceptar una URL arbitraria', () => {
+    const candidate = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+    expect(reconciliationReviewUrl('company', {
+      leftDatasetId: 'left', rightDatasetId: 'right', maxDays: 3,
+      referenceMode: 'all', page: 0,
+    }, candidate, { filter: 'abiertas', companyId: 'company', page: 2 }))
+      .toContain(
+        '&revision=cccccccc-cccc-4ccc-8ccc-cccccccccccc&' +
+        'bandeja_estado=abiertas&bandeja_empresa=company&bandeja_pagina=2#',
+      );
+  });
 });
 
 describe('selectReconciliationReview', () => {
@@ -99,6 +113,29 @@ describe('selectReconciliationReview', () => {
       .toBe(false);
     expect(selectReconciliationReview({ revision: 'not-a-uuid' }).valid)
       .toBe(false);
+  });
+});
+
+describe('retorno a la bandeja', () => {
+  it('acepta solo filtros, empresa actual y pagina acotada', () => {
+    expect(selectReviewInboxReturn({
+      bandeja_estado: 'rechazadas', bandeja_empresa: 'company', bandeja_pagina: '4',
+    }, 'company')).toEqual({
+      requested: true, valid: true, filter: 'rechazadas', companyId: 'company', page: 4,
+    });
+    expect(reviewInboxReturnUrl({
+      filter: 'rechazadas', companyId: 'company', page: 4,
+    })).toBe('/revisiones?estado=rechazadas&empresa=company&pagina=4');
+  });
+
+  it.each([
+    { bandeja_estado: 'automaticas', bandeja_empresa: 'company' },
+    { bandeja_estado: 'abiertas', bandeja_empresa: 'otra' },
+    { bandeja_estado: ['abiertas'], bandeja_empresa: 'company' },
+    { bandeja_estado: 'abiertas', bandeja_empresa: 'todas', bandeja_pagina: '1' },
+    { bandeja_estado: 'abiertas', bandeja_empresa: 'company', bandeja_pagina: '201' },
+  ])('rechaza contexto manipulado: %o', (query) => {
+    expect(selectReviewInboxReturn(query, 'company').valid).toBe(false);
   });
 });
 

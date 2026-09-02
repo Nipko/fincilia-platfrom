@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
+import { PageState } from '@/components/page-state';
 import { SignOut } from '@/app/empresas/sign-out';
 import { ApiError, fetchMe, type MatchReview } from '@/lib/api';
 import { reconciliationReviewUrl } from '@/lib/reconciliation';
@@ -8,8 +9,12 @@ import {
   formatReviewTimestamp,
   loadReviewInbox,
   parseReviewFilter,
+  parseReviewSelection,
+  REVIEW_PAGE_SIZE,
+  reviewInboxUrl,
   sortedReviewEntries,
   type ReviewInboxFilter,
+  type ReviewInboxSelection,
 } from '@/lib/review-inbox';
 import { readSession } from '@/lib/session';
 
@@ -39,14 +44,23 @@ const SIGNAL_LABELS: Record<string, string> = {
   same_normalised_reference: 'Referencia coincidente',
 };
 
-function expedienteUrl(companyId: string, review: MatchReview): string {
+function expedienteUrl(
+  companyId: string,
+  review: MatchReview,
+  filter: ReviewInboxFilter,
+  selection: ReviewInboxSelection,
+): string {
   return reconciliationReviewUrl(companyId, {
     leftDatasetId: review.left_dataset_id,
     rightDatasetId: review.right_dataset_id,
     maxDays: review.date_window_days,
     referenceMode: 'all',
     page: 0,
-  }, review.candidate_id);
+  }, review.candidate_id, {
+    filter,
+    companyId: selection.companyId,
+    page: selection.page,
+  });
 }
 
 export default async function ReviewsPage({
@@ -56,7 +70,8 @@ export default async function ReviewsPage({
 }) {
   const session = await readSession();
   if (!session) redirect('/entrar');
-  const filter = parseReviewFilter((await searchParams).estado);
+  const query = await searchParams;
+  const filter = parseReviewFilter(query.estado);
 
   let me;
   try {
@@ -66,16 +81,31 @@ export default async function ReviewsPage({
     throw error;
   }
 
-  let snapshots;
-  try {
-    snapshots = await loadReviewInbox(session.token, me.companies, filter);
-  } catch (error) {
-    if (error instanceof ApiError && error.status === 401) redirect('/entrar');
-    throw error;
+  const selection = parseReviewSelection(query, me.companies);
+  const selectedCompanies = selection.valid
+    ? selection.companyId
+      ? me.companies.filter((company) => company.company_id === selection.companyId)
+      : me.companies
+    : [];
+  let snapshots: Awaited<ReturnType<typeof loadReviewInbox>> = [];
+  if (selection.valid) {
+    try {
+      snapshots = await loadReviewInbox(
+        session.token,
+        selectedCompanies,
+        filter,
+        selection.page * REVIEW_PAGE_SIZE,
+        REVIEW_PAGE_SIZE,
+      );
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401) redirect('/entrar');
+      throw error;
+    }
   }
   const entries = sortedReviewEntries(snapshots);
   const incomplete = snapshots.filter((item) => item.access !== 'available');
   const truncated = snapshots.filter((item) => item.truncated);
+  const nextPending = selection.valid && filter === 'abiertas' ? entries[0] : undefined;
 
   return (
     <main>
@@ -95,35 +125,92 @@ export default async function ReviewsPage({
 
       <nav className="review-inbox-filters" aria-label="Filtrar revisiones">
         {(Object.keys(FILTER_LABELS) as ReviewInboxFilter[]).map((item) => (
-          <Link key={item} href={`/revisiones?estado=${item}`}
+          <Link key={item} href={reviewInboxUrl(item, selection.companyId)}
             aria-current={filter === item ? 'page' : undefined}>
             {FILTER_LABELS[item]}
           </Link>
         ))}
       </nav>
 
-      {incomplete.length ? (
+      <form className="card operations-company-filter review-company-filter" method="get">
+        <input type="hidden" name="estado" value={filter} />
+        <label htmlFor="review-company">Empresa</label>
+        <select id="review-company" name="empresa"
+          defaultValue={selection.companyId ?? 'todas'}>
+          <option value="todas">Todas las empresas autorizadas</option>
+          {me.companies.map((company) => (
+            <option value={company.company_id} key={company.company_id}>
+              {company.legal_name}
+            </option>
+          ))}
+        </select>
+        <button type="submit">Aplicar empresa</button>
+      </form>
+
+      {!selection.valid ? (
+        <PageState
+          kind="degraded"
+          title="El filtro de empresa o pagina no es valido"
+          description="La bandeja no amplio el alcance a todas las empresas. Restablece el filtro para continuar."
+          action={<Link href={reviewInboxUrl(filter)}>Restablecer bandeja</Link>}
+        />
+      ) : null}
+
+      {selection.valid && incomplete.length ? (
         <section className="notice" role="status">
           <strong>Vista parcial.</strong>{' '}
           {incomplete.length} empresa(s) no pudieron consultarse o ya no estan
           autorizadas. No se presentan como cero revisiones.
         </section>
       ) : null}
-      {truncated.length ? (
+      {selection.valid && truncated.length ? (
         <section className="notice" role="status">
-          Hay mas de 50 expedientes en {truncated.length} empresa(s). Esta vista
-          conserva el limite por empresa; usa los filtros para reducir el trabajo.
+          {selection.companyId
+            ? 'Hay mas expedientes en esta empresa. Usa la pagina siguiente para continuar.'
+            : `Hay mas de ${REVIEW_PAGE_SIZE} expedientes en ${truncated.length} empresa(s). Selecciona una empresa para paginar sin mezclar alcances.`}
+        </section>
+      ) : null}
+
+      {selection.valid && snapshots.length ? (
+        <section className="review-workload" aria-labelledby="review-workload-title">
+          <div className="candidate-heading">
+            <div>
+              <h2 id="review-workload-title">Carga visible por empresa</h2>
+              <p className="meta">Conteo operativo del filtro actual; no representa importes ni saldos.</p>
+            </div>
+          </div>
+          <ul className="review-workload-list">
+            {snapshots.map((snapshot) => (
+              <li className="card" key={snapshot.company.company_id}>
+                <strong>{snapshot.company.legal_name}</strong>
+                <span>{snapshot.access === 'available'
+                  ? `${snapshot.items.length}${snapshot.truncated ? '+' : ''} expediente(s)`
+                  : 'Consulta no disponible'}</span>
+              </li>
+            ))}
+          </ul>
         </section>
       ) : null}
 
       <div className="candidate-heading">
         <div>
           <h2>{FILTER_LABELS[filter]}</h2>
-          <p className="meta">{entries.length} expediente(s) en la ventana visible</p>
+          <p className="meta">
+            {entries.length} expediente(s) en la ventana visible
+            {selection.companyId ? ` · pagina ${selection.page + 1}` : ''}
+          </p>
         </div>
+        {nextPending ? (
+          <Link className="button-link"
+            href={expedienteUrl(
+              nextPending.company.company_id, nextPending.review, filter, selection,
+            )}>
+            Abrir siguiente pendiente
+          </Link>
+        ) : null}
       </div>
 
-      {entries.length === 0 ? (
+      {!selection.valid ? null : entries.length === 0 ? (
         <p className="card" role="status">
           No hay expedientes visibles para este filtro. Esto no certifica que
           las empresas esten conciliadas.
@@ -140,7 +227,7 @@ export default async function ReviewsPage({
                     </span>
                     <h3>{company.legal_name}</h3>
                   </div>
-                  <Link href={expedienteUrl(company.company_id, review)}>
+                  <Link href={expedienteUrl(company.company_id, review, filter, selection)}>
                     Abrir expediente
                   </Link>
                 </div>
@@ -163,6 +250,21 @@ export default async function ReviewsPage({
           ))}
         </ol>
       )}
+
+      {selection.valid && selection.companyId && (selection.page > 0 || truncated.length) ? (
+        <nav className="candidate-pagination" aria-label="Paginas de revisiones">
+          {selection.page > 0 ? (
+            <Link href={reviewInboxUrl(filter, selection.companyId, selection.page - 1)}>
+              Pagina anterior
+            </Link>
+          ) : <span />}
+          {truncated.length ? (
+            <Link href={reviewInboxUrl(filter, selection.companyId, selection.page + 1)}>
+              Pagina siguiente
+            </Link>
+          ) : <span />}
+        </nav>
+      ) : null}
     </main>
   );
 }

@@ -5,7 +5,11 @@ vi.mock('server-only', () => ({}));
 import { ApiError, type CompanySummary, type MatchReview } from '../api';
 import {
   loadReviewCompanySnapshot,
+  MAX_REVIEW_PAGE,
   parseReviewFilter,
+  parseReviewSelection,
+  REVIEW_PAGE_SIZE,
+  reviewInboxUrl,
   sortedReviewEntries,
 } from '../review-inbox';
 
@@ -63,6 +67,31 @@ describe('bandeja multiempresa', () => {
     expect(parseReviewFilter(['todas'])).toBe('abiertas');
   });
 
+  it('selecciona todas o una empresa autorizada y limita la pagina', () => {
+    expect(parseReviewSelection({}, [COMPANY])).toEqual({
+      valid: true, companyId: null, page: 0,
+    });
+    expect(parseReviewSelection({ empresa: COMPANY.company_id, pagina: '2' }, [COMPANY]))
+      .toEqual({ valid: true, companyId: COMPANY.company_id, page: 2 });
+    expect(parseReviewSelection({ empresa: 'otra-empresa' }, [COMPANY]).valid).toBe(false);
+    expect(parseReviewSelection({ empresa: [COMPANY.company_id] }, [COMPANY]).valid).toBe(false);
+    expect(parseReviewSelection({ empresa: COMPANY.company_id, pagina: ['1'] }, [COMPANY]).valid)
+      .toBe(false);
+    expect(parseReviewSelection({ empresa: COMPANY.company_id,
+      pagina: String(MAX_REVIEW_PAGE + 1) }, [COMPANY]).valid).toBe(false);
+    expect(parseReviewSelection({ empresa: 'todas', pagina: '1' }, [COMPANY]).valid)
+      .toBe(false);
+  });
+
+  it('construye enlaces cerrados y omite pagina en el portafolio completo', () => {
+    expect(reviewInboxUrl('confirmadas')).toBe(
+      '/revisiones?estado=confirmadas&empresa=todas',
+    );
+    expect(reviewInboxUrl('rechazadas', COMPANY.company_id, 3)).toBe(
+      '/revisiones?estado=rechazadas&empresa=company-synthetic-a&pagina=3',
+    );
+  });
+
   it('no consulta expedientes sin movement.read ni presenta cero como disponible', async () => {
     const api = client([]);
     const snapshot = await loadReviewCompanySnapshot(
@@ -71,6 +100,16 @@ describe('bandeja multiempresa', () => {
     expect(snapshot.access).toBe('restricted');
     expect(snapshot.items).toEqual([]);
     expect(api.fetchReviewQueue).not.toHaveBeenCalled();
+  });
+
+  it('propaga offset y limite acotados a la consulta por empresa', async () => {
+    const api = client();
+    await loadReviewCompanySnapshot(
+      'token-synthetic', COMPANY, 'open', api, REVIEW_PAGE_SIZE * 2, REVIEW_PAGE_SIZE,
+    );
+    expect(api.fetchReviewQueue).toHaveBeenCalledWith(
+      'token-synthetic', COMPANY.company_id, 'open', 100, 50,
+    );
   });
 
   it('conserva revocacion, fallo parcial y expiracion como estados distintos', async () => {

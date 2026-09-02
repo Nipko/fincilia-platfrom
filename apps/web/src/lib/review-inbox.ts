@@ -11,6 +11,15 @@ import {
 import { mapWithConcurrency } from './portfolio';
 
 export type ReviewInboxFilter = 'abiertas' | 'confirmadas' | 'rechazadas' | 'todas';
+export const REVIEW_PAGE_SIZE = 50;
+export const MAX_REVIEW_PAGE = 200;
+type QueryValue = string | string[] | undefined;
+
+export type ReviewInboxSelection = {
+  valid: boolean;
+  companyId: string | null;
+  page: number;
+};
 export type ReviewCompanyAccess =
   | 'available'
   | 'restricted'
@@ -48,11 +57,60 @@ export function reviewStatus(filter: ReviewInboxFilter): ReviewQueueStatus {
   return FILTER_TO_STATUS[filter];
 }
 
+function single(value: QueryValue): string | null {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return trimmed || null;
+}
+
+function reviewPage(value: QueryValue): number | null {
+  if (value === undefined) return 0;
+  const raw = single(value);
+  if (raw === null || !/^\d+$/.test(raw)) return null;
+  const page = Number(raw);
+  return Number.isSafeInteger(page) && page <= MAX_REVIEW_PAGE ? page : null;
+}
+
+export function parseReviewSelection(
+  query: Record<string, QueryValue>,
+  companies: readonly CompanySummary[],
+): ReviewInboxSelection {
+  const rawCompany = query.empresa === undefined ? 'todas' : single(query.empresa);
+  const page = reviewPage(query.pagina);
+  if (rawCompany === null || page === null) {
+    return { valid: false, companyId: null, page: 0 };
+  }
+  if (rawCompany === 'todas') {
+    return page === 0
+      ? { valid: true, companyId: null, page: 0 }
+      : { valid: false, companyId: null, page: 0 };
+  }
+  const authorised = companies.some((company) => company.company_id === rawCompany);
+  return authorised
+    ? { valid: true, companyId: rawCompany, page }
+    : { valid: false, companyId: null, page: 0 };
+}
+
+export function reviewInboxUrl(
+  filter: ReviewInboxFilter,
+  companyId: string | null = null,
+  page = 0,
+): string {
+  const params = new URLSearchParams({
+    estado: filter,
+    empresa: companyId ?? 'todas',
+  });
+  if (companyId && page > 0) params.set('pagina', String(page));
+  return `/revisiones?${params.toString()}`;
+}
+
 export async function loadReviewCompanySnapshot(
   token: string,
   company: CompanySummary,
   status: ReviewQueueStatus,
   client: ReviewInboxClient = DEFAULT_CLIENT,
+  offset = 0,
+  limit = REVIEW_PAGE_SIZE,
 ): Promise<ReviewCompanySnapshot> {
   let detail;
   try {
@@ -72,7 +130,7 @@ export async function loadReviewCompanySnapshot(
 
   try {
     const page = await client.fetchReviewQueue(
-      token, company.company_id, status, 0, 50,
+      token, company.company_id, status, offset, limit,
     );
     return {
       company,
@@ -97,10 +155,12 @@ export async function loadReviewInbox(
   token: string,
   companies: readonly CompanySummary[],
   filter: ReviewInboxFilter,
+  offset = 0,
+  limit = REVIEW_PAGE_SIZE,
 ): Promise<ReviewCompanySnapshot[]> {
   const status = reviewStatus(filter);
   return mapWithConcurrency(companies, 4, (company) =>
-    loadReviewCompanySnapshot(token, company, status),
+    loadReviewCompanySnapshot(token, company, status, DEFAULT_CLIENT, offset, limit),
   );
 }
 

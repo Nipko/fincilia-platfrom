@@ -222,6 +222,7 @@ describe('ReconciliationPage', () => {
       params: Promise.resolve({ companyId: COMPANY }),
       searchParams: Promise.resolve({
         izquierda: LEFT, derecha: RIGHT, revision: CANDIDATE,
+        bandeja_estado: 'abiertas', bandeja_empresa: COMPANY, bandeja_pagina: '2',
       }),
     }));
 
@@ -234,6 +235,9 @@ describe('ReconciliationPage', () => {
     expect(screen.queryByRole('button', { name: 'Enviar a revision humana' }))
       .not.toBeInTheDocument();
     expect(screen.getAllByLabelText('Estado de revision')).toHaveLength(1);
+    expect(screen.getByRole('link', { name: 'Volver a bandeja' })).toHaveAttribute(
+      'href', `/revisiones?estado=abiertas&empresa=${COMPANY}&pagina=2`,
+    );
   });
 
   it('conserva el expediente aunque sus datasets ya no sean elegibles', async () => {

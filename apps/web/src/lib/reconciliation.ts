@@ -22,6 +22,19 @@ export type ReconciliationReviewReference = {
   candidateId: string;
 };
 
+export type ReviewInboxReturn = {
+  requested: boolean;
+  valid: boolean;
+  filter: 'abiertas' | 'confirmadas' | 'rechazadas' | 'todas';
+  companyId: string | null;
+  page: number;
+};
+
+const REVIEW_RETURN_FILTERS = new Set<ReviewInboxReturn['filter']>([
+  'abiertas', 'confirmadas', 'rechazadas', 'todas',
+]);
+const MAX_REVIEW_RETURN_PAGE = 200;
+
 function single(value: QueryValue): string | null {
   if (typeof value !== 'string') return null;
   const trimmed = value.trim();
@@ -96,13 +109,63 @@ export function selectReconciliationReview(
   };
 }
 
+export function selectReviewInboxReturn(
+  query: Record<string, QueryValue>,
+  currentCompanyId: string,
+): ReviewInboxReturn {
+  const requested = query.bandeja_estado !== undefined
+    || query.bandeja_empresa !== undefined || query.bandeja_pagina !== undefined;
+  const rawFilter = single(query.bandeja_estado);
+  const rawCompany = single(query.bandeja_empresa);
+  const page = boundedInteger(
+    query.bandeja_pagina, 0, 0, MAX_REVIEW_RETURN_PAGE,
+  );
+  const filter = REVIEW_RETURN_FILTERS.has(rawFilter as ReviewInboxReturn['filter'])
+    ? rawFilter as ReviewInboxReturn['filter']
+    : null;
+  const companyId = rawCompany === 'todas'
+    ? null
+    : rawCompany === currentCompanyId ? currentCompanyId : undefined;
+  const valid = Boolean(
+    requested && filter && companyId !== undefined && page !== null
+      && (companyId !== null || page === 0),
+  );
+  return {
+    requested,
+    valid,
+    filter: filter ?? 'abiertas',
+    companyId: companyId ?? null,
+    page: valid ? page ?? 0 : 0,
+  };
+}
+
+export function reviewInboxReturnUrl(selection: Pick<ReviewInboxReturn,
+  'filter' | 'companyId' | 'page'>): string {
+  const params = new URLSearchParams({
+    estado: selection.filter,
+    empresa: selection.companyId ?? 'todas',
+  });
+  if (selection.companyId && selection.page > 0) {
+    params.set('pagina', String(selection.page));
+  }
+  return `/revisiones?${params.toString()}`;
+}
+
 export function reconciliationReviewUrl(
   companyId: string,
   selection: Pick<ReconciliationSelection,
     'leftDatasetId' | 'rightDatasetId' | 'maxDays' | 'referenceMode' | 'page'>,
   candidateId: string,
+  inboxReturn?: Pick<ReviewInboxReturn, 'filter' | 'companyId' | 'page'>,
 ): string {
   const params = new URLSearchParams({ revision: candidateId });
+  if (inboxReturn) {
+    params.set('bandeja_estado', inboxReturn.filter);
+    params.set('bandeja_empresa', inboxReturn.companyId ?? 'todas');
+    if (inboxReturn.companyId && inboxReturn.page > 0) {
+      params.set('bandeja_pagina', String(inboxReturn.page));
+    }
+  }
   return `${reconciliationUrl(companyId, selection)}&${params.toString()}` +
     `#revision-${encodeURIComponent(candidateId)}`;
 }

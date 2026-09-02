@@ -22,8 +22,10 @@ import {
   CANDIDATE_PAGE_SIZE,
   formatExactMoney,
   reconciliationUrl,
+  reviewInboxReturnUrl,
   selectReconciliation,
   selectReconciliationReview,
+  selectReviewInboxReturn,
 } from '@/lib/reconciliation';
 import { readSession } from '@/lib/session';
 import { PageState } from '@/components/page-state';
@@ -93,6 +95,7 @@ export default async function ReconciliationPage({
     selectable.map((dataset) => dataset.dataset_version_id),
   );
   const reviewReference = selectReconciliationReview(query);
+  const inboxReturn = selectReviewInboxReturn(query, companyId);
   let result: CandidatePage | null = null;
   let reviews: MatchReview[] = [];
   let requestedReview: MatchReview | null = null;
@@ -213,6 +216,9 @@ export default async function ReconciliationPage({
           <span className="who">{company.legal_name} · exploracion sintetica</span>
         </div>
         <nav aria-label="Navegacion de conciliacion">
+          {inboxReturn.valid ? (
+            <><Link href={reviewInboxReturnUrl(inboxReturn)}>Volver a bandeja</Link>{' '}</>
+          ) : null}
           <Link href={`/empresas/${companyId}`}>Volver a la empresa</Link>{' '}
           <Link href="/empresas">Empresas</Link>
         </nav>

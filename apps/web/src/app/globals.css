@@ -908,6 +908,34 @@ code.digest {
   color: white;
 }
 
+.review-company-filter {
+  margin-block: 0 1.5rem;
+}
+
+.review-workload {
+  margin-block: 1.5rem 2rem;
+}
+
+.review-workload-list {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  list-style: none;
+  padding: 0;
+}
+
+.review-workload-list .card {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0.9rem 1rem;
+}
+
+.review-workload-list span {
+  color: var(--ink-soft);
+  font-size: 0.86rem;
+}
+
 .review-inbox-list {
   display: grid;
   gap: 1rem;
