@@ -198,6 +198,90 @@ class ReconciliationCandidateTests(VerticalHarness):
                     (original.json()["mapping_version_id"],))
                 self.assertEqual(artifact, str(cursor.fetchone()[0]))
 
+    def test_mapping_version_payload_and_state_are_immutable(self) -> None:
+        payload = csv([
+            ("14/02/2026", "Version inmutable", "REF-IMMUTABLE", "25,00"),
+        ])
+        artifact = self.promoted(
+            payload, "mapping-version-immutable.csv", data_source_id=SOURCE)
+        created = self.create_mapping(
+            artifact, data_source_id=SOURCE,
+            display_name=f"immutable-{uuid.uuid4().hex[:8]}")
+        self.assertEqual(201, created.status_code, created.text)
+        version_id = created.json()["mapping_version_id"]
+
+        def runtime_update(statement: str, parameters: tuple[object, ...]) -> None:
+            with psycopg.connect(RUNTIME_DSN, autocommit=False) as connection:
+                with connection.cursor() as cursor:
+                    cursor.execute(
+                        "SELECT set_config('fincilia.company_id', %s, true)",
+                        (ESPIGA,))
+                    cursor.execute(
+                        "SELECT set_config('fincilia.subject_id', %s, true)",
+                        (stable_id("subject", "ana"),))
+                    cursor.execute(statement, parameters)
+
+        def stored_state() -> tuple[str, dict[str, object]]:
+            with psycopg.connect(MIGRATOR_DSN) as connection:
+                with connection.cursor() as cursor:
+                    cursor.execute(
+                        "SELECT set_config('fincilia.company_id', %s, false)",
+                        (ESPIGA,))
+                    cursor.execute(
+                        "SELECT state, definition FROM "
+                        "fincilia.column_mapping_version "
+                        "WHERE mapping_version_id = %s",
+                        (version_id,))
+                    row = cursor.fetchone()
+                    self.assertIsNotNone(row)
+                    return str(row[0]), row[1]
+
+        initial_state = stored_state()
+        self.assertEqual("draft", initial_state[0])
+        with self.assertRaises(psycopg.errors.CheckViolation) as immutable:
+            runtime_update(
+                "UPDATE fincilia.column_mapping_version "
+                "SET definition = jsonb_set(definition, '{currency}', "
+                "to_jsonb(%s::text)) WHERE mapping_version_id = %s",
+                ("USD", version_id))
+        self.assertEqual(
+            "ck_mapping_version_immutable",
+            immutable.exception.diag.constraint_name)
+        self.assertEqual(initial_state, stored_state())
+
+        validated = self.client.post(
+            f"/api/v1/companies/{ESPIGA}/mappings/{version_id}/validate",
+            headers=self.auth(PREPARER))
+        self.assertEqual(200, validated.status_code, validated.text)
+        self.assertEqual("validated", stored_state()[0])
+
+        with self.assertRaises(psycopg.errors.CheckViolation) as reversed_state:
+            runtime_update(
+                "UPDATE fincilia.column_mapping_version "
+                "SET state = 'draft', validated_by = NULL, validated_at = NULL "
+                "WHERE mapping_version_id = %s",
+                (version_id,))
+        self.assertEqual(
+            "ck_mapping_version_state_transition",
+            reversed_state.exception.diag.constraint_name)
+        self.assertEqual("validated", stored_state()[0])
+
+        runtime_update(
+            "UPDATE fincilia.column_mapping_version SET state = 'superseded' "
+            "WHERE mapping_version_id = %s",
+            (version_id,))
+        self.assertEqual("superseded", stored_state()[0])
+
+        with self.assertRaises(psycopg.errors.CheckViolation) as resurrected:
+            runtime_update(
+                "UPDATE fincilia.column_mapping_version SET state = 'validated' "
+                "WHERE mapping_version_id = %s",
+                (version_id,))
+        self.assertEqual(
+            "ck_mapping_version_state_transition",
+            resurrected.exception.diag.constraint_name)
+        self.assertEqual("superseded", stored_state()[0])
+
     def test_exact_candidates_are_explained_paginated_and_many_to_many(self) -> None:
         source, account = self.second_channel()
         left = self.dataset([
