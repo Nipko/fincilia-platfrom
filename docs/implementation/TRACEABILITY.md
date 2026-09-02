@@ -63,6 +63,7 @@ Una celda de implementación vacía significa no implementado. No se rellena con
 | REQ-FNC-095-HTTP-HARDENING | ADR-012; SEC-002, IAM-004 | SEC-006 | middleware API, cabeceras Next y CSP verificable | API éxito/error, Chromium real, lint, tipos y build | S1-READY | Review pending; HSTS/TLS/WAF siguen bajo alcance operativo separado |
 | REQ-FNC-096-PLATFORM-DIAGNOSTICS | ADM-001, SEC-001 | ADM-002 | V0052 `platform_operational_diagnostics`, endpoint y consola `/plataforma` | ACL y PostgreSQL real, API, web y dos regresiones UAT completas | S1-READY | Review pending; exclusivamente agregados allowlisted, sin acceso financiero transversal |
 | REQ-FNC-097-MAPPING-SOURCE-INTEGRITY | ADR-003/004/015; ING-003, API-001 | MAP-001 | V0053 `enforce_mapping_artifact_source`, traduccion neutral API y fixture de conciliacion ligada a fuente | replay V0053, 66 contratos de migracion, 45 verticales, 188 API, 2 focales y caso antes inestable repetido 3 veces | S1-READY | In progress; solo sintetico, CI y revisiones Data/Database/Security/Architecture/QA pendientes |
+| REQ-FNC-098-MAPPING-VERSION-IMMUTABILITY | ADR-004; P3, API-001, MAP-001 | MAP-002 | V0055 guard de payload y transicion de versiones de mapeo | PostgreSQL focal, replay, contratos de migracion y CI pendientes | S1-READY | In progress; solo sintetico, sin ruta nueva ni efecto financiero |
 
 ## Campos al implementar
 
