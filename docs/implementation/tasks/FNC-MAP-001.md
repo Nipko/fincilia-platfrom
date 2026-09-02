@@ -27,7 +27,8 @@ depende de que la API recuerde comparar dos identificadores.
 
 # Rutas reservadas
 
-- `db/migrations/V0053__mapping_artifact_source_guard.sql`.
+- `db/migrations/V0053__mapping_artifact_source_guard.sql` y su ampliacion
+  forward-only `V0054__mapping_artifact_source_update_guard.sql`.
 - `apps/api/src/fincilia_api/datasets.py`.
 - `db/tests/test_p3_vertical.py` y
   `db/tests/test_reconciliation_candidates.py`.

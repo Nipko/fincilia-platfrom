@@ -168,6 +168,33 @@ class ReconciliationCandidateTests(VerticalHarness):
         self.assertEqual(403, reused.status_code, reused.text)
         self.assertEqual((1, 1), self.mapping_row_counts(template_name))
 
+        # El permiso UPDATE existe para avanzar el estado de la version, pero
+        # no permite reescribir despues la evidencia que le dio origen.
+        with psycopg.connect(RUNTIME_DSN, autocommit=False) as connection:
+            with self.assertRaises(psycopg.errors.CheckViolation) as changed:
+                with connection.transaction():
+                    with connection.cursor() as cursor:
+                        cursor.execute(
+                            "SELECT set_config('fincilia.company_id', %s, true)",
+                            (ESPIGA,))
+                        cursor.execute(
+                            "SELECT set_config('fincilia.subject_id', %s, true)",
+                            (stable_id("subject", "ana"),))
+                        cursor.execute(
+                            "UPDATE fincilia.column_mapping_version "
+                            "SET artifact_id = %s WHERE mapping_version_id = %s",
+                            (other_artifact,
+                             original.json()["mapping_version_id"]))
+        self.assertEqual(
+            "ck_mapping_artifact_source", changed.exception.diag.constraint_name)
+        with psycopg.connect(MIGRATOR_DSN) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT artifact_id FROM fincilia.column_mapping_version "
+                    "WHERE mapping_version_id = %s",
+                    (original.json()["mapping_version_id"],))
+                self.assertEqual(artifact, str(cursor.fetchone()[0]))
+
     def test_exact_candidates_are_explained_paginated_and_many_to_many(self) -> None:
         source, account = self.second_channel()
         left = self.dataset([
