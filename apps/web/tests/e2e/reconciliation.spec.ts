@@ -117,16 +117,31 @@ test('FNC-REC-003 prioriza revisiones multiempresa y abre el expediente exacto',
   // trae una semilla vacia. La bandeja debe conservarlo en el historico, no
   // fabricar otro pendiente ni depender del orden de ejecucion de la suite.
   await page.getByRole('link', { name: 'Todas' }).click();
-  await expect(page).toHaveURL(/\/revisiones\?estado=todas$/);
+  await expect(page).toHaveURL(/\/revisiones\?estado=todas&empresa=todas$/);
+
+  const companyFilter = page.getByLabel('Empresa', { exact: true });
+  const selectedCompany = await companyFilter.locator('option').nth(1).getAttribute('value');
+  expect(selectedCompany).toBeTruthy();
+  await companyFilter.selectOption(selectedCompany!);
+  await page.getByRole('button', { name: 'Aplicar empresa' }).click();
+  await expect(page).toHaveURL(
+    new RegExp(`/revisiones\\?estado=todas&empresa=${selectedCompany}$`),
+  );
+  await expect(page.getByRole('heading', { name: 'Carga visible por empresa' }))
+    .toBeVisible();
 
   const first = page.getByRole('link', { name: 'Abrir expediente' }).first();
   await expect(first).toBeVisible();
   await first.click();
   await expect(page).toHaveURL(
-    /\/conciliacion\?izquierda=.+&derecha=.+&ventana=\d+&referencia=all&pagina=\d+&revision=.+#revision-/,
+    /\/conciliacion\?izquierda=.+&derecha=.+&ventana=\d+&referencia=all&pagina=\d+&revision=.+&bandeja_estado=todas&bandeja_empresa=.+#revision-/,
   );
   await expect(page.getByLabel('Estado de revision').first()).toBeVisible();
   await expect(page.getByText(/sin efecto financiero/i).first()).toBeVisible();
+  await page.getByRole('link', { name: 'Volver a bandeja' }).click();
+  await expect(page).toHaveURL(
+    new RegExp(`/revisiones\\?estado=todas&empresa=${selectedCompany}$`),
+  );
 });
 
 test('FNC-REC-005 compone un borrador 1:N o N:1 sin ofrecer confirmacion', async ({

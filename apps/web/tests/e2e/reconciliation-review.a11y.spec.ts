@@ -27,6 +27,12 @@ test('FNC-REC-003 no introduce violaciones axe en la bandeja multiempresa', asyn
   await page.goto('/revisiones');
   await expect(page.getByRole('heading', { name: 'Bandeja de revisiones' }))
     .toBeVisible();
+  const companyFilter = page.getByLabel('Empresa', { exact: true });
+  const selectedCompany = await companyFilter.locator('option').nth(1).getAttribute('value');
+  expect(selectedCompany).toBeTruthy();
+  await companyFilter.selectOption(selectedCompany!);
+  await page.getByRole('button', { name: 'Aplicar empresa' }).click();
+  await expect(page).toHaveURL(/\/revisiones\?estado=abiertas&empresa=.+/);
 
   const result = await new AxeBuilder({ page })
     .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
