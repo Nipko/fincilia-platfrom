@@ -1,9 +1,19 @@
 from __future__ import annotations
 
 import copy
+import json
 import unittest
 
-from .model import CONTROL_IDS, FOUNDER_ID, load_model, report, validate
+from .model import (
+    CONTROL_IDS,
+    FOUNDER_ID,
+    ROOT,
+    SUPPLY_CHAIN_EVIDENCE,
+    load_model,
+    report,
+    validate,
+    validate_supply_chain_evidence,
+)
 
 
 class Drg01ReadinessTests(unittest.TestCase):
@@ -17,7 +27,7 @@ class Drg01ReadinessTests(unittest.TestCase):
         payload = report(self.model)
         self.assertTrue(payload["ok"])
         self.assertFalse(payload["real_data_authorized"])
-        self.assertEqual(14, payload["blocker_count"])
+        self.assertEqual(13, payload["blocker_count"])
         self.assertEqual(["DRG-00", "DRG-01"], [item["id"] for item in payload["gates"]])
         technical = {
             item["id"]: item["state"] for item in self.model["controls"]
@@ -26,8 +36,40 @@ class Drg01ReadinessTests(unittest.TestCase):
         self.assertEqual({
             "G00-ISOLATED-ENV": "pending", "G00-INVENTORY": "passed",
             "G00-DELETE": "passed", "G00-DRILL": "passed",
-            "G00-SUPPLY-CHAIN": "pending",
+            "G00-SUPPLY-CHAIN": "passed",
         }, technical)
+
+    def supply_evidence(self) -> dict:
+        return json.loads((ROOT / SUPPLY_CHAIN_EVIDENCE).read_text(encoding="utf-8"))
+
+    def test_supply_chain_evidence_is_bound_to_current_release_inputs(self) -> None:
+        self.assertEqual([], validate_supply_chain_evidence(self.supply_evidence()))
+
+    def test_supply_chain_evidence_mutations_bite(self) -> None:
+        mutations = (
+            ("DRG-SUPPLY-RUN", lambda item: item["run"].update({"signer_workflow": "other"})),
+            ("DRG-SUPPLY-ATTESTATION", lambda item: item["attestations"][0].update(
+                {"signature_verified_outside_runner": False})),
+            ("DRG-SUPPLY-SOURCE", lambda item: item["source_inputs"][0].update(
+                {"sha256": "0" * 64})),
+            ("DRG-SUPPLY-REVIEW", lambda item: item["independent_review"].update(
+                {"state": "accepted"})),
+            ("DRG-SUPPLY-DIGEST", lambda item: item.update(
+                {"evidence_sha256": "0" * 64})),
+        )
+        for expected, mutate in mutations:
+            with self.subTest(expected=expected):
+                candidate = self.supply_evidence()
+                mutate(candidate)
+                codes = {finding.code for finding in validate_supply_chain_evidence(candidate)}
+                self.assertIn(expected, codes)
+
+    def test_supply_chain_control_cannot_point_to_narrative(self) -> None:
+        candidate = copy.deepcopy(self.model)
+        control = next(item for item in candidate["controls"]
+                       if item["id"] == "G00-SUPPLY-CHAIN")
+        control["evidence_refs"] = ["docs/security/DRG01_READINESS.md"]
+        self.assertIn("DRG-SUPPLY-REF", self.codes(candidate))
 
     def test_scope_widening_bites(self) -> None:
         candidate = copy.deepcopy(self.model)

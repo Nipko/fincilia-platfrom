@@ -48,9 +48,11 @@ el laboratorio con fixtures completamente sintéticos. Los doce casos
 contar inventario, borrado y drill. El aislamiento productivo permanece pendiente
 hasta admitir una release firmada/provenanced y un IdP administrado.
 
-DRG-00 permanece `not_met`: además de los cuatro controles humanos siguen
-pendientes `G00-ISOLATED-ENV` y `G00-SUPPLY-CHAIN`. Por tanto el techo continúa
-sintético y ninguna release está admitida para documentos reales.
+G00-SUPPLY-CHAIN quedó adjudicado con un candidato sintético reproducible,
+SBOM SPDX y procedencia SLSA firmados por OIDC, verificados dentro y fuera del
+runner y ligados a los inputs actuales. DRG-00 permanece `not_met`: además de
+los cuatro controles humanos sigue pendiente `G00-ISOLATED-ENV`. Por tanto el
+techo continúa sintético y ninguna release está admitida para documentos reales.
 
 ## Evidencia técnica DRG-01 acotada — 2026-08-31
 
@@ -70,6 +72,6 @@ referencias opacas, verificación AAL, inventario, preservación digest-only,
 revocación, tombstone, purga, restore cerrado y post-revisión separada. El flujo
 mantiene notificabilidad, plazos, aplicabilidad y excepciones en `pending_legal`.
 
-El gate permanece `not_met` con 14 blockers. Identidad en runtime protegido,
-cloud, restore del entorno objetivo, cadena de suministro y las aprobaciones
-humanas no se infieren de esta evidencia.
+El gate permanece `not_met` con 13 blockers. Identidad en runtime protegido,
+cloud, restore del entorno objetivo y las aprobaciones humanas no se infieren
+de esta evidencia.

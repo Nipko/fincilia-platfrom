@@ -1,0 +1,118 @@
+{
+  "schema_version": "1.0.0",
+  "task_id": "FNC-GAT-005",
+  "control_id": "G00-SUPPLY-CHAIN",
+  "state": "passed",
+  "data_classification": "completely_synthetic",
+  "generated_at": "2026-09-02T23:20:18Z",
+  "real_data_authorized": false,
+  "production_authorized": false,
+  "run": {
+    "id": 33694283964,
+    "url": "https://github.com/Nipko/fincilia-platfrom/actions/runs/33694283964",
+    "conclusion": "success",
+    "event": "workflow_dispatch",
+    "source_ref": "refs/heads/main",
+    "source_revision": "74d554dc6fb085817be091b5f621b46e1e07d72a",
+    "signer_workflow": "github.com/Nipko/fincilia-platfrom/.github/workflows/release-candidate.yml",
+    "self_hosted_runner_denied": true
+  },
+  "subject": {
+    "name": "fincilia-release.tar.gz",
+    "sha256": "7a137dfff6da95c30c256d5b3a62b21bf33f04355b6b318f82a8bfe7be32b54e",
+    "size_bytes": 224188,
+    "schema_head": "V0055",
+    "bundle_schema_version": "1.1.0",
+    "source_verified_against_checkout": true,
+    "archive_verified_outside_runner": true
+  },
+  "source_inputs": [
+    {
+      "path": "apps/api/Dockerfile",
+      "sha256": "096ce76a8c4b4f88efa362146f6178dfded0090013dcb2505ad9e61f98c5eb6b",
+      "tracked_file_count": 1
+    },
+    {
+      "path": "apps/api/requirements.txt",
+      "sha256": "49fff06b5a70a5d32bab05c2327d3a5803ef4eefe02e643a7190c4c9f2ec52be",
+      "tracked_file_count": 1
+    },
+    {
+      "path": "apps/api/src",
+      "sha256": "acfd809ead8c4dcb2de9b0ddf695c0137d1141618fedd67c488ed5b2ff121b7c",
+      "tracked_file_count": 31
+    },
+    {
+      "path": "apps/web/Dockerfile",
+      "sha256": "77bfccc29b34c20ad082de75b494857b0edd47604362b350b0062e2ed56b8259",
+      "tracked_file_count": 1
+    },
+    {
+      "path": "apps/web/package-lock.json",
+      "sha256": "d4b11efb2a841234d2a4d675ee0b2d29ba105bf928eb8800cf9d31a8d51a0559",
+      "tracked_file_count": 1
+    },
+    {
+      "path": "apps/web/src",
+      "sha256": "94548b0d4fbd87560db153f27598370570e53a0843e73f096efd8d97eea7d338",
+      "tracked_file_count": 147
+    },
+    {
+      "path": "db/migrations",
+      "sha256": "62c2a23a6f26a3f05bfd341ebf63d18eae3d036f933f592b03bea6ef5eb1a816",
+      "tracked_file_count": 56
+    },
+    {
+      "path": "packages/contracts/python",
+      "sha256": "dc67d92095a866d7421fb58f132199f066c47bc4f41640f65e65c3c1b444d706",
+      "tracked_file_count": 32
+    },
+    {
+      "path": "packages/platform/python",
+      "sha256": "0b979c7493032b6d0935fc0a07eb2b841cb3fd9266d9b9d54f44991d5a7793bb",
+      "tracked_file_count": 13
+    },
+    {
+      "path": "workers/document/Dockerfile",
+      "sha256": "e0612d83cbcc94749b2a596e35851e12b1d4b705d27fba08afa6629ca43cca01",
+      "tracked_file_count": 1
+    },
+    {
+      "path": "workers/document/requirements.txt",
+      "sha256": "fea69b82e3721686344c2628b7b0fd8180a3bf9dd253a1bb7a65165cd0ac243a",
+      "tracked_file_count": 1
+    },
+    {
+      "path": "workers/document/src",
+      "sha256": "9a09ec512e6f849093cdc580e63424fb6ae0b9a2f40e6936b58d66955a33b3fe",
+      "tracked_file_count": 5
+    }
+  ],
+  "attestations": [
+    {
+      "id": "provenance",
+      "predicate_type": "https://slsa.dev/provenance/v1",
+      "sigstore_bundle_sha256": "a5788aea0aaa64f366961e2d7836a3e0297e0224d5c6e215a3c19ead7165fa42",
+      "verification_output_sha256": "c4b87ff856cc7b5184c4f7358e711609e94a430b24854d8c1b18b163db765985",
+      "signature_verified_in_runner": true,
+      "signature_verified_outside_runner": true
+    },
+    {
+      "id": "sbom",
+      "predicate_type": "https://spdx.dev/Document/v2.3",
+      "sigstore_bundle_sha256": "c97a9935b8f112e1de811cf5c8e4411bad33bdf4cb21d03203a74cc900b7f627",
+      "verification_output_sha256": "3153dad96b1c41302b6d46a23ee2ae1db9c80dacf900ae1ca97889da7028d548",
+      "signature_verified_in_runner": true,
+      "signature_verified_outside_runner": true
+    }
+  ],
+  "independent_review": {
+    "state": "pending",
+    "required_roles": [
+      "Security",
+      "QA"
+    ],
+    "agent_observation_is_not_acceptance": true
+  },
+  "evidence_sha256": "d867458045aefe4de2825b6aed72e39a440e045f901ffce5cf5153dd9ecf3fa6"
+}

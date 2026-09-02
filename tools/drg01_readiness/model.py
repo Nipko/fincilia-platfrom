@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from dataclasses import asdict, dataclass
+from datetime import datetime
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -38,6 +41,10 @@ DRG00_TECHNICAL_IDS = {
 DRG01_TECHNICAL_EVIDENCE = "docs/implementation/evidence/FNC-GAT-006.json"
 DRG01_ADJUDICATED_IDS = {"D01-XTENANT", "D01-INGRESS", "D01-CHANNELS"}
 RIGHTS_INCIDENT_EVIDENCE = "docs/implementation/evidence/FNC-PRV-004.json"
+SUPPLY_CHAIN_EVIDENCE = "docs/implementation/evidence/FNC-GAT-005-SUPPLY-CHAIN.json"
+SUPPLY_CHAIN_SIGNER = (
+    "github.com/Nipko/fincilia-platfrom/.github/workflows/release-candidate.yml"
+)
 PROHIBITED_DATA = [
     "payment_card", "payroll", "government_identity", "health", "credentials",
 ]
@@ -149,6 +156,209 @@ def _validate_rights_incident_evidence() -> list[Finding]:
     ]
 
 
+@lru_cache(maxsize=1)
+def _current_release_inputs() -> tuple[tuple[str, str, int], ...]:
+    from tools.release_candidate.model import digest_source_input, load_contract
+
+    contract = load_contract(ROOT)
+    observed = []
+    for relative in contract["source_inputs"]:
+        digest, count = digest_source_input(ROOT, relative)
+        observed.append((relative, digest, count))
+    return tuple(observed)
+
+
+def validate_supply_chain_evidence(
+    payload: dict[str, Any], *, verify_current_source: bool = True,
+) -> list[Finding]:
+    """Validate the durable projection of an externally verified attestation.
+
+    The Sigstore bundles remain workflow artifacts. The repository stores only
+    their digests and the exact source-input inventory, so a later product
+    change makes this control stale without putting large attestations in Git.
+    """
+    findings: list[Finding] = []
+    required = {
+        "schema_version", "task_id", "control_id", "state",
+        "data_classification", "generated_at", "real_data_authorized",
+        "production_authorized", "run", "subject", "source_inputs",
+        "attestations", "independent_review", "evidence_sha256",
+    }
+    if set(payload) != required:
+        findings.append(Finding(
+            "DRG-SUPPLY-SCHEMA", SUPPLY_CHAIN_EVIDENCE,
+            "supply-chain evidence fields drifted"))
+    if (
+        payload.get("schema_version") != "1.0.0"
+        or payload.get("task_id") != "FNC-GAT-005"
+        or payload.get("control_id") != "G00-SUPPLY-CHAIN"
+        or payload.get("state") != "passed"
+        or payload.get("data_classification") != "completely_synthetic"
+        or payload.get("real_data_authorized") is not False
+        or payload.get("production_authorized") is not False
+    ):
+        findings.append(Finding(
+            "DRG-SUPPLY-CLAIM", SUPPLY_CHAIN_EVIDENCE,
+            "supply-chain evidence overclaims its identity or authorization"))
+    generated_at = payload.get("generated_at")
+    try:
+        parsed = datetime.fromisoformat(str(generated_at).replace("Z", "+00:00"))
+        if parsed.tzinfo is None or not str(generated_at).endswith("Z"):
+            raise ValueError
+    except ValueError:
+        findings.append(Finding(
+            "DRG-SUPPLY-TIME", SUPPLY_CHAIN_EVIDENCE,
+            "generated_at must be an explicit UTC instant"))
+
+    run = payload.get("run")
+    run_fields = {
+        "id", "url", "conclusion", "event", "source_ref",
+        "source_revision", "signer_workflow", "self_hosted_runner_denied",
+    }
+    if not isinstance(run, dict) or set(run) != run_fields:
+        findings.append(Finding(
+            "DRG-SUPPLY-RUN", SUPPLY_CHAIN_EVIDENCE,
+            "workflow run fields drifted"))
+        run = {}
+    run_id = run.get("id")
+    revision = run.get("source_revision")
+    if (
+        not isinstance(run_id, int) or run_id <= 0
+        or run.get("url") != (
+            f"https://github.com/Nipko/fincilia-platfrom/actions/runs/{run_id}"
+        )
+        or run.get("conclusion") != "success"
+        or run.get("event") != "workflow_dispatch"
+        or run.get("source_ref") != "refs/heads/main"
+        or not isinstance(revision, str)
+        or re.fullmatch(r"[0-9a-f]{40}", revision) is None
+        or run.get("signer_workflow") != SUPPLY_CHAIN_SIGNER
+        or run.get("self_hosted_runner_denied") is not True
+    ):
+        findings.append(Finding(
+            "DRG-SUPPLY-RUN", SUPPLY_CHAIN_EVIDENCE,
+            "workflow run is not the required successful OIDC source"))
+
+    subject = payload.get("subject")
+    subject_fields = {
+        "name", "sha256", "size_bytes", "schema_head",
+        "bundle_schema_version", "source_verified_against_checkout",
+        "archive_verified_outside_runner",
+    }
+    if not isinstance(subject, dict) or set(subject) != subject_fields:
+        findings.append(Finding(
+            "DRG-SUPPLY-SUBJECT", SUPPLY_CHAIN_EVIDENCE,
+            "attestation subject fields drifted"))
+        subject = {}
+    migration_heads = sorted(
+        path.name.split("__", 1)[0]
+        for path in (ROOT / "db/migrations").glob("V[0-9][0-9][0-9][0-9]__*.sql")
+    )
+    if (
+        subject.get("name") != "fincilia-release.tar.gz"
+        or not isinstance(subject.get("sha256"), str)
+        or re.fullmatch(r"[0-9a-f]{64}", str(subject.get("sha256"))) is None
+        or not isinstance(subject.get("size_bytes"), int)
+        or subject.get("size_bytes", 0) <= 0
+        or not migration_heads
+        or subject.get("schema_head") != migration_heads[-1]
+        or subject.get("bundle_schema_version") != "1.1.0"
+        or subject.get("source_verified_against_checkout") is not True
+        or subject.get("archive_verified_outside_runner") is not True
+    ):
+        findings.append(Finding(
+            "DRG-SUPPLY-SUBJECT", SUPPLY_CHAIN_EVIDENCE,
+            "attestation subject is incomplete, stale or unverified"))
+
+    attestations = payload.get("attestations")
+    expected_predicates = {
+        "provenance": "https://slsa.dev/provenance/v1",
+        "sbom": "https://spdx.dev/Document/v2.3",
+    }
+    if (
+        not isinstance(attestations, list)
+        or [item.get("id") for item in attestations if isinstance(item, dict)]
+        != ["provenance", "sbom"]
+    ):
+        findings.append(Finding(
+            "DRG-SUPPLY-ATTESTATION", SUPPLY_CHAIN_EVIDENCE,
+            "provenance and SBOM attestations are required exactly once"))
+        attestations = []
+    attestation_fields = {
+        "id", "predicate_type", "sigstore_bundle_sha256",
+        "verification_output_sha256", "signature_verified_in_runner",
+        "signature_verified_outside_runner",
+    }
+    for item in attestations:
+        if (
+            not isinstance(item, dict) or set(item) != attestation_fields
+            or item.get("predicate_type") != expected_predicates.get(item.get("id"))
+            or re.fullmatch(r"[0-9a-f]{64}", str(item.get("sigstore_bundle_sha256"))) is None
+            or re.fullmatch(r"[0-9a-f]{64}", str(item.get("verification_output_sha256"))) is None
+            or item.get("signature_verified_in_runner") is not True
+            or item.get("signature_verified_outside_runner") is not True
+        ):
+            findings.append(Finding(
+                "DRG-SUPPLY-ATTESTATION", str(item.get("id")),
+                "attestation is not bound and verified on both trust boundaries"))
+
+    independent = payload.get("independent_review")
+    if independent != {
+        "state": "pending",
+        "required_roles": ["Security", "QA"],
+        "agent_observation_is_not_acceptance": True,
+    }:
+        findings.append(Finding(
+            "DRG-SUPPLY-REVIEW", SUPPLY_CHAIN_EVIDENCE,
+            "technical evidence must not claim independent human review"))
+
+    inputs = payload.get("source_inputs")
+    if verify_current_source:
+        try:
+            expected_inputs = [
+                {"path": path, "sha256": digest, "tracked_file_count": count}
+                for path, digest, count in _current_release_inputs()
+            ]
+            if inputs != expected_inputs:
+                findings.append(Finding(
+                    "DRG-SUPPLY-SOURCE", SUPPLY_CHAIN_EVIDENCE,
+                    "current release inputs differ from the attested source"))
+        except (ImportError, OSError, ValueError) as error:
+            findings.append(Finding(
+                "DRG-SUPPLY-SOURCE", SUPPLY_CHAIN_EVIDENCE,
+                f"current release inputs cannot be verified: {error}"))
+    elif not isinstance(inputs, list) or not inputs:
+        findings.append(Finding(
+            "DRG-SUPPLY-SOURCE", SUPPLY_CHAIN_EVIDENCE,
+            "source input inventory is absent"))
+
+    claimed = payload.get("evidence_sha256")
+    unsigned = {key: value for key, value in payload.items() if key != "evidence_sha256"}
+    observed = hashlib.sha256(json.dumps(
+        unsigned, ensure_ascii=True, sort_keys=True, separators=(",", ":")
+    ).encode("utf-8")).hexdigest()
+    if claimed != observed:
+        findings.append(Finding(
+            "DRG-SUPPLY-DIGEST", SUPPLY_CHAIN_EVIDENCE,
+            "supply-chain evidence digest does not match its content"))
+    return sorted(set(findings))
+
+
+def _validate_supply_chain_evidence() -> list[Finding]:
+    path = ROOT / SUPPLY_CHAIN_EVIDENCE
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        return [Finding(
+            "DRG-SUPPLY-EVIDENCE", SUPPLY_CHAIN_EVIDENCE,
+            "supply-chain evidence is absent or unreadable")]
+    if not isinstance(payload, dict):
+        return [Finding(
+            "DRG-SUPPLY-EVIDENCE", SUPPLY_CHAIN_EVIDENCE,
+            "supply-chain evidence must be an object")]
+    return validate_supply_chain_evidence(payload)
+
+
 def validate(model: dict[str, Any]) -> list[Finding]:
     findings: list[Finding] = []
     required = {
@@ -251,6 +461,11 @@ def validate(model: dict[str, Any]) -> list[Finding]:
                 findings.append(Finding(
                     "DRG01-RIGHTS-IR-REF", str(identifier),
                     "rights and incident control requires its adjudicated drill evidence"))
+        if identifier == "G00-SUPPLY-CHAIN" and control.get("state") == "passed":
+            if control.get("evidence_refs") != [SUPPLY_CHAIN_EVIDENCE]:
+                findings.append(Finding(
+                    "DRG-SUPPLY-REF", str(identifier),
+                    "supply chain requires the adjudicated attestation evidence"))
 
     if any(by_id.get(identifier, {}).get("state") == "passed"
            for identifier in DRG00_TECHNICAL_IDS):
@@ -260,6 +475,8 @@ def validate(model: dict[str, Any]) -> list[Finding]:
         findings.extend(_validate_drg01_technical_evidence())
     if by_id.get("D01-RIGHTS-IR", {}).get("state") == "passed":
         findings.extend(_validate_rights_incident_evidence())
+    if by_id.get("G00-SUPPLY-CHAIN", {}).get("state") == "passed":
+        findings.extend(_validate_supply_chain_evidence())
 
     drg00_ready = all(
         _control_satisfied(by_id.get(identifier, {}), False)

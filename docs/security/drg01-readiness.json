@@ -32,7 +32,7 @@
     {"id":"G00-INVENTORY","gate":"DRG-00","domain":"data","kind":"automated","owner_role":"Data","reviewer_roles":["Privacy"],"state":"passed","evidence_refs":["docs/implementation/evidence/FNC-QA-001.json"],"reviewer_id":null,"reviewed_at":null},
     {"id":"G00-DELETE","gate":"DRG-00","domain":"privacy","kind":"automated","owner_role":"Privacy","reviewer_roles":["Platform"],"state":"passed","evidence_refs":["docs/implementation/evidence/FNC-QA-001.json"],"reviewer_id":null,"reviewed_at":null},
     {"id":"G00-DRILL","gate":"DRG-00","domain":"qa","kind":"automated","owner_role":"QA","reviewer_roles":["Security"],"state":"passed","evidence_refs":["docs/implementation/evidence/FNC-QA-001.json"],"reviewer_id":null,"reviewed_at":null},
-    {"id":"G00-SUPPLY-CHAIN","gate":"DRG-00","domain":"security","kind":"automated","owner_role":"Security","reviewer_roles":["Platform","QA"],"state":"pending","evidence_refs":[],"reviewer_id":null,"reviewed_at":null},
+    {"id":"G00-SUPPLY-CHAIN","gate":"DRG-00","domain":"security","kind":"automated","owner_role":"Security","reviewer_roles":["Platform","QA"],"state":"passed","evidence_refs":["docs/implementation/evidence/FNC-GAT-005-SUPPLY-CHAIN.json"],"reviewer_id":null,"reviewed_at":null},
     {"id":"G00-INDEPENDENT-REVIEW","gate":"DRG-00","domain":"governance","kind":"human","owner_role":"Product","reviewer_roles":["Legal","Security"],"state":"pending","evidence_refs":[],"reviewer_id":null,"reviewed_at":null},
 
     {"id":"D01-DRG00","gate":"DRG-01","domain":"governance","kind":"prerequisite","owner_role":"Integration Steward","reviewer_roles":["Legal","Security","Product"],"state":"pending","evidence_refs":[],"reviewer_id":null,"reviewed_at":null},
