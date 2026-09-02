@@ -62,15 +62,19 @@ class Fixture:
         self.company_id = company_id
         self.release_id = release_id
 
-    def artifact(self, *, uploader: str, suffix: str = "") -> str:
+    def artifact(self, *, uploader: str, source_id: str | None = None,
+                 suffix: str = "") -> str:
+        if source_id is None:
+            source_id = self.data_source()
         artifact_id = new_id()
         content = digest(f"artifact:{artifact_id}{suffix}")
         self.cursor.execute(
-            "INSERT INTO fincilia.source_artifact (artifact_id, company_id, filename, "
-            "byte_size, content_sha256, media_type, zone, object_key, status, "
-            "uploaded_by) VALUES (%s, %s, %s, 128, %s, 'text/csv', 'raw', %s, "
-            "'stored', %s)",
-            (artifact_id, self.company_id, f"extracto-{artifact_id[:8]}.csv",
+            "INSERT INTO fincilia.source_artifact (artifact_id, company_id, "
+            "data_source_id, filename, byte_size, content_sha256, media_type, "
+            "zone, object_key, status, uploaded_by) VALUES (%s, %s, %s, %s, 128, "
+            "%s, 'text/csv', 'raw', %s, 'stored', %s)",
+            (artifact_id, self.company_id, source_id,
+             f"extracto-{artifact_id[:8]}.csv",
              content, f"company/{self.company_id}/{content[:2]}/{content}", uploader))
         return artifact_id
 
@@ -278,9 +282,9 @@ class CanonicalSchemaTests(unittest.TestCase):
                 self.assertTrue(forced, f"{name} sin FORCE")
 
     def test_without_company_context_nothing_is_visible_TST_P3_002(self) -> None:
-        artifact = self.fixture.artifact(uploader=self.preparer)
-        run = self.fixture.run(artifact)
         source = self.fixture.data_source()
+        artifact = self.fixture.artifact(uploader=self.preparer, source_id=source)
+        run = self.fixture.run(artifact)
         version = self.fixture.mapping_version(
             artifact_id=artifact, source_id=source, author=self.preparer)
         dataset = self.fixture.dataset(run_id=run, artifact_id=artifact,
@@ -303,9 +307,9 @@ class CanonicalSchemaTests(unittest.TestCase):
         foreign_account = other.account()
 
         self.context(self.company_a)
-        artifact = self.fixture.artifact(uploader=self.preparer)
-        run = self.fixture.run(artifact)
         source = self.fixture.data_source()
+        artifact = self.fixture.artifact(uploader=self.preparer, source_id=source)
+        run = self.fixture.run(artifact)
         version = self.fixture.mapping_version(
             artifact_id=artifact, source_id=source, author=self.preparer)
         dataset = self.fixture.dataset(run_id=run, artifact_id=artifact,
@@ -322,20 +326,27 @@ class CanonicalSchemaTests(unittest.TestCase):
         self.context(self.company_b)
         other = Fixture(self.cursor, company_id=self.company_b,
                         release_id=self.release_id)
-        foreign_artifact = other.artifact(uploader=self.preparer)
+        other_source = other.data_source()
+        foreign_artifact = other.artifact(uploader=self.preparer,
+                                          source_id=other_source)
 
         self.context(self.company_a)
         source = self.fixture.data_source()
-        with self.assertRaises(psycopg.errors.ForeignKeyViolation):
+        # El guard de fuente corre antes de la FK compuesta y, bajo FORCE RLS,
+        # no distingue un artefacto ajeno de uno inexistente. Esa precedencia
+        # evita convertir el error en un oraculo sobre otra empresa.
+        with self.assertRaises(psycopg.errors.CheckViolation) as caught:
             self.fixture.mapping_version(artifact_id=foreign_artifact,
                                          source_id=source, author=self.preparer)
+        self.assertEqual(caught.exception.diag.constraint_name,
+                         "ck_mapping_artifact_source")
 
     # ------------------------------------------------------------- segregacion
 
     def test_the_publisher_cannot_be_the_author_of_the_version_TST_P3_005(self) -> None:
-        artifact = self.fixture.artifact(uploader=self.preparer)
-        run = self.fixture.run(artifact)
         source = self.fixture.data_source()
+        artifact = self.fixture.artifact(uploader=self.preparer, source_id=source)
+        run = self.fixture.run(artifact)
         version = self.fixture.mapping_version(
             artifact_id=artifact, source_id=source, author=self.preparer)
         # No se deja al codigo de la API: es un CHECK, y por tanto no hay ruta
@@ -348,9 +359,9 @@ class CanonicalSchemaTests(unittest.TestCase):
         self.assertIn("ck_dataset_publisher_is_not_author", str(caught.exception))
 
     def test_a_different_reviewer_may_publish_TST_P3_006(self) -> None:
-        artifact = self.fixture.artifact(uploader=self.preparer)
-        run = self.fixture.run(artifact)
         source = self.fixture.data_source()
+        artifact = self.fixture.artifact(uploader=self.preparer, source_id=source)
+        run = self.fixture.run(artifact)
         version = self.fixture.mapping_version(
             artifact_id=artifact, source_id=source, author=self.preparer)
         dataset = self.fixture.dataset(
@@ -365,9 +376,9 @@ class CanonicalSchemaTests(unittest.TestCase):
         self.assertEqual(str(published_by), self.reviewer)
 
     def test_published_without_a_publisher_is_refused_TST_P3_007(self) -> None:
-        artifact = self.fixture.artifact(uploader=self.preparer)
-        run = self.fixture.run(artifact)
         source = self.fixture.data_source()
+        artifact = self.fixture.artifact(uploader=self.preparer, source_id=source)
+        run = self.fixture.run(artifact)
         version = self.fixture.mapping_version(
             artifact_id=artifact, source_id=source, author=self.preparer)
         with self.assertRaises(psycopg.errors.CheckViolation) as caught:
@@ -379,9 +390,9 @@ class CanonicalSchemaTests(unittest.TestCase):
     # ------------------------------------------------------------ idempotencia
 
     def test_publishing_the_same_triple_twice_does_not_duplicate_TST_P3_008(self) -> None:
-        artifact = self.fixture.artifact(uploader=self.preparer)
-        run = self.fixture.run(artifact)
         source = self.fixture.data_source()
+        artifact = self.fixture.artifact(uploader=self.preparer, source_id=source)
+        run = self.fixture.run(artifact)
         version = self.fixture.mapping_version(
             artifact_id=artifact, source_id=source, author=self.preparer)
         self.fixture.dataset(run_id=run, artifact_id=artifact,
@@ -393,9 +404,9 @@ class CanonicalSchemaTests(unittest.TestCase):
         self.assertIn("uq_dataset_reproduction", str(caught.exception))
 
     def test_reprocessing_creates_another_version_and_keeps_the_first_TST_P3_009(self) -> None:
-        artifact = self.fixture.artifact(uploader=self.preparer)
-        first_run = self.fixture.run(artifact)
         source = self.fixture.data_source()
+        artifact = self.fixture.artifact(uploader=self.preparer, source_id=source)
+        first_run = self.fixture.run(artifact)
         version = self.fixture.mapping_version(
             artifact_id=artifact, source_id=source, author=self.preparer)
         first = self.fixture.dataset(run_id=first_run, artifact_id=artifact,
@@ -414,9 +425,9 @@ class CanonicalSchemaTests(unittest.TestCase):
         self.assertEqual(self.cursor.fetchone()[0], "published")
 
     def test_one_source_record_yields_one_movement_per_dataset_TST_P3_010(self) -> None:
-        artifact = self.fixture.artifact(uploader=self.preparer)
-        run = self.fixture.run(artifact)
         source = self.fixture.data_source()
+        artifact = self.fixture.artifact(uploader=self.preparer, source_id=source)
+        run = self.fixture.run(artifact)
         account = self.fixture.account()
         version = self.fixture.mapping_version(
             artifact_id=artifact, source_id=source, author=self.preparer)
@@ -437,9 +448,9 @@ class CanonicalSchemaTests(unittest.TestCase):
     def test_two_identical_references_are_two_movements_TST_P3_011(self) -> None:
         # La referencia del proveedor **no** es unicidad economica: dos cobros
         # legitimos identicos existen, y colapsarlos seria perder dinero de vista.
-        artifact = self.fixture.artifact(uploader=self.preparer)
-        run = self.fixture.run(artifact)
         source = self.fixture.data_source()
+        artifact = self.fixture.artifact(uploader=self.preparer, source_id=source)
+        run = self.fixture.run(artifact)
         account = self.fixture.account()
         version = self.fixture.mapping_version(
             artifact_id=artifact, source_id=source, author=self.preparer)
@@ -460,9 +471,9 @@ class CanonicalSchemaTests(unittest.TestCase):
         self.assertEqual(self.cursor.fetchone()[0], 2)
 
     def test_an_amount_keeps_twelve_decimals_without_rounding_TST_P3_012(self) -> None:
-        artifact = self.fixture.artifact(uploader=self.preparer)
-        run = self.fixture.run(artifact)
         source = self.fixture.data_source()
+        artifact = self.fixture.artifact(uploader=self.preparer, source_id=source)
+        run = self.fixture.run(artifact)
         account = self.fixture.account()
         version = self.fixture.mapping_version(
             artifact_id=artifact, source_id=source, author=self.preparer)
@@ -481,9 +492,9 @@ class CanonicalSchemaTests(unittest.TestCase):
         self.assertEqual(self.cursor.fetchone()[0], Decimal("0.000000000001"))
 
     def test_a_negative_amount_is_refused_because_direction_carries_the_sign_TST_P3_013(self) -> None:
-        artifact = self.fixture.artifact(uploader=self.preparer)
-        run = self.fixture.run(artifact)
         source = self.fixture.data_source()
+        artifact = self.fixture.artifact(uploader=self.preparer, source_id=source)
+        run = self.fixture.run(artifact)
         account = self.fixture.account()
         version = self.fixture.mapping_version(
             artifact_id=artifact, source_id=source, author=self.preparer)
