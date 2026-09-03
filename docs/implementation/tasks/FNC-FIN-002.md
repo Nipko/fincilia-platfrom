@@ -1,7 +1,7 @@
 ---
 id: FNC-FIN-002
 title: Sobre de costo verificable para AWS private-pilot
-status: in_progress
+status: review_pending
 implementer: Codex principal dev + Integration Steward
 base_sha: c77e6b7
 gate: DRG-00
@@ -49,3 +49,11 @@ autorización mientras falten cotización regional, tope nominal y revisión.
 
 Cotizar mediante una sesión AWS vencida, aceptar un precio, fijar el tope del
 Founder, aplicar recursos o superar DRG-00/DRG-01.
+
+# Resultado integrado
+
+- 142 altas agrupadas en 41 tipos y ligadas por digest al plan observado.
+- Piso conocido USD 6,60/mes, marcado como incompleto por construcción.
+- Nueve costos fríos y siete calientes continúan visibles y sin cotizar.
+- 17 pruebas adversariales, validadores y CI `33705645858` verdes.
+- Ninguna autorización de apply, despliegue, gasto o datos reales fue emitida.
