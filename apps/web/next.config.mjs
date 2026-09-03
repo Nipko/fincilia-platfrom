@@ -9,15 +9,6 @@ const nextConfig = {
   output: 'standalone',
   reactStrictMode: true,
   poweredByHeader: false,
-  async redirects() {
-    return [
-      { source: '/privacidad', destination: '/privacy', permanent: true },
-      { source: '/terminos', destination: '/terms', permanent: true },
-      { source: '/seguridad', destination: '/security', permanent: true },
-      { source: '/subencargados', destination: '/subprocessors', permanent: true },
-      { source: '/eliminar-cuenta', destination: '/delete-account', permanent: true },
-    ];
-  },
   // La web no habla con nadie mas que con su propia API, y esa llamada la hace
   // el servidor. Si el navegador pudiera llamar a otro origen, el token dejaria
   // de estar solo en una cookie httpOnly.
