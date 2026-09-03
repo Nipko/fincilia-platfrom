@@ -56,6 +56,8 @@ Security/Platform/QA.
   leer valores del estado.
 - La consulta live del 3 de septiembre de 2026 confirmó cuenta/región exactas,
   inventario `0`, RDS/Valkey/ALB/ECS ausentes y cero NAT.
+- El plan `cold` sobre `d466438` fue validado y resumido por digest: 142 altas,
+  11 lecturas, cero actualizaciones y cero borrados; no se ejecutó `apply`.
 - El agregador DRG ya no permite usar FNC-QA-001 como evidencia suficiente de
   `G00-ISOLATED-ENV`; exige un artefacto target distinto y estricto.
 - El control permanece `pending`, los dos gates `not_met` y los datos reales

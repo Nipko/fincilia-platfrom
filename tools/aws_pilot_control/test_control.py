@@ -175,6 +175,27 @@ class PilotControllerTests(unittest.TestCase):
         ).encode("utf-8")).hexdigest()
         self.assertEqual(claimed, observed)
 
+    def test_cold_plan_evidence_is_digest_only_and_non_authorizing(self) -> None:
+        path = ROOT / "docs/implementation/evidence/FNC-GAT-007-COLD-PLAN.json"
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        self.assertEqual("cold", payload["mode"])
+        self.assertFalse(payload["runtime_plane_enabled"])
+        self.assertFalse(payload["apply_executed"])
+        self.assertFalse(payload["apply_authorized_by_this_evidence"])
+        self.assertFalse(payload["real_data_authorized"])
+        self.assertEqual({
+            "create": 142, "read": 11, "update": 0, "delete": 0,
+        }, payload["planned_actions"])
+        self.assertRegex(payload["plan_sha256"], r"^[0-9a-f]{64}$")
+        encoded = json.dumps(payload, sort_keys=True)
+        self.assertNotIn("632144225293", encoded)
+        self.assertNotIn("tfvars", encoded)
+        claimed = payload.pop("evidence_sha256")
+        observed = hashlib.sha256(json.dumps(
+            payload, ensure_ascii=True, sort_keys=True, separators=(",", ":")
+        ).encode("utf-8")).hexdigest()
+        self.assertEqual(claimed, observed)
+
     def test_mode_without_apply_is_refused_without_calls(self) -> None:
         runner = FakeRunner([])
         with self.assertRaisesRegex(ControlError, "requiere --apply"):
