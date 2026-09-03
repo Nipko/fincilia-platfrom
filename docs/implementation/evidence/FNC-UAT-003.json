@@ -1,0 +1,194 @@
+{
+  "checks": {
+    "certificate_covers_domain": true,
+    "certificate_trusted": true,
+    "csp_blocks_framing": true,
+    "csp_forbids_unsafe_eval": true,
+    "hsts_exact": true,
+    "http_redirect_exact": true,
+    "https_routes_ok": true,
+    "no_store_exact": true,
+    "nosniff_exact": true,
+    "permissions_policy_exact": true,
+    "referrer_policy_exact": true,
+    "tls_modern": true,
+    "x_frame_options_exact": true
+  },
+  "data_classification": "completely_synthetic",
+  "domain": "fincilia.com",
+  "environment": "uat",
+  "evidence_sha256": "e1c610d4d7dc9ddb5f362ba08147c9f56ab72fe3ead4638f96bb07051e66933e",
+  "independent_review": {
+    "agent_observation_is_not_acceptance": true,
+    "required_roles": ["Security", "Platform/SRE", "QA"],
+    "state": "pending"
+  },
+  "observed_at": "2026-09-03T00:01:49Z",
+  "probe_source_sha256": "a6ec6cd3847ce8bc75ca1448feb745b6e54e99472b819a38172097fcfbb13b0d",
+  "production_authorized": false,
+  "real_data_authorized": false,
+  "request_policy": {
+    "authorization_sent": false,
+    "body_sent_or_captured": false,
+    "cookies_sent": false,
+    "methods": ["HEAD"],
+    "query_strings_sent": false
+  },
+  "routes": [
+    {
+      "headers": {
+        "cache-control": "private, no-cache, no-store, max-age=0, must-revalidate",
+        "content-security-policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; form-action 'self'; base-uri 'none'",
+        "permissions-policy": "camera=(), microphone=(), geolocation=(), payment=()",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "strict-transport-security": "max-age=31536000; includeSubDomains",
+        "x-content-type-options": "nosniff",
+        "x-frame-options": "DENY"
+      },
+      "headers_sha256": "5e022b469ab0057bb0438f71fc93a0cf836eb0af169ceb3b131fddd8ace09bc7",
+      "path": "/",
+      "status": 200
+    },
+    {
+      "headers": {
+        "cache-control": "private, no-cache, no-store, max-age=0, must-revalidate",
+        "content-security-policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; form-action 'self'; base-uri 'none'",
+        "permissions-policy": "camera=(), microphone=(), geolocation=(), payment=()",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "strict-transport-security": "max-age=31536000; includeSubDomains",
+        "x-content-type-options": "nosniff",
+        "x-frame-options": "DENY"
+      },
+      "headers_sha256": "5e022b469ab0057bb0438f71fc93a0cf836eb0af169ceb3b131fddd8ace09bc7",
+      "path": "/entrar",
+      "status": 200
+    },
+    {
+      "headers": {
+        "cache-control": "private, no-cache, no-store, max-age=0, must-revalidate",
+        "content-security-policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; form-action 'self'; base-uri 'none'",
+        "permissions-policy": "camera=(), microphone=(), geolocation=(), payment=()",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "strict-transport-security": "max-age=31536000; includeSubDomains",
+        "x-content-type-options": "nosniff",
+        "x-frame-options": "DENY"
+      },
+      "headers_sha256": "5e022b469ab0057bb0438f71fc93a0cf836eb0af169ceb3b131fddd8ace09bc7",
+      "path": "/registro",
+      "status": 200
+    },
+    {
+      "headers": {
+        "cache-control": "private, no-cache, no-store, max-age=0, must-revalidate",
+        "content-security-policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; form-action 'self'; base-uri 'none'",
+        "permissions-policy": "camera=(), microphone=(), geolocation=(), payment=()",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "strict-transport-security": "max-age=31536000; includeSubDomains",
+        "x-content-type-options": "nosniff",
+        "x-frame-options": "DENY"
+      },
+      "headers_sha256": "5e022b469ab0057bb0438f71fc93a0cf836eb0af169ceb3b131fddd8ace09bc7",
+      "path": "/privacidad",
+      "status": 200
+    },
+    {
+      "headers": {
+        "cache-control": "private, no-cache, no-store, max-age=0, must-revalidate",
+        "content-security-policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; form-action 'self'; base-uri 'none'",
+        "permissions-policy": "camera=(), microphone=(), geolocation=(), payment=()",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "strict-transport-security": "max-age=31536000; includeSubDomains",
+        "x-content-type-options": "nosniff",
+        "x-frame-options": "DENY"
+      },
+      "headers_sha256": "5e022b469ab0057bb0438f71fc93a0cf836eb0af169ceb3b131fddd8ace09bc7",
+      "path": "/terminos",
+      "status": 200
+    },
+    {
+      "headers": {
+        "cache-control": "private, no-cache, no-store, max-age=0, must-revalidate",
+        "content-security-policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; form-action 'self'; base-uri 'none'",
+        "permissions-policy": "camera=(), microphone=(), geolocation=(), payment=()",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "strict-transport-security": "max-age=31536000; includeSubDomains",
+        "x-content-type-options": "nosniff",
+        "x-frame-options": "DENY"
+      },
+      "headers_sha256": "5e022b469ab0057bb0438f71fc93a0cf836eb0af169ceb3b131fddd8ace09bc7",
+      "path": "/cookies",
+      "status": 200
+    },
+    {
+      "headers": {
+        "cache-control": "private, no-cache, no-store, max-age=0, must-revalidate",
+        "content-security-policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; form-action 'self'; base-uri 'none'",
+        "permissions-policy": "camera=(), microphone=(), geolocation=(), payment=()",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "strict-transport-security": "max-age=31536000; includeSubDomains",
+        "x-content-type-options": "nosniff",
+        "x-frame-options": "DENY"
+      },
+      "headers_sha256": "5e022b469ab0057bb0438f71fc93a0cf836eb0af169ceb3b131fddd8ace09bc7",
+      "path": "/seguridad",
+      "status": 200
+    },
+    {
+      "headers": {
+        "cache-control": "private, no-cache, no-store, max-age=0, must-revalidate",
+        "content-security-policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; form-action 'self'; base-uri 'none'",
+        "permissions-policy": "camera=(), microphone=(), geolocation=(), payment=()",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "strict-transport-security": "max-age=31536000; includeSubDomains",
+        "x-content-type-options": "nosniff",
+        "x-frame-options": "DENY"
+      },
+      "headers_sha256": "5e022b469ab0057bb0438f71fc93a0cf836eb0af169ceb3b131fddd8ace09bc7",
+      "path": "/subencargados",
+      "status": 200
+    },
+    {
+      "headers": {
+        "cache-control": "private, no-cache, no-store, max-age=0, must-revalidate",
+        "content-security-policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; form-action 'self'; base-uri 'none'",
+        "permissions-policy": "camera=(), microphone=(), geolocation=(), payment=()",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "strict-transport-security": "max-age=31536000; includeSubDomains",
+        "x-content-type-options": "nosniff",
+        "x-frame-options": "DENY"
+      },
+      "headers_sha256": "5e022b469ab0057bb0438f71fc93a0cf836eb0af169ceb3b131fddd8ace09bc7",
+      "path": "/dpa",
+      "status": 200
+    },
+    {
+      "headers": {
+        "cache-control": "private, no-cache, no-store, max-age=0, must-revalidate",
+        "content-security-policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; form-action 'self'; base-uri 'none'",
+        "permissions-policy": "camera=(), microphone=(), geolocation=(), payment=()",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "strict-transport-security": "max-age=31536000; includeSubDomains",
+        "x-content-type-options": "nosniff",
+        "x-frame-options": "DENY"
+      },
+      "headers_sha256": "5e022b469ab0057bb0438f71fc93a0cf836eb0af169ceb3b131fddd8ace09bc7",
+      "path": "/eliminar-cuenta",
+      "status": 200
+    }
+  ],
+  "schema_version": "1.0.0",
+  "source_revision": "26e8182f145782815662655d3e51839f1b4c324c",
+  "status": "passed",
+  "task_id": "FNC-UAT-003",
+  "transport": {
+    "certificate_issuer_common_name": "YE2",
+    "certificate_not_after": "2026-11-28T04:27:10Z",
+    "certificate_san": ["fincilia.com"],
+    "certificate_sha256": "c6512df7ff1a3344ded66299b658bfbe41b3d35a9559e02f127140b437e194e8",
+    "cipher": "TLS_AES_128_GCM_SHA256",
+    "http_location": "https://fincilia.com/",
+    "http_status": 301,
+    "tls_verified": true,
+    "tls_version": "TLSv1.3"
+  }
+}

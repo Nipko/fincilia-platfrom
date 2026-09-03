@@ -1,7 +1,7 @@
 ---
 id: FNC-UAT-003
 title: Evidencia verificable del borde HTTPS UAT
-status: in_progress
+status: review_pending
 implementer: Codex principal dev + Integration Steward
 base_sha: 02c0ffc
 gate: UAT
@@ -36,3 +36,10 @@ enviar cookies, autorización, query strings ni cuerpo.
 
 Modificar DNS, certificado, proxy, WAF o runtime; pentest; escaneo de puertos;
 datos reales; aprobación de DRG-00/01 o revisión humana independiente.
+
+# Evidencia integrada
+
+- Implementación: `26e8182f145782815662655d3e51839f1b4c324c`.
+- Sonda live: 13/13 controles y 10/10 rutas públicas, 2026-09-03 UTC.
+- `docs/implementation/evidence/FNC-UAT-003.json`.
+- Security, Platform/SRE y QA continúan pendientes como revisores independientes.

@@ -169,7 +169,7 @@ dependencias de `FNC-GAT-002` ni afirmar que Sprint 1 está habilitado.
 | FNC-ADM-001 | A2/A3/A5/A6 | IAM-004, SEC-001, AUD-001 | Review pending | Superadmin inicial y plano de control separados de roles/datos financieros; PostgreSQL, API, web y consola local verificados |
 | FNC-UAT-001 | A2/A3/A4/A5 | ADM-001, REL-001, SUP-002 | In progress | `b099c64` probado y firmado sin publicar; deploy UAT por digest exige backup/restore fresco, smoke público, evidencia y rollback; reset público, ensayo desechable y revisiones pendientes |
 | FNC-UAT-002 | A2/A3/A5/A6 | UAT-001, QA-009, ONB-002 | Review pending | Dos corridas desde esquema vacío y regresión completa en runtimes desechables; cleanup exacto verificado |
-| FNC-UAT-003 | A3/A5/A6 | UAT-001, SEC-006 | In progress | Evidencia read-only del transporte y cabeceras del edge UAT sin payload ni identidad |
+| FNC-UAT-003 | A3/A5/A6 | UAT-001, SEC-006 | Review pending | 13 controles TLS/HTTP y 10 rutas públicas pasan sin payload ni identidad; revisión independiente pendiente |
 | FNC-ADM-002 | A2/A3/A6 | ADM-001, SEC-001 | Review pending | V0052, ACL, API y consola de diagnóstico agregado probadas; sin nombres, IDs, documentos, importes ni acceso financiero transversal |
 | FNC-ACC-001 | A4/A5/A6 | ING-005, REC-006, CLS-005, RPT-001 | Review pending | Recorrido contable web guiado sin cambiar semántica ni ejecutar cierre |
 | FNC-UX-003 | A6 | WEB-004, UX-001, IAM-002, ACC-001 | Review pending | Shell SaaS premium, navegación jerárquica, motion accesible y responsive |
