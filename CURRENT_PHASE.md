@@ -167,6 +167,7 @@ Hasta S1-READY solo se admite scaffolding, automatización, pruebas, documentaci
 | FNC-IAM-002 | Centro de cuenta y recorrido de identidad coherente | Review pending | Codex + Integration Steward | `/me`, cuenta, sesión, empresas y roles integrados sin exponer identidad externa; Security/Privacy/UX/QA pendientes y DRG-00 no cambia |
 | FNC-IAM-003 | Cierre operativo de identidad administrada | Review pending | Codex + Integration Steward | Logout Cognito, SignUp nativo cerrado y sonda live de 16 controles; AWS, assurance y revisión independiente pendientes |
 | FNC-IAM-004 | Alta pública definitiva con Google y aceptación legal versionada | Review pending | Codex + Integration Steward | Control plane Google/Cognito 16/16 live y protegido contra borrado; runtime protegido, revisiones independientes y DRG-00 continúan pendientes |
+| FNC-IAM-005 | Preflight redactado de activación Google UAT | Review pending | Codex + Integration Steward | Descubrimiento desde outputs OpenTofu sin imprimir selectores; 16 pruebas verdes y activación bloqueada por DRG-00/revisión independiente |
 | FNC-ADM-001 | Plano de control y superadmin inicial | Review pending | Codex + Integration Steward | Bootstrap Google/HMAC único, roles de plataforma, API, consola, diagnósticos y auditoría verificados sin acceso financiero implícito; revisiones independientes pendientes |
 | FNC-UAT-001 | Ciclo UAT y promoción limpia a producción | In progress | Codex + Integration Steward | Release `b099c64` con CI `33473978646` y candidato firmado `33474841341` verdes; despliegue exige backup/restore fresco y conserva rollback, mientras ensayo destructivo y revisiones independientes siguen pendientes |
 | FNC-UAT-002 | Aceptación integral desechable desde esquema vacío | Review pending | Codex + Integration Steward | Dos corridas limpias: alta vacía, 47 backend, 9 PostgreSQL, 42 Chromium y 26 Axe por corrida; cleanup exacto verificado |
@@ -191,6 +192,7 @@ Hasta S1-READY solo se admite scaffolding, automatización, pruebas, documentaci
 | FNC-LEG-001 | Plantilla ejecutable de tratamiento para corpus real | Review pending | Codex + Integration Steward | 11 actividades dinámicas, 16 secciones y 26 pruebas; paquete listo para abogado independiente, sin autorizar datos reales ni mover DRG-00 |
 | FNC-PRV-002 | Matriz ejecutable L-01 de retención y borrado | Review pending | Codex + Integration Steward | 19 políticas frescas por digest, dos estados fail-closed y 29 pruebas; plazos y cuatro revisores humanos permanecen pendientes |
 | FNC-SEC-003 | Diseño ejecutable del laboratorio aislado para corpus real | Review pending | Codex + Integration Steward | 37 controles, 6 zonas, 12 casos y 34 pruebas; IdP/proveedor/región/despliegue/evidencia siguen pendientes y datos reales prohibidos |
+| FNC-GAT-008 | Estado funcional ejecutable de plataforma web | Review pending | Codex + Integration Steward | 12 dominios/100 puntos: 88 % implementación, 59 % aceptación sintética y 28 % operabilidad productiva; mobile fuera del denominador |
 
 Solo el Integration Steward modifica esta tabla.
 

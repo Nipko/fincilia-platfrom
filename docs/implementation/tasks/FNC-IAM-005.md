@@ -1,7 +1,7 @@
 ---
 id: FNC-IAM-005
 title: Preflight redactado de activacion Google en UAT
-status: in_progress
+status: review_pending
 implementer: Codex principal dev + Integration Steward
 base_sha: 378f6de76deb6da08030f940d6558b17c81d30a6
 gate: DRG-00
@@ -38,3 +38,11 @@ crea usuarios y no mueve DRG-00.
 
 Aplicar infraestructura, encender OIDC, crear cuentas reales, almacenar secretos,
 aceptar revisiones o habilitar documentos financieros reales.
+
+# Evidencia integrada
+
+- Implementacion: `6ff3d64`.
+- 16 pruebas focales de identidad y descubrimiento: OK.
+- Quality gate sobre el indice: cero hallazgos.
+- La sonda live conserva resultado previo 16/16; su repeticion actual queda
+  pendiente de renovar la sesion temporal AWS.

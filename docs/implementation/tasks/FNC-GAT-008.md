@@ -1,7 +1,7 @@
 ---
 id: FNC-GAT-008
 title: Estado funcional ejecutable de plataforma web
-status: in_progress
+status: review_pending
 implementer: Codex principal dev + Integration Steward
 base_sha: 6ff3d64
 gate: none
@@ -31,3 +31,10 @@ un porcentaje de codigo como autorizacion de datos, exactitud contable real o GA
 5. Ningun estado real o productivo puede declararse mientras sus gates sigan
    cerrados.
 6. El informe separa funcionalidad construida de trabajo operativo pendiente.
+
+# Evidencia integrada
+
+- Implementacion: `7af724f`.
+- 10 pruebas adversariales y CLI canonico: OK.
+- Resultado calculado: implementacion 88 %, aceptacion sintetica 59 % y
+  operabilidad productiva 28 %; mobile excluido.

@@ -169,6 +169,7 @@ dependencias de `FNC-GAT-002` ni afirmar que Sprint 1 está habilitado.
 | FNC-IAM-002 | A3/A6 | IAM-001, ONB-002, QA-007 | Review pending | Centro de cuenta y recorrido coherente de identidad, sesión, empresas y roles |
 | FNC-IAM-003 | A2/A3/A6 | IAM-001, IAM-002, PLT-012 | Review pending | Logout federado, SignUp nativo cerrado y contrato de assurance Google sin sobreafirmar MFA |
 | FNC-IAM-004 | A2/A3/A6 | IAM-001, IAM-002, IAM-003, ONB-001, LEG-002 | Review pending | Alta pública Google sin invitaciones, login no creador, aceptación legal versionada y firma/owner atómicos; activación externa y revisión independiente pendientes |
+| FNC-IAM-005 | A2/A3/A6 | IAM-004, PLT-010, GAT-005 | Review pending | Preflight Cognito desde outputs T0 sin exponer selectores; 16 pruebas verdes, activación y datos reales siguen bloqueados por DRG-00 |
 | FNC-ADM-001 | A2/A3/A5/A6 | IAM-004, SEC-001, AUD-001 | Review pending | Superadmin inicial y plano de control separados de roles/datos financieros; PostgreSQL, API, web y consola local verificados |
 | FNC-UAT-001 | A2/A3/A4/A5 | ADM-001, REL-001, SUP-002 | In progress | `b099c64` probado y firmado sin publicar; deploy UAT por digest exige backup/restore fresco, smoke público, evidencia y rollback; reset público, ensayo desechable y revisiones pendientes |
 | FNC-UAT-002 | A2/A3/A5/A6 | UAT-001, QA-009, ONB-002 | Review pending | Dos corridas desde esquema vacío y regresión completa en runtimes desechables; cleanup exacto verificado |
@@ -189,6 +190,7 @@ dependencias de `FNC-GAT-002` ni afirmar que Sprint 1 está habilitado.
 | FNC-ING-006 | A4/A5/A6 | ING-005, ARC-001 | Review pending | PDF seguro y texto embebido implementados; port OCR desactivado; ADR-009 conserva el gateway obligatorio |
 | FNC-NTF-001 | A2/A4/A6 | OPS-001, ARC-004 | Review pending | Preferencias, intención idempotente, contexto allowlisted, RLS por sujeto e historial; adaptador real desactivado |
 | FNC-BIL-001 | A2/A4/A6 | ARC-001, SEC-001 | Review pending | Tres planes versionados, evaluación idempotente, uso append-only y consola; cobro real desactivado |
+| FNC-GAT-008 | A1/A6 | WEB-004, ACC-001, IAM-004 | Review pending | Inventario ejecutable de 12 dominios: 88 % implementación, 59 % aceptación sintética y 28 % operabilidad productiva; mobile excluido |
 
 ## No codificar todavía salvo autorización posterior explícita
 
