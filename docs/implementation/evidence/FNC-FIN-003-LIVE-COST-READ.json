@@ -1,0 +1,30 @@
+{
+  "schema_version": "1.0.0",
+  "task_id": "FNC-FIN-003",
+  "observed_at": "2026-09-03T00:45:00Z",
+  "region": "sa-east-1",
+  "operation_mode": "read_only",
+  "identity": {
+    "profile": "fincilia-sandbox",
+    "authenticated": true,
+    "expected_account_match": true,
+    "principal_kind": "iam_user",
+    "raw_identifiers_persisted": false
+  },
+  "live_inventory": {
+    "uat_running_instances": {"count": 1, "instance_type": "t3.small", "root_gp3_gb": 24},
+    "stopped_lab_instances": {"count": 1, "instance_type": "t3.small", "root_gp3_gb": 16},
+    "associated_elastic_ipv4": 1,
+    "rds_instances": 0
+  },
+  "billing_controls": {
+    "uat_budget_usd": "35.00",
+    "account_gross_calculated_spend_usd": "1.666",
+    "gross_spend_observed_at": "2026-09-03T00:13:49Z",
+    "net_cost_to_date_classification": "approximately_zero_after_program_adjustments",
+    "budget_is_hard_cap": false
+  },
+  "mutations_executed": false,
+  "apply_executed": false,
+  "real_data_observed": false
+}

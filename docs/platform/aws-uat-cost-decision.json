@@ -1,0 +1,112 @@
+{
+  "schema_version": "1.0.0",
+  "task_id": "FNC-FIN-003",
+  "status": "technical_review_ready_human_decision_pending",
+  "region": "sa-east-1",
+  "currency": "USD",
+  "monthly_hours": 730,
+  "data_ceiling": "synthetic_only_until_gate",
+  "live_evidence": "docs/implementation/evidence/FNC-FIN-003-LIVE-COST-READ.json",
+  "regional_rates": [
+    {"id": "ec2_t3_small", "quantity_unit": "instance_hour", "unit_usd": "0.0336000000", "sku": "NVUUK68HKWKTGHGY", "effective_date": "2026-08-01", "source_id": "AWS-PRICE-LIST"},
+    {"id": "ebs_gp3", "quantity_unit": "gb_month", "unit_usd": "0.1520000000", "sku": "FJRJF7DYJ65UXC5J", "effective_date": "2026-08-01", "source_id": "AWS-PRICE-LIST"},
+    {"id": "public_ipv4", "quantity_unit": "address_hour", "unit_usd": "0.0050000000", "sku": "VMVKZDCCHU2PXGFV", "effective_date": "2026-07-01", "source_id": "AWS-PRICE-LIST"},
+    {"id": "rds_postgresql_db_t4g_micro", "quantity_unit": "instance_hour", "unit_usd": "0.0340000000", "sku": "5K235BK99GYPNVFT", "effective_date": "2026-09-01", "source_id": "AWS-PRICE-LIST"},
+    {"id": "rds_postgresql_gp3", "quantity_unit": "gb_month", "unit_usd": "0.2190000000", "sku": "WUJQNDPMFFXMBTAZ", "effective_date": "2026-09-01", "source_id": "AWS-PRICE-LIST"},
+    {"id": "kms_customer_key", "quantity_unit": "key_month", "unit_usd": "1.0000000000", "sku": null, "effective_date": "2026-09-03", "source_id": "AWS-KMS-PRICE"},
+    {"id": "secrets_manager_secret", "quantity_unit": "secret_month", "unit_usd": "0.4000000000", "sku": null, "effective_date": "2026-09-03", "source_id": "AWS-SECRETS-PRICE"},
+    {"id": "nat_gateway", "quantity_unit": "gateway_hour", "unit_usd": "0.0930000000", "sku": "N3JNXFX89DVACZ9Q", "effective_date": "2026-08-01", "source_id": "AWS-PRICE-LIST"},
+    {"id": "interface_vpc_endpoint", "quantity_unit": "endpoint_az_hour", "unit_usd": "0.0210000000", "sku": "F23ZH8BV69TWPZ4C", "effective_date": "2026-07-01", "source_id": "AWS-PRICE-LIST"},
+    {"id": "application_load_balancer", "quantity_unit": "load_balancer_hour", "unit_usd": "0.0340000000", "sku": "4AJP3GA9ECKSCY5M", "effective_date": "2026-08-01", "source_id": "AWS-PRICE-LIST"},
+    {"id": "application_load_balancer_lcu", "quantity_unit": "lcu_hour", "unit_usd": "0.0110000000", "sku": "57V3ETTKU499QBWM", "effective_date": "2026-08-01", "source_id": "AWS-PRICE-LIST"},
+    {"id": "waf_web_acl", "quantity_unit": "acl_month", "unit_usd": "5.0000000000", "sku": "MSDT9GNBX9YAQFVC", "effective_date": "2025-12-01", "source_id": "AWS-PRICE-LIST"},
+    {"id": "waf_rule", "quantity_unit": "rule_month", "unit_usd": "1.0000000000", "sku": "FPQDEVWKYZ25WGTE", "effective_date": "2025-12-01", "source_id": "AWS-PRICE-LIST"},
+    {"id": "waf_request", "quantity_unit": "request", "unit_usd": "0.0000006000", "sku": "C28PEW5V7RW9RGBY", "effective_date": "2025-12-01", "source_id": "AWS-PRICE-LIST"},
+    {"id": "valkey_cache_t4g_micro", "quantity_unit": "node_hour", "unit_usd": "0.0240000000", "sku": "UG4BUGH65Y4NSJQE", "effective_date": "2026-08-01", "source_id": "AWS-PRICE-LIST"},
+    {"id": "fargate_x86_vcpu", "quantity_unit": "vcpu_hour", "unit_usd": "0.0696000000", "sku": "WYZ4CHTNFEXBJ2QA", "effective_date": "2026-07-01", "source_id": "AWS-PRICE-LIST"},
+    {"id": "fargate_x86_memory", "quantity_unit": "gb_hour", "unit_usd": "0.0076000000", "sku": "W7C6ESVS5UQVWHF7", "effective_date": "2026-07-01", "source_id": "AWS-PRICE-LIST"}
+  ],
+  "monthly_scenarios": {
+    "current_uat": {
+      "components": [
+        {"rate_id": "ec2_t3_small", "quantity": "730", "subtotal_usd": "24.528000"},
+        {"rate_id": "ebs_gp3", "quantity": "24", "subtotal_usd": "3.648000"},
+        {"rate_id": "public_ipv4", "quantity": "730", "subtotal_usd": "3.650000"}
+      ],
+      "fixed_subtotal_usd": "31.826000"
+    },
+    "current_account_overhead": {
+      "components": [
+        {"rate_id": "ebs_gp3", "quantity": "16", "subtotal_usd": "2.432000"}
+      ],
+      "fixed_subtotal_usd": "2.432000",
+      "reason": "stopped_t1_lab_volume"
+    },
+    "current_account_fixed_total_usd": "34.258000",
+    "private_pilot_cold": {
+      "components": [
+        {"rate_id": "rds_postgresql_db_t4g_micro", "quantity": "730", "subtotal_usd": "24.820000"},
+        {"rate_id": "rds_postgresql_gp3", "quantity": "20", "subtotal_usd": "4.380000"},
+        {"rate_id": "kms_customer_key", "quantity": "5", "subtotal_usd": "5.000000"},
+        {"rate_id": "secrets_manager_secret", "quantity": "5", "subtotal_usd": "2.000000"}
+      ],
+      "fixed_subtotal_usd": "36.200000"
+    },
+    "private_pilot_warm_services_stopped": {
+      "additional_components": [
+        {"rate_id": "nat_gateway", "quantity": "730", "subtotal_usd": "67.890000"},
+        {"rate_id": "interface_vpc_endpoint", "quantity": "4380", "subtotal_usd": "91.980000"},
+        {"rate_id": "application_load_balancer", "quantity": "730", "subtotal_usd": "24.820000"},
+        {"rate_id": "public_ipv4", "quantity": "2190", "subtotal_usd": "10.950000"},
+        {"rate_id": "waf_web_acl", "quantity": "1", "subtotal_usd": "5.000000"},
+        {"rate_id": "waf_rule", "quantity": "3", "subtotal_usd": "3.000000"},
+        {"rate_id": "valkey_cache_t4g_micro", "quantity": "730", "subtotal_usd": "17.520000"}
+      ],
+      "includes_cold_subtotal": true,
+      "fixed_subtotal_usd": "257.360000"
+    },
+    "private_pilot_warm_services_active": {
+      "additional_components": [
+        {"rate_id": "fargate_x86_vcpu", "quantity": "730", "subtotal_usd": "50.808000"},
+        {"rate_id": "fargate_x86_memory", "quantity": "1460", "subtotal_usd": "11.096000"}
+      ],
+      "includes_warm_stopped_subtotal": true,
+      "fixed_subtotal_usd": "319.264000"
+    }
+  },
+  "excluded_variable_usage": [
+    "s3_and_ecr_storage_and_requests",
+    "cloudwatch_logs_metrics_and_alarm_overages",
+    "cloudtrail_data_events",
+    "network_transfer_nat_and_endpoint_gigabytes",
+    "alb_lcu_hours",
+    "waf_requests",
+    "kms_and_secrets_api_requests",
+    "cognito_monthly_active_users"
+  ],
+  "decision": {
+    "recommendation": "retain_and_harden_existing_uat_single_host",
+    "reason": "lowest_fixed_cost_and_already_serving_fincilia_com",
+    "recommended_gross_budget_alert_usd": "45.00",
+    "current_budget_usd": "35.00",
+    "budget_change_authorized": false,
+    "delete_stopped_lab_authorized": false,
+    "private_pilot_apply_authorized": false,
+    "deployment_authorized": false,
+    "real_data_authorized": false,
+    "production_promotion_authorized": false,
+    "independent_review_pending": true
+  },
+  "sources": [
+    {"id": "AWS-PRICE-LIST", "authority": "AWS Price List API", "url": "https://aws.amazon.com/aws-cost-management/aws-price-list-api/", "retrieved_at": "2026-09-03"},
+    {"id": "AWS-KMS-PRICE", "authority": "AWS", "url": "https://aws.amazon.com/kms/pricing/", "retrieved_at": "2026-09-03"},
+    {"id": "AWS-SECRETS-PRICE", "authority": "AWS", "url": "https://aws.amazon.com/secrets-manager/pricing/", "retrieved_at": "2026-09-03"},
+    {"id": "AWS-EC2-PRICE", "authority": "AWS", "url": "https://aws.amazon.com/ec2/pricing/on-demand/", "retrieved_at": "2026-09-03"},
+    {"id": "AWS-VPC-PRICE", "authority": "AWS", "url": "https://aws.amazon.com/vpc/pricing/", "retrieved_at": "2026-09-03"},
+    {"id": "AWS-PRIVATELINK-PRICE", "authority": "AWS", "url": "https://aws.amazon.com/privatelink/pricing/", "retrieved_at": "2026-09-03"},
+    {"id": "AWS-RDS-PRICE", "authority": "AWS", "url": "https://aws.amazon.com/rds/postgresql/pricing/", "retrieved_at": "2026-09-03"},
+    {"id": "AWS-ELASTICACHE-PRICE", "authority": "AWS", "url": "https://aws.amazon.com/elasticache/pricing/", "retrieved_at": "2026-09-03"},
+    {"id": "AWS-FARGATE-PRICE", "authority": "AWS", "url": "https://aws.amazon.com/fargate/pricing/", "retrieved_at": "2026-09-03"},
+    {"id": "AWS-WAF-PRICE", "authority": "AWS", "url": "https://aws.amazon.com/waf/pricing/", "retrieved_at": "2026-09-03"}
+  ]
+}
