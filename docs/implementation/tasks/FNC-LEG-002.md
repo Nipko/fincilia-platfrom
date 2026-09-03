@@ -37,6 +37,9 @@ estado de gobierno como un borrador público.
    privacidad, y persiste los identificadores exactos de las versiones activas.
 10. Las versiones anteriores permanecen como evidencia histórica y dejan de
     estar activas para nuevas altas mediante una migración forward-only.
+11. La publicación pública destinada a revisión de marca está íntegramente en
+    inglés, declara `lang=en`, tiene metadatos propios y conserva las URLs
+    estables configuradas en Google.
 
 # Fuera de alcance
 
@@ -50,5 +53,13 @@ entregados explícitamente por el Founder.
 - `apps/web/src/app/{privacidad,terminos,cookies,seguridad,dpa,subencargados,eliminar-cuenta}`.
 - `apps/web/src/components/legal-document.tsx` y `apps/web/src/lib/legal-*`.
 - Registro Google, callback y pruebas de consentimiento web/API.
-- `db/migrations/V0056__publish_legal_documents_2026_09_03.sql` y prueba PostgreSQL.
+- `db/migrations/V0056__publish_legal_documents_2026_09_03.sql`,
+  `V0057__publish_english_legal_documents_2026_09_03.sql` y prueba PostgreSQL.
 - Runbook Google, backlog, trazabilidad, fase vigente y handoff de revisión.
+
+# Enmienda de publicación inglesa
+
+V0057 amplía el identificador versionado con un sufijo de idioma ISO 639-1 y
+activa `terms-2026-09-03-en` y `privacy-2026-09-03-en`. No modifica V0056 ni
+aceptaciones históricas. El resto de la interfaz puede permanecer en español;
+cada documento legal declara explícitamente su contenido en inglés.

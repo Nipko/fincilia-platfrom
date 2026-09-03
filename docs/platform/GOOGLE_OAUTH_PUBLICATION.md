@@ -22,8 +22,10 @@ publicar las paginas y preparar el proyecto no mueve ese gate.
 - Responsable publicado: Parallext LLC. Soporte: `support@fincilia.com`;
   privacidad: `privacy@fincilia.com`; contacto de desarrollador:
   `security@fincilia.com`.
-- Versiones activas preparadas para nuevas altas: `terms-2026-09-03` y
-  `privacy-2026-09-03`.
+- El centro legal público se presenta en inglés para la revisión de marca y
+  conserva sus rutas estables en `fincilia.com`.
+- Versiones activas preparadas para nuevas altas: `terms-2026-09-03-en` y
+  `privacy-2026-09-03-en`.
 - El runtime permanece deshabilitado. Esta preparacion no adjudica DRG-00 ni
   autoriza que una identidad personal complete el flujo.
 
