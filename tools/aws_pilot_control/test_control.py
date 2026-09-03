@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import tempfile
@@ -16,6 +17,7 @@ from .control import (
     FOUNDATION_REQUIRED_ADDRESSES,
     PilotController,
     RUNTIME_REQUIRED_ADDRESSES,
+    ROOT,
     Result,
     SERVICE_NAMES,
 )
@@ -146,6 +148,32 @@ class PilotControllerTests(unittest.TestCase):
         ]))
         with self.assertRaisesRegex(ControlError, "duplicadas"):
             controller._state_inventory()
+
+    def test_live_preflight_evidence_is_redacted_canonical_and_closed(self) -> None:
+        path = ROOT / "docs/implementation/evidence/FNC-GAT-007-PREFLIGHT.json"
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        self.assertEqual("blocked", payload["state"])
+        self.assertFalse(payload["real_data_authorized"])
+        self.assertFalse(payload["production_authorized"])
+        self.assertFalse(payload["query"]["mutation_performed"])
+        self.assertFalse(payload["query"]["state_values_read"])
+        self.assertFalse(payload["query"]["secret_values_read"])
+        self.assertEqual(
+            sorted(FOUNDATION_REQUIRED_ADDRESSES),
+            payload["foundation"]["missing"],
+        )
+        self.assertEqual(
+            sorted(RUNTIME_REQUIRED_ADDRESSES),
+            payload["runtime_plane"]["missing"],
+        )
+        encoded = json.dumps(payload, sort_keys=True)
+        self.assertNotIn("632144225293", encoded)
+        self.assertNotIn("SecretString", encoded)
+        claimed = payload.pop("evidence_sha256")
+        observed = hashlib.sha256(json.dumps(
+            payload, ensure_ascii=True, sort_keys=True, separators=(",", ":")
+        ).encode("utf-8")).hexdigest()
+        self.assertEqual(claimed, observed)
 
     def test_mode_without_apply_is_refused_without_calls(self) -> None:
         runner = FakeRunner([])

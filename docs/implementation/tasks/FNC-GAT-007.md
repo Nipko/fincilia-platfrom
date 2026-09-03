@@ -1,7 +1,7 @@
 ---
 id: FNC-GAT-007
 title: Preflight ejecutable del entorno aislado DRG-00
-status: in_progress
+status: review_pending
 implementer: Codex principal dev + Integration Steward
 base_sha: aadef53f37c4043190a1fff6b7375d690212b30e
 gate: DRG-00
@@ -49,3 +49,14 @@ nunca convierte la mera existencia de infraestructura en aceptación del gate.
 Crear los recursos del piloto, leer secretos, publicar imágenes, admitir un
 release, ejecutar el drill target, aceptar DRG-00/01 o emitir la revisión de
 Security/Platform/QA.
+
+# Resultado integrado
+
+- `status` concilia 33 direcciones mínimas de foundation y 10 del runtime sin
+  leer valores del estado.
+- La consulta live del 3 de septiembre de 2026 confirmó cuenta/región exactas,
+  inventario `0`, RDS/Valkey/ALB/ECS ausentes y cero NAT.
+- El agregador DRG ya no permite usar FNC-QA-001 como evidencia suficiente de
+  `G00-ISOLATED-ENV`; exige un artefacto target distinto y estricto.
+- El control permanece `pending`, los dos gates `not_met` y los datos reales
+  desautorizados.

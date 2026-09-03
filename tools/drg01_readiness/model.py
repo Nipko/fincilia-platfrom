@@ -35,9 +35,14 @@ HUMAN_IDS = {
 PREREQUISITE_IDS = {"D01-DRG00"}
 ALLOWED_DOCUMENTS = ["csv", "xlsx", "pdf"]
 DRG00_TECHNICAL_EVIDENCE = "docs/implementation/evidence/FNC-QA-001.json"
-DRG00_TECHNICAL_IDS = {
+DRG00_DRILL_EVIDENCE_IDS = {
     "G00-ISOLATED-ENV", "G00-INVENTORY", "G00-DELETE", "G00-DRILL",
 }
+DRG00_SHARED_TECHNICAL_IDS = {"G00-INVENTORY", "G00-DELETE", "G00-DRILL"}
+ISOLATED_ENV_EVIDENCE = "docs/implementation/evidence/FNC-GAT-007.json"
+TARGET_DRILL_EVIDENCE = (
+    "docs/implementation/evidence/FNC-GAT-007-TARGET-DRILL.json"
+)
 DRG01_TECHNICAL_EVIDENCE = "docs/implementation/evidence/FNC-GAT-006.json"
 DRG01_ADJUDICATED_IDS = {"D01-XTENANT", "D01-INGRESS", "D01-CHANNELS"}
 RIGHTS_INCIDENT_EVIDENCE = "docs/implementation/evidence/FNC-PRV-004.json"
@@ -114,7 +119,7 @@ def _validate_drg00_technical_evidence() -> list[Finding]:
         or [item.get("id") for item in tests if isinstance(item, dict)] != expected_tests
         or any(item.get("state") != "passed" for item in tests if isinstance(item, dict))
         or not isinstance(mappings, dict)
-        or set(mappings) != DRG00_TECHNICAL_IDS
+        or set(mappings) != DRG00_DRILL_EVIDENCE_IDS
         or any(not value for value in mappings.values())
     ):
         findings.append(Finding(
@@ -130,6 +135,147 @@ def _validate_drg00_technical_evidence() -> list[Finding]:
             "DRG-TECH-DIGEST", DRG00_TECHNICAL_EVIDENCE,
             "technical evidence digest does not match its content"))
     return findings
+
+
+def validate_isolated_environment_evidence(
+    payload: dict[str, Any], *, verify_references: bool = True,
+) -> list[Finding]:
+    """Validate target evidence; a local synthetic drill is never sufficient."""
+    findings: list[Finding] = []
+    required = {
+        "schema_version", "task_id", "control_id", "state", "observed_at",
+        "environment", "region", "account_id_sha256", "source_revision",
+        "data_classification", "real_data_authorized", "production_authorized",
+        "foundation", "runtime_plane", "release_admission", "managed_identity",
+        "target_drill", "independent_review", "evidence_sha256",
+    }
+    if set(payload) != required:
+        findings.append(Finding(
+            "DRG-ISOLATED-SCHEMA", ISOLATED_ENV_EVIDENCE,
+            "isolated target evidence fields drifted"))
+    if (
+        payload.get("schema_version") != "1.0.0"
+        or payload.get("task_id") != "FNC-GAT-007"
+        or payload.get("control_id") != "G00-ISOLATED-ENV"
+        or payload.get("state") != "passed"
+        or payload.get("environment") != "private-pilot"
+        or payload.get("region") != "sa-east-1"
+        or payload.get("data_classification") != "completely_synthetic"
+        or payload.get("real_data_authorized") is not False
+        or payload.get("production_authorized") is not False
+    ):
+        findings.append(Finding(
+            "DRG-ISOLATED-CLAIM", ISOLATED_ENV_EVIDENCE,
+            "isolated evidence overclaims target, data or authorization"))
+    try:
+        observed = datetime.fromisoformat(
+            str(payload.get("observed_at", "")).replace("Z", "+00:00")
+        )
+        if observed.tzinfo is None or not str(payload.get("observed_at")).endswith("Z"):
+            raise ValueError
+    except ValueError:
+        findings.append(Finding(
+            "DRG-ISOLATED-TIME", ISOLATED_ENV_EVIDENCE,
+            "observed_at must be an explicit UTC instant"))
+    if re.fullmatch(r"[0-9a-f]{64}", str(payload.get("account_id_sha256", ""))) is None:
+        findings.append(Finding(
+            "DRG-ISOLATED-IDENTITY", "account_id_sha256",
+            "account identity must be represented by a sha256 digest"))
+    if re.fullmatch(r"[0-9a-f]{40}", str(payload.get("source_revision", ""))) is None:
+        findings.append(Finding(
+            "DRG-ISOLATED-REVISION", "source_revision",
+            "target evidence must identify an exact Git revision"))
+
+    expected_inventory = {
+        "foundation": (33, payload.get("foundation")),
+        "runtime_plane": (10, payload.get("runtime_plane")),
+    }
+    for name, (count, value) in expected_inventory.items():
+        if value != {"state": "complete", "required_count": count, "missing": []}:
+            findings.append(Finding(
+                "DRG-ISOLATED-INVENTORY", name,
+                "target inventory is absent, partial or widened"))
+
+    admission = payload.get("release_admission")
+    if not isinstance(admission, dict) or set(admission) != {
+        "source_revision", "subject_sha256", "signature_verified",
+        "provenance_verified", "sbom_verified", "images_by_digest_verified",
+    } or (
+        admission.get("source_revision") != payload.get("source_revision")
+        or re.fullmatch(r"[0-9a-f]{64}", str(admission.get("subject_sha256", ""))) is None
+        or any(admission.get(field) is not True for field in (
+            "signature_verified", "provenance_verified", "sbom_verified",
+            "images_by_digest_verified",
+        ))
+    ):
+        findings.append(Finding(
+            "DRG-ISOLATED-RELEASE", "release_admission",
+            "release is not exactly admitted and independently verifiable"))
+
+    identity = payload.get("managed_identity")
+    if identity != {
+        "provider": "Amazon Cognito federated with Google",
+        "mfa_configuration": "ON",
+        "deletion_protection": "ACTIVE",
+        "native_signup_closed": True,
+        "authorization_remains_server_side": True,
+    }:
+        findings.append(Finding(
+            "DRG-ISOLATED-IDENTITY", "managed_identity",
+            "managed identity controls are incomplete or drifted"))
+
+    drill = payload.get("target_drill")
+    if not isinstance(drill, dict) or set(drill) != {
+        "evidence_ref", "passed_count", "failed_count", "networkless_worker",
+        "cross_tenant_denied", "restore_reconciled", "logs_redacted",
+    } or (
+        drill.get("evidence_ref") != TARGET_DRILL_EVIDENCE
+        or (verify_references and not _inside_evidence(TARGET_DRILL_EVIDENCE))
+        or drill.get("passed_count") != 12
+        or drill.get("failed_count") != 0
+        or any(drill.get(field) is not True for field in (
+            "networkless_worker", "cross_tenant_denied", "restore_reconciled",
+            "logs_redacted",
+        ))
+    ):
+        findings.append(Finding(
+            "DRG-ISOLATED-DRILL", "target_drill",
+            "the twelve controls were not replayed successfully in the target"))
+
+    if payload.get("independent_review") != {
+        "state": "pending",
+        "required_roles": ["Security", "Platform/SRE", "QA"],
+        "agent_observation_is_not_acceptance": True,
+    }:
+        findings.append(Finding(
+            "DRG-ISOLATED-REVIEW", "independent_review",
+            "technical evidence must not claim independent human review"))
+
+    claimed = payload.get("evidence_sha256")
+    unsigned = {key: value for key, value in payload.items() if key != "evidence_sha256"}
+    observed_digest = hashlib.sha256(json.dumps(
+        unsigned, ensure_ascii=True, sort_keys=True, separators=(",", ":")
+    ).encode("utf-8")).hexdigest()
+    if claimed != observed_digest:
+        findings.append(Finding(
+            "DRG-ISOLATED-DIGEST", ISOLATED_ENV_EVIDENCE,
+            "isolated target evidence digest does not match its content"))
+    return sorted(set(findings))
+
+
+def _validate_isolated_environment_evidence() -> list[Finding]:
+    path = ROOT / ISOLATED_ENV_EVIDENCE
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        return [Finding(
+            "DRG-ISOLATED-EVIDENCE", ISOLATED_ENV_EVIDENCE,
+            "isolated target evidence is absent or unreadable")]
+    if not isinstance(payload, dict):
+        return [Finding(
+            "DRG-ISOLATED-EVIDENCE", ISOLATED_ENV_EVIDENCE,
+            "isolated target evidence must be an object")]
+    return validate_isolated_environment_evidence(payload)
 
 
 def _validate_drg01_technical_evidence() -> list[Finding]:
@@ -446,11 +592,16 @@ def validate(model: dict[str, Any]) -> list[Finding]:
             findings.append(Finding("DRG-AUTO-STATE", str(identifier), "technical control state is invalid"))
         if control.get("state") == "accepted" and control.get("reviewer_id") == FOUNDER_ID:
             findings.append(Finding("DRG-SOD", str(identifier), "Founder cannot independently review the control"))
-        if identifier in DRG00_TECHNICAL_IDS and control.get("state") == "passed":
+        if identifier in DRG00_SHARED_TECHNICAL_IDS and control.get("state") == "passed":
             if control.get("evidence_refs") != [DRG00_TECHNICAL_EVIDENCE]:
                 findings.append(Finding(
                     "DRG-TECH-REF", str(identifier),
                     "DRG-00 technical controls require the adjudicated drill evidence"))
+        if identifier == "G00-ISOLATED-ENV" and control.get("state") == "passed":
+            if control.get("evidence_refs") != [ISOLATED_ENV_EVIDENCE]:
+                findings.append(Finding(
+                    "DRG-ISOLATED-REF", str(identifier),
+                    "isolated environment requires evidence replayed in private-pilot"))
         if identifier in DRG01_ADJUDICATED_IDS and control.get("state") == "passed":
             if control.get("evidence_refs") != [DRG01_TECHNICAL_EVIDENCE]:
                 findings.append(Finding(
@@ -468,8 +619,10 @@ def validate(model: dict[str, Any]) -> list[Finding]:
                     "supply chain requires the adjudicated attestation evidence"))
 
     if any(by_id.get(identifier, {}).get("state") == "passed"
-           for identifier in DRG00_TECHNICAL_IDS):
+           for identifier in DRG00_SHARED_TECHNICAL_IDS):
         findings.extend(_validate_drg00_technical_evidence())
+    if by_id.get("G00-ISOLATED-ENV", {}).get("state") == "passed":
+        findings.extend(_validate_isolated_environment_evidence())
     if any(by_id.get(identifier, {}).get("state") == "passed"
            for identifier in DRG01_ADJUDICATED_IDS):
         findings.extend(_validate_drg01_technical_evidence())

@@ -9,9 +9,11 @@ from .model import (
     FOUNDER_ID,
     ROOT,
     SUPPLY_CHAIN_EVIDENCE,
+    TARGET_DRILL_EVIDENCE,
     load_model,
     report,
     validate,
+    validate_isolated_environment_evidence,
     validate_supply_chain_evidence,
 )
 
@@ -130,6 +132,93 @@ class Drg01ReadinessTests(unittest.TestCase):
                        if item["id"] == "G00-DRILL")
         control["evidence_refs"] = ["docs/security/DRG01_READINESS.md"]
         self.assertIn("DRG-TECH-REF", self.codes(candidate))
+
+    def test_local_drill_cannot_pass_isolated_environment(self) -> None:
+        candidate = copy.deepcopy(self.model)
+        control = next(item for item in candidate["controls"]
+                       if item["id"] == "G00-ISOLATED-ENV")
+        control.update({
+            "state": "passed",
+            "evidence_refs": ["docs/implementation/evidence/FNC-QA-001.json"],
+        })
+        codes = self.codes(candidate)
+        self.assertIn("DRG-ISOLATED-REF", codes)
+        self.assertIn("DRG-ISOLATED-EVIDENCE", codes)
+
+    def isolated_evidence(self) -> dict:
+        payload = {
+            "schema_version": "1.0.0",
+            "task_id": "FNC-GAT-007",
+            "control_id": "G00-ISOLATED-ENV",
+            "state": "passed",
+            "observed_at": "2026-09-03T00:00:00Z",
+            "environment": "private-pilot",
+            "region": "sa-east-1",
+            "account_id_sha256": "1" * 64,
+            "source_revision": "2" * 40,
+            "data_classification": "completely_synthetic",
+            "real_data_authorized": False,
+            "production_authorized": False,
+            "foundation": {"state": "complete", "required_count": 33, "missing": []},
+            "runtime_plane": {"state": "complete", "required_count": 10, "missing": []},
+            "release_admission": {
+                "source_revision": "2" * 40,
+                "subject_sha256": "3" * 64,
+                "signature_verified": True,
+                "provenance_verified": True,
+                "sbom_verified": True,
+                "images_by_digest_verified": True,
+            },
+            "managed_identity": {
+                "provider": "Amazon Cognito federated with Google",
+                "mfa_configuration": "ON",
+                "deletion_protection": "ACTIVE",
+                "native_signup_closed": True,
+                "authorization_remains_server_side": True,
+            },
+            "target_drill": {
+                "evidence_ref": TARGET_DRILL_EVIDENCE,
+                "passed_count": 12,
+                "failed_count": 0,
+                "networkless_worker": True,
+                "cross_tenant_denied": True,
+                "restore_reconciled": True,
+                "logs_redacted": True,
+            },
+            "independent_review": {
+                "state": "pending",
+                "required_roles": ["Security", "Platform/SRE", "QA"],
+                "agent_observation_is_not_acceptance": True,
+            },
+        }
+        import hashlib
+        payload["evidence_sha256"] = hashlib.sha256(json.dumps(
+            payload, ensure_ascii=True, sort_keys=True, separators=(",", ":")
+        ).encode("utf-8")).hexdigest()
+        return payload
+
+    def test_isolated_target_evidence_contract_is_strict(self) -> None:
+        evidence = self.isolated_evidence()
+        self.assertEqual([], validate_isolated_environment_evidence(
+            evidence, verify_references=False))
+        mutations = (
+            ("DRG-ISOLATED-INVENTORY", lambda item: item["foundation"]["missing"].append("x")),
+            ("DRG-ISOLATED-RELEASE", lambda item: item["release_admission"].update(
+                {"signature_verified": False})),
+            ("DRG-ISOLATED-IDENTITY", lambda item: item["managed_identity"].update(
+                {"native_signup_closed": False})),
+            ("DRG-ISOLATED-DRILL", lambda item: item["target_drill"].update(
+                {"passed_count": 11})),
+        )
+        for expected, mutate in mutations:
+            with self.subTest(expected=expected):
+                candidate = self.isolated_evidence()
+                mutate(candidate)
+                self.assertIn(expected, {
+                    finding.code
+                    for finding in validate_isolated_environment_evidence(
+                        candidate, verify_references=False)
+                })
 
     def test_drg01_cannot_open_before_drg00(self) -> None:
         candidate = copy.deepcopy(self.model)
