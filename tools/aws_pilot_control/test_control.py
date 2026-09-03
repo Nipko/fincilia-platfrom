@@ -11,7 +11,14 @@ from typing import Sequence
 from unittest.mock import patch
 
 from .cli import main
-from .control import ControlError, PilotController, Result, SERVICE_NAMES
+from .control import (
+    ControlError,
+    FOUNDATION_REQUIRED_ADDRESSES,
+    PilotController,
+    RUNTIME_REQUIRED_ADDRESSES,
+    Result,
+    SERVICE_NAMES,
+)
 
 
 IDENTITY = {"Account": "123456789012", "Arn": "redacted", "UserId": "redacted"}
@@ -59,9 +66,13 @@ class PilotControllerTests(unittest.TestCase):
             response({"NatGateways": []}),
             Result(254, "", "LoadBalancerNotFound"),
             Result(254, "", "ReplicationGroupNotFoundFault"),
+            Result(1, "", "No state file was found!"),
         ])
         report = self.controller(runner).status()
         self.assertEqual(report["mode"], "cold")
+        self.assertEqual(report["state_inventory"]["foundation"]["state"], "absent")
+        self.assertEqual(report["state_inventory"]["runtime_plane"]["state"], "absent")
+        self.assertEqual(report["isolated_environment_control"]["state"], "pending")
         self.assertFalse(report["real_data_authorized"])
         flattened = " ".join(" ".join(call) for call in runner.calls)
         self.assertNotIn("update-service", flattened)
@@ -75,10 +86,66 @@ class PilotControllerTests(unittest.TestCase):
             response({"NatGateways": []}),
             Result(254, "", "LoadBalancerNotFound"),
             Result(254, "", "ReplicationGroupNotFoundFault"),
+            Result(1, "", "No state file was found!"),
         ])
         encoded = json.dumps(self.controller(runner).status())
         self.assertNotIn("Arn", encoded)
         self.assertNotIn("UserId", encoded)
+
+    def test_complete_state_still_cannot_accept_gate(self) -> None:
+        addresses = sorted(FOUNDATION_REQUIRED_ADDRESSES | RUNTIME_REQUIRED_ADDRESSES)
+        runner = FakeRunner([
+            response(IDENTITY),
+            response({"DBInstances": [{"DBInstanceStatus": "available"}]}),
+            response({"services": [
+                {"serviceName": name, "status": "ACTIVE", "desiredCount": 0,
+                 "runningCount": 0}
+                for name in SERVICE_NAMES
+            ]}),
+            response({"NatGateways": [{"NatGatewayId": "redacted"}]}),
+            response({"LoadBalancers": [{"State": {"Code": "active"}}]}),
+            response({"ReplicationGroups": [{"Status": "available"}]}),
+            Result(0, "\n".join(addresses) + "\n", ""),
+        ])
+        report = self.controller(runner).status()
+        self.assertEqual(report["state_inventory"]["foundation"]["state"], "complete")
+        self.assertEqual(report["state_inventory"]["runtime_plane"]["state"], "complete")
+        self.assertEqual(report["isolated_environment_control"]["state"], "pending")
+        self.assertEqual(report["isolated_environment_control"]["blockers"], [
+            "release_not_admitted_to_target",
+            "target_environment_drill_not_observed",
+            "independent_security_review_pending",
+        ])
+        self.assertFalse(report["real_data_authorized"])
+
+    def test_partial_state_reports_exact_missing_addresses(self) -> None:
+        only_vpc = "aws_vpc.pilot\nterraform_data.account_guard\n"
+        runner = FakeRunner([
+            response(IDENTITY),
+            Result(254, "", "DBInstanceNotFound"),
+            Result(254, "", "ClusterNotFoundException"),
+            response({"NatGateways": []}),
+            Result(254, "", "LoadBalancerNotFound"),
+            Result(254, "", "ReplicationGroupNotFoundFault"),
+            Result(0, only_vpc, ""),
+        ])
+        report = self.controller(runner).status()
+        foundation = report["state_inventory"]["foundation"]
+        self.assertEqual(foundation["state"], "partial")
+        self.assertNotIn("aws_vpc.pilot", foundation["missing"])
+        self.assertIn("aws_db_instance.pilot", foundation["missing"])
+
+    def test_state_query_failure_does_not_masquerade_as_absence(self) -> None:
+        controller = self.controller(FakeRunner([Result(2, "", "AccessDenied")]))
+        with self.assertRaisesRegex(ControlError, "no se asumira ausencia"):
+            controller._state_inventory()
+
+    def test_state_inventory_rejects_duplicate_addresses(self) -> None:
+        controller = self.controller(FakeRunner([
+            Result(0, "aws_vpc.pilot\naws_vpc.pilot\n", "")
+        ]))
+        with self.assertRaisesRegex(ControlError, "duplicadas"):
+            controller._state_inventory()
 
     def test_mode_without_apply_is_refused_without_calls(self) -> None:
         runner = FakeRunner([])

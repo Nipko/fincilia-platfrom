@@ -30,6 +30,53 @@ SERVICE_NAMES = (
     "fincilia-private-pilot-application",
     "fincilia-private-pilot-worker",
 )
+FOUNDATION_REQUIRED_ADDRESSES = frozenset({
+    "aws_cloudtrail.pilot",
+    "aws_cognito_user_pool.pilot",
+    "aws_cognito_user_pool_client.web",
+    "aws_cognito_user_pool_domain.pilot",
+    "aws_db_instance.pilot",
+    "aws_ecr_repository.runtime[\"api\"]",
+    "aws_ecr_repository.runtime[\"web\"]",
+    "aws_ecr_repository.runtime[\"worker\"]",
+    "aws_ecs_cluster.pilot",
+    "aws_iam_openid_connect_provider.github",
+    "aws_iam_role.application",
+    "aws_iam_role.execution",
+    "aws_iam_role.github_ecr_publisher",
+    "aws_iam_role.migrator",
+    "aws_iam_role.worker",
+    "aws_kms_key.audit",
+    "aws_kms_key.database",
+    "aws_kms_key.evidence",
+    "aws_kms_key.gate",
+    "aws_kms_key.quarantine",
+    "aws_s3_bucket.alb_logs",
+    "aws_s3_bucket.audit",
+    "aws_s3_bucket.objects[\"derived\"]",
+    "aws_s3_bucket.objects[\"exports\"]",
+    "aws_s3_bucket.objects[\"quarantine\"]",
+    "aws_s3_bucket.objects[\"raw\"]",
+    "aws_secretsmanager_secret.application",
+    "aws_secretsmanager_secret.google",
+    "aws_secretsmanager_secret.migrator",
+    "aws_secretsmanager_secret.worker",
+    "aws_vpc.pilot",
+    "aws_vpc_endpoint.s3",
+    "terraform_data.account_guard",
+})
+RUNTIME_REQUIRED_ADDRESSES = frozenset({
+    "aws_ecs_service.application[0]",
+    "aws_ecs_service.worker[0]",
+    "aws_ecs_task_definition.application[0]",
+    "aws_ecs_task_definition.migrator[0]",
+    "aws_ecs_task_definition.worker[0]",
+    "aws_elasticache_replication_group.pilot[0]",
+    "aws_lb.pilot[0]",
+    "aws_lb_listener.https[0]",
+    "aws_nat_gateway.application[0]",
+    "aws_wafv2_web_acl.pilot[0]",
+})
 ALLOWED_REGIONS = {"sa-east-1"}
 EXIT_OK = 0
 EXIT_REFUSED = 2
@@ -211,6 +258,30 @@ class PilotController:
             + int(cache != "absent")
             + sum(int(item["status"] != "absent") for item in services)
         )
+        state_inventory = self._state_inventory()
+        addresses = set(state_inventory["addresses"])
+        missing_foundation = sorted(FOUNDATION_REQUIRED_ADDRESSES - addresses)
+        missing_runtime = sorted(RUNTIME_REQUIRED_ADDRESSES - addresses)
+        foundation_state = (
+            "absent" if not addresses else
+            "complete" if not missing_foundation else
+            "partial"
+        )
+        runtime_state = (
+            "absent" if not addresses.intersection(RUNTIME_REQUIRED_ADDRESSES) else
+            "complete" if not missing_runtime else
+            "partial"
+        )
+        blockers = []
+        if missing_foundation:
+            blockers.append("foundation_not_applied")
+        if missing_runtime:
+            blockers.append("runtime_plane_not_applied")
+        blockers.extend((
+            "release_not_admitted_to_target",
+            "target_environment_drill_not_observed",
+            "independent_security_review_pending",
+        ))
         return {
             "ok": True,
             "command": "status",
@@ -224,8 +295,59 @@ class PilotController:
                 "load_balancer": load_balancers,
                 "cache": cache,
             },
+            "state_inventory": {
+                "resource_count": len(addresses),
+                "foundation": {
+                    "state": foundation_state,
+                    "required_count": len(FOUNDATION_REQUIRED_ADDRESSES),
+                    "missing": missing_foundation,
+                },
+                "runtime_plane": {
+                    "state": runtime_state,
+                    "required_count": len(RUNTIME_REQUIRED_ADDRESSES),
+                    "missing": missing_runtime,
+                },
+            },
+            "isolated_environment_control": {
+                "id": "G00-ISOLATED-ENV",
+                "state": "pending",
+                "blockers": blockers,
+                "agent_observation_is_not_gate_acceptance": True,
+            },
             "real_data_authorized": False,
         }
+
+    def _state_inventory(self) -> dict[str, Any]:
+        """Return only OpenTofu addresses; never serialize state values.
+
+        The remote state is the ownership inventory for this dedicated
+        environment. Reading full state would expose endpoints and sensitive
+        outputs, so this probe deliberately invokes ``state list`` only.
+        """
+        result = self._run(
+            ("tofu", f"-chdir={self.infra_root}", "state", "list", "-no-color"),
+            timeout=300,
+            operation="inventario de estado OpenTofu",
+        )
+        assert isinstance(result, Result)
+        if result.returncode != 0:
+            lowered = f"{result.stdout}\n{result.stderr}".lower()
+            if "no state file was found" in lowered or "no state" in lowered:
+                return {"addresses": []}
+            raise ControlError(
+                "inventario de estado OpenTofu fallo; no se asumira ausencia"
+            )
+        addresses = []
+        for line in result.stdout.splitlines():
+            address = line.strip()
+            if not address:
+                continue
+            if any(char.isspace() for char in address) or len(address) > 240:
+                raise ControlError("inventario OpenTofu devolvio una forma inesperada")
+            addresses.append(address)
+        if len(addresses) != len(set(addresses)):
+            raise ControlError("inventario OpenTofu contiene direcciones duplicadas")
+        return {"addresses": sorted(addresses)}
 
     def _describe_optional(
         self,

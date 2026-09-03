@@ -47,6 +47,13 @@ Todos los comandos validan la cuenta `--account-id`, el perfil
 infra/aws/private-pilot/pilotctl.ps1 status
 ```
 
+Además de RDS, ECS, NAT, ALB y Valkey, `status` lee exclusivamente las
+direcciones de propiedad mediante `tofu state list`. No obtiene `state pull`,
+outputs ni valores. El reporte separa foundation y runtime, lista las
+direcciones mínimas faltantes y mantiene `G00-ISOLATED-ENV` en `pending` aunque
+ambos inventarios estén completos: todavía exige release admitida, repetición
+del drill en el target y revisión independiente.
+
 Antes de encender se genera un plan guardado y se somete al validador:
 
 ```powershell

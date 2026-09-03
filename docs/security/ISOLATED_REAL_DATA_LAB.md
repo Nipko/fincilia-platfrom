@@ -66,9 +66,10 @@ no-root, filesystem raíz read-only, scratch cifrado efímero, sin privilegios,
 host mounts, host namespaces, instalación dinámica o fallback de red. La
 capacidad se emite por ejecución/empresa y se revalida antes de publicar.
 
-La release actual produce SBOM y manifiesto reproducible, pero aún no demuestra
-firma/procedencia. Por eso el control CMP-01 está `implemented: false` y
-SUPPLY-CHAIN permanece `not_met`.
+La release adjudicada en FNC-GAT-005 demuestra SBOM, firma y procedencia tanto
+dentro como fuera del runner. Ese resultado cierra el control automático
+`G00-SUPPLY-CHAIN`, pero no admite por sí solo la release en el entorno objetivo
+ni reemplaza el drill aislado o la revisión independiente.
 
 ## Stores, borrado y restore
 
@@ -97,8 +98,9 @@ estado sin materializar primero la infraestructura y evidencia.
 2. L-01 adjudicada y aplicada.
 3. A-02 con proveedor, región y data planes aceptados.
 4. S-01 con revisión Security/Privacy/Architecture.
-5. Firma y procedencia de cadena de suministro demostradas.
-6. FNC-PLT-004 desplegado y FNC-QA-001 ejecutado.
+5. Release exacta admitida en el target usando la firma y procedencia ya
+   demostradas por FNC-GAT-005.
+6. FNC-PLT-004 desplegado y FNC-QA-001 repetido contra el target aislado.
 7. Gate DRG-00 consolidado por sus humanos nominales.
 
 Hasta entonces, “real pero de prueba” sigue siendo dato real y no entra.
