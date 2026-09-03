@@ -17,9 +17,9 @@ y AWS usan vectores de argumentos con `shell=False`; errores, truncamiento,
 traversal, rutas externas y outputs incompletos fallan con mensajes neutros.
 
 Los 16 controles de Cognito siguen declarando `activation_authorized=false` y
-`real_data_authorized=false` aun si todos pasan. FNC-IAM-004 ya dejo evidencia
-live 16/16; durante esta ronda la repeticion encontro la sesion temporal AWS
-expirada y fallo redactada, sin cambiar infraestructura.
+`real_data_authorized=false` aun si todos pasan. La primera repeticion encontro
+la sesion temporal AWS expirada y fallo redactada; tras renovarla, la sonda live
+paso 16/16 sin cambiar infraestructura.
 
 ## Verificacion
 
@@ -27,6 +27,8 @@ expirada y fallo redactada, sin cambiar infraestructura.
   tools.identity_readiness.test_aws_cli tools.identity_readiness.test_cli
   tools.identity_readiness.test_tofu -v`: 16, OK.
 - `python -m tools.quality_gate.cli`: cero hallazgos sobre el indice.
+- Evidencia live: `docs/implementation/evidence/FNC-IAM-005.json`, observada el
+  2026-09-03 a las 17:31:32 UTC.
 - Ningun ID, ARN, correo, token OAuth o secreto se escribio en los artefactos.
 
 ## Bloqueos

@@ -44,5 +44,5 @@ aceptar revisiones o habilitar documentos financieros reales.
 - Implementacion: `6ff3d64`.
 - 16 pruebas focales de identidad y descubrimiento: OK.
 - Quality gate sobre el indice: cero hallazgos.
-- La sonda live conserva resultado previo 16/16; su repeticion actual queda
-  pendiente de renovar la sesion temporal AWS.
+- Sonda live repetida tras renovar la sesion temporal AWS: 16/16, con evidencia
+  redactada en `docs/implementation/evidence/FNC-IAM-005.json`.

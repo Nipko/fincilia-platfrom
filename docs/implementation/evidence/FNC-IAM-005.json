@@ -1,0 +1,39 @@
+{
+  "schema_version": "1.0.0",
+  "task_id": "FNC-IAM-005",
+  "implementation_sha": "6ff3d64",
+  "observed_at": "2026-09-03T17:31:32Z",
+  "source": "live_cognito_redacted_probe_via_tofu_outputs",
+  "app_origin": "https://fincilia.com",
+  "region": "sa-east-1",
+  "ok": true,
+  "activation_authorized": false,
+  "real_data_authorized": false,
+  "assurance": "federated_google_not_asserted_as_mfa",
+  "checks": [
+    {"id": "IAM-LIVE-01", "status": "pass", "control": "deletion_protection_active"},
+    {"id": "IAM-LIVE-02", "status": "pass", "control": "native_mfa_on_not_google_assertion"},
+    {"id": "IAM-LIVE-03", "status": "pass", "control": "native_signup_closed"},
+    {"id": "IAM-LIVE-04", "status": "pass", "control": "public_client_without_secret"},
+    {"id": "IAM-LIVE-05", "status": "pass", "control": "authorization_code_only"},
+    {"id": "IAM-LIVE-06", "status": "pass", "control": "minimal_oauth_scopes"},
+    {"id": "IAM-LIVE-07", "status": "pass", "control": "exact_https_callback"},
+    {"id": "IAM-LIVE-08", "status": "pass", "control": "exact_https_logout"},
+    {"id": "IAM-LIVE-09", "status": "pass", "control": "google_only_public_provider"},
+    {"id": "IAM-LIVE-10", "status": "pass", "control": "user_existence_errors_suppressed"},
+    {"id": "IAM-LIVE-11", "status": "pass", "control": "token_revocation_enabled"},
+    {"id": "IAM-LIVE-12", "status": "pass", "control": "short_token_validity"},
+    {"id": "IAM-LIVE-13", "status": "pass", "control": "provider_credentials_present_not_reported"},
+    {"id": "IAM-LIVE-14", "status": "pass", "control": "provider_scopes_minimal"},
+    {"id": "IAM-LIVE-15", "status": "pass", "control": "attribute_mapping_exact"},
+    {"id": "IAM-LIVE-16", "status": "pass", "control": "managed_login_domain_active"}
+  ],
+  "redaction": {
+    "user_pool_id_included": false,
+    "client_id_included": false,
+    "domain_prefix_included": false,
+    "client_secret_included": false,
+    "user_identity_included": false,
+    "oauth_token_included": false
+  }
+}

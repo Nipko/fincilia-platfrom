@@ -51,6 +51,7 @@ jobs:
           tools.identity_readiness.test_aws_cli
           tools.identity_readiness.test_cli
           tools.identity_readiness.test_probe
+          tools.identity_readiness.test_tofu
           tools.lineage_model.test_validate
           tools.local_stack.test_validate
           tools.isolated_web_runtime.test_validate
@@ -69,6 +70,7 @@ jobs:
           tools.test_catalog.test_validate
           tools.threat_model.test_validate
           tools.ux_contract.test_validate
+          tools.web_functional_status.test_model
           tools.work_graph.test_validate
           tools.workspace_contract.test_validate
           tools.dev_cli.test_cli
@@ -127,6 +129,8 @@ jobs:
         run: python -m tools.dfd_model.validate
       - name: Validate private real-data pilot readiness
         run: python -m tools.drg01_readiness.validate
+      - name: Validate web functional status
+        run: python -m tools.web_functional_status.cli
       - name: Validate events, retries and dead letters
         run: python -m tools.event_model.validate
       - name: Validate idempotency and dedupe model
