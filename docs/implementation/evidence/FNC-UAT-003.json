@@ -17,14 +17,14 @@
   "data_classification": "completely_synthetic",
   "domain": "fincilia.com",
   "environment": "uat",
-  "evidence_sha256": "e1c610d4d7dc9ddb5f362ba08147c9f56ab72fe3ead4638f96bb07051e66933e",
+  "evidence_sha256": "863fa9d3dc773c2fae5387adb722ead790524c71da5618a98152b825c1ccf49f",
   "independent_review": {
     "agent_observation_is_not_acceptance": true,
     "required_roles": ["Security", "Platform/SRE", "QA"],
     "state": "pending"
   },
-  "observed_at": "2026-09-03T00:01:49Z",
-  "probe_source_sha256": "a6ec6cd3847ce8bc75ca1448feb745b6e54e99472b819a38172097fcfbb13b0d",
+  "observed_at": "2026-09-03T20:57:10Z",
+  "probe_source_sha256": "adaaf70115046c186f575505cb0d716680aa067a4aacb0c71883abfd1ea89ee8",
   "production_authorized": false,
   "real_data_authorized": false,
   "request_policy": {
@@ -38,146 +38,146 @@
     {
       "headers": {
         "cache-control": "private, no-cache, no-store, max-age=0, must-revalidate",
-        "content-security-policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; form-action 'self'; base-uri 'none'",
+        "content-security-policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; frame-src 'none'; frame-ancestors 'none'; form-action 'self'; base-uri 'none'",
         "permissions-policy": "camera=(), microphone=(), geolocation=(), payment=()",
         "referrer-policy": "strict-origin-when-cross-origin",
         "strict-transport-security": "max-age=31536000; includeSubDomains",
         "x-content-type-options": "nosniff",
         "x-frame-options": "DENY"
       },
-      "headers_sha256": "5e022b469ab0057bb0438f71fc93a0cf836eb0af169ceb3b131fddd8ace09bc7",
+      "headers_sha256": "c2b0e7a66d29ecb64bb95ef9af6c7391891b6b44c8ca21cb87f4b3a0199cba93",
       "path": "/",
       "status": 200
     },
     {
       "headers": {
         "cache-control": "private, no-cache, no-store, max-age=0, must-revalidate",
-        "content-security-policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; form-action 'self'; base-uri 'none'",
+        "content-security-policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; frame-src 'none'; frame-ancestors 'none'; form-action 'self'; base-uri 'none'",
         "permissions-policy": "camera=(), microphone=(), geolocation=(), payment=()",
         "referrer-policy": "strict-origin-when-cross-origin",
         "strict-transport-security": "max-age=31536000; includeSubDomains",
         "x-content-type-options": "nosniff",
         "x-frame-options": "DENY"
       },
-      "headers_sha256": "5e022b469ab0057bb0438f71fc93a0cf836eb0af169ceb3b131fddd8ace09bc7",
+      "headers_sha256": "c2b0e7a66d29ecb64bb95ef9af6c7391891b6b44c8ca21cb87f4b3a0199cba93",
       "path": "/entrar",
       "status": 200
     },
     {
       "headers": {
         "cache-control": "private, no-cache, no-store, max-age=0, must-revalidate",
-        "content-security-policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; form-action 'self'; base-uri 'none'",
+        "content-security-policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; frame-src 'none'; frame-ancestors 'none'; form-action 'self'; base-uri 'none'",
         "permissions-policy": "camera=(), microphone=(), geolocation=(), payment=()",
         "referrer-policy": "strict-origin-when-cross-origin",
         "strict-transport-security": "max-age=31536000; includeSubDomains",
         "x-content-type-options": "nosniff",
         "x-frame-options": "DENY"
       },
-      "headers_sha256": "5e022b469ab0057bb0438f71fc93a0cf836eb0af169ceb3b131fddd8ace09bc7",
+      "headers_sha256": "c2b0e7a66d29ecb64bb95ef9af6c7391891b6b44c8ca21cb87f4b3a0199cba93",
       "path": "/registro",
       "status": 200
     },
     {
       "headers": {
         "cache-control": "private, no-cache, no-store, max-age=0, must-revalidate",
-        "content-security-policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; form-action 'self'; base-uri 'none'",
+        "content-security-policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; frame-src 'none'; frame-ancestors 'none'; form-action 'self'; base-uri 'none'",
         "permissions-policy": "camera=(), microphone=(), geolocation=(), payment=()",
         "referrer-policy": "strict-origin-when-cross-origin",
         "strict-transport-security": "max-age=31536000; includeSubDomains",
         "x-content-type-options": "nosniff",
         "x-frame-options": "DENY"
       },
-      "headers_sha256": "5e022b469ab0057bb0438f71fc93a0cf836eb0af169ceb3b131fddd8ace09bc7",
-      "path": "/privacidad",
+      "headers_sha256": "c2b0e7a66d29ecb64bb95ef9af6c7391891b6b44c8ca21cb87f4b3a0199cba93",
+      "path": "/privacy",
       "status": 200
     },
     {
       "headers": {
         "cache-control": "private, no-cache, no-store, max-age=0, must-revalidate",
-        "content-security-policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; form-action 'self'; base-uri 'none'",
+        "content-security-policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; frame-src 'none'; frame-ancestors 'none'; form-action 'self'; base-uri 'none'",
         "permissions-policy": "camera=(), microphone=(), geolocation=(), payment=()",
         "referrer-policy": "strict-origin-when-cross-origin",
         "strict-transport-security": "max-age=31536000; includeSubDomains",
         "x-content-type-options": "nosniff",
         "x-frame-options": "DENY"
       },
-      "headers_sha256": "5e022b469ab0057bb0438f71fc93a0cf836eb0af169ceb3b131fddd8ace09bc7",
-      "path": "/terminos",
+      "headers_sha256": "c2b0e7a66d29ecb64bb95ef9af6c7391891b6b44c8ca21cb87f4b3a0199cba93",
+      "path": "/terms",
       "status": 200
     },
     {
       "headers": {
         "cache-control": "private, no-cache, no-store, max-age=0, must-revalidate",
-        "content-security-policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; form-action 'self'; base-uri 'none'",
+        "content-security-policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; frame-src 'none'; frame-ancestors 'none'; form-action 'self'; base-uri 'none'",
         "permissions-policy": "camera=(), microphone=(), geolocation=(), payment=()",
         "referrer-policy": "strict-origin-when-cross-origin",
         "strict-transport-security": "max-age=31536000; includeSubDomains",
         "x-content-type-options": "nosniff",
         "x-frame-options": "DENY"
       },
-      "headers_sha256": "5e022b469ab0057bb0438f71fc93a0cf836eb0af169ceb3b131fddd8ace09bc7",
+      "headers_sha256": "c2b0e7a66d29ecb64bb95ef9af6c7391891b6b44c8ca21cb87f4b3a0199cba93",
       "path": "/cookies",
       "status": 200
     },
     {
       "headers": {
         "cache-control": "private, no-cache, no-store, max-age=0, must-revalidate",
-        "content-security-policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; form-action 'self'; base-uri 'none'",
+        "content-security-policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; frame-src 'none'; frame-ancestors 'none'; form-action 'self'; base-uri 'none'",
         "permissions-policy": "camera=(), microphone=(), geolocation=(), payment=()",
         "referrer-policy": "strict-origin-when-cross-origin",
         "strict-transport-security": "max-age=31536000; includeSubDomains",
         "x-content-type-options": "nosniff",
         "x-frame-options": "DENY"
       },
-      "headers_sha256": "5e022b469ab0057bb0438f71fc93a0cf836eb0af169ceb3b131fddd8ace09bc7",
-      "path": "/seguridad",
+      "headers_sha256": "c2b0e7a66d29ecb64bb95ef9af6c7391891b6b44c8ca21cb87f4b3a0199cba93",
+      "path": "/security",
       "status": 200
     },
     {
       "headers": {
         "cache-control": "private, no-cache, no-store, max-age=0, must-revalidate",
-        "content-security-policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; form-action 'self'; base-uri 'none'",
+        "content-security-policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; frame-src 'none'; frame-ancestors 'none'; form-action 'self'; base-uri 'none'",
         "permissions-policy": "camera=(), microphone=(), geolocation=(), payment=()",
         "referrer-policy": "strict-origin-when-cross-origin",
         "strict-transport-security": "max-age=31536000; includeSubDomains",
         "x-content-type-options": "nosniff",
         "x-frame-options": "DENY"
       },
-      "headers_sha256": "5e022b469ab0057bb0438f71fc93a0cf836eb0af169ceb3b131fddd8ace09bc7",
-      "path": "/subencargados",
+      "headers_sha256": "c2b0e7a66d29ecb64bb95ef9af6c7391891b6b44c8ca21cb87f4b3a0199cba93",
+      "path": "/subprocessors",
       "status": 200
     },
     {
       "headers": {
         "cache-control": "private, no-cache, no-store, max-age=0, must-revalidate",
-        "content-security-policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; form-action 'self'; base-uri 'none'",
+        "content-security-policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; frame-src 'none'; frame-ancestors 'none'; form-action 'self'; base-uri 'none'",
         "permissions-policy": "camera=(), microphone=(), geolocation=(), payment=()",
         "referrer-policy": "strict-origin-when-cross-origin",
         "strict-transport-security": "max-age=31536000; includeSubDomains",
         "x-content-type-options": "nosniff",
         "x-frame-options": "DENY"
       },
-      "headers_sha256": "5e022b469ab0057bb0438f71fc93a0cf836eb0af169ceb3b131fddd8ace09bc7",
+      "headers_sha256": "c2b0e7a66d29ecb64bb95ef9af6c7391891b6b44c8ca21cb87f4b3a0199cba93",
       "path": "/dpa",
       "status": 200
     },
     {
       "headers": {
         "cache-control": "private, no-cache, no-store, max-age=0, must-revalidate",
-        "content-security-policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; form-action 'self'; base-uri 'none'",
+        "content-security-policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; frame-src 'none'; frame-ancestors 'none'; form-action 'self'; base-uri 'none'",
         "permissions-policy": "camera=(), microphone=(), geolocation=(), payment=()",
         "referrer-policy": "strict-origin-when-cross-origin",
         "strict-transport-security": "max-age=31536000; includeSubDomains",
         "x-content-type-options": "nosniff",
         "x-frame-options": "DENY"
       },
-      "headers_sha256": "5e022b469ab0057bb0438f71fc93a0cf836eb0af169ceb3b131fddd8ace09bc7",
-      "path": "/eliminar-cuenta",
+      "headers_sha256": "c2b0e7a66d29ecb64bb95ef9af6c7391891b6b44c8ca21cb87f4b3a0199cba93",
+      "path": "/delete-account",
       "status": 200
     }
   ],
   "schema_version": "1.0.0",
-  "source_revision": "26e8182f145782815662655d3e51839f1b4c324c",
+  "source_revision": "37df2dbc886862995cfc2359a3a83cccc594ed08",
   "status": "passed",
   "task_id": "FNC-UAT-003",
   "transport": {

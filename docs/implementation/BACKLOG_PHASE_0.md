@@ -173,11 +173,11 @@ dependencias de `FNC-GAT-002` ni afirmar que Sprint 1 está habilitado.
 | FNC-ADM-001 | A2/A3/A5/A6 | IAM-004, SEC-001, AUD-001 | Review pending | Superadmin inicial y plano de control separados de roles/datos financieros; PostgreSQL, API, web y consola local verificados |
 | FNC-UAT-001 | A2/A3/A4/A5 | ADM-001, REL-001, SUP-002 | In progress | `b099c64` probado y firmado sin publicar; deploy UAT por digest exige backup/restore fresco, smoke público, evidencia y rollback; reset público, ensayo desechable y revisiones pendientes |
 | FNC-UAT-002 | A2/A3/A5/A6 | UAT-001, QA-009, ONB-002 | Review pending | Dos corridas desde esquema vacío y regresión completa en runtimes desechables; cleanup exacto verificado |
-| FNC-UAT-003 | A3/A5/A6 | UAT-001, SEC-006 | Review pending | 13 controles TLS/HTTP y 10 rutas públicas pasan sin payload ni identidad; revisión independiente pendiente |
+| FNC-UAT-003 | A3/A5/A6 | UAT-001, SEC-006 | Review pending | 13 controles TLS/HTTP, 10 rutas canónicas inglesas y redirects 308 pasan en release AWS `37df2db`; revisión independiente pendiente |
 | FNC-ADM-002 | A2/A3/A6 | ADM-001, SEC-001 | Review pending | V0052, ACL, API y consola de diagnóstico agregado probadas; sin nombres, IDs, documentos, importes ni acceso financiero transversal |
 | FNC-ACC-001 | A4/A5/A6 | ING-005, REC-006, CLS-005, RPT-001 | Review pending | Recorrido contable web guiado sin cambiar semántica ni ejecutar cierre |
 | FNC-UX-003 | A6 | WEB-004, UX-001, IAM-002, ACC-001 | Review pending | Shell SaaS premium, navegación jerárquica, motion accesible y responsive |
-| FNC-LEG-002 | A3/A6 | PRV-001, LEG-001 | Review pending | Centro legal público inglés operado por Parallext LLC, rutas canónicas inglesas, versiones `2026-09-03-en` y contactos `@fincilia.com`; publicación técnica lista, revisión jurídica independiente pendiente |
+| FNC-LEG-002 | A3/A6 | PRV-001, LEG-001 | Review pending | Centro legal público inglés operado por Parallext LLC, rutas canónicas inglesas y redirects 308 incluidos en el artefacto firmado `37df2db`; revisión jurídica independiente pendiente |
 | FNC-SEC-004 | A3/A5 | SEC-001, PLT-005, DB-002 | Review pending | Contexto durable company-scoped con emision idempotente, revalidacion online, revocacion append-only, HMAC y V0021; sin consumidor artificial ni datos reales |
 | FNC-SEC-005 | A3/A5 | SEC-004, DB-002, P3.6 | Review pending | Trabajos nuevos ligados a issued context y revalidados al reclamar, escribir y cerrar; fase expand compatible con filas legacy |
 | FNC-SEC-006 | A3/A6 | SEC-002, IAM-004, UAT-001 | Review pending | Baseline HTTP exacta comprobada en API/web sin asumir HSTS local ni alterar OAuth |

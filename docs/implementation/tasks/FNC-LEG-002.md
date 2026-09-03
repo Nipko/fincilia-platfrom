@@ -53,7 +53,7 @@ entregados explícitamente por el Founder.
 # Rutas de la revisión 2026-09-03
 
 - `apps/web/src/app/{privacy,terms,cookies,security,dpa,subprocessors,delete-account}`
-  y redirecciones declarativas desde las rutas anteriores.
+  y handlers 308 fail-closed desde las rutas anteriores.
 - `apps/web/src/components/legal-document.tsx` y `apps/web/src/lib/legal-*`.
 - Registro Google, callback y pruebas de consentimiento web/API.
 - `db/migrations/V0056__publish_legal_documents_2026_09_03.sql`,
