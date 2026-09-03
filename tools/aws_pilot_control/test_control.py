@@ -216,16 +216,22 @@ class PilotControllerTests(unittest.TestCase):
     def test_cold_scales_before_planning_and_applying(self) -> None:
         controller = self.controller(FakeRunner([]))
         events: list[str] = []
+        apply_calls: list[tuple[str, ...]] = []
         controller.guard_identity = lambda: events.append("guard") or {}  # type: ignore[method-assign]
         controller._scale_services_to_zero = lambda: events.append("scale")  # type: ignore[method-assign]
         controller._load_balancer_arn = lambda: None  # type: ignore[method-assign]
         controller.plan = lambda mode: events.append(f"plan:{mode}") or {  # type: ignore[method-assign]
             "plan_file": Path("cold.tfplan")
         }
-        controller._run = lambda *args, **kwargs: events.append("apply") or Result(0)  # type: ignore[method-assign]
+        controller._run = (  # type: ignore[method-assign]
+            lambda argv, **kwargs: apply_calls.append(tuple(argv))
+            or events.append("apply")
+            or Result(0)
+        )
         controller._stop_database = lambda: events.append("stop-db") or "stop_requested"  # type: ignore[method-assign]
         controller.apply_mode("cold", apply=True)
         self.assertEqual(events, ["guard", "scale", "plan:cold", "apply", "stop-db"])
+        self.assertIn("-var=runtime_plane_enabled=false", apply_calls[0])
 
     def test_cold_restores_alb_protection_when_plan_fails(self) -> None:
         controller = self.controller(FakeRunner([]))
@@ -245,13 +251,19 @@ class PilotControllerTests(unittest.TestCase):
     def test_warm_applies_before_starting_database(self) -> None:
         controller = self.controller(FakeRunner([]))
         events: list[str] = []
+        apply_calls: list[tuple[str, ...]] = []
         controller.plan = lambda mode: events.append(f"plan:{mode}") or {  # type: ignore[method-assign]
             "plan_file": Path("warm.tfplan")
         }
-        controller._run = lambda *args, **kwargs: events.append("apply") or Result(0)  # type: ignore[method-assign]
+        controller._run = (  # type: ignore[method-assign]
+            lambda argv, **kwargs: apply_calls.append(tuple(argv))
+            or events.append("apply")
+            or Result(0)
+        )
         controller._start_database = lambda: events.append("start-db") or "start_requested"  # type: ignore[method-assign]
         report = controller.apply_mode("warm", apply=True)
         self.assertEqual(events, ["plan:warm", "apply", "start-db"])
+        self.assertIn("-var=runtime_plane_enabled=true", apply_calls[0])
         self.assertEqual(report["services_desired_count"], 0)
         self.assertFalse(report["real_data_authorized"])
 

@@ -470,7 +470,9 @@ class PilotController:
             apply_result = self._run(
                 (
                     "tofu", f"-chdir={self.infra_root}", "apply", "-input=false",
-                    "-auto-approve", str(report["plan_file"]),
+                    "-auto-approve",
+                    f"-var=runtime_plane_enabled={'true' if mode == 'warm' else 'false'}",
+                    str(report["plan_file"]),
                 ),
                 timeout=1800,
                 operation=f"apply {mode}",

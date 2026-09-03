@@ -183,6 +183,16 @@ class PublicationContractTests(unittest.TestCase):
     def test_exact_oidc_and_ecr_plan_is_valid(self) -> None:
         self.assertEqual([], validate_plan(self.valid_plan()))
 
+    def test_refreshed_oidc_issuer_accepts_only_aws_normalized_form(self) -> None:
+        plan = self.valid_plan()
+        provider = plan["resource_changes"][0]
+        provider["change"]["actions"] = ["no-op"]
+        provider["change"]["after"]["url"] = "token.actions.githubusercontent.com"
+        self.assertEqual([], validate_plan(plan))
+
+        provider["change"]["after"]["url"] = "login.example.com"
+        self.assertTrue(any("issuer" in item for item in validate_plan(plan)))
+
     def test_provider_deferred_policies_are_valid_only_when_marked_unknown(self) -> None:
         plan = self.valid_plan()
         role = plan["resource_changes"][1]["change"]

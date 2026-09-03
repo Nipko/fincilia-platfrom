@@ -1,0 +1,70 @@
+{
+  "schema_version": "1.0.0",
+  "task_id": "FNC-PLT-015",
+  "environment": "private-pilot",
+  "region": "sa-east-1",
+  "observed_at": "2026-09-03T23:58:14Z",
+  "source_revision": "5967f3e72303e01aa3de2e87eee4a62ac79aa214",
+  "data_ceiling": "synthetic_only_until_gate",
+  "authorization": {
+    "cold_foundation_apply": true,
+    "warm_runtime_apply": false,
+    "service_activation": false,
+    "real_data": false
+  },
+  "initial_plan": {
+    "mode": "cold",
+    "validated": true,
+    "create": 142,
+    "read": 11,
+    "update": 0,
+    "delete": 0
+  },
+  "observed_state": {
+    "mode": "cold",
+    "state_address_count": 157,
+    "foundation_required": 33,
+    "foundation_present": 32,
+    "foundation_missing": ["aws_db_instance.pilot"],
+    "runtime_required": 10,
+    "runtime_present": 0,
+    "nat_gateway_count": 0,
+    "load_balancer": "absent",
+    "cache": "absent",
+    "ecs_services": "absent"
+  },
+  "failures_found": [
+    {
+      "id": "PILOT-APPLY-MODE-TYPE",
+      "effect": "saved plan could not be applied because plan and apply did not receive the same explicit mode value",
+      "resolution": "controller now supplies the exact mode variable to both operations and tests cold and warm"
+    },
+    {
+      "id": "PILOT-OIDC-REFRESH-NORMALIZATION",
+      "effect": "a partial apply could not be resumed after the AWS provider normalized the exact GitHub OIDC issuer by removing its scheme",
+      "resolution": "validator accepts only the configured HTTPS form and AWS normalized host form; every other issuer remains rejected"
+    },
+    {
+      "id": "PILOT-RDS-FREE-PLAN-RETENTION",
+      "effect": "AWS Free account plan rejected the required 14-day automated backup retention",
+      "resolution": "blocked_pending_direct_paid_plan_upgrade",
+      "security_control_not_reduced": true
+    }
+  ],
+  "commercial_blocker": {
+    "account_plan": "free",
+    "required_action": "upgrade_directly_to_paid_plan",
+    "credits_expected_to_remain": true,
+    "do_not_upgrade_via": ["AWS Organizations", "AWS Control Tower"],
+    "sources": [
+      "https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/free-tier-plans.html",
+      "https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/free-tier-FAQ.html"
+    ]
+  },
+  "gate_state": {
+    "G00-ISOLATED-ENV": "pending",
+    "DRG-00": "not_met",
+    "DRG-01": "not_met",
+    "real_data_authorized": false
+  }
+}

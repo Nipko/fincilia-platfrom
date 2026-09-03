@@ -320,7 +320,13 @@ def validate_plan(plan: dict[str, Any]) -> list[str]:
     provider = changes[
         "aws_iam_openid_connect_provider.github"
     ].get("change", {}).get("after") or {}
-    if provider.get("url") != "https://token.actions.githubusercontent.com" or \
+    # Creation plans retain the configured HTTPS URL. After AWS refreshes the
+    # resource, the provider normalizes that same issuer by omitting the scheme.
+    # These are the only two equivalent forms accepted for resumable applies.
+    if provider.get("url") not in {
+        "https://token.actions.githubusercontent.com",
+        "token.actions.githubusercontent.com",
+    } or \
             provider.get("client_id_list") != ["sts.amazonaws.com"]:
         errors.append("plan OIDC no fija issuer y audience exactos")
 
