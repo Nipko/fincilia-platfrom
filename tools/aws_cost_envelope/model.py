@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
@@ -87,11 +88,28 @@ def validate(model: dict[str, Any], *, root: Path = ROOT) -> list[Finding]:
         if evidence.get("plan_sha256") != plan.get("sha256") or evidence.get("planned_actions") != plan.get("actions"):
             fail("ACE-EVIDENCE", "plan_reference.evidence", "cost envelope and plan evidence drifted")
 
+    inventory_path = root / str(plan.get("inventory_evidence", ""))
+    try:
+        inventory = json.loads(inventory_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        fail("ACE-INVENTORY-EVIDENCE", "plan_reference.inventory_evidence", "plan inventory evidence must exist and be valid JSON")
+    else:
+        claimed_digest = inventory.pop("evidence_sha256", None)
+        observed_digest = hashlib.sha256(json.dumps(
+            inventory, ensure_ascii=True, sort_keys=True, separators=(",", ":")
+        ).encode("utf-8")).hexdigest()
+        if claimed_digest != observed_digest:
+            fail("ACE-INVENTORY-DIGEST", "plan_reference.inventory_evidence", "plan inventory evidence digest is invalid")
+        if inventory.get("plan_sha256") != plan.get("sha256") or inventory.get("actions") != plan.get("actions"):
+            fail("ACE-INVENTORY-PLAN", "plan_reference.inventory_evidence", "plan inventory is not tied to the exact plan")
+
     counts = model.get("resource_type_counts", {})
     if not isinstance(counts, dict) or any(not isinstance(v, int) or v <= 0 for v in counts.values()):
         fail("ACE-COUNTS", "resource_type_counts", "resource counts must be positive integers")
     elif sum(counts.values()) != EXPECTED_ACTIONS["create"]:
         fail("ACE-COUNT-TOTAL", "resource_type_counts", "resource counts must sum to planned creates")
+    if "inventory" in locals() and inventory.get("resource_type_counts") != counts:
+        fail("ACE-COUNT-EVIDENCE", "resource_type_counts", "resource counts drifted from plan inventory evidence")
     for resource_type, expected in {"aws_kms_key": 5, "aws_secretsmanager_secret": 4, "aws_db_instance": 1}.items():
         if counts.get(resource_type) != expected:
             fail("ACE-COUNT-DRIVER", f"resource_type_counts.{resource_type}", "priced driver count drifted")

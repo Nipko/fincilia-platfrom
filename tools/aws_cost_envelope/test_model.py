@@ -36,6 +36,12 @@ class AwsCostEnvelopeTests(unittest.TestCase):
         model = copy.deepcopy(MODEL); model["resource_type_counts"]["aws_subnet"] = 8
         self.assertIn("ACE-COUNT-TOTAL", self.codes(model))
 
+    def test_resource_types_are_tied_to_inventory_evidence(self) -> None:
+        model = copy.deepcopy(MODEL)
+        model["resource_type_counts"]["aws_subnet"] = 6
+        model["resource_type_counts"]["aws_route_table"] = 7
+        self.assertIn("ACE-COUNT-EVIDENCE", self.codes(model))
+
     def test_kms_count_bites(self) -> None:
         model = copy.deepcopy(MODEL); model["resource_type_counts"]["aws_kms_key"] = 4; model["resource_type_counts"]["aws_subnet"] = 8
         self.assertIn("ACE-COUNT-DRIVER", self.codes(model))

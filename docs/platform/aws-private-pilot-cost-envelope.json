@@ -11,7 +11,8 @@
     "sha256": "c99de724cfed0d804129d1ef62634c23054c4893bdc29cd265d1a8a938aaa914",
     "size_bytes": 38556,
     "actions": {"create": 142, "read": 11, "update": 0, "delete": 0},
-    "evidence": "docs/implementation/evidence/FNC-GAT-007-COLD-PLAN.json"
+    "evidence": "docs/implementation/evidence/FNC-GAT-007-COLD-PLAN.json",
+    "inventory_evidence": "docs/implementation/evidence/FNC-FIN-002-PLAN-INVENTORY.json"
   },
   "resource_type_counts": {
     "aws_acm_certificate": 1,
