@@ -1,13 +1,15 @@
 # Publicación de Google OAuth para Fincilia
 
-Estado: **recorrido productivo preparado, no activado**. Este runbook configura
+Estado: **dominio y recorrido preparados para revisión, alta aún protegida**. Este runbook configura
 Google como proveedor social de Amazon Cognito y permite alta publica sin
 invitaciones, sin convertir claims externos en roles de Fincilia. La activacion
 con personas reales permanece bloqueada por DRG-00 y revision independiente;
 publicar las paginas y preparar el proyecto no mueve ese gate.
 
-### Estado observado — 2026-08-30
+### Estado observado — 2026-09-03
 
+- `https://fincilia.com` responde por HTTPS y publica portada, privacidad,
+  terminos y eliminacion sin exigir sesion.
 - Google existe como proveedor social del User Pool y solicita unicamente
   `openid email profile`.
 - El cliente Cognito exclusivo de Fincilia esta administrado por OpenTofu, no
@@ -17,6 +19,11 @@ publicar las paginas y preparar el proyecto no mueve ese gate.
 - Callback de Fincilia:
   `https://fincilia.com/api/auth/callback/cognito`.
 - Logout de Fincilia: `https://fincilia.com/entrar`.
+- Responsable publicado: Parallext LLC. Soporte: `support@fincilia.com`;
+  privacidad: `privacy@fincilia.com`; contacto de desarrollador:
+  `security@fincilia.com`.
+- Versiones activas preparadas para nuevas altas: `terms-2026-09-03` y
+  `privacy-2026-09-03`.
 - El runtime permanece deshabilitado. Esta preparacion no adjudica DRG-00 ni
   autoriza que una identidad personal complete el flujo.
 
@@ -26,14 +33,15 @@ No enviar secretos por chat, Git, capturas, handoffs ni variables de Terraform.
 
 | Dato | Ejemplo de forma | Uso |
 | --- | --- | --- |
-| Dominio final del servicio | `app.<dominio-propio>` | Portada, políticas y callback de Fincilia |
+| Dominio final del servicio | `fincilia.com` | Portada, políticas y callback de Fincilia |
 | Cuenta Google Cloud | cuenta con rol Owner/Editor | Crear proyecto y OAuth client |
 | Propiedad Search Console | dominio raíz verificado | Demostrar control del dominio autorizado |
-| Correo de soporte | buzón atendido | Consent screen y contacto de usuarios |
-| Correo de desarrollador | buzón atendido | Avisos de Google |
+| Correo de soporte | `support@fincilia.com` | Consent screen y contacto de usuarios |
+| Correo de desarrollador | `security@fincilia.com` | Avisos de Google |
 | Logo de Fincilia | archivo cuadrado según el límite que muestre Google | Branding; no usar una marca de Google |
 
-Nombre público: **Fincilia**. Desarrollador: **Parallext.com**. El Client ID se
+Nombre público: **Fincilia**. Operador: **Parallext LLC**. Desarrollo:
+**Parallext.com**. El Client ID se
 puede compartir con el implementador por un canal controlado; el Client Secret
 se carga directamente en AWS y nunca se copia al repositorio.
 
@@ -44,14 +52,14 @@ final forman parte de la identidad de una URI y deben coincidir exactamente.
 
 | Destino | Valor |
 | --- | --- |
-| Portada pública | `https://<APP_DOMAIN>/` |
-| Privacidad | `https://<APP_DOMAIN>/privacidad` |
-| Términos | `https://<APP_DOMAIN>/terminos` |
-| Eliminación de cuenta | `https://<APP_DOMAIN>/eliminar-cuenta` |
-| Origen JavaScript en Google | `https://<COGNITO_DOMAIN>.auth.sa-east-1.amazoncognito.com` |
-| Redirect URI en Google | `https://<COGNITO_DOMAIN>.auth.sa-east-1.amazoncognito.com/oauth2/idpresponse` |
-| Callback de Cognito a Fincilia | `https://<APP_DOMAIN>/api/auth/callback/cognito` |
-| Logout de Cognito | `https://<APP_DOMAIN>/entrar` |
+| Portada pública | `https://fincilia.com/` |
+| Privacidad | `https://fincilia.com/privacidad` |
+| Términos | `https://fincilia.com/terminos` |
+| Eliminación de cuenta | `https://fincilia.com/eliminar-cuenta` |
+| Origen JavaScript en Google | `https://fincilia-t0-632144225293.auth.sa-east-1.amazoncognito.com` |
+| Redirect URI en Google | `https://fincilia-t0-632144225293.auth.sa-east-1.amazoncognito.com/oauth2/idpresponse` |
+| Callback de Cognito a Fincilia | `https://fincilia.com/api/auth/callback/cognito` |
+| Logout de Cognito | `https://fincilia.com/entrar` |
 
 El redirect de **Google** termina en Cognito. El callback de **Cognito** termina
 en Fincilia. Intercambiarlos produce `redirect_uri_mismatch` o expone el flujo a
@@ -69,7 +77,7 @@ aplicación y ya está fijado por el contrato de infraestructura.
 
 ## 3. Publicar primero el dominio de confianza
 
-1. Publicar el mismo build de Fincilia por HTTPS en `<APP_DOMAIN>`.
+1. Publicar el mismo build de Fincilia por HTTPS en `fincilia.com`.
 2. Confirmar que `/`, `/privacidad`, `/terminos` y `/eliminar-cuenta` responden
    sin login, sin redirección a otro dominio y con certificado válido.
 3. La portada debe describir Fincilia, enlazar privacidad/términos y explicar que
@@ -92,9 +100,9 @@ Cloud Console:
 1. Abrir **Google Auth Platform → Branding**.
 2. App name: `Fincilia`.
 3. User support email: el buzón atendido del Founder/soporte.
-4. Homepage: `https://<APP_DOMAIN>/`.
-5. Privacy policy: `https://<APP_DOMAIN>/privacidad`.
-6. Terms of service: `https://<APP_DOMAIN>/terminos`.
+4. Homepage: `https://fincilia.com/`.
+5. Privacy policy: `https://fincilia.com/privacidad`.
+6. Terms of service: `https://fincilia.com/terminos`.
 7. Authorized domain: el dominio raíz verificado en Search Console.
 8. Developer contact: el correo atendido de Parallext.com.
 9. En **Audience**, seleccionar `External`. Durante la configuracion inicial se
@@ -168,7 +176,7 @@ python -m tools.identity_readiness.cli \
   --user-pool-id <USER_POOL_ID> \
   --client-id <WEB_CLIENT_ID> \
   --domain-prefix <COGNITO_DOMAIN_PREFIX> \
-  --app-origin https://<APP_DOMAIN>
+  --app-origin https://fincilia.com
 ```
 
 Exit `0` significa que los 16 controles de configuración observables pasan;
@@ -185,7 +193,7 @@ y siempre conserva `activation_authorized: false` y
    Confirmar alta nueva completa, dos aceptaciones legales versionadas y login
    idempotente. Al pulsar `Salir`, verificar
    que desaparecen las tres cookies Fincilia y Cognito vuelve exactamente a
-   `https://<APP_DOMAIN>/entrar`; volver a entrar debe iniciar un flujo nuevo.
+   `https://fincilia.com/entrar`; volver a entrar debe iniciar un flujo nuevo.
 4. Cambiar temporalmente el modo de registro a `disabled` y comprobar que no
    nacen cuentas nuevas mientras las existentes siguen entrando. Suspender la
    identidad de prueba en Cognito y retirar sus grants en Fincilia; ambas
