@@ -71,7 +71,8 @@ export function RegistrationForm({
               <label>
                 <input name="acknowledgePrivacy" type="checkbox" value="yes" required />
                 <span>
-                  Confirmo que he leido la{' '}
+                  Autorizo a Parallext LLC a tratar mis datos de cuenta para las
+                  finalidades descritas en la{' '}
                   <Link href="/privacidad">politica de privacidad</Link>.
                 </span>
               </label>

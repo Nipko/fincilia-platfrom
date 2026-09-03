@@ -51,8 +51,8 @@ describe('transaccion OIDC administrada', () => {
     const sealed = sealManagedOidcTransaction(transaction, config.transactionKey);
 
     expect(sealed).not.toContain('Firma Fincilia');
-    expect(transaction.termsVersion).toBe('terms-2026-08-29');
-    expect(transaction.privacyVersion).toBe('privacy-2026-08-29');
+    expect(transaction.termsVersion).toBe('terms-2026-09-03');
+    expect(transaction.privacyVersion).toBe('privacy-2026-09-03');
     expect(transaction.state).toHaveLength(43);
     expect(transaction.nonce).toHaveLength(43);
     expect(transaction.verifier.length).toBeGreaterThanOrEqual(43);

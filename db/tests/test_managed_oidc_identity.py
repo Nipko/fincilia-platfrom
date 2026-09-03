@@ -95,8 +95,8 @@ class ManagedOidcIdentityTests(unittest.TestCase):
 
     def register_public(self, *, email_ref: str, external_ref: str,
                         subject_id: str | None = None,
-                        terms_version: str = "terms-2026-08-29",
-                        privacy_version: str = "privacy-2026-08-29") -> str:
+                        terms_version: str = "terms-2026-09-03",
+                        privacy_version: str = "privacy-2026-09-03") -> str:
         subject = subject_id or str(uuid.uuid4())
         with psycopg.connect(RUNTIME_DSN, autocommit=False) as connection:
             with connection.transaction(), connection.cursor() as cursor:
@@ -214,8 +214,18 @@ class ManagedOidcIdentityTests(unittest.TestCase):
                     "FROM fincilia.subject_legal_acceptance "
                     "WHERE subject_id=%s ORDER BY document_kind", (subject_id,))
                 self.assertEqual([
-                    ("privacy", "privacy-2026-08-29", "google_oidc_registration"),
-                    ("terms", "terms-2026-08-29", "google_oidc_registration"),
+                    ("privacy", "privacy-2026-09-03", "google_oidc_registration"),
+                    ("terms", "terms-2026-09-03", "google_oidc_registration"),
+                ], cursor.fetchall())
+                cursor.execute(
+                    "SELECT document_kind,document_version,active_for_registration "
+                    "FROM fincilia.legal_document_version "
+                    "ORDER BY document_kind,document_version")
+                self.assertEqual([
+                    ("privacy", "privacy-2026-08-29", False),
+                    ("privacy", "privacy-2026-09-03", True),
+                    ("terms", "terms-2026-08-29", False),
+                    ("terms", "terms-2026-09-03", True),
                 ], cursor.fetchall())
                 cursor.execute("RESET ROLE")
 
@@ -229,7 +239,7 @@ class ManagedOidcIdentityTests(unittest.TestCase):
             self.register_public(
                 email_ref=ref("stale-email-" + self.marker),
                 external_ref=ref("stale-sub-" + self.marker),
-                subject_id=stale_subject, terms_version="terms-2026-01-01")
+                subject_id=stale_subject, terms_version="terms-2026-08-29")
         with self.assertRaises(psycopg.errors.UniqueViolation):
             self.register_public(
                 email_ref=email_ref,

@@ -11,9 +11,20 @@ type LegalDocumentProps = {
   title: string;
   summary: string;
   sections: readonly LegalSection[];
+  version: string;
+  effectiveDate: string;
+  status: string;
 };
 
-export function LegalDocument({ eyebrow, title, summary, sections }: LegalDocumentProps) {
+export function LegalDocument({
+  eyebrow,
+  title,
+  summary,
+  sections,
+  version,
+  effectiveDate,
+  status,
+}: LegalDocumentProps) {
   return (
     <main className="legal-page">
       <header className="legal-hero">
@@ -21,8 +32,8 @@ export function LegalDocument({ eyebrow, title, summary, sections }: LegalDocume
         <h1>{title}</h1>
         <p className="legal-hero__summary">{summary}</p>
         <div className="legal-status" role="note">
-          <strong>Borrador de preproducción</strong>
-          <span>Versión 0.1 · 28 de agosto de 2026 · revisión jurídica pendiente</span>
+          <strong>{status}</strong>
+          <span>Versión {version} · vigente desde el {effectiveDate}</span>
         </div>
       </header>
 
@@ -47,9 +58,10 @@ export function LegalDocument({ eyebrow, title, summary, sections }: LegalDocume
             </section>
           ))}
           <aside className="legal-review-note">
-            Estos textos documentan la postura actual del producto y no sustituyen
-            asesoría legal. Antes de tratar datos reales deben completarse la razón
-            social, domicilio, jurisdicción y aprobaciones nominales pendientes.
+            Si necesitas una copia de esta versión, un formato accesible o información
+            sobre una versión anterior, escribe a legal@fincilia.com. Las condiciones
+            contractuales específicas de una organización pueden complementar este
+            documento sin reducir derechos obligatorios.
           </aside>
         </article>
       </div>

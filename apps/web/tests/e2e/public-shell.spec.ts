@@ -73,7 +73,9 @@ test.describe('recorrido publico sin secretos', () => {
     await expect(page).toHaveURL(/\/privacidad$/);
     await expect(page.getByRole('heading', { level: 1, name: 'Política de privacidad' }))
       .toBeVisible();
-    await expect(page.getByText('Borrador de preproducción')).toBeVisible();
+    await expect(page.getByText('Política vigente')).toBeVisible();
+    await expect(page.getByText(/Versión privacy-2026-09-03/)).toBeVisible();
+    await expect(page.getByText(/Parallext LLC/).first()).toBeVisible();
     await expect(page.getByText(/privacy@fincilia.com/).first()).toBeVisible();
   });
 

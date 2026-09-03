@@ -8,13 +8,14 @@ import {
   timingSafeEqual,
 } from 'node:crypto';
 
+import { PRIVACY_VERSION, TERMS_VERSION } from './legal-publication';
 import { publicWebOrigin } from './server-config';
+
+export { PRIVACY_VERSION, TERMS_VERSION } from './legal-publication';
 
 export const OIDC_TRANSACTION_COOKIE = 'fincilia_oidc_tx';
 export const OIDC_CALLBACK_PATH = '/api/auth/callback/cognito';
 export const OIDC_TRANSACTION_TTL_SECONDS = 600;
-export const TERMS_VERSION = 'terms-2026-08-29';
-export const PRIVACY_VERSION = 'privacy-2026-08-29';
 
 const SAFE_VALUE = /^[A-Za-z0-9._~-]+$/;
 const CONTROL = /[\u0000-\u001f\u007f]/;
