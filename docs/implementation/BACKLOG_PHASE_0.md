@@ -67,6 +67,7 @@
 | FNC-GAT-006 | A0/A3/A4 | GAT-005, QA-001 | Evidencia adjudicada de aislamiento, ingreso y canales DRG-01 |
 | FNC-GAT-007 | A0/A3/A4 | GAT-005, PLT-012/013 | Preflight live fail-closed y plan cold digest-only 142/11/0/0; sin apply ni aceptación de gates |
 | FNC-FIN-002 | A0/A3/A4 | GAT-007, ARC-003 | Sobre de costo ejecutable ligado al plan AWS; no autoriza gasto, apply ni datos reales |
+| FNC-FIN-003 | A0/A2/A3/A4 | FIN-002, BET-001, PLT-012 | Comparación regional ejecutable entre UAT vigente y private-pilot; recomienda endurecer UAT sin autorizar cambios AWS |
 | FNC-PRV-004 | A3/A5 | PRV-003, GAT-005 | Ensayo sintético de derechos, incidente, tombstones y restore cerrado |
 
 FNC-GAT-001 es la única tarea que puede autorizar el primer artefacto real de investigación.

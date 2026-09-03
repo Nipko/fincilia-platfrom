@@ -1,7 +1,7 @@
 ---
 id: FNC-FIN-003
 title: Decisión de costo regional para UAT en AWS
-status: in_progress
+status: review_pending
 implementer: Codex principal dev + Integration Steward
 base_sha: 592bb442cf603eb0a54d1585efdbcc33a0a1d27b
 gate: DRG-00
@@ -47,3 +47,13 @@ autorizar cambios cloud.
 
 Subir el presupuesto, destruir el laboratorio detenido, aplicar private-pilot,
 habilitar documentos reales o aceptar revisiones independientes.
+
+# Resultado integrado
+
+- Inventario live redactado: un `t3.small` UAT activo con 24 GB gp3, un
+  laboratorio detenido con 16 GB gp3, una IPv4 asociada y cero RDS.
+- Diecisiete tarifas `sa-east-1` adjudicadas desde AWS Price List API.
+- UAT actual USD 31,826/mes; cuenta fija USD 34,258/mes.
+- `private-pilot`: USD 36,20 frío, USD 257,36 caliente detenido y USD 319,264
+  con dos tareas mínimas activas, antes de consumos variables.
+- Recomendación técnica: endurecer UAT existente; ningún cambio AWS autorizado.
