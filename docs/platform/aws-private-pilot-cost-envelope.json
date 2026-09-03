@@ -1,0 +1,135 @@
+{
+  "schema_version": "1.0.0",
+  "task_id": "FNC-FIN-002",
+  "status": "technical_review_ready_human_decision_pending",
+  "region": "sa-east-1",
+  "currency": "USD",
+  "data_ceiling": "synthetic_only_until_gate",
+  "plan_reference": {
+    "mode": "cold",
+    "source_revision": "d466438a8f1fd9ed8f37dee0ca5467caca697d94",
+    "sha256": "c99de724cfed0d804129d1ef62634c23054c4893bdc29cd265d1a8a938aaa914",
+    "size_bytes": 38556,
+    "actions": {"create": 142, "read": 11, "update": 0, "delete": 0},
+    "evidence": "docs/implementation/evidence/FNC-GAT-007-COLD-PLAN.json"
+  },
+  "resource_type_counts": {
+    "aws_acm_certificate": 1,
+    "aws_budgets_budget": 1,
+    "aws_cloudtrail": 1,
+    "aws_cloudwatch_log_group": 4,
+    "aws_cloudwatch_metric_alarm": 1,
+    "aws_cognito_user_pool": 1,
+    "aws_cognito_user_pool_client": 1,
+    "aws_cognito_user_pool_domain": 1,
+    "aws_db_instance": 1,
+    "aws_db_parameter_group": 1,
+    "aws_db_subnet_group": 1,
+    "aws_ecr_lifecycle_policy": 3,
+    "aws_ecr_repository": 3,
+    "aws_ecs_cluster": 1,
+    "aws_ecs_cluster_capacity_providers": 1,
+    "aws_elasticache_parameter_group": 1,
+    "aws_elasticache_subnet_group": 1,
+    "aws_iam_openid_connect_provider": 1,
+    "aws_iam_role": 5,
+    "aws_iam_role_policy": 5,
+    "aws_internet_gateway": 1,
+    "aws_kms_alias": 5,
+    "aws_kms_key": 5,
+    "aws_route": 1,
+    "aws_route_table": 6,
+    "aws_route_table_association": 7,
+    "aws_s3_bucket": 6,
+    "aws_s3_bucket_lifecycle_configuration": 6,
+    "aws_s3_bucket_ownership_controls": 6,
+    "aws_s3_bucket_policy": 6,
+    "aws_s3_bucket_public_access_block": 6,
+    "aws_s3_bucket_server_side_encryption_configuration": 6,
+    "aws_s3_bucket_versioning": 6,
+    "aws_secretsmanager_secret": 4,
+    "aws_security_group": 6,
+    "aws_subnet": 7,
+    "aws_vpc": 1,
+    "aws_vpc_endpoint": 1,
+    "aws_vpc_security_group_egress_rule": 12,
+    "aws_vpc_security_group_ingress_rule": 8,
+    "terraform_data": 1
+  },
+  "known_priced_floor": {
+    "not_a_complete_monthly_estimate": true,
+    "components": [
+      {
+        "id": "customer_managed_kms_keys",
+        "quantity": 5,
+        "unit_monthly_usd": "1.00",
+        "subtotal_monthly_usd": "5.00",
+        "source_id": "AWS-KMS-PRICE"
+      },
+      {
+        "id": "declared_secrets_manager_secrets",
+        "quantity": 4,
+        "unit_monthly_usd": "0.40",
+        "subtotal_monthly_usd": "1.60",
+        "source_id": "AWS-SECRETS-PRICE"
+      }
+    ],
+    "subtotal_monthly_usd": "6.60",
+    "excludes_usage_requests": true
+  },
+  "unpriced_cold_components": [
+    "rds_db_t4g_micro_hours_after_credit_or_free_allowance",
+    "rds_20_gb_gp3_storage_backup_and_io",
+    "rds_managed_master_secret",
+    "s3_storage_versioning_requests_and_kms_requests",
+    "cloudtrail_s3_data_events",
+    "cloudwatch_log_ingestion_storage_and_metrics",
+    "ecr_image_storage_and_scanning",
+    "cognito_monthly_active_users_above_allowance",
+    "network_data_transfer_and_public_ipv4_if_any"
+  ],
+  "warm_only_cost_drivers": [
+    "one_nat_gateway_hour_and_data_processing",
+    "six_interface_vpc_endpoints_hours_and_data",
+    "one_application_load_balancer_hours_lcu_and_public_ipv4",
+    "one_regional_waf_web_acl_three_rules_and_requests",
+    "one_cache_t4g_micro_valkey_node",
+    "fargate_vcpu_memory_and_ephemeral_storage_only_after_desired_count_above_zero",
+    "additional_waf_and_runtime_log_ingestion"
+  ],
+  "account_program_facts": {
+    "evidence_source": "founder_reported_not_cloud_reverified",
+    "account_creation_date": "2026-08-28",
+    "plan": "free_initially",
+    "available_credits_usd": "100.00",
+    "credit_expiry_date": "2027-02-28",
+    "credits_are_not_a_hard_cap": true,
+    "credits_are_not_zero_cost": true
+  },
+  "decision_state": {
+    "complete_monthly_estimate_usd": null,
+    "founder_monthly_hard_cap_usd": null,
+    "regional_price_quote_complete": false,
+    "warm_plan_priced": false,
+    "apply_authorized": false,
+    "deployment_authorized": false,
+    "real_data_authorized": false,
+    "required_before_apply": [
+      "refresh_temporary_aws_session",
+      "obtain_complete_sa_east_1_quote",
+      "price_cold_and_bounded_warm_hours",
+      "set_founder_monthly_hard_cap",
+      "regenerate_plan_if_source_or_cloud_changed",
+      "obtain_exact_plan_digest_authorization",
+      "obtain_independent_finance_platform_security_review"
+    ]
+  },
+  "sources": [
+    {"id": "AWS-KMS-PRICE", "authority": "AWS", "url": "https://aws.amazon.com/kms/pricing/", "retrieved_at": "2026-09-03"},
+    {"id": "AWS-SECRETS-PRICE", "authority": "AWS", "url": "https://aws.amazon.com/secrets-manager/pricing/", "retrieved_at": "2026-09-03"},
+    {"id": "AWS-RDS-PRICE", "authority": "AWS", "url": "https://aws.amazon.com/rds/postgresql/pricing/", "retrieved_at": "2026-09-03"},
+    {"id": "AWS-VPC-PRICE", "authority": "AWS", "url": "https://aws.amazon.com/vpc/pricing/", "retrieved_at": "2026-09-03"},
+    {"id": "AWS-PRIVATELINK-PRICE", "authority": "AWS", "url": "https://aws.amazon.com/privatelink/pricing/", "retrieved_at": "2026-09-03"},
+    {"id": "AWS-ELASTICACHE-PRICE", "authority": "AWS", "url": "https://aws.amazon.com/elasticache/pricing/", "retrieved_at": "2026-09-03"}
+  ]
+}
