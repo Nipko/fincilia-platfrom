@@ -40,6 +40,8 @@ datos reales; aprobación de DRG-00/01 o revisión humana independiente.
 # Evidencia integrada
 
 - Implementación: `26e8182f145782815662655d3e51839f1b4c324c`.
+- Integración probada: `57c4d530fdb65000e020bb84546a0e73ff91d96a`, CI
+  `33698034556` verde.
 - Sonda live: 13/13 controles y 10/10 rutas públicas, 2026-09-03 UTC.
 - `docs/implementation/evidence/FNC-UAT-003.json`.
 - Security, Platform/SRE y QA continúan pendientes como revisores independientes.
