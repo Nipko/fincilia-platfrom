@@ -4,24 +4,24 @@
   "control_id": "G00-SUPPLY-CHAIN",
   "state": "passed",
   "data_classification": "completely_synthetic",
-  "generated_at": "2026-09-02T23:20:18Z",
+  "generated_at": "2026-09-03T19:09:35Z",
   "real_data_authorized": false,
   "production_authorized": false,
   "run": {
-    "id": 33694283964,
-    "url": "https://github.com/Nipko/fincilia-platfrom/actions/runs/33694283964",
+    "id": 33794308981,
+    "url": "https://github.com/Nipko/fincilia-platfrom/actions/runs/33794308981",
     "conclusion": "success",
     "event": "workflow_dispatch",
     "source_ref": "refs/heads/main",
-    "source_revision": "74d554dc6fb085817be091b5f621b46e1e07d72a",
+    "source_revision": "b1bcbe0533fd8b42aa12aea3ac0da3b67bf16bb8",
     "signer_workflow": "github.com/Nipko/fincilia-platfrom/.github/workflows/release-candidate.yml",
     "self_hosted_runner_denied": true
   },
   "subject": {
     "name": "fincilia-release.tar.gz",
-    "sha256": "7a137dfff6da95c30c256d5b3a62b21bf33f04355b6b318f82a8bfe7be32b54e",
-    "size_bytes": 224188,
-    "schema_head": "V0055",
+    "sha256": "b009d242dbefb81613835f8a2d6b146ef4976c546fd7d0c917c03c04be39680c",
+    "size_bytes": 224181,
+    "schema_head": "V0056",
     "bundle_schema_version": "1.1.0",
     "source_verified_against_checkout": true,
     "archive_verified_outside_runner": true
@@ -39,7 +39,7 @@
     },
     {
       "path": "apps/api/src",
-      "sha256": "acfd809ead8c4dcb2de9b0ddf695c0137d1141618fedd67c488ed5b2ff121b7c",
+      "sha256": "f7775c548cb0a5b2ba9423e95ce0b47af7423568e4b4f43a796e27c1453a8ac5",
       "tracked_file_count": 31
     },
     {
@@ -54,13 +54,13 @@
     },
     {
       "path": "apps/web/src",
-      "sha256": "94548b0d4fbd87560db153f27598370570e53a0843e73f096efd8d97eea7d338",
-      "tracked_file_count": 147
+      "sha256": "bb8f7f021cf6ac10a02c794553fa2720f841812b18a444933bd448eb7cee03b4",
+      "tracked_file_count": 150
     },
     {
       "path": "db/migrations",
-      "sha256": "62c2a23a6f26a3f05bfd341ebf63d18eae3d036f933f592b03bea6ef5eb1a816",
-      "tracked_file_count": 56
+      "sha256": "8b961976decc833833aee566c15d25ca30e4f283ffcb3d447dabcae67a0a2e49",
+      "tracked_file_count": 57
     },
     {
       "path": "packages/contracts/python",
@@ -92,16 +92,16 @@
     {
       "id": "provenance",
       "predicate_type": "https://slsa.dev/provenance/v1",
-      "sigstore_bundle_sha256": "a5788aea0aaa64f366961e2d7836a3e0297e0224d5c6e215a3c19ead7165fa42",
-      "verification_output_sha256": "c4b87ff856cc7b5184c4f7358e711609e94a430b24854d8c1b18b163db765985",
+      "sigstore_bundle_sha256": "b40f7a57dcbd5375ee698b42974e5ce5da23f715adbc8501b9327225f4eef972",
+      "verification_output_sha256": "5e8f409433684ed13b272be2548554f794e2c439740d584eeebf098fc06079fa",
       "signature_verified_in_runner": true,
       "signature_verified_outside_runner": true
     },
     {
       "id": "sbom",
       "predicate_type": "https://spdx.dev/Document/v2.3",
-      "sigstore_bundle_sha256": "c97a9935b8f112e1de811cf5c8e4411bad33bdf4cb21d03203a74cc900b7f627",
-      "verification_output_sha256": "3153dad96b1c41302b6d46a23ee2ae1db9c80dacf900ae1ca97889da7028d548",
+      "sigstore_bundle_sha256": "d58460cee99926e5eb28b90cb428e1bf8ccd469560b14364ed83cc319f82c625",
+      "verification_output_sha256": "ada8fb196ec44a1bd5ffa05881b52e0a27c1d16fd83a6ec66007d7bc6f06b132",
       "signature_verified_in_runner": true,
       "signature_verified_outside_runner": true
     }
@@ -114,5 +114,5 @@
     ],
     "agent_observation_is_not_acceptance": true
   },
-  "evidence_sha256": "d867458045aefe4de2825b6aed72e39a440e045f901ffce5cf5153dd9ecf3fa6"
+  "evidence_sha256": "3deda53f29a40f700ed9175557ee5a127f16e0bd3314d7de96d1b5a34d97c4c5"
 }
