@@ -38,8 +38,10 @@ estado de gobierno como un borrador público.
 10. Las versiones anteriores permanecen como evidencia histórica y dejan de
     estar activas para nuevas altas mediante una migración forward-only.
 11. La publicación pública destinada a revisión de marca está íntegramente en
-    inglés, declara `lang=en`, tiene metadatos propios y conserva las URLs
-    estables configuradas en Google.
+    inglés, declara `lang=en`, tiene metadatos propios y usa las URLs canónicas
+    inglesas configuradas en Google.
+12. Las rutas anteriores en español redirigen permanentemente a sus equivalentes
+    canónicos, sin duplicar contenido ni romper enlaces ya distribuidos.
 
 # Fuera de alcance
 
@@ -50,12 +52,18 @@ entregados explícitamente por el Founder.
 
 # Rutas de la revisión 2026-09-03
 
-- `apps/web/src/app/{privacidad,terminos,cookies,seguridad,dpa,subencargados,eliminar-cuenta}`.
+- `apps/web/src/app/{privacy,terms,cookies,security,dpa,subprocessors,delete-account}`
+  y redirecciones declarativas desde las rutas anteriores.
 - `apps/web/src/components/legal-document.tsx` y `apps/web/src/lib/legal-*`.
 - Registro Google, callback y pruebas de consentimiento web/API.
 - `db/migrations/V0056__publish_legal_documents_2026_09_03.sql`,
   `V0057__publish_english_legal_documents_2026_09_03.sql` y prueba PostgreSQL.
 - Runbook Google, backlog, trazabilidad, fase vigente y handoff de revisión.
+
+Las rutas canónicas públicas son `/privacy`, `/terms`, `/cookies`, `/security`,
+`/dpa`, `/subprocessors` y `/delete-account`. `/privacidad`, `/terminos`,
+`/seguridad`, `/subencargados` y `/eliminar-cuenta` se conservan exclusivamente
+como redirecciones permanentes de compatibilidad.
 
 # Enmienda de publicación inglesa
 

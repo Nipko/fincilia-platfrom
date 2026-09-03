@@ -49,15 +49,19 @@ se carga directamente en AWS y nunca se copia al repositorio.
 
 ## 2. Matriz de URLs exactas
 
-Reemplazar únicamente los dos marcadores. Esquema, mayúsculas, ruta y slash
-final forman parte de la identidad de una URI y deben coincidir exactamente.
+Esquema, mayúsculas, ruta y slash final forman parte de la identidad de una URI
+y deben coincidir exactamente.
 
 | Destino | Valor |
 | --- | --- |
 | Portada pública | `https://fincilia.com/` |
-| Privacidad | `https://fincilia.com/privacidad` |
-| Términos | `https://fincilia.com/terminos` |
-| Eliminación de cuenta | `https://fincilia.com/eliminar-cuenta` |
+| Privacidad | `https://fincilia.com/privacy` |
+| Términos | `https://fincilia.com/terms` |
+| Cookies | `https://fincilia.com/cookies` |
+| Seguridad | `https://fincilia.com/security` |
+| DPA | `https://fincilia.com/dpa` |
+| Subencargados | `https://fincilia.com/subprocessors` |
+| Eliminación de cuenta | `https://fincilia.com/delete-account` |
 | Origen JavaScript en Google | `https://fincilia-t0-632144225293.auth.sa-east-1.amazoncognito.com` |
 | Redirect URI en Google | `https://fincilia-t0-632144225293.auth.sa-east-1.amazoncognito.com/oauth2/idpresponse` |
 | Callback de Cognito a Fincilia | `https://fincilia.com/api/auth/callback/cognito` |
@@ -66,6 +70,10 @@ final forman parte de la identidad de una URI y deben coincidir exactamente.
 El redirect de **Google** termina en Cognito. El callback de **Cognito** termina
 en Fincilia. Intercambiarlos produce `redirect_uri_mismatch` o expone el flujo a
 un cliente que no debe redimir el código de Google.
+
+Las rutas anteriores `/privacidad`, `/terminos`, `/seguridad`,
+`/subencargados` y `/eliminar-cuenta` existen solo como redirecciones HTTP 308.
+No deben registrarse en una configuración nueva de Google.
 
 Los valores desplegados se obtienen sin secretos con:
 
@@ -80,7 +88,7 @@ aplicación y ya está fijado por el contrato de infraestructura.
 ## 3. Publicar primero el dominio de confianza
 
 1. Publicar el mismo build de Fincilia por HTTPS en `fincilia.com`.
-2. Confirmar que `/`, `/privacidad`, `/terminos` y `/eliminar-cuenta` responden
+2. Confirmar que `/`, `/privacy`, `/terms` y `/delete-account` responden
    sin login, sin redirección a otro dominio y con certificado válido.
 3. La portada debe describir Fincilia, enlazar privacidad/términos y explicar que
    Google solo entrega identificador, nombre y correo verificado para autenticar.
@@ -103,8 +111,8 @@ Cloud Console:
 2. App name: `Fincilia`.
 3. User support email: el buzón atendido del Founder/soporte.
 4. Homepage: `https://fincilia.com/`.
-5. Privacy policy: `https://fincilia.com/privacidad`.
-6. Terms of service: `https://fincilia.com/terminos`.
+5. Privacy policy: `https://fincilia.com/privacy`.
+6. Terms of service: `https://fincilia.com/terms`.
 7. Authorized domain: el dominio raíz verificado en Search Console.
 8. Developer contact: el correo atendido de Parallext.com.
 9. En **Audience**, seleccionar `External`. Durante la configuracion inicial se
