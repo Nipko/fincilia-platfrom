@@ -1,0 +1,150 @@
+{
+  "schema_version": "1.0.0",
+  "task_id": "FNC-GAT-008",
+  "scope": "web_platform",
+  "measured_at": "2026-09-03",
+  "data_ceiling": "synthetic_only",
+  "gate_claims": {
+    "DRG-00": "not_met",
+    "DRG-01": "not_met",
+    "GA-01": "not_met"
+  },
+  "excluded_from_denominator": ["mobile_application"],
+  "scoring": {
+    "implementation": {"complete": 1.0, "partial": 0.5, "absent": 0.0},
+    "synthetic_acceptance": {"synthetic_e2e": 0.7, "component_verified": 0.4, "blocked": 0.0},
+    "production_operability": {"production_verified": 1.0, "design_and_tests": 0.35, "blocked": 0.0}
+  },
+  "capabilities": [
+    {
+      "id": "identity_onboarding",
+      "label": "Identidad, registro y onboarding",
+      "weight": 10,
+      "implementation": "complete",
+      "synthetic_acceptance": "blocked",
+      "production_operability": "blocked",
+      "evidence": ["docs/implementation/tasks/FNC-IAM-004.md", "apps/web/src/lib/managed-oidc.ts", "db/migrations/V0043__public_google_registration_and_legal_acceptance.sql"],
+      "remaining": "Activar Google en runtime administrado despues de DRG-00 y revision independiente."
+    },
+    {
+      "id": "portfolio_access",
+      "label": "Empresas, portafolio, equipo y roles",
+      "weight": 9,
+      "implementation": "complete",
+      "synthetic_acceptance": "synthetic_e2e",
+      "production_operability": "design_and_tests",
+      "evidence": ["docs/implementation/tasks/FNC-WEB-003.md", "apps/web/src/app/empresas/page.tsx", "apps/web/src/app/empresas/[companyId]/equipo/page.tsx"],
+      "remaining": "Revision independiente de autorizacion y operacion nominal."
+    },
+    {
+      "id": "ingestion",
+      "label": "Carga y lectura CSV, XLSX, ODS y PDF",
+      "weight": 11,
+      "implementation": "partial",
+      "synthetic_acceptance": "synthetic_e2e",
+      "production_operability": "design_and_tests",
+      "evidence": ["docs/implementation/tasks/FNC-ING-006.md", "apps/web/src/app/empresas/[companyId]/documentos/page.tsx", "apps/api/src/fincilia_api/routes.py"],
+      "remaining": "OCR para PDF sin texto y validacion de volumen con corpus autorizado."
+    },
+    {
+      "id": "mapping_cleaning",
+      "label": "Mapeo visual y limpieza reproducible",
+      "weight": 12,
+      "implementation": "complete",
+      "synthetic_acceptance": "synthetic_e2e",
+      "production_operability": "design_and_tests",
+      "evidence": ["docs/implementation/tasks/FNC-CLN-004.md", "apps/web/src/app/empresas/[companyId]/documentos/[artifactId]/mapeo/page.tsx"],
+      "remaining": "Calibrar sugerencias con archivos reales autorizados sin delegar decisiones financieras a IA."
+    },
+    {
+      "id": "canonical_lineage",
+      "label": "Dataset canonico, publicacion y linaje",
+      "weight": 9,
+      "implementation": "complete",
+      "synthetic_acceptance": "synthetic_e2e",
+      "production_operability": "design_and_tests",
+      "evidence": ["docs/implementation/tasks/FNC-DOM-005.md", "apps/api/src/fincilia_api/datasets.py", "apps/api/src/fincilia_api/financial_lineage.py"],
+      "remaining": "Revision Accounting/Data de semantica y escala sobre corpus autorizado."
+    },
+    {
+      "id": "transaction_reconciliation",
+      "label": "Conciliacion transaccional y expedientes",
+      "weight": 12,
+      "implementation": "complete",
+      "synthetic_acceptance": "synthetic_e2e",
+      "production_operability": "design_and_tests",
+      "evidence": ["docs/implementation/tasks/FNC-REC-006.md", "apps/web/src/app/empresas/[companyId]/conciliacion/page.tsx", "apps/api/src/fincilia_api/reconciliation.py"],
+      "remaining": "Medir precision y productividad con casos autorizados; auto-match sigue fuera."
+    },
+    {
+      "id": "balances_close",
+      "label": "Saldos, pre-cierre, cierre y reapertura",
+      "weight": 12,
+      "implementation": "complete",
+      "synthetic_acceptance": "synthetic_e2e",
+      "production_operability": "design_and_tests",
+      "evidence": ["docs/implementation/tasks/FNC-CLS-006.md", "apps/web/src/app/preparacion-cierre/page.tsx", "apps/api/src/fincilia_api/close_period.py"],
+      "remaining": "Validacion contable independiente y cierres reales solo despues de DRG-01."
+    },
+    {
+      "id": "operations_notifications",
+      "label": "Ciclos, recordatorios e historial operativo",
+      "weight": 6,
+      "implementation": "partial",
+      "synthetic_acceptance": "component_verified",
+      "production_operability": "blocked",
+      "evidence": ["docs/implementation/tasks/FNC-NTF-001.md", "apps/web/src/app/recordatorios/page.tsx", "apps/api/src/fincilia_api/notifications.py"],
+      "remaining": "Proveedor de correo, entrega real, rebotes, reputacion y runbook de incidentes."
+    },
+    {
+      "id": "reports_exports",
+      "label": "Informes, historicos y exportacion",
+      "weight": 7,
+      "implementation": "complete",
+      "synthetic_acceptance": "synthetic_e2e",
+      "production_operability": "design_and_tests",
+      "evidence": ["docs/implementation/tasks/FNC-RPT-001.md", "apps/web/src/app/informes/page.tsx", "apps/api/src/fincilia_api/exports.py"],
+      "remaining": "Certificacion y validacion de informes sobre cierres autorizados."
+    },
+    {
+      "id": "quality_anomaly",
+      "label": "Calidad, inconsistencias y senales de riesgo",
+      "weight": 5,
+      "implementation": "partial",
+      "synthetic_acceptance": "component_verified",
+      "production_operability": "design_and_tests",
+      "evidence": ["apps/web/src/app/calidad/page.tsx", "apps/api/src/fincilia_api/quality.py", "docs/implementation/BACKLOG_PHASE_0.md"],
+      "remaining": "Reglas antifraude, explicabilidad, calibracion y escalamiento de alertas."
+    },
+    {
+      "id": "platform_admin",
+      "label": "Superadministracion, auditoria y diagnostico",
+      "weight": 4,
+      "implementation": "complete",
+      "synthetic_acceptance": "synthetic_e2e",
+      "production_operability": "design_and_tests",
+      "evidence": ["docs/adr/ADR-033-uat-production-platform-administration.md", "apps/web/src/app/plataforma/page.tsx", "apps/api/src/fincilia_api/platform_admin.py"],
+      "remaining": "Bootstrap nominal, observabilidad administrada y revision break-glass antes de GA."
+    },
+    {
+      "id": "billing",
+      "label": "Planes, limites y facturacion SaaS",
+      "weight": 3,
+      "implementation": "partial",
+      "synthetic_acceptance": "component_verified",
+      "production_operability": "blocked",
+      "evidence": ["docs/implementation/tasks/FNC-BIL-001.md", "apps/api/src/fincilia_api/billing.py", "apps/web/src/app/cuenta/billing-panel.tsx"],
+      "remaining": "Seleccionar proveedor, checkout, webhooks, impuestos, cartera y conciliacion de cobros."
+    }
+  ],
+  "reported_progress": {
+    "implementation_percent": 88,
+    "synthetic_acceptance_percent": 59,
+    "production_operability_percent": 28
+  },
+  "interpretation": {
+    "implementation_percent": "Cobertura ponderada construida en main; no equivale a despliegue.",
+    "synthetic_acceptance_percent": "Evidencia ejecutable con datos sinteticos; no equivale a prueba real.",
+    "production_operability_percent": "Controles operativos listos; no equivale a GA ni autorizacion legal."
+  }
+}
