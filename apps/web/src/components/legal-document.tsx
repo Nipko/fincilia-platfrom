@@ -26,20 +26,20 @@ export function LegalDocument({
   status,
 }: LegalDocumentProps) {
   return (
-    <main className="legal-page">
+    <main className="legal-page" lang="en">
       <header className="legal-hero">
         <p className="eyebrow">{eyebrow}</p>
         <h1>{title}</h1>
         <p className="legal-hero__summary">{summary}</p>
         <div className="legal-status" role="note">
           <strong>{status}</strong>
-          <span>Versión {version} · vigente desde el {effectiveDate}</span>
+          <span>Version {version} · effective {effectiveDate}</span>
         </div>
       </header>
 
       <div className="legal-layout">
-        <nav aria-label="En esta página" className="legal-toc card">
-          <strong>En esta página</strong>
+        <nav aria-label="On this page" className="legal-toc card">
+          <strong>On this page</strong>
           {sections.map((section, index) => (
             <a href={`#seccion-${index + 1}`} key={section.title}>{section.title}</a>
           ))}
@@ -58,22 +58,21 @@ export function LegalDocument({
             </section>
           ))}
           <aside className="legal-review-note">
-            Si necesitas una copia de esta versión, un formato accesible o información
-            sobre una versión anterior, escribe a legal@fincilia.com. Las condiciones
-            contractuales específicas de una organización pueden complementar este
-            documento sin reducir derechos obligatorios.
+            To request a copy of this version, an accessible format, or information
+            about an earlier version, email legal@fincilia.com. Organization-specific
+            terms may supplement this document without reducing mandatory rights.
           </aside>
         </article>
       </div>
 
-      <nav aria-label="Documentos legales relacionados" className="legal-related">
-        <Link href="/privacidad">Privacidad</Link>
-        <Link href="/terminos">Términos</Link>
+      <nav aria-label="Related legal documents" className="legal-related">
+        <Link href="/privacidad">Privacy</Link>
+        <Link href="/terminos">Terms</Link>
         <Link href="/cookies">Cookies</Link>
-        <Link href="/seguridad">Seguridad</Link>
+        <Link href="/seguridad">Security</Link>
         <Link href="/dpa">DPA</Link>
-        <Link href="/subencargados">Subencargados</Link>
-        <Link href="/eliminar-cuenta">Eliminar cuenta</Link>
+        <Link href="/subencargados">Subprocessors</Link>
+        <Link href="/eliminar-cuenta">Delete account</Link>
       </nav>
     </main>
   );

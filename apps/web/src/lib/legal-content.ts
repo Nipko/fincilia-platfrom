@@ -1,288 +1,288 @@
 import type { LegalSection } from '@/components/legal-document';
 
 const CONTROLLER = 'Parallext LLC';
-const ADDRESS = '7345 W Sand Lake Rd, Ste 210, Office 2812, Orlando, Florida 32819, Estados Unidos';
+const ADDRESS = '7345 W Sand Lake Rd, Ste 210, Office 2812, Orlando, Florida 32819, United States';
 const PHONE = '+57 313 432 8491';
 
 export const PRIVACY_SECTIONS: readonly LegalSection[] = [
   {
-    title: 'Responsable y alcance',
+    title: 'Controller, processor, and scope',
     paragraphs: [
-      `Fincilia es un producto operado por ${CONTROLLER} y desarrollado bajo la marca Parallext.com. Para los datos de cuenta, seguridad, facturación, soporte y uso del sitio, ${CONTROLLER} actúa como responsable del tratamiento. Domicilio de contacto: ${ADDRESS}. Teléfono: ${PHONE}.`,
-      'Cuando una organización usa Fincilia para procesar documentos o información financiera bajo sus propias instrucciones, esa organización determina las finalidades empresariales y Parallext LLC actúa como encargado o proveedor de servicios conforme al contrato y, cuando corresponda, al acuerdo de tratamiento de datos (DPA).',
-      'Puedes escribir a privacy@fincilia.com para asuntos de datos personales, a legal@fincilia.com para asuntos contractuales y a support@fincilia.com para soporte general.',
+      `Fincilia is operated by ${CONTROLLER} and developed under the Parallext.com brand. For account, security, billing, support, and website-use data, ${CONTROLLER} acts as the data controller. Contact address: ${ADDRESS}. Phone: ${PHONE}.`,
+      'When an organization uses Fincilia to process documents or financial information under its own instructions, that organization determines the business purposes and Parallext LLC acts as its data processor or service provider under the applicable contract and, where relevant, a Data Processing Agreement (DPA).',
+      'Contact privacy@fincilia.com for personal-data matters, legal@fincilia.com for contractual matters, and support@fincilia.com for general support.',
     ],
   },
   {
-    title: 'Información que tratamos',
+    title: 'Information we process',
     bullets: [
-      'Identidad y cuenta: identificador del proveedor, nombre visible, correo verificado, estado de cuenta, organización, membresías y roles. Fincilia no recibe ni almacena tu contraseña de Google.',
-      'Seguridad y operación: sesiones, eventos de acceso y auditoría, dirección IP y metadatos técnicos limitados, intentos fallidos, diagnósticos y señales necesarias para prevenir abuso.',
-      'Servicio: configuración de empresas, fuentes, documentos, columnas, movimientos, conciliaciones, observaciones y evidencia que una organización decida cargar cuando el entorno correspondiente esté autorizado.',
-      'Soporte y comunicaciones: solicitudes, preferencias de notificación, mensajes operativos y la información que decidas incluir al contactar nuestros canales.',
-      'Facturación: plan, consumo, país de facturación y referencias de pago cuando se active un proveedor de cobro. Fincilia no almacenará números completos de tarjeta ni códigos de seguridad.',
-      'Sitio web: cookies estrictamente necesarias y datos técnicos mínimos descritos en el aviso de cookies. No usamos publicidad comportamental ni seguimiento entre sitios.',
+      'Identity and account data: identity-provider identifier, display name, verified email address, account status, organization, memberships, and roles. Fincilia does not receive or store your Google password.',
+      'Security and operations data: sessions, access and audit events, IP address and limited technical metadata, failed attempts, diagnostics, and signals needed to prevent abuse.',
+      'Service data: company settings, sources, documents, columns, transactions, reconciliations, notes, and evidence that an organization chooses to upload when the relevant environment is authorized.',
+      'Support and communications data: requests, notification preferences, operational messages, and information you choose to include when contacting us.',
+      'Billing data: plan, usage, billing country, and payment references when a payment provider is enabled. Fincilia will not store full card numbers or security codes.',
+      'Website data: strictly necessary cookies and minimum technical data described in our Cookie Notice. We do not use behavioral advertising or cross-site tracking.',
     ],
   },
   {
-    title: 'Finalidades y autorización',
+    title: 'Purposes and lawful grounds',
     bullets: [
-      'Crear y administrar la cuenta, autenticarte, resolver permisos y prestar las funciones solicitadas.',
-      'Procesar información empresarial siguiendo las instrucciones documentadas de la organización que controla esos datos.',
-      'Proteger la plataforma, detectar abuso, investigar incidentes, conservar trazabilidad y cumplir obligaciones legales.',
-      'Atender soporte, consultas, reclamos, solicitudes de privacidad y comunicaciones operativas.',
-      'Gestionar planes, consumo, pagos e impuestos cuando la facturación esté habilitada.',
-      'Medir estabilidad y mejorar el servicio mediante métricas minimizadas. No usamos documentos financieros para entrenar modelos de inteligencia artificial sin una autorización y un acuerdo separados.',
+      'Create and administer your account, authenticate you, resolve permissions, and provide the features you request.',
+      'Process business information according to the documented instructions of the organization that controls that information.',
+      'Protect the platform, detect abuse, investigate incidents, preserve traceability, and comply with applicable legal obligations.',
+      'Handle support, inquiries, complaints, privacy requests, and operational communications.',
+      'Manage plans, usage, payments, and taxes when billing is enabled.',
+      'Measure reliability and improve the service through minimized metrics. We do not use financial documents to train artificial-intelligence models without separate authorization and agreement.',
     ],
     paragraphs: [
-      'Solicitamos autorización previa e informada cuando la ley la exige y conservamos evidencia de la versión aceptada. También podemos tratar información cuando sea necesario para prestar el servicio solicitado, proteger la plataforma o cumplir una obligación aplicable, siempre dentro de los límites legales. Las comunicaciones comerciales opcionales requerirán una elección separada.',
-    ],
-  },
-  {
-    title: 'Inicio de sesión con Google',
-    paragraphs: [
-      'Si eliges continuar con Google, solicitamos únicamente openid, email y profile. Google entrega un identificador estable, correo verificado y nombre visible para autenticarte y crear o localizar tu perfil de Fincilia. No solicitamos acceso a Gmail, Google Drive, contactos, calendario ni archivos de tu cuenta Google.',
-      'Usamos esos datos solo para identidad, seguridad, creación de cuenta y soporte asociado. No los vendemos, no los usamos para publicidad, no los enviamos a modelos de inteligencia artificial y no los compartimos salvo con los proveedores necesarios para operar la autenticación y el servicio.',
-      'El uso y transferencia de información recibida de las API de Google se limita a las finalidades aquí descritas y observa la Política de Datos de Usuario de los Servicios de API de Google, incluidos sus requisitos de uso limitado.',
+      'We obtain prior, informed authorization when required by law and preserve evidence of the version accepted. We may also process information when necessary to provide the requested service, protect the platform, or meet an applicable obligation, always within legal limits. Optional marketing communications require a separate choice.',
     ],
   },
   {
-    title: 'Destinatarios, proveedores y transferencias',
+    title: 'Sign in with Google',
     paragraphs: [
-      'Podemos comunicar información a la organización a la que perteneces, a sus administradores autorizados, a proveedores contratados que actúan bajo instrucciones y a autoridades cuando una obligación válida lo requiera. No vendemos datos personales.',
-      'La infraestructura principal evaluada para Fincilia está en Amazon Web Services, región São Paulo, Brasil. Google participa en la autenticación; Namecheap Private Email presta los buzones de contacto; Cloudflare administra DNS y puede prestar controles de red cuando se habiliten. La lista vigente y las finalidades se publican en /subencargados.',
-      'Cuando el tratamiento implique una transmisión o transferencia internacional, aplicaremos el contrato, las instrucciones, medidas de seguridad y mecanismos exigidos por la ley aplicable. Una organización empresarial puede solicitar el DPA antes de habilitar datos propios.',
+      'If you choose to continue with Google, Fincilia requests only openid, email, and profile. Google provides a stable identifier, verified email address, and display name so that we can authenticate you and create or locate your Fincilia profile. We do not request access to Gmail, Google Drive, contacts, calendars, or files in your Google Account.',
+      'We access, use, and store this Google account data only for identity, security, account creation, and related support. We do not sell it, use it for advertising, send it to artificial-intelligence models, or share it except with service providers needed to operate authentication and the service.',
+      'Our use and transfer of information received from Google APIs is limited to the purposes described here and complies with the Google API Services User Data Policy, including the Limited Use requirements.',
     ],
   },
   {
-    title: 'Conservación y eliminación',
+    title: 'Recipients, service providers, and international transfers',
     paragraphs: [
-      'Conservamos cada categoría únicamente mientras sea necesaria para la cuenta, el contrato, la finalidad informada, la seguridad o una obligación aplicable. Las cuentas se mantienen mientras estén activas; al terminar se bloquean y se someten al procedimiento de eliminación, salvo información que deba conservarse justificadamente.',
-      'Los documentos y registros financieros siguen las instrucciones de la organización, el periodo contable relacionado y el calendario acordado. Los registros de seguridad, facturación, autorizaciones y decisiones pueden conservarse durante el plazo necesario para auditoría, defensa de reclamaciones y obligaciones legales. Los respaldos se eliminan por rotación y una solicitud válida se reaplica mediante marcadores de eliminación antes de restaurar el servicio.',
-      'Los plazos específicos aplicables a datos empresariales se documentan en el contrato o calendario de retención correspondiente. Fincilia no conserva información indefinidamente por conveniencia y no declara una eliminación completa mientras existan copias activas no justificadas.',
+      'We may disclose information to the organization you belong to, its authorized administrators, contracted providers acting under instructions, and authorities when required by a valid legal obligation. We do not sell personal data.',
+      'Fincilia\'s primary evaluated infrastructure is hosted by Amazon Web Services in the São Paulo, Brazil region. Google supports authentication; Namecheap Private Email provides contact mailboxes; and Cloudflare manages DNS and may provide network controls if enabled. The current list and purposes are published at /subencargados.',
+      'When processing involves an international data transmission or transfer, we apply the applicable contract, documented instructions, security measures, and legally required safeguards. A business customer may request a DPA before enabling its own data.',
     ],
   },
   {
-    title: 'Tus derechos y cómo ejercerlos',
+    title: 'Retention and deletion',
     paragraphs: [
-      'Puedes solicitar acceso, actualización, rectificación, prueba de autorización, información sobre el uso, revocación o eliminación escribiendo desde el correo asociado a privacy@fincilia.com. Indica el derecho que deseas ejercer y una descripción suficiente; no envíes contraseñas ni documentos financieros por correo. Verificaremos identidad y autoridad antes de responder.',
-      'Para solicitudes sujetas a la legislación colombiana, las consultas se responden dentro de diez días hábiles, prorrogables por cinco días hábiles con aviso; los reclamos se atienden dentro de quince días hábiles, prorrogables por ocho días hábiles con aviso. Aplicaremos cualquier plazo más corto que resulte obligatorio en otra jurisdicción.',
-      'Si Parallext LLC actúa como encargado de una organización, coordinaremos la solicitud con esa organización responsable. Los titulares en Colombia pueden acudir a la Superintendencia de Industria y Comercio después de agotar el trámite aplicable ante el responsable o encargado.',
+      'We retain each category only for as long as necessary for the account, contract, disclosed purpose, security, or an applicable obligation. Accounts are retained while active; after termination, access is blocked and the account enters the deletion process, except where justified retention is required.',
+      'Documents and financial records follow the organization\'s instructions, the related accounting period, and the agreed schedule. Security, billing, authorization, and decision records may be retained as needed for audit, legal claims, and legal obligations. Backups are deleted through rotation, and valid deletion requests are reapplied through deletion markers before service restoration.',
+      'Specific periods for business data are documented in the applicable contract or retention schedule. Fincilia does not retain information indefinitely for convenience and does not claim deletion is complete while unjustified active copies remain.',
     ],
   },
   {
-    title: 'Seguridad, menores y cambios',
+    title: 'Your rights and how to exercise them',
     paragraphs: [
-      'Aplicamos controles técnicos y organizacionales orientados a aislamiento por empresa, acceso mínimo, cifrado, auditoría, respaldo y respuesta a incidentes. Ningún sistema elimina todo riesgo; reporta un incidente o vulnerabilidad a security@fincilia.com.',
-      'Fincilia es un servicio empresarial y no está dirigido a menores de 18 años. Si detectamos una cuenta creada por un menor sin autoridad válida, la suspenderemos y coordinaremos su eliminación.',
-      'Publicaremos una nueva versión cuando cambien materialmente las finalidades, categorías, proveedores o derechos. Si el cambio requiere nueva autorización, la solicitaremos antes de aplicarlo. Esta versión rige desde la fecha indicada al inicio del documento.',
+      'You may request access, correction, updating, proof of authorization, information about use, withdrawal of authorization, or deletion by writing from your associated email address to privacy@fincilia.com. State the right you want to exercise and provide enough detail; do not email passwords or financial documents. We verify identity and authority before responding.',
+      'For requests governed by Colombian law, inquiries are answered within ten business days and may be extended by five business days with notice; complaints are answered within fifteen business days and may be extended by eight business days with notice. Any shorter mandatory period in another jurisdiction will apply.',
+      'If Parallext LLC acts as a processor for an organization, we coordinate the request with that organization as controller. Data subjects in Colombia may contact the Superintendence of Industry and Commerce after completing the applicable procedure before the controller or processor.',
+    ],
+  },
+  {
+    title: 'Security, children, and changes',
+    paragraphs: [
+      'We apply technical and organizational controls designed for company isolation, least-privilege access, encryption, auditability, backups, and incident response. No system eliminates all risk; report an incident or vulnerability to security@fincilia.com.',
+      'Fincilia is a business service and is not directed to anyone under 18. If we learn that a minor created an account without valid authority, we will suspend it and coordinate its deletion.',
+      'We publish a new version when purposes, categories, providers, or rights change materially. If a change requires renewed authorization, we request it before applying the change. This version is effective from the date shown at the top of this document.',
     ],
   },
 ];
 
 export const TERMS_SECTIONS: readonly LegalSection[] = [
   {
-    title: 'Partes, aceptación y elegibilidad',
+    title: 'Parties, acceptance, and eligibility',
     paragraphs: [
-      `Estos términos regulan el uso de Fincilia, un producto operado por ${CONTROLLER}, con domicilio de contacto en ${ADDRESS}. Al crear una cuenta o usar el servicio aceptas esta versión de los términos y la política de privacidad.`,
-      'Debes tener al menos 18 años y capacidad para obligarte. Si actúas por una empresa, firma contable u otra organización, declaras que tienes autoridad para aceptar estos términos en su nombre. Si existe una orden de servicio o contrato firmado, ese documento prevalece sobre estos términos en caso de conflicto.',
+      `These Terms govern use of Fincilia, a product operated by ${CONTROLLER}, whose contact address is ${ADDRESS}. By creating an account or using the service, you accept this version of the Terms and acknowledge the Privacy Policy.`,
+      'You must be at least 18 and able to enter into a binding agreement. If you act for a company, accounting firm, or other organization, you represent that you have authority to accept these Terms on its behalf. If a signed order form or agreement exists, that document controls in the event of a conflict.',
     ],
   },
   {
-    title: 'Servicio y entorno UAT',
+    title: 'Service and UAT environment',
     paragraphs: [
-      'Fincilia ayuda a cargar, estructurar, limpiar, comparar y revisar información financiera con trazabilidad. Sus resultados son herramientas de apoyo y requieren validación humana; no constituyen auditoría, certificación, asesoría legal, tributaria o financiera.',
-      'El entorno UAT puede reiniciarse, cambiar o suspenderse para pruebas y correcciones. Mientras Fincilia muestre que el uso está limitado a datos sintéticos, no puedes cargar datos personales, financieros, bancarios, tributarios o confidenciales reales. La habilitación de datos reales se comunicará expresamente para un entorno autorizado y sujeto a los acuerdos correspondientes.',
+      'Fincilia helps upload, structure, clean, compare, and review financial information with traceability. Its results are decision-support tools and require human validation; they are not an audit, certification, or legal, tax, accounting, or financial advice.',
+      'The UAT environment may be reset, changed, or suspended for testing and corrections. While Fincilia states that use is limited to synthetic data, you must not upload real personal, financial, banking, tax, or confidential data. Real data may be enabled only through an expressly authorized environment and subject to the applicable agreements.',
     ],
   },
   {
-    title: 'Cuenta, organizaciones y roles',
+    title: 'Accounts, organizations, and roles',
     bullets: [
-      'Debes proporcionar información exacta, proteger tu acceso y avisar de inmediato a security@fincilia.com sobre actividad no reconocida.',
-      'Google puede verificar tu identidad, pero Fincilia determina organizaciones, empresas, roles y permisos en sus propios servidores.',
-      'Quien administra una organización es responsable de asignar y revocar accesos, verificar la autoridad de sus usuarios y mantener segregación de funciones adecuada.',
-      'No puedes compartir sesiones, suplantar personas ni intentar obtener acceso a empresas o datos que no te correspondan.',
+      'You must provide accurate information, protect your access, and promptly notify security@fincilia.com of unrecognized activity.',
+      'Google may verify your identity, but Fincilia determines organizations, companies, roles, and permissions on its own servers.',
+      'Organization administrators are responsible for granting and revoking access, confirming user authority, and maintaining appropriate separation of duties.',
+      'You must not share sessions, impersonate others, or attempt to access companies or data you are not authorized to use.',
     ],
   },
   {
-    title: 'Contenido y responsabilidades del cliente',
+    title: 'Customer content and responsibilities',
     paragraphs: [
-      'Conservas los derechos sobre el contenido que cargas. Otorgas a Parallext LLC una autorización limitada para alojarlo, reproducirlo, transformarlo y transmitirlo únicamente en la medida necesaria para prestar, proteger y soportar Fincilia conforme a tus instrucciones y a la política de privacidad.',
-      'Eres responsable de tener derechos, permisos y autorizaciones suficientes sobre el contenido; de revisar configuraciones, mapeos, conciliaciones y cierres; y de conservar los originales que exijan tus obligaciones. Fincilia no sustituye tus controles internos ni la responsabilidad profesional del contador, administrador o auditor.',
+      'You retain rights in content you upload. You grant Parallext LLC a limited permission to host, reproduce, transform, and transmit it only as needed to provide, secure, and support Fincilia under your instructions and the Privacy Policy.',
+      'You are responsible for having sufficient rights, permissions, and authorizations for the content; reviewing configurations, mappings, reconciliations, and closes; and preserving originals required by your obligations. Fincilia does not replace your internal controls or the professional responsibility of an accountant, administrator, or auditor.',
     ],
   },
   {
-    title: 'Uso aceptable',
+    title: 'Acceptable use',
     bullets: [
-      'No uses Fincilia para fraude, actividades ilícitas, malware, acoso, infracción de derechos o tratamiento no autorizado de datos.',
-      'No eludas controles de acceso, aislamiento, límites, auditoría o seguridad, ni realices pruebas de carga o vulnerabilidad sin autorización escrita.',
-      'No copies, revendas, sublicencies, hagas ingeniería inversa prohibida por ley ni presentes Fincilia como un servicio propio.',
-      'No cargues secretos, credenciales bancarias, contraseñas, números completos de tarjeta o códigos de seguridad.',
-      'Reporta vulnerabilidades de forma privada y no publiques información que facilite su explotación antes de coordinar una corrección.',
+      'Do not use Fincilia for fraud, unlawful conduct, malware, harassment, infringement, or unauthorized processing of data.',
+      'Do not bypass access controls, isolation, limits, audit controls, or security, and do not conduct load or vulnerability testing without written authorization.',
+      'Do not unlawfully copy, resell, sublicense, reverse engineer, or present Fincilia as your own service.',
+      'Do not upload secrets, banking credentials, passwords, full card numbers, or security codes.',
+      'Report vulnerabilities privately and do not publish exploitable information before coordinating a correction.',
     ],
   },
   {
-    title: 'Propiedad intelectual y comentarios',
+    title: 'Intellectual property and feedback',
     paragraphs: [
-      'Fincilia, su software, diseño, documentación, marcas y componentes pertenecen a Parallext LLC o a sus licenciantes. Estos términos no transfieren propiedad sobre el servicio ni sobre el contenido de otros clientes.',
-      'Puedes enviar sugerencias voluntarias. Parallext LLC puede utilizarlas para mejorar el producto sin obligación de pago, procurando no identificarte públicamente ni divulgar información confidencial.',
+      'Fincilia and its software, design, documentation, trademarks, and components belong to Parallext LLC or its licensors. These Terms do not transfer ownership of the service or another customer\'s content.',
+      'You may submit voluntary suggestions. Parallext LLC may use them to improve the product without payment, while seeking not to identify you publicly or disclose confidential information.',
     ],
   },
   {
-    title: 'Planes, pagos y cambios',
+    title: 'Plans, payments, and changes',
     paragraphs: [
-      'El UAT es gratuito salvo acuerdo escrito distinto. Cuando se habiliten planes de pago, precio, impuestos, renovación, límites y cancelación se mostrarán antes de contratar o constarán en una orden de servicio. No realizaremos cargos basados únicamente en esta versión UAT.',
-      'Podemos modificar funciones para mejorar seguridad, cumplimiento o utilidad. Avisaremos cambios materiales de estos términos por la aplicación o al correo de cuenta y solicitaremos una nueva aceptación cuando corresponda.',
+      'UAT is free unless otherwise agreed in writing. When paid plans are enabled, prices, taxes, renewal, limits, and cancellation terms will be shown before purchase or stated in an order form. We will not charge you based solely on this UAT version.',
+      'We may change features to improve security, compliance, or usefulness. We will give notice of material changes to these Terms through the application or account email and request renewed acceptance when appropriate.',
     ],
   },
   {
-    title: 'Suspensión, terminación y datos',
+    title: 'Suspension, termination, and data',
     paragraphs: [
-      'Podemos limitar o suspender acceso ante riesgo de seguridad, uso ilegal, incumplimiento material o necesidad operativa urgente. Cuando sea razonable, daremos oportunidad de corregir antes de terminar la cuenta.',
-      'Puedes dejar de usar el servicio y solicitar eliminación según /eliminar-cuenta. Antes de una terminación ordinaria podrás solicitar exportación cuando esa función esté disponible y tengas autorización. La terminación no elimina obligaciones que por su naturaleza deban sobrevivir, como confidencialidad, propiedad, pagos pendientes y conservación legal justificada.',
+      'We may restrict or suspend access because of a security risk, unlawful use, material breach, or urgent operational need. When reasonable, we will provide an opportunity to cure before terminating the account.',
+      'You may stop using the service and request deletion as described at /eliminar-cuenta. Before ordinary termination, you may request an export when that feature is available and you are authorized. Termination does not end obligations that by their nature survive, including confidentiality, ownership, outstanding payment, and justified legal retention.',
     ],
   },
   {
-    title: 'Garantías y limitación de responsabilidad',
+    title: 'Warranties and limitation of liability',
     paragraphs: [
-      'Durante UAT, Fincilia se ofrece para evaluación y puede contener errores o interrupciones. En la máxima medida permitida por la ley, se presta sin garantías implícitas de disponibilidad continua, adecuación para una finalidad particular o ausencia total de errores.',
-      'En la máxima medida permitida por la ley, Parallext LLC no responde por daños indirectos, pérdida de beneficios o decisiones contables tomadas sin revisión humana. La responsabilidad total derivada del servicio no excederá el mayor valor entre los importes pagados por el cliente durante los doce meses anteriores al hecho y USD 100. Esta limitación no aplica a fraude, dolo, culpa grave ni derechos que legalmente no puedan limitarse.',
+      'During UAT, Fincilia is provided for evaluation and may contain errors or interruptions. To the maximum extent permitted by law, it is provided without implied warranties of uninterrupted availability, fitness for a particular purpose, or complete absence of errors.',
+      'To the maximum extent permitted by law, Parallext LLC is not liable for indirect damages, lost profits, or accounting decisions made without human review. Total liability arising from the service will not exceed the greater of the fees paid by the customer during the twelve months before the event or USD 100. This limitation does not apply to fraud, willful misconduct, gross negligence, or rights that cannot legally be limited.',
     ],
   },
   {
-    title: 'Ley, controversias y contacto',
+    title: 'Governing law, disputes, and contact',
     paragraphs: [
-      'Estos términos se interpretan conforme a las leyes del Estado de Florida, Estados Unidos, sin desconocer normas imperativas de protección de datos o consumidores que resulten aplicables. Las controversias que no puedan resolverse directamente se someterán a los tribunales competentes del Condado de Orange, Florida, salvo que una norma imperativa permita otra jurisdicción.',
-      `Las notificaciones a Parallext LLC pueden enviarse a legal@fincilia.com o a ${ADDRESS}. Para soporte escribe a support@fincilia.com. Teléfono de contacto: ${PHONE}.`,
+      'These Terms are governed by the laws of the State of Florida, United States, without excluding mandatory data-protection or consumer laws that apply. Disputes that cannot be resolved directly will be submitted to the competent courts of Orange County, Florida, unless mandatory law permits another jurisdiction.',
+      `Notices to Parallext LLC may be sent to legal@fincilia.com or ${ADDRESS}. Contact support@fincilia.com for support. Phone: ${PHONE}.`,
     ],
   },
 ];
 
 export const COOKIE_SECTIONS: readonly LegalSection[] = [
   {
-    title: 'Cookies estrictamente necesarias',
+    title: 'Strictly necessary cookies',
     bullets: [
-      'fincilia_session: cookie httpOnly que mantiene la sesión autenticada hasta la expiración del token.',
-      'fincilia_session_name: nombre visible utilizado por la interfaz durante la misma sesión; no contiene permisos ni decide acceso.',
-      'fincilia_oidc_tx: cookie httpOnly cifrada que conserva state, nonce y el verificador PKCE durante un máximo de diez minutos mientras termina el ingreso con Google.',
-      'Cookies de Amazon Cognito o Google: pueden aparecer en sus propios dominios durante la autenticación y se rigen por las políticas de esos proveedores.',
+      'fincilia_session: an httpOnly cookie that maintains the authenticated session until the token expires.',
+      'fincilia_session_name: the display name used by the interface during the same session; it contains no permissions and does not determine access.',
+      'fincilia_oidc_tx: an encrypted httpOnly cookie that stores state, nonce, and the PKCE verifier for no more than ten minutes while Google sign-in completes.',
+      'Amazon Cognito or Google cookies: these may appear on their own domains during authentication and are governed by those providers\' policies.',
     ],
   },
   {
-    title: 'Finalidad, control y duración',
+    title: 'Purpose, control, and duration',
     paragraphs: [
-      'Estas cookies son necesarias para autenticar, prevenir falsificación de solicitudes, conservar la sesión y cerrar el flujo de forma segura. No usamos cookies publicitarias, analítica de terceros ni seguimiento entre sitios.',
-      'Puedes eliminarlas desde el navegador; hacerlo cerrará la sesión o interrumpirá un ingreso en curso. Las cookies de sesión vencen con el token, las transitorias OAuth vencen en diez minutos y todas las cookies propias se eliminan al cerrar sesión.',
+      'These cookies are necessary to authenticate users, prevent request forgery, maintain the session, and complete sign-in securely. We do not use advertising cookies, third-party analytics, or cross-site tracking.',
+      'You can delete them through your browser; doing so will sign you out or interrupt an ongoing sign-in. Session cookies expire with the token, temporary OAuth cookies expire after ten minutes, and all Fincilia cookies are removed when you sign out.',
     ],
   },
   {
-    title: 'Cambios futuros',
+    title: 'Future changes',
     paragraphs: [
-      'Si añadimos analítica o cookies opcionales, actualizaremos este aviso con proveedor, finalidad y duración y solicitaremos consentimiento antes de activarlas cuando corresponda. Puedes consultar dudas en privacy@fincilia.com.',
+      'If we add analytics or optional cookies, we will update this notice with the provider, purpose, and duration and request consent before enabling them where required. Send questions to privacy@fincilia.com.',
     ],
   },
 ];
 
 export const SECURITY_SECTIONS: readonly LegalSection[] = [
   {
-    title: 'Controles del servicio',
+    title: 'Service controls',
     bullets: [
-      'Aislamiento por empresa mediante autorización en servidor y políticas RLS forzadas en PostgreSQL.',
-      'Cifrado en tránsito, secretos fuera del código, sesiones cortas y autenticación administrada mediante Google y Amazon Cognito cuando se habilita.',
-      'Dinero representado con decimal exacto, auditoría append-only y linaje de hechos financieros.',
-      'Imágenes fijadas por digest, migraciones separadas, privilegios mínimos y administración cloud sin acceso SSH público.',
-      'Backups, marcadores de eliminación y comprobaciones de restauración diseñados para evitar que reaparezcan datos eliminados.',
+      'Company isolation through server-side authorization and forced PostgreSQL row-level security policies.',
+      'Encryption in transit, secrets kept outside source code, short-lived sessions, and managed authentication through Google and Amazon Cognito when enabled.',
+      'Exact-decimal money, append-only audit records, and lineage for financial facts.',
+      'Digest-pinned images, separated migrations, least privilege, and cloud administration without public SSH access.',
+      'Backups, deletion markers, and restoration checks designed to prevent deleted data from reappearing.',
     ],
   },
   {
-    title: 'Responsabilidad compartida',
+    title: 'Shared responsibility',
     paragraphs: [
-      'Parallext LLC protege la infraestructura y el servicio; cada organización debe administrar correctamente sus usuarios, roles, dispositivos, exportaciones y contenido. Ningún control ofrece riesgo cero y las funciones UAT no constituyen una certificación de seguridad.',
-      'No envíes secretos o documentos por correo. Usa únicamente los flujos de carga autorizados y confirma siempre el entorno y la empresa antes de operar.',
+      'Parallext LLC protects the infrastructure and service; each organization must properly administer its users, roles, devices, exports, and content. No control eliminates all risk, and UAT features do not constitute a security certification.',
+      'Do not send secrets or documents by email. Use only authorized upload flows and always confirm the environment and company before operating.',
     ],
   },
   {
-    title: 'Reporte responsable',
+    title: 'Responsible reporting',
     paragraphs: [
-      'Envía hallazgos de forma privada a security@fincilia.com con descripción, impacto y pasos mínimos de reproducción. No accedas a datos ajenos, no interrumpas el servicio y no publiques detalles explotables antes de coordinar la corrección. Confirmaremos recepción y mantendremos comunicación razonable sobre el avance.',
+      'Send findings privately to security@fincilia.com with a description, impact, and minimum reproduction steps. Do not access another party\'s data, disrupt the service, or publish exploitable details before coordinating a correction. We will acknowledge receipt and provide reasonable progress updates.',
     ],
   },
 ];
 
 export const DPA_SECTIONS: readonly LegalSection[] = [
   {
-    title: 'Cuándo aplica',
+    title: 'When it applies',
     paragraphs: [
-      'Este documento describe el modelo de acuerdo de tratamiento de datos de Parallext LLC para organizaciones que usan Fincilia con datos propios. No queda firmado por aceptar los términos web. El DPA aplicable debe identificar a las partes, el servicio contratado y la fecha de vigencia.',
+      'This page describes Parallext LLC\'s Data Processing Agreement model for organizations that use Fincilia with their own data. It is not executed merely by accepting the web Terms. The applicable DPA must identify the parties, contracted service, and effective date.',
     ],
   },
   {
-    title: 'Contenido del acuerdo',
+    title: 'Agreement contents',
     bullets: [
-      'Objeto, duración, naturaleza, finalidades, instrucciones y categorías de datos y titulares.',
-      'Roles de responsable y encargado, deber de confidencialidad y medidas técnicas y organizacionales.',
-      'Subencargados, ubicaciones, transmisión o transferencia internacional y mecanismo de objeción.',
-      'Asistencia con derechos, incidentes, evaluaciones, auditorías y solicitudes de autoridades.',
-      'Retorno, exportación, eliminación, legal hold, backups, evidencia y terminación.',
-      'Anexos de seguridad, región, contactos, niveles de servicio y calendario de retención.',
+      'Subject matter, duration, nature, purposes, instructions, and categories of data and data subjects.',
+      'Controller and processor roles, confidentiality obligations, and technical and organizational measures.',
+      'Subprocessors, locations, international transmissions or transfers, and an objection mechanism.',
+      'Assistance with rights requests, incidents, assessments, audits, and authority requests.',
+      'Return, export, deletion, legal hold, backups, evidence, and termination.',
+      'Security, region, contact, service-level, and retention-schedule annexes.',
     ],
   },
   {
-    title: 'Cómo solicitarlo',
+    title: 'How to request it',
     paragraphs: [
-      'Escribe a legal@fincilia.com indicando organización, país, tipo de datos y caso de uso. No adjuntes documentos reales. Parallext LLC responderá con el modelo y los anexos aplicables antes de habilitar el tratamiento solicitado.',
+      'Email legal@fincilia.com with your organization, country, data types, and use case. Do not attach real documents. Parallext LLC will provide the model and applicable annexes before the requested processing is enabled.',
     ],
   },
 ];
 
 export const SUBPROCESSOR_SECTIONS: readonly LegalSection[] = [
   {
-    title: 'Proveedores actuales o previstos',
+    title: 'Current or planned providers',
     bullets: [
-      'Amazon Web Services, Inc.: cómputo, red, almacenamiento, base de datos, secretos, registros técnicos e identidad administrada. Región principal prevista: sa-east-1, São Paulo, Brasil.',
-      'Google LLC: proveedor opcional de identidad para openid, email y profile. No recibe documentos financieros de Fincilia ni acceso a Gmail, Drive, contactos o calendario.',
-      'Namecheap, Inc. / Private Email: recepción y envío de comunicaciones dirigidas a los buzones @fincilia.com.',
-      'Cloudflare, Inc.: DNS autoritativo, gestión del dominio y, si se habilita expresamente, controles de red y seguridad del borde.',
+      'Amazon Web Services, Inc.: computing, networking, storage, databases, secrets, technical logs, and managed identity. Planned primary region: sa-east-1, São Paulo, Brazil.',
+      'Google LLC: optional identity provider for openid, email, and profile. It receives neither Fincilia financial documents nor access to Gmail, Drive, contacts, or calendars.',
+      'Namecheap, Inc. / Private Email: sending and receiving communications for @fincilia.com mailboxes.',
+      'Cloudflare, Inc.: authoritative DNS, domain management, and, if expressly enabled, edge network and security controls.',
     ],
   },
   {
-    title: 'Acceso y límites',
+    title: 'Access and limits',
     paragraphs: [
-      'Los proveedores reciben únicamente la información necesaria para su función y quedan sujetos a condiciones contractuales y controles de acceso. Parallext LLC no autoriza a un proveedor para vender datos, crear publicidad comportamental o entrenar modelos con documentos del cliente.',
-      'Las ubicaciones exactas pueden variar por soporte, resiliencia o servicios globales del proveedor. Las organizaciones que requieran residencia o restricciones específicas deben acordarlas por escrito antes de cargar datos.',
+      'Providers receive only the information needed for their function and are subject to contractual terms and access controls. Parallext LLC does not authorize any provider to sell data, create behavioral advertising, or train models using customer documents.',
+      'Exact locations may vary because of support, resilience, or a provider\'s global services. Organizations requiring specific residency or restrictions must agree to them in writing before uploading data.',
     ],
   },
   {
-    title: 'Cambios y objeciones',
+    title: 'Changes and objections',
     paragraphs: [
-      'Publicaremos cambios materiales antes de que un nuevo proveedor trate datos empresariales. Los clientes con un DPA recibirán el aviso y plazo de objeción definido en ese acuerdo. Las consultas pueden enviarse a privacy@fincilia.com.',
+      'We will publish material changes before a new provider processes business data. Customers with a DPA will receive the notice and objection period defined in that agreement. Send questions to privacy@fincilia.com.',
     ],
   },
 ];
 
 export const DELETION_SECTIONS: readonly LegalSection[] = [
   {
-    title: 'Solicitar eliminación',
+    title: 'Request deletion',
     paragraphs: [
-      'Escribe desde el correo asociado a privacy@fincilia.com con el asunto “Eliminar cuenta Fincilia”, indicando si solicitas eliminar tu perfil, una organización que administras o información específica. No incluyas contraseñas, documentos o información financiera. Podemos pedir verificación adicional para impedir una eliminación no autorizada.',
-      'Confirmaremos la recepción y clasificaremos la solicitud como consulta o reclamo conforme a la ley aplicable. Para Colombia aplican los tiempos descritos en la política de privacidad: diez días hábiles para consultas y quince días hábiles para reclamos, con las prórrogas informadas permitidas.',
+      'Write from your associated email address to privacy@fincilia.com with the subject “Delete my Fincilia account,” stating whether you want to delete your profile, an organization you administer, or specific information. Do not include passwords, documents, or financial information. We may request additional verification to prevent unauthorized deletion.',
+      'We acknowledge receipt and classify the request as an inquiry or complaint under applicable law. For Colombia, the periods in the Privacy Policy apply: ten business days for inquiries and fifteen business days for complaints, including permitted notified extensions.',
     ],
   },
   {
-    title: 'Alcance y ejecución',
+    title: 'Scope and execution',
     bullets: [
-      'Bloqueamos el acceso y verificamos autoridad, membresías, objetos, exportaciones, trabajos y eventos relacionados.',
-      'Evaluamos obligaciones contractuales o legales; cualquier retención se limita, documenta y comunica cuando sea posible.',
-      'Registramos un marcador antes de purgar copias activas y derivadas y lo reaplicamos al restaurar backups.',
-      'Informamos qué se eliminó, qué permanece temporalmente y la fecha o condición estimada para completar la reconciliación.',
-      'La eliminación de un usuario no borra automáticamente registros que pertenecen a una organización y que esta deba conservar; en ese caso se revoca el acceso y se minimiza la identidad según corresponda.',
+      'We block access and verify authority, memberships, objects, exports, jobs, and related events.',
+      'We assess contractual or legal obligations; any retention is limited, documented, and disclosed when possible.',
+      'We record a deletion marker before purging active and derived copies and reapply it when restoring backups.',
+      'We explain what was deleted, what temporarily remains, and the estimated date or condition for completing reconciliation.',
+      'Deleting a user does not automatically delete records that belong to an organization and that the organization must retain; in that case, access is revoked and identity data is minimized as appropriate.',
     ],
   },
   {
-    title: 'Google y terceros',
+    title: 'Google and third parties',
     paragraphs: [
-      'Eliminar Fincilia no elimina tu cuenta Google. También puedes retirar el acceso de Fincilia desde la configuración de tu cuenta Google. Fincilia dejará de usar el vínculo y conservará únicamente la evidencia mínima que resulte necesaria por seguridad o ley.',
-      'Para mensajes ya enviados a nuestros buzones o datos administrados por tu organización, coordinaremos la solicitud con el proveedor o responsable correspondiente.',
+      'Deleting your Fincilia account does not delete your Google Account. You may also remove Fincilia\'s access from your Google Account settings. Fincilia will stop using the link and retain only the minimum evidence required for security or law.',
+      'For messages already sent to our mailboxes or data administered by your organization, we coordinate the request with the relevant provider or controller.',
     ],
   },
 ];

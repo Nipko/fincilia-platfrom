@@ -71,12 +71,26 @@ test.describe('recorrido publico sin secretos', () => {
     await page.getByRole('link', { name: 'Leer política de privacidad' }).click();
 
     await expect(page).toHaveURL(/\/privacidad$/);
-    await expect(page.getByRole('heading', { level: 1, name: 'Política de privacidad' }))
+    await expect(page.getByRole('heading', { level: 1, name: 'Privacy Policy' }))
       .toBeVisible();
-    await expect(page.getByText('Política vigente')).toBeVisible();
-    await expect(page.getByText(/Versión privacy-2026-09-03/)).toBeVisible();
+    await expect(page.locator('main.legal-page')).toHaveAttribute('lang', 'en');
+    await expect(page.getByText('Current policy')).toBeVisible();
+    await expect(page.getByText(/Version privacy-2026-09-03-en/)).toBeVisible();
     await expect(page.getByText(/Parallext LLC/).first()).toBeVisible();
     await expect(page.getByText(/privacy@fincilia.com/).first()).toBeVisible();
+
+    for (const [path, heading] of [
+      ['/terminos', 'Terms of Service'],
+      ['/cookies', 'Cookie Notice'],
+      ['/seguridad', 'Security at Fincilia'],
+      ['/dpa', 'Data Processing Agreement (DPA)'],
+      ['/subencargados', 'Subprocessors and providers'],
+      ['/eliminar-cuenta', 'Account and Data Deletion'],
+    ] as const) {
+      await page.goto(path);
+      await expect(page.locator('main.legal-page')).toHaveAttribute('lang', 'en');
+      await expect(page.getByRole('heading', { level: 1, name: heading })).toBeVisible();
+    }
   });
 
   test('una ruta protegida sin sesion vuelve al ingreso', async ({ page }) => {

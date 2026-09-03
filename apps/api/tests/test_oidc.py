@@ -215,8 +215,8 @@ class CognitoExchangeTests(unittest.TestCase):
         self.assertEqual("login", login.mode)
         registration = OidcExchangeRequest(
             **common, mode="register", firm_name="Firma Fincilia",
-            terms_version="terms-2026-09-03",
-            privacy_version="privacy-2026-09-03")
+            terms_version="terms-2026-09-03-en",
+            privacy_version="privacy-2026-09-03-en")
         self.assertEqual("register", registration.mode)
         for payload in (
             {**common, "mode": "login", "firm_name": "No debe entrar"},
@@ -265,8 +265,8 @@ class CognitoExchangeTests(unittest.TestCase):
             database=SimpleNamespace(session=session))))
         body = OidcExchangeRequest(
             code=CODE, verifier=VERIFIER, nonce=NONCE, mode="register",
-            firm_name="Firma Fincilia", terms_version="terms-2026-09-03",
-            privacy_version="privacy-2026-09-03")
+            firm_name="Firma Fincilia", terms_version="terms-2026-09-03-en",
+            privacy_version="privacy-2026-09-03-en")
         account = ManagedAccount(SUBJECT, "Founder Fincilia", "active", True)
         with patch("fincilia_api.routes.oidc.exchange_code", return_value=Mock()), \
                 patch("fincilia_api.routes.oidc.resolve_account", return_value=None), \

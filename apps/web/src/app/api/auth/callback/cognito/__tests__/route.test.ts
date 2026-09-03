@@ -82,8 +82,8 @@ describe('callback Cognito BFF', () => {
       nonce: tx.nonce,
       mode: 'register',
       firm_name: tx.firmName,
-      terms_version: 'terms-2026-09-03',
-      privacy_version: 'privacy-2026-09-03',
+      terms_version: 'terms-2026-09-03-en',
+      privacy_version: 'privacy-2026-09-03-en',
     });
     expect(mocks.writeSession).toHaveBeenCalledOnce();
     const cookie = response.headers.get('set-cookie') ?? '';

@@ -20,8 +20,8 @@ function text(sections: readonly { paragraphs?: readonly string[]; bullets?: rea
   ]).join('\n');
 }
 
-describe('publicación legal de Fincilia', () => {
-  it('identifica responsable, domicilio y canales atendidos', () => {
+describe('Fincilia legal publication', () => {
+  it('identifies the controller, address, and monitored channels', () => {
     const policy = text(PRIVACY_SECTIONS);
 
     expect(policy).toContain('Parallext LLC');
@@ -30,38 +30,38 @@ describe('publicación legal de Fincilia', () => {
     expect(policy).toContain('privacy@fincilia.com');
     expect(policy).toContain('legal@fincilia.com');
     expect(policy).toContain('support@fincilia.com');
-    expect(policy).not.toMatch(/se completar[aá]n|bases candidatas|revisi[oó]n jur[ií]dica pendiente/i);
+    expect(policy).not.toMatch(/to be completed|candidate basis|legal review pending/i);
   });
 
-  it('declara el uso limitado de Google y scopes mínimos', () => {
+  it('discloses limited Google use and minimum scopes', () => {
     const policy = text(PRIVACY_SECTIONS);
 
-    expect(policy).toContain('openid, email y profile');
-    expect(policy).toContain('No solicitamos acceso a Gmail, Google Drive');
-    expect(policy).toContain('requisitos de uso limitado');
-    expect(policy).toContain('No los vendemos');
+    expect(policy).toContain('openid, email, and profile');
+    expect(policy).toContain('We do not request access to Gmail, Google Drive');
+    expect(policy).toContain('Limited Use requirements');
+    expect(policy).toContain('We do not sell it');
   });
 
-  it('publica proveedores reales sin presentar al responsable como subencargado', () => {
+  it('publishes actual providers without listing the controller as a subprocessor', () => {
     const providers = text(SUBPROCESSOR_SECTIONS);
 
     for (const provider of ['Amazon Web Services', 'Google LLC', 'Namecheap', 'Cloudflare']) {
       expect(providers).toContain(provider);
     }
-    expect(providers).not.toContain('Parallext.com: desarrollo');
+    expect(providers).not.toContain('Parallext.com: development');
   });
 
-  it('documenta cookies, derechos, eliminación y límites UAT', () => {
-    expect(text(COOKIE_SECTIONS)).toContain('máximo de diez minutos');
-    expect(text(DELETION_SECTIONS)).toContain('quince días hábiles');
-    expect(text(PRIVACY_SECTIONS)).toContain('diez días hábiles');
-    expect(text(TERMS_SECTIONS)).toContain('El UAT es gratuito');
-    expect(text(TERMS_SECTIONS)).toContain('Estado de Florida');
+  it('documents cookies, rights, deletion, and UAT limits', () => {
+    expect(text(COOKIE_SECTIONS)).toContain('no more than ten minutes');
+    expect(text(DELETION_SECTIONS)).toContain('fifteen business days');
+    expect(text(PRIVACY_SECTIONS)).toContain('ten business days');
+    expect(text(TERMS_SECTIONS)).toContain('UAT is free');
+    expect(text(TERMS_SECTIONS)).toContain('State of Florida');
   });
 
-  it('alinea los identificadores visibles con el consentimiento', () => {
-    expect(TERMS_VERSION).toBe('terms-2026-09-03');
-    expect(PRIVACY_VERSION).toBe('privacy-2026-09-03');
+  it('aligns visible identifiers with stored consent', () => {
+    expect(TERMS_VERSION).toBe('terms-2026-09-03-en');
+    expect(PRIVACY_VERSION).toBe('privacy-2026-09-03-en');
     expect(LEGAL_DOCUMENTS.terms.version).toBe(TERMS_VERSION);
     expect(LEGAL_DOCUMENTS.privacy.version).toBe(PRIVACY_VERSION);
   });
