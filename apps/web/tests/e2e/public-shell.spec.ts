@@ -26,7 +26,7 @@ test.describe('recorrido publico sin secretos', () => {
     await expect(page.getByRole('link', { name: 'Crear una cuenta' }))
       .toHaveAttribute('href', '/registro');
     await expect(page.getByRole('link', { name: 'terminos del servicio' }))
-      .toHaveAttribute('href', '/terminos');
+      .toHaveAttribute('href', '/terms');
 
     await page.keyboard.press('Tab');
     const skipLink = page.getByRole('link', {
@@ -70,26 +70,46 @@ test.describe('recorrido publico sin secretos', () => {
     await expect(page.getByText(/No pedirá acceso a Gmail, Drive/)).toBeVisible();
     await page.getByRole('link', { name: 'Leer política de privacidad' }).click();
 
-    await expect(page).toHaveURL(/\/privacidad$/);
+    await expect(page).toHaveURL(/\/privacy$/);
     await expect(page.getByRole('heading', { level: 1, name: 'Privacy Policy' }))
       .toBeVisible();
     await expect(page.locator('main.legal-page')).toHaveAttribute('lang', 'en');
+    await expect(page.locator('link[rel="canonical"]'))
+      .toHaveAttribute('href', 'https://fincilia.com/privacy');
     await expect(page.getByText('Current policy')).toBeVisible();
     await expect(page.getByText(/Version privacy-2026-09-03-en/)).toBeVisible();
     await expect(page.getByText(/Parallext LLC/).first()).toBeVisible();
     await expect(page.getByText(/privacy@fincilia.com/).first()).toBeVisible();
 
     for (const [path, heading] of [
-      ['/terminos', 'Terms of Service'],
+      ['/terms', 'Terms of Service'],
       ['/cookies', 'Cookie Notice'],
-      ['/seguridad', 'Security at Fincilia'],
+      ['/security', 'Security at Fincilia'],
       ['/dpa', 'Data Processing Agreement (DPA)'],
-      ['/subencargados', 'Subprocessors and providers'],
-      ['/eliminar-cuenta', 'Account and Data Deletion'],
+      ['/subprocessors', 'Subprocessors and providers'],
+      ['/delete-account', 'Account and Data Deletion'],
     ] as const) {
       await page.goto(path);
       await expect(page.locator('main.legal-page')).toHaveAttribute('lang', 'en');
       await expect(page.getByRole('heading', { level: 1, name: heading })).toBeVisible();
+      await expect(page.locator('link[rel="canonical"]'))
+        .toHaveAttribute('href', `https://fincilia.com${path}`);
+    }
+  });
+
+  test('las rutas legales anteriores redirigen permanentemente a las canonicas', async ({
+    request,
+  }) => {
+    for (const [legacyPath, canonicalPath] of [
+      ['/privacidad', '/privacy'],
+      ['/terminos', '/terms'],
+      ['/seguridad', '/security'],
+      ['/subencargados', '/subprocessors'],
+      ['/eliminar-cuenta', '/delete-account'],
+    ] as const) {
+      const response = await request.get(legacyPath, { maxRedirects: 0 });
+      expect(response.status()).toBe(308);
+      expect(response.headers().location).toBe(canonicalPath);
     }
   });
 

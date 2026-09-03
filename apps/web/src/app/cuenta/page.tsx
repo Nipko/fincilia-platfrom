@@ -149,7 +149,7 @@ export default async function AccountPage() {
             resolver server-side y puede revocarse sin esperar a que termine la sesión.
           </p>
         </div>
-        <Link href="/seguridad">Ver controles de seguridad</Link>
+        <Link href="/security">Ver controles de seguridad</Link>
       </section>
 
       <section className="workspace-section" aria-labelledby="billing-title">

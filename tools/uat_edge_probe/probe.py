@@ -19,13 +19,13 @@ PUBLIC_PATHS = (
     "/",
     "/entrar",
     "/registro",
-    "/privacidad",
-    "/terminos",
+    "/privacy",
+    "/terms",
     "/cookies",
-    "/seguridad",
-    "/subencargados",
+    "/security",
+    "/subprocessors",
     "/dpa",
-    "/eliminar-cuenta",
+    "/delete-account",
 )
 HEADER_NAMES = (
     "cache-control",

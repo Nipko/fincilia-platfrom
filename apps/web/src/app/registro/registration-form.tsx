@@ -65,7 +65,7 @@ export function RegistrationForm({
               <label>
                 <input name="acceptTerms" type="checkbox" value="yes" required />
                 <span>
-                  Acepto los <Link href="/terminos">terminos del servicio</Link>.
+                  Acepto los <Link href="/terms">terminos del servicio</Link>.
                 </span>
               </label>
               <label>
@@ -73,7 +73,7 @@ export function RegistrationForm({
                 <span>
                   Autorizo a Parallext LLC a tratar mis datos de cuenta para las
                   finalidades descritas en la{' '}
-                  <Link href="/privacidad">politica de privacidad</Link>.
+                  <Link href="/privacy">politica de privacidad</Link>.
                 </span>
               </label>
             </fieldset>
@@ -147,8 +147,8 @@ export function RegistrationForm({
             <label>
               <input name="acceptTerms" type="checkbox" value="yes" required />
               <span>
-                Acepto los <Link href="/terminos">terminos del servicio</Link> y he
-                leido la <Link href="/privacidad">politica de privacidad</Link>.
+                Acepto los <Link href="/terms">terminos del servicio</Link> y he
+                leido la <Link href="/privacy">politica de privacidad</Link>.
               </span>
             </label>
           </fieldset>

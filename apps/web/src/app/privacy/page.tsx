@@ -5,6 +5,7 @@ import { LEGAL_DOCUMENTS } from '@/lib/legal-publication';
 export const metadata = {
   title: 'Privacy Policy | Fincilia',
   description: 'How Fincilia accesses, uses, protects, retains, and deletes information.',
+  alternates: { canonical: 'https://fincilia.com/privacy' },
 };
 
 export default function PrivacyPage() {

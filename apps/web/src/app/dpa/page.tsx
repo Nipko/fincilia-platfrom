@@ -5,6 +5,7 @@ import { LEGAL_DOCUMENTS } from '@/lib/legal-publication';
 export const metadata = {
   title: 'Data Processing Agreement | Fincilia',
   description: 'Contract model for organizations that engage Fincilia to process data.',
+  alternates: { canonical: 'https://fincilia.com/dpa' },
 };
 
 export default function DpaPage() {

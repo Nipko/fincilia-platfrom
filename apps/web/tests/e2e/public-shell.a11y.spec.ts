@@ -46,7 +46,7 @@ test('TST-A11Y-001: portada publica sin hallazgos serios o criticos', async ({
 test('TST-A11Y-001: privacidad publica sin hallazgos serios o criticos', async ({
   page,
 }) => {
-  await page.goto('/privacidad');
+  await page.goto('/privacy');
 
   await expectNoSeriousOrCriticalViolations(page);
 });

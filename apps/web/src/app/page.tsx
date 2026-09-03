@@ -61,7 +61,7 @@ export default async function Home() {
             No pedirá acceso a Gmail, Drive, contactos ni calendario.
           </p>
         </div>
-        <Link href="/privacidad">Leer política de privacidad</Link>
+        <Link href="/privacy">Leer política de privacidad</Link>
       </section>
     </main>
   );

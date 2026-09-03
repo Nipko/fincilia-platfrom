@@ -5,6 +5,7 @@ import { LEGAL_DOCUMENTS } from '@/lib/legal-publication';
 export const metadata = {
   title: 'Subprocessors | Fincilia',
   description: 'Service providers, functions, locations, and limits applicable to Fincilia.',
+  alternates: { canonical: 'https://fincilia.com/subprocessors' },
 };
 
 export default function SubprocessorsPage() {

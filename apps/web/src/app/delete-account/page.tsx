@@ -5,6 +5,7 @@ import { LEGAL_DOCUMENTS } from '@/lib/legal-publication';
 export const metadata = {
   title: 'Account and Data Deletion | Fincilia',
   description: 'How to request deletion and how Fincilia reconciles it with audit records and backups.',
+  alternates: { canonical: 'https://fincilia.com/delete-account' },
 };
 
 export default function DeleteAccountPage() {

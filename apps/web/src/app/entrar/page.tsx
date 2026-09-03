@@ -65,8 +65,8 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
         </div>
 
         <p className="auth-legal">
-          Al continuar aceptas los <Link href="/terminos">terminos del servicio</Link> y
-          reconoces nuestra <Link href="/privacidad">politica de privacidad</Link>.
+          Al continuar aceptas los <Link href="/terms">terminos del servicio</Link> y
+          reconoces nuestra <Link href="/privacy">politica de privacidad</Link>.
         </p>
 
       </section>

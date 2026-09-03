@@ -50,7 +50,7 @@ export const PRIVACY_SECTIONS: readonly LegalSection[] = [
     title: 'Recipients, service providers, and international transfers',
     paragraphs: [
       'We may disclose information to the organization you belong to, its authorized administrators, contracted providers acting under instructions, and authorities when required by a valid legal obligation. We do not sell personal data.',
-      'Fincilia\'s primary evaluated infrastructure is hosted by Amazon Web Services in the São Paulo, Brazil region. Google supports authentication; Namecheap Private Email provides contact mailboxes; and Cloudflare manages DNS and may provide network controls if enabled. The current list and purposes are published at /subencargados.',
+      'Fincilia\'s primary evaluated infrastructure is hosted by Amazon Web Services in the São Paulo, Brazil region. Google supports authentication; Namecheap Private Email provides contact mailboxes; and Cloudflare manages DNS and may provide network controls if enabled. The current list and purposes are published at /subprocessors.',
       'When processing involves an international data transmission or transfer, we apply the applicable contract, documented instructions, security measures, and legally required safeguards. A business customer may request a DPA before enabling its own data.',
     ],
   },
@@ -139,7 +139,7 @@ export const TERMS_SECTIONS: readonly LegalSection[] = [
     title: 'Suspension, termination, and data',
     paragraphs: [
       'We may restrict or suspend access because of a security risk, unlawful use, material breach, or urgent operational need. When reasonable, we will provide an opportunity to cure before terminating the account.',
-      'You may stop using the service and request deletion as described at /eliminar-cuenta. Before ordinary termination, you may request an export when that feature is available and you are authorized. Termination does not end obligations that by their nature survive, including confidentiality, ownership, outstanding payment, and justified legal retention.',
+      'You may stop using the service and request deletion as described at /delete-account. Before ordinary termination, you may request an export when that feature is available and you are authorized. Termination does not end obligations that by their nature survive, including confidentiality, ownership, outstanding payment, and justified legal retention.',
     ],
   },
   {

@@ -5,6 +5,7 @@ import { LEGAL_DOCUMENTS } from '@/lib/legal-publication';
 export const metadata = {
   title: 'Cookie Notice | Fincilia',
   description: 'Strictly necessary cookies used for session security and OAuth.',
+  alternates: { canonical: 'https://fincilia.com/cookies' },
 };
 
 export default function CookiesPage() {

@@ -77,8 +77,8 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
               <footer className="app-footer">
                 <span>Fincilia · <a href="https://parallext.com" rel="noreferrer" target="_blank">Parallext.com</a></span>
                 <nav aria-label="Legal y confianza">
-                  <Link href="/privacidad">Privacidad</Link>
-                  <Link href="/seguridad">Seguridad</Link>
+                  <Link href="/privacy">Privacidad</Link>
+                  <Link href="/security">Seguridad</Link>
                 </nav>
               </footer>
             </div>
@@ -99,11 +99,11 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
               <span>Desarrollado por <a href="https://parallext.com" rel="noreferrer" target="_blank">Parallext.com</a></span>
             </div>
             <nav aria-label="Legal y confianza">
-              <Link href="/privacidad">Privacidad</Link>
-              <Link href="/terminos">Términos</Link>
+              <Link href="/privacy">Privacidad</Link>
+              <Link href="/terms">Términos</Link>
               <Link href="/cookies">Cookies</Link>
-              <Link href="/seguridad">Seguridad</Link>
-              <Link href="/eliminar-cuenta">Eliminar cuenta</Link>
+              <Link href="/security">Seguridad</Link>
+              <Link href="/delete-account">Eliminar cuenta</Link>
             </nav>
             <span>{stage.footer}</span>
           </footer>

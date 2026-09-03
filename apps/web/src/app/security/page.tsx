@@ -5,6 +5,7 @@ import { LEGAL_DOCUMENTS } from '@/lib/legal-publication';
 export const metadata = {
   title: 'Security | Fincilia',
   description: 'Fincilia security controls, shared responsibility, and responsible reporting.',
+  alternates: { canonical: 'https://fincilia.com/security' },
 };
 
 export default function SecurityPage() {

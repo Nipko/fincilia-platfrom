@@ -23,8 +23,8 @@ describe('RegistrationForm', () => {
       name: /Autorizo a Parallext LLC a tratar mis datos de cuenta/i,
     })).toBeRequired();
     expect(screen.getByRole('link', { name: 'terminos del servicio' }))
-      .toHaveAttribute('href', '/terminos');
+      .toHaveAttribute('href', '/terms');
     expect(screen.getByRole('link', { name: 'politica de privacidad' }))
-      .toHaveAttribute('href', '/privacidad');
+      .toHaveAttribute('href', '/privacy');
   });
 });

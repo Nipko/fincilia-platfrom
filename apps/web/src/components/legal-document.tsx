@@ -66,13 +66,13 @@ export function LegalDocument({
       </div>
 
       <nav aria-label="Related legal documents" className="legal-related">
-        <Link href="/privacidad">Privacy</Link>
-        <Link href="/terminos">Terms</Link>
+        <Link href="/privacy">Privacy</Link>
+        <Link href="/terms">Terms</Link>
         <Link href="/cookies">Cookies</Link>
-        <Link href="/seguridad">Security</Link>
+        <Link href="/security">Security</Link>
         <Link href="/dpa">DPA</Link>
-        <Link href="/subencargados">Subprocessors</Link>
-        <Link href="/eliminar-cuenta">Delete account</Link>
+        <Link href="/subprocessors">Subprocessors</Link>
+        <Link href="/delete-account">Delete account</Link>
       </nav>
     </main>
   );
