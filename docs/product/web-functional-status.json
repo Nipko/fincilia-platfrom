@@ -110,11 +110,11 @@
       "id": "quality_anomaly",
       "label": "Calidad, inconsistencias y senales de riesgo",
       "weight": 5,
-      "implementation": "partial",
-      "synthetic_acceptance": "component_verified",
+      "implementation": "complete",
+      "synthetic_acceptance": "synthetic_e2e",
       "production_operability": "design_and_tests",
-      "evidence": ["apps/web/src/app/calidad/page.tsx", "apps/api/src/fincilia_api/quality.py", "docs/implementation/BACKLOG_PHASE_0.md"],
-      "remaining": "Reglas antifraude, explicabilidad, calibracion y escalamiento de alertas."
+      "evidence": ["docs/implementation/tasks/FNC-DQ-002.md", "apps/web/src/app/calidad/page.tsx", "apps/api/src/fincilia_api/quality.py", "db/migrations/V0058__advanced_quality_risk_signals.sql"],
+      "remaining": "Calibracion con corpus autorizado y revision independiente; ninguna senal equivale a fraude."
     },
     {
       "id": "platform_admin",
@@ -138,8 +138,8 @@
     }
   ],
   "reported_progress": {
-    "implementation_percent": 88,
-    "synthetic_acceptance_percent": 59,
+    "implementation_percent": 90,
+    "synthetic_acceptance_percent": 60,
     "production_operability_percent": 28
   },
   "interpretation": {

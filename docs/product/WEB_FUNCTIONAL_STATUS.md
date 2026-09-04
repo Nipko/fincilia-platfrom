@@ -5,10 +5,10 @@ fuera del denominador porque el Founder decidio terminar primero la web.
 
 ## Resultado actual
 
-- **88 % de implementacion funcional ponderada.** El nucleo contable esta
-  construido; OCR, notificaciones externas, fraude avanzado y cobro real siguen
-  parciales.
-- **59 % de aceptacion sintetica ponderada.** Existen recorridos E2E amplios,
+- **90 % de implementacion funcional ponderada.** El nucleo contable y las
+  senales avanzadas de riesgo estan construidos; OCR, notificaciones externas y
+  cobro real siguen parciales.
+- **60 % de aceptacion sintetica ponderada.** Existen recorridos E2E amplios,
   pero Google real esta bloqueado y las integraciones externas solo tienen
   componentes o adaptadores apagados.
 - **28 % de operabilidad de produccion ponderada.** Hay diseño y pruebas de
@@ -25,10 +25,10 @@ la declaración.
 1. Identidad Google live y entorno UAT apto para identidad nominal.
 2. DRG-00 y DRG-01 con revisores independientes para empezar casos reales.
 3. Entrega externa de recordatorios y correo transaccional.
-4. OCR para PDFs escaneados y reglas antifraude calibradas.
+4. OCR para PDFs escaneados y calibracion autorizada de senales de riesgo.
 5. Checkout, webhooks, impuestos y conciliacion del propio cobro SaaS.
 6. Operacion productiva: despliegue separado, observabilidad, restore, pentest,
    soporte y evidencia de GA.
 
-La funcionalidad movil permanece deliberadamente al final y no reduce el 88 %
+La funcionalidad movil permanece deliberadamente al final y no reduce el 90 %
 de la plataforma web.

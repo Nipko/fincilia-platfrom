@@ -1,9 +1,11 @@
 ---
 id: FNC-DQ-002
 title: Senales avanzadas de riesgo deterministicas y explicables
-status: in_progress
+status: review_pending
 implementer: Codex principal dev + Integration Steward
 base_sha: 53f3aa4
+implementation_sha: def9c5d
+tested_sha: def9c5d
 gate: S1-READY
 gate_effect: none
 data_ceiling: synthetic_only
@@ -43,3 +45,20 @@ conciliacion o alimenta un cierre.
 
 Solo datos sinteticos. No usa IA, listas externas, identidad inferida, biometria,
 geolocalizacion ni acusaciones. No acepta DRG-00, DRG-01 o GA-01.
+
+# Evidencia integrada
+
+- Migracion V0058 aplicada y repetida con `mutated: false` sobre PostgreSQL.
+- 190 pruebas unitarias API y 3 recorridos verticales PostgreSQL/MinIO: OK.
+- 297 pruebas web, lint, TypeScript y build Next: OK.
+- 3 recorridos Chromium y 2 recorridos Axe focales: OK.
+- Las cinco senales nuevas son deterministas, company-scoped y no exponen
+  importes, referencias, descripciones ni huellas.
+- La regla compuesta de severidad alta exige al menos dos indicadores avanzados
+  distintos sobre el mismo movimiento.
+
+# Revision pendiente
+
+Product/Accounting debe revisar semantica y lenguaje; Security, RLS y ausencia
+de valores crudos; Backend/Architecture, limites y plan de consulta; QA y
+Accessibility, el recorrido visual. Ninguna revision queda autoaprobada.

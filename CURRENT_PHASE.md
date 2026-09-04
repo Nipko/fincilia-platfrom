@@ -148,7 +148,7 @@ Hasta S1-READY solo se admite scaffolding, automatización, pruebas, documentaci
 | FNC-EXP-001 | Exportacion canonica segura de dataset publicado | Review pending | Codex + Integration Steward | permiso explicito, CSV determinista, BFF streaming y pruebas; solo sintetico y no certificado |
 | FNC-OPS-001 | Centro operativo de ciclos y recordatorios web | Review pending | Codex + Integration Steward | API y web company-by-company verificadas; revision humana Product/Accounting, Security/Privacy, Backend/Architecture y Accessibility/QA pendiente |
 | FNC-DQ-001 | Centro de alertas de calidad y anomalias deterministas | Review pending | Codex + Integration Steward | backend, V0018, web multiempresa, PostgreSQL, E2E y a11y verdes; revision humana independiente pendiente |
-| FNC-DQ-002 | Senales avanzadas de riesgo deterministicas y explicables | In progress | Codex + Integration Steward | API, V0058, PostgreSQL, centro de calidad web y pruebas sinteticas |
+| FNC-DQ-002 | Senales avanzadas de riesgo deterministicas y explicables | Review pending | Codex + Integration Steward | V0058, cinco senales y regla compuesta explicables; 190 API, 3 PostgreSQL/MinIO, 297 web, 3 Chromium y 2 Axe verdes; revision independiente pendiente |
 | FNC-RPT-001 | Centro web de informes operativos e historicos | Review pending | Codex + Integration Steward | API, PostgreSQL, web, CSV, E2E y a11y verdes en a18afcf; revision humana independiente pendiente |
 | FNC-ONB-001 | Alta transaccional de empresa y espacio operativo | Review pending | Codex + Integration Steward | Company, engagement, owner y maestros iniciales sin depender de la semilla; V0020 aplicada y recorridos PostgreSQL/E2E/a11y verdes |
 | FNC-ONB-002 | Registro autoservicio y primer espacio desde la web | Review pending | Codex + Integration Steward | Recorrido local sintetico y continuidad a FNC-ONB-001 completos; el alta Google publica definitiva se consolida en FNC-IAM-004 sin autorizar datos reales |
@@ -200,7 +200,7 @@ Hasta S1-READY solo se admite scaffolding, automatización, pruebas, documentaci
 | FNC-LEG-001 | Plantilla ejecutable de tratamiento para corpus real | Review pending | Codex + Integration Steward | 11 actividades dinámicas, 16 secciones y 26 pruebas; paquete listo para abogado independiente, sin autorizar datos reales ni mover DRG-00 |
 | FNC-PRV-002 | Matriz ejecutable L-01 de retención y borrado | Review pending | Codex + Integration Steward | 19 políticas frescas por digest, dos estados fail-closed y 29 pruebas; plazos y cuatro revisores humanos permanecen pendientes |
 | FNC-SEC-003 | Diseño ejecutable del laboratorio aislado para corpus real | Review pending | Codex + Integration Steward | 37 controles, 6 zonas, 12 casos y 34 pruebas; IdP/proveedor/región/despliegue/evidencia siguen pendientes y datos reales prohibidos |
-| FNC-GAT-008 | Estado funcional ejecutable de plataforma web | Review pending | Codex + Integration Steward | 12 dominios/100 puntos: 88 % implementación, 59 % aceptación sintética y 28 % operabilidad productiva; mobile fuera del denominador |
+| FNC-GAT-008 | Estado funcional ejecutable de plataforma web | Review pending | Codex + Integration Steward | 12 dominios/100 puntos: 90 % implementación, 60 % aceptación sintética y 28 % operabilidad productiva; mobile fuera del denominador |
 
 Solo el Integration Steward modifica esta tabla.
 

@@ -54,20 +54,5 @@
       "agent_may_accept": false
     }
   ],
-  "active_reservations": [
-    {
-      "task": "FNC-DQ-002",
-      "paths": [
-        "apps/api/src/fincilia_api/quality.py",
-        "apps/api/tests/test_quality.py",
-        "apps/web/src/app/calidad",
-        "apps/web/src/lib/api.ts",
-        "apps/web/src/lib/web-capabilities.ts",
-        "apps/web/src/lib/__tests__/web-capabilities.test.ts",
-        "db/migrations/V0058__advanced_quality_risk_signals.sql",
-        "db/tests/test_quality_issues.py",
-        "docs/implementation/tasks/FNC-DQ-002.md"
-      ]
-    }
-  ]
+  "active_reservations": []
 }

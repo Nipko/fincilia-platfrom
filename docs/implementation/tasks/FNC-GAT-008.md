@@ -36,5 +36,7 @@ un porcentaje de codigo como autorizacion de datos, exactitud contable real o GA
 
 - Implementacion: `7af724f`.
 - 10 pruebas adversariales y CLI canonico: OK.
-- Resultado calculado: implementacion 88 %, aceptacion sintetica 59 % y
+- Resultado calculado inicial: implementacion 88 %, aceptacion sintetica 59 % y
   operabilidad productiva 28 %; mobile excluido.
+- Revision R1 tras FNC-DQ-002: implementacion 90 %, aceptacion sintetica 60 % y
+  operabilidad productiva 28 %; las reglas avanzadas no mueven gates.
