@@ -52,8 +52,9 @@ Security/Platform/QA.
 
 # Resultado integrado
 
-- `status` concilia 33 direcciones mínimas de foundation y 10 del runtime sin
-  leer valores del estado.
+- `status` concilia 36 direcciones mínimas de foundation y 11 del runtime sin
+  leer valores del estado. El validador DRG consume este mismo catálogo para
+  impedir que el bootstrap o un runtime nuevo dejen dos conteos paralelos.
 - La consulta live del 3 de septiembre de 2026 confirmó cuenta/región exactas,
   inventario `0`, RDS/Valkey/ALB/ECS ausentes y cero NAT.
 - El plan `cold` sobre `d466438` fue validado y resumido por digest: 142 altas,
@@ -62,3 +63,11 @@ Security/Platform/QA.
   `G00-ISOLATED-ENV`; exige un artefacto target distinto y estricto.
 - El control permanece `pending`, los dos gates `not_met` y los datos reales
   desautorizados.
+
+# Ronda de corrección R4
+
+FNC-PLT-016 añadió roles de bootstrap, su secreto y una task definition. El
+controlador los descubría, pero el agregador DRG conservaba literales 33/10.
+Desde R4 los conteos se derivan de los conjuntos cerrados del controlador; una
+evidencia completa ya no puede ser rechazada por deriva silenciosa entre
+herramientas.

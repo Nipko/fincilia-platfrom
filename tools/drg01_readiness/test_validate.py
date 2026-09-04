@@ -4,6 +4,11 @@ import copy
 import json
 import unittest
 
+from tools.aws_pilot_control.control import (
+    FOUNDATION_REQUIRED_ADDRESSES,
+    RUNTIME_REQUIRED_ADDRESSES,
+)
+
 from .model import (
     CONTROL_IDS,
     FOUNDER_ID,
@@ -159,8 +164,16 @@ class Drg01ReadinessTests(unittest.TestCase):
             "data_classification": "completely_synthetic",
             "real_data_authorized": False,
             "production_authorized": False,
-            "foundation": {"state": "complete", "required_count": 33, "missing": []},
-            "runtime_plane": {"state": "complete", "required_count": 10, "missing": []},
+            "foundation": {
+                "state": "complete",
+                "required_count": len(FOUNDATION_REQUIRED_ADDRESSES),
+                "missing": [],
+            },
+            "runtime_plane": {
+                "state": "complete",
+                "required_count": len(RUNTIME_REQUIRED_ADDRESSES),
+                "missing": [],
+            },
             "release_admission": {
                 "source_revision": "2" * 40,
                 "subject_sha256": "3" * 64,
@@ -219,6 +232,17 @@ class Drg01ReadinessTests(unittest.TestCase):
                     for finding in validate_isolated_environment_evidence(
                         candidate, verify_references=False)
                 })
+
+    def test_isolated_inventory_uses_the_controller_catalog(self) -> None:
+        evidence = self.isolated_evidence()
+        self.assertEqual(
+            len(FOUNDATION_REQUIRED_ADDRESSES),
+            evidence["foundation"]["required_count"],
+        )
+        self.assertEqual(
+            len(RUNTIME_REQUIRED_ADDRESSES),
+            evidence["runtime_plane"]["required_count"],
+        )
 
     def test_drg01_cannot_open_before_drg00(self) -> None:
         candidate = copy.deepcopy(self.model)

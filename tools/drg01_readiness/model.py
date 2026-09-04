@@ -9,6 +9,11 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
+from tools.aws_pilot_control.control import (
+    FOUNDATION_REQUIRED_ADDRESSES,
+    RUNTIME_REQUIRED_ADDRESSES,
+)
+
 
 ROOT = Path(__file__).resolve().parents[2]
 MODEL_PATH = ROOT / "docs/security/drg01-readiness.json"
@@ -187,8 +192,8 @@ def validate_isolated_environment_evidence(
             "target evidence must identify an exact Git revision"))
 
     expected_inventory = {
-        "foundation": (33, payload.get("foundation")),
-        "runtime_plane": (10, payload.get("runtime_plane")),
+        "foundation": (len(FOUNDATION_REQUIRED_ADDRESSES), payload.get("foundation")),
+        "runtime_plane": (len(RUNTIME_REQUIRED_ADDRESSES), payload.get("runtime_plane")),
     }
     for name, (count, value) in expected_inventory.items():
         if value != {"state": "complete", "required_count": count, "missing": []}:
