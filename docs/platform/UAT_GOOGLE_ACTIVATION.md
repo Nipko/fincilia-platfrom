@@ -1,6 +1,6 @@
 # Activacion Google en UAT
 
-Estado actual: **implementado y con control plane validado; no activado**.
+Estado actual: **implementado; control plane objetivo 12/16; no activado**.
 
 El recorrido definitivo ya separa login y registro, usa Authorization Code con
 PKCE, valida `state` y `nonce`, acepta terminos y privacidad versionados, crea la
@@ -15,14 +15,19 @@ Desde WSL, con la sesion temporal AWS activa:
 python3 -m tools.identity_readiness.cli \
   --profile fincilia-sandbox \
   --region sa-east-1 \
-  --tofu-dir infra/aws/t0 \
+  --tofu-dir infra/aws/private-pilot \
   --app-origin https://fincilia.com
 ```
 
-La sonda descubre los selectores desde el estado remoto y solo emite 16
+La sonda descubre únicamente el output `cognito` del estado remoto y emite 16
 controles booleanos. No imprime pool, cliente, dominio administrado, secreto,
 usuario ni correo. Un resultado `ok: true` prueba configuracion, no autorizacion:
 `activation_authorized` y `real_data_authorized` permanecen falsos.
+
+En la observación del 4 de septiembre de 2026 pasan 12 controles. Los cuatro
+pendientes son exactamente el proveedor soportado, credenciales presentes,
+scopes mínimos y mapeo de atributos de Google. El resto de la frontera —incluido
+PKCE/code, callbacks, tokens cortos, revocación y cierre de SignUp nativo— pasa.
 
 ## Por que el boton aun no aparece
 

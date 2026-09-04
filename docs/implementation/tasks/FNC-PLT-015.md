@@ -46,6 +46,11 @@ y `real_data_authorized=false`.
    desautorizados.
 6. La evidencia no contiene secretos, valores del estado, correos, ARN ni
    request IDs.
+7. La conexión Google se prepara con un configurador fail-closed que lee el
+   Client Secret de forma oculta y lo transmite solo por stdin a AWS CLI.
+8. La actualización del app client conserva explícitamente su configuración
+   observada y la sonda distingue 12/16 preconfiguración de 16/16 configurado,
+   sin autorizar activación ni datos reales.
 
 # Verificación
 
@@ -56,6 +61,6 @@ y `real_data_authorized=false`.
 
 # Fuera de alcance
 
-Upgrade comercial de la cuenta, DNS de ACM/ALB, valores Google o de base,
-runtime caliente, migraciones, restore target, pentest, revisiones humanas y
-activación de datos reales.
+Upgrade comercial de la cuenta, DNS de ACM/ALB, ejecutar la carga del valor
+Google o valores de base, runtime caliente, migraciones, restore target,
+pentest, revisiones humanas y activación de datos reales.

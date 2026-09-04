@@ -6,16 +6,19 @@ invitaciones, sin convertir claims externos en roles de Fincilia. La activacion
 con personas reales permanece bloqueada por DRG-00 y revision independiente;
 publicar las paginas y preparar el proyecto no mueve ese gate.
 
-### Estado observado — 2026-09-03
+### Estado observado — 2026-09-04
 
 - `https://fincilia.com` responde por HTTPS y publica portada, privacidad,
   terminos y eliminacion sin exigir sesion.
-- Google existe como proveedor social del User Pool y solicita unicamente
-  `openid email profile`.
-- El cliente Cognito exclusivo de Fincilia esta administrado por OpenTofu, no
-  genera secret, admite solo `Google` y tiene revocacion habilitada.
-- Redirect de Google:
-  `https://fincilia-t0-632144225293.auth.sa-east-1.amazoncognito.com/oauth2/idpresponse`.
+- El branding Google fue publicado por el Founder con alcance únicamente de
+  identidad. El proveedor Google del User Pool objetivo aún no se configura:
+  la sonda privada observa 12 de 16 controles y evita presentar ese estado como
+  una activación completa.
+- El cliente Cognito objetivo esta administrado por OpenTofu, no genera secret,
+  conserva revocacion y expone temporalmente solo `COGNITO` hasta que el
+  configurador seguro cambie el proveedor soportado a `Google`.
+- Redirect objetivo de Google:
+  `https://fincilia-uat-632144225293.auth.sa-east-1.amazoncognito.com/oauth2/idpresponse`.
 - Callback de Fincilia:
   `https://fincilia.com/api/auth/callback/cognito`.
 - Logout de Fincilia: `https://fincilia.com/entrar`.
@@ -62,8 +65,8 @@ y deben coincidir exactamente.
 | DPA | `https://fincilia.com/dpa` |
 | Subencargados | `https://fincilia.com/subprocessors` |
 | Eliminación de cuenta | `https://fincilia.com/delete-account` |
-| Origen JavaScript en Google | `https://fincilia-t0-632144225293.auth.sa-east-1.amazoncognito.com` |
-| Redirect URI en Google | `https://fincilia-t0-632144225293.auth.sa-east-1.amazoncognito.com/oauth2/idpresponse` |
+| Origen JavaScript en Google | `https://fincilia-uat-632144225293.auth.sa-east-1.amazoncognito.com` |
+| Redirect URI en Google | `https://fincilia-uat-632144225293.auth.sa-east-1.amazoncognito.com/oauth2/idpresponse` |
 | Callback de Cognito a Fincilia | `https://fincilia.com/api/auth/callback/cognito` |
 | Logout de Cognito | `https://fincilia.com/entrar` |
 
@@ -165,6 +168,28 @@ decisión de assurance queda registrada como `UD-IAM-FEDERATED-MFA`.
 El secret ya tiene un contenedor dedicado en AWS Secrets Manager. La
 configuración del proveedor se hace fuera del estado OpenTofu para impedir que el
 Client Secret termine en el state o en un plan guardado.
+
+Después de registrar en Google el origen y redirect exactos de la matriz, un
+operador no-root ejecuta desde WSL el configurador. El Client Secret se solicita
+con entrada oculta y viaja a AWS por `stdin`: nunca se pasa como argumento, se
+escribe en el repositorio ni se imprime. La herramienta conserva todos los
+valores observados del app client porque la API de Cognito restablece a defaults
+los campos omitidos en una actualización.
+
+```text
+python3 -m tools.identity_readiness.configure_google \
+  --profile fincilia-sandbox \
+  --region sa-east-1 \
+  --tofu-dir infra/aws/private-pilot \
+  --app-origin https://fincilia.com \
+  --google-client-id <GOOGLE_WEB_CLIENT_ID> \
+  --confirmation CONFIGURE_GOOGLE
+```
+
+La orden solo debe ejecutarse después de las revisiones DRG requeridas. Configura
+Secrets Manager, crea o actualiza el proveedor y habilita `Google` en el cliente;
+no enciende ECS, no habilita datos reales y termina ejecutando los 16 controles
+redactados.
 
 ## 6. Prueba y publicación gradual
 
