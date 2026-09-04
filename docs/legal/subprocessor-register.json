@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "task_id": "FNC-LEG-003",
-  "version": "2026-09-04",
+  "version": "2026-09-03",
   "status": "review_pending",
   "legal_advice": false,
   "data_ceiling": "synthetic_only_until_gate",
@@ -94,19 +94,19 @@
     }
   ],
   "sources": [
-    {"id":"AWS-DPA","authority":"AWS","url":"https://docs.aws.amazon.com/whitepapers/latest/navigating-gdpr-compliance/aws-data-processing-addendum-dpa.html","retrieved_at":"2026-09-04"},
-    {"id":"AWS-SUBPROCESSORS","authority":"AWS","url":"https://aws.amazon.com/compliance/sub-processors/","retrieved_at":"2026-09-04"},
-    {"id":"AWS-COGNITO-REGION","authority":"AWS","url":"https://docs.aws.amazon.com/cognito/latest/developerguide/security-cognito-regional-data-considerations.html","retrieved_at":"2026-09-04"},
-    {"id":"AWS-RDS-REGION","authority":"AWS","url":"https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Concepts.RegionsAndAvailabilityZones.html","retrieved_at":"2026-09-04"},
-    {"id":"GOOGLE-OAUTH-POLICY","authority":"Google","url":"https://developers.google.com/identity/protocols/oauth2/policies","retrieved_at":"2026-09-04"},
-    {"id":"GOOGLE-OIDC","authority":"Google","url":"https://developers.google.com/identity/openid-connect/reference","retrieved_at":"2026-09-04"},
-    {"id":"CLOUDFLARE-DPA","authority":"Cloudflare","url":"https://www.cloudflare.com/cloudflare-customer-dpa/","retrieved_at":"2026-09-04"},
-    {"id":"CLOUDFLARE-SUBPROCESSORS","authority":"Cloudflare","url":"https://www.cloudflare.com/trust-hub/privacy-and-data-protection/","retrieved_at":"2026-09-04"},
-    {"id":"NAMECHEAP-PRIVACY","authority":"Namecheap","url":"https://www.namecheap.com/legal/general/privacy-policy/","retrieved_at":"2026-09-04"},
-    {"id":"GITHUB-DPA","authority":"GitHub","url":"https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement","retrieved_at":"2026-09-04"},
-    {"id":"GITHUB-SUBPROCESSORS","authority":"GitHub","url":"https://docs.github.com/en/site-policy/privacy-policies/github-subprocessors","retrieved_at":"2026-09-04"},
-    {"id":"COL-LAW-1581","authority":"Función Pública Colombia","url":"https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=49981","retrieved_at":"2026-09-04"},
-    {"id":"SIC-TRANSFERS-2026","authority":"SIC Colombia","url":"https://sedeelectronica.sic.gov.co/publicaciones/boletin-juridico/concepto/alcance-de-la-circular-002-de-2025-sobre-transferencias-internacionales-de-datos","retrieved_at":"2026-09-04"}
+    {"id":"AWS-DPA","authority":"AWS","url":"https://docs.aws.amazon.com/whitepapers/latest/navigating-gdpr-compliance/aws-data-processing-addendum-dpa.html","retrieved_at":"2026-09-03"},
+    {"id":"AWS-SUBPROCESSORS","authority":"AWS","url":"https://aws.amazon.com/compliance/sub-processors/","retrieved_at":"2026-09-03"},
+    {"id":"AWS-COGNITO-REGION","authority":"AWS","url":"https://docs.aws.amazon.com/cognito/latest/developerguide/security-cognito-regional-data-considerations.html","retrieved_at":"2026-09-03"},
+    {"id":"AWS-RDS-REGION","authority":"AWS","url":"https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Concepts.RegionsAndAvailabilityZones.html","retrieved_at":"2026-09-03"},
+    {"id":"GOOGLE-OAUTH-POLICY","authority":"Google","url":"https://developers.google.com/identity/protocols/oauth2/policies","retrieved_at":"2026-09-03"},
+    {"id":"GOOGLE-OIDC","authority":"Google","url":"https://developers.google.com/identity/openid-connect/reference","retrieved_at":"2026-09-03"},
+    {"id":"CLOUDFLARE-DPA","authority":"Cloudflare","url":"https://www.cloudflare.com/cloudflare-customer-dpa/","retrieved_at":"2026-09-03"},
+    {"id":"CLOUDFLARE-SUBPROCESSORS","authority":"Cloudflare","url":"https://www.cloudflare.com/trust-hub/privacy-and-data-protection/","retrieved_at":"2026-09-03"},
+    {"id":"NAMECHEAP-PRIVACY","authority":"Namecheap","url":"https://www.namecheap.com/legal/general/privacy-policy/","retrieved_at":"2026-09-03"},
+    {"id":"GITHUB-DPA","authority":"GitHub","url":"https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement","retrieved_at":"2026-09-03"},
+    {"id":"GITHUB-SUBPROCESSORS","authority":"GitHub","url":"https://docs.github.com/en/site-policy/privacy-policies/github-subprocessors","retrieved_at":"2026-09-03"},
+    {"id":"COL-LAW-1581","authority":"Función Pública Colombia","url":"https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=49981","retrieved_at":"2026-09-03"},
+    {"id":"SIC-TRANSFERS-2026","authority":"SIC Colombia","url":"https://sedeelectronica.sic.gov.co/publicaciones/boletin-juridico/concepto/alcance-de-la-circular-002-de-2025-sobre-transferencias-internacionales-de-datos","retrieved_at":"2026-09-03"}
   ],
   "legal_review": {
     "classification_by_activity": "pending_independent_legal_review",
