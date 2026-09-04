@@ -12,8 +12,12 @@ DRG-00/DRG-01, no enciende los servicios y no autoriza datos reales.
    cuatro versiones en Secrets Manager. Los campos de gate nacen como
    `disabled` y se conservan en ejecuciones posteriores.
 3. El task `bootstrap` usa la credencial maestra administrada por RDS solo en
-   esa ejecucion. Convierte las tres contrasenas en verificadores SCRAM desde
-   libpq antes de enviar DDL; crea/rota los cinco roles y termina.
+   esa ejecucion. El secreto administrado aporta exclusivamente usuario y
+   contrasena; host y puerto proceden de atributos no secretos del recurso RDS.
+   La credencial maestra de 28 bytes generada por RDS se acepta sólo para este
+   canal; las credenciales de runtime conservan el mínimo independiente de 32.
+   Convierte las tres contrasenas en verificadores SCRAM desde libpq antes de
+   enviar DDL; crea/rota los cinco roles y termina.
 4. Solo si el bootstrap termina con exit code 0 se ejecuta el task `migrator`.
 5. API y worker continuan en cero. Su arranque es otro acto, posterior a las
    atestaciones KMS y revisiones humanas.

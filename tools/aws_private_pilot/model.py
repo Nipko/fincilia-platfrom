@@ -208,6 +208,7 @@ def validate_sources(sources: str | None = None) -> list[str]:
         'count = var.runtime_plane_enabled ? 1 : 0',
         'count = var.runtime_plane_enabled && var.certificate_ready ? 1 : 0',
         'depends_on = [aws_lb_listener.https]',
+        'resource "aws_vpc_security_group_ingress_rule" "endpoints_application"',
         'assign_public_ip = false',
         'condition     = var.service_desired_count == 0',
         'manage_master_user_password   = true',
@@ -284,6 +285,21 @@ def validate_sources(sources: str | None = None) -> list[str]:
         re.DOTALL,
     ):
         errors.append("worker/data no pueden recibir default route")
+    endpoint_rule = sources.partition(
+        'resource "aws_vpc_security_group_ingress_rule" "endpoints_application" {'
+    )[2].partition(
+        'resource "aws_vpc_endpoint" "worker_interface" {'
+    )[0]
+    if (
+        not endpoint_rule
+        or "referenced_security_group_id = aws_security_group.application.id"
+        not in endpoint_rule
+        or "from_port                    = 443" not in endpoint_rule
+        or "to_port                      = 443" not in endpoint_rule
+    ):
+        errors.append(
+            "PrivateLink con DNS privado debe admitir HTTPS desde application"
+        )
     application_marker = 'resource "aws_ecs_service" "application" {'
     worker_marker = 'resource "aws_ecs_service" "worker" {'
     application_source = sources.partition(application_marker)[2].partition(

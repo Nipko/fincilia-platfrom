@@ -74,13 +74,34 @@ class AwsJson:
             "aws", service, *operation_parts,
             "--profile", self.profile,
             "--region", self.region,
-            "--cli-input-json", "file:///dev/stdin",
-            "--output", "json", "--no-cli-pager",
         ]
+        stdin_value: str | None = None
+        if service == "secretsmanager" and operation == "put-secret-value":
+            if (
+                set(payload) != {"SecretId", "SecretString", "VersionStages"}
+                or not isinstance(payload["SecretId"], str)
+                or not SAFE_SELECTOR.fullmatch(payload["SecretId"])
+                or not isinstance(payload["SecretString"], str)
+                or payload["VersionStages"] != ["AWSCURRENT"]
+            ):
+                raise BootstrapControlError("secret write shape was invalid")
+            arguments.extend([
+                "--secret-id", payload["SecretId"],
+                "--secret-string", "file:///dev/stdin",
+                "--version-stages", "AWSCURRENT",
+            ])
+            stdin_value = payload["SecretString"]
+        else:
+            if "SecretString" in payload or "SecretBinary" in payload:
+                raise BootstrapControlError("secret material cannot enter argv")
+            arguments.extend([
+                "--cli-input-json", json.dumps(payload, separators=(",", ":")),
+            ])
+        arguments.extend(["--output", "json", "--no-cli-pager"])
         try:
             completed = self._runner(
                 arguments,
-                input=json.dumps(payload, separators=(",", ":")),
+                input=stdin_value,
                 capture_output=True,
                 text=True,
                 encoding="utf-8",
@@ -246,16 +267,21 @@ def prepare_runtime_secrets(aws: AwsJson) -> dict[str, object]:
     }
 
 
-def read_tofu_output(*, directory: Path,
+def read_tofu_output(*, directory: Path, profile: str,
                      runner: Runner = subprocess.run) -> dict[str, Any]:
     resolved = directory.resolve()
-    if resolved.name != "private-pilot" or resolved.parent.name != "aws":
+    if (
+        resolved.name != "private-pilot"
+        or resolved.parent.name != "aws"
+        or not SAFE_SELECTOR.fullmatch(profile)
+    ):
         raise BootstrapControlError("unexpected OpenTofu directory")
     try:
         completed = runner(
             ["tofu", f"-chdir={resolved}", "output", "-json", "database_bootstrap"],
             capture_output=True, text=True, encoding="utf-8", errors="replace",
             timeout=30, check=False, shell=False,
+            env={**os.environ, "AWS_PROFILE": profile, "AWS_REGION": REGION},
         )
     except (OSError, subprocess.SubprocessError) as error:
         raise BootstrapControlError("OpenTofu output failed") from error

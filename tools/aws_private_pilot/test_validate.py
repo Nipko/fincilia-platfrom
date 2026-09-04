@@ -463,6 +463,15 @@ class PrivatePilotContractTests(unittest.TestCase):
         self.assertTrue(any("certificate_ready" in item
                             for item in validate_sources(candidate)))
 
+    def test_private_dns_endpoints_must_admit_one_off_jobs(self) -> None:
+        candidate = source_text().replace(
+            "referenced_security_group_id = aws_security_group.application.id",
+            "referenced_security_group_id = aws_security_group.worker.id",
+            1,
+        )
+        self.assertTrue(any("PrivateLink" in item
+                            for item in validate_sources(candidate)))
+
 
 if __name__ == "__main__":
     unittest.main()

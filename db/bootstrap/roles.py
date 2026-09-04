@@ -84,7 +84,9 @@ def read_environment(environment: dict[str, str] | None = None) -> tuple[str, Ro
             or port != "5432"
             or database != "fincilia_pilot"
             or user != "fincilia_pilot_admin"
-            or len(password.encode("utf-8")) < 32
+            # RDS-managed master credentials are currently generated with 28
+            # printable bytes. Runtime role credentials remain >= 32 bytes.
+            or len(password.encode("utf-8")) < 28
             or any(ord(character) < 33 for character in password)
         ):
             raise BootstrapError("bootstrap database selector is invalid")

@@ -165,20 +165,14 @@ resource "aws_ecs_task_definition" "bootstrap" {
     user                   = "10001"
     entryPoint             = ["python", "-m", "db.bootstrap.roles"]
     environment = [
+      { name = "PGHOST", value = aws_db_instance.pilot.address },
+      { name = "PGPORT", value = tostring(aws_db_instance.pilot.port) },
       { name = "PGDATABASE", value = aws_db_instance.pilot.db_name },
       { name = "PGSSLMODE", value = "require" },
       { name = "PGCONNECT_TIMEOUT", value = "10" },
       { name = "FINCILIA_REAL_DATA_ENABLED", value = "false" },
     ]
     secrets = [
-      {
-        name      = "PGHOST"
-        valueFrom = "${aws_db_instance.pilot.master_user_secret[0].secret_arn}:host::"
-      },
-      {
-        name      = "PGPORT"
-        valueFrom = "${aws_db_instance.pilot.master_user_secret[0].secret_arn}:port::"
-      },
       {
         name      = "PGUSER"
         valueFrom = "${aws_db_instance.pilot.master_user_secret[0].secret_arn}:username::"

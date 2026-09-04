@@ -156,6 +156,15 @@ resource "aws_vpc_security_group_ingress_rule" "endpoints_worker" {
   ip_protocol                  = "tcp"
 }
 
+resource "aws_vpc_security_group_ingress_rule" "endpoints_application" {
+  security_group_id            = aws_security_group.endpoints.id
+  referenced_security_group_id = aws_security_group.application.id
+  from_port                    = 443
+  to_port                      = 443
+  ip_protocol                  = "tcp"
+  description                  = "ECR, KMS, logs y secretos para API y jobs one-off"
+}
+
 resource "aws_vpc_endpoint" "worker_interface" {
   for_each = var.runtime_plane_enabled ? toset([
     "ecr.api", "ecr.dkr", "kms", "logs", "secretsmanager", "ssmmessages",

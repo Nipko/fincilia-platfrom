@@ -22,9 +22,20 @@ class AwsRunner:
         self.calls: list[tuple[list[str], dict]] = []
 
     def __call__(self, arguments, **kwargs):
-        payload = json.loads(kwargs["input"])
-        self.calls.append((arguments, payload))
         operation = arguments[2]
+        if operation == "put-secret-value":
+            payload = {
+                "SecretId": arguments[arguments.index("--secret-id") + 1],
+                "SecretString": kwargs["input"],
+                "VersionStages": [
+                    arguments[arguments.index("--version-stages") + 1]
+                ],
+            }
+        else:
+            payload = json.loads(
+                arguments[arguments.index("--cli-input-json") + 1]
+            )
+        self.calls.append((arguments, payload))
         if operation == "describe-db-instances":
             value = {
                 "DBInstances": [{
@@ -62,7 +73,10 @@ class SecretPreparationTests(unittest.TestCase):
             serialized_arguments = " ".join(arguments)
             for secret in role_values.values():
                 self.assertNotIn(secret, serialized_arguments)
-            self.assertEqual("file:///dev/stdin", arguments[8])
+            self.assertEqual(
+                "file:///dev/stdin",
+                arguments[arguments.index("--secret-string") + 1],
+            )
             self.assertIn("SecretString", payload)
         self.assertNotIn(next(iter(role_values.values())), json.dumps(report))
 
@@ -90,7 +104,9 @@ class SecretPreparationTests(unittest.TestCase):
             def __call__(self, arguments, **kwargs):
                 if arguments[2] != "get-secret-value":
                     return super().__call__(arguments, **kwargs)
-                payload = json.loads(kwargs["input"])
+                payload = json.loads(
+                    arguments[arguments.index("--cli-input-json") + 1]
+                )
                 self.calls.append((arguments, payload))
                 name = payload["SecretId"]
                 if name.endswith("database-roles-v1"):
@@ -164,13 +180,30 @@ class TofuOutputTests(unittest.TestCase):
             "real_data_authorized": False,
         }
 
+        seen = []
+
         def runner(arguments, **kwargs):
+            seen.append((arguments, kwargs))
             return subprocess.CompletedProcess(arguments, 0, json.dumps(value), "")
 
-        self.assertEqual(value, read_tofu_output(directory=root, runner=runner))
+        self.assertEqual(value, read_tofu_output(
+            directory=root, profile="fincilia-sandbox", runner=runner))
+        self.assertEqual("fincilia-sandbox", seen[0][1]["env"]["AWS_PROFILE"])
+        self.assertEqual("sa-east-1", seen[0][1]["env"]["AWS_REGION"])
         value["real_data_authorized"] = True
         with self.assertRaises(BootstrapControlError):
-            read_tofu_output(directory=root, runner=runner)
+            read_tofu_output(
+                directory=root, profile="fincilia-sandbox", runner=runner)
+
+    def test_tofu_output_rejects_invalid_profile_before_running(self) -> None:
+        root = Path(tempfile.mkdtemp()) / "aws" / "private-pilot"
+        root.mkdir(parents=True)
+        with self.assertRaises(BootstrapControlError):
+            read_tofu_output(
+                directory=root,
+                profile="profile with spaces",
+                runner=lambda *args, **kwargs: self.fail("runner called"),
+            )
 
 
 class TaskSequenceTests(unittest.TestCase):
@@ -189,8 +222,15 @@ class TaskSequenceTests(unittest.TestCase):
         )
         arguments, kwargs = seen[0]
         self.assertEqual(["aws", "ecs", "wait", "tasks-stopped"], arguments[:4])
-        self.assertEqual("file:///dev/stdin", arguments[9])
+        self.assertIn("--cli-input-json", arguments)
+        self.assertIsNone(kwargs["input"])
         self.assertFalse(kwargs["shell"])
+
+    def test_secret_material_is_never_accepted_by_generic_argv_path(self) -> None:
+        with self.assertRaises(BootstrapControlError):
+            AwsJson(profile="fincilia-sandbox", runner=lambda *args, **kwargs: None).invoke(
+                "example", "operation", {"SecretString": "sensitive"}
+            )
 
     def test_bootstrap_finishes_before_migrator_and_never_uses_public_ip(self) -> None:
         class FakeAws:
@@ -246,6 +286,19 @@ class InfrastructureContractTests(unittest.TestCase):
         self.assertIn('resource "aws_ecs_task_definition" "bootstrap"', compute)
         self.assertNotIn('resource "aws_ecs_service" "bootstrap"', compute)
         self.assertIn('value = "false"', compute)
+        self.assertIn(
+            '{ name = "PGHOST", value = aws_db_instance.pilot.address }', compute
+        )
+        self.assertIn(
+            '{ name = "PGPORT", value = tostring(aws_db_instance.pilot.port) }',
+            compute,
+        )
+        bootstrap = compute.partition(
+            'resource "aws_ecs_task_definition" "bootstrap" {'
+        )[2].partition('resource "aws_ecs_cluster" "pilot" {')[0]
+        self.assertEqual(2, bootstrap.count(
+            "aws_db_instance.pilot.master_user_secret[0].secret_arn"
+        ))
         self.assertIn('assign_public_ip = false', (
             root / "infra/aws/private-pilot/compute.tf"
         ).read_text("utf-8"))

@@ -63,6 +63,21 @@ class EnvironmentTests(unittest.TestCase):
         with self.assertRaises(BootstrapError):
             read_environment(values)
 
+    def test_accepts_rds_managed_master_length_but_not_shorter(self) -> None:
+        values = self.values()
+        values.pop("FINCILIA_BOOTSTRAP_DATABASE_URL")
+        values.update({
+            "PGHOST": "fincilia.abc.sa-east-1.rds.amazonaws.com",
+            "PGPORT": "5432",
+            "PGDATABASE": "fincilia_pilot",
+            "PGUSER": "fincilia_pilot_admin",
+            "PGPASSWORD": "m" * 28,
+        })
+        self.assertEqual("", read_environment(values)[0])
+        values["PGPASSWORD"] = "m" * 27
+        with self.assertRaises(BootstrapError):
+            read_environment(values)
+
     def test_failure_output_never_echoes_environment_secrets(self) -> None:
         secret = "never-print-this-bootstrap-secret"
         original = dict(os.environ)

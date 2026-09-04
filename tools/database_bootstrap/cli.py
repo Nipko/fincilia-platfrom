@@ -35,7 +35,10 @@ def main(argv: list[str] | None = None) -> int:
         # Ambos comandos exigen el plano warm materializado pero con API y
         # worker en cero. Asi la inicializacion de secretos tampoco puede
         # ejecutarse por accidente mientras hay servicios consumiendolos.
-        topology = read_tofu_output(directory=args.tofu_dir)
+        topology = read_tofu_output(
+            directory=args.tofu_dir,
+            profile=args.profile,
+        )
         if args.command == "prepare-secrets":
             report = prepare_runtime_secrets(aws)
         else:
