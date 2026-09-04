@@ -6,15 +6,22 @@ import { ESPIGA, signInOwner } from './operations-helpers';
 test('FNC-WEB-005 superficies parciales conservan accesibilidad', async ({ page }) => {
   await signInOwner(page);
   const paths = [
-    '/cuenta',
-    `/recordatorios?empresa=${ESPIGA}`,
-    '/calidad',
-    `/empresas/${ESPIGA}/documentos`,
+    { path: '/cuenta', heading: 'Tu cuenta' },
+    {
+      path: `/recordatorios?empresa=${ESPIGA}`,
+      heading: 'Centro de ciclos y recordatorios',
+    },
+    { path: '/calidad', heading: 'Centro de calidad' },
+    {
+      path: `/empresas/${ESPIGA}/documentos`,
+      heading: 'Centro de documentos',
+    },
   ];
 
-  for (const path of paths) {
+  for (const { path, heading } of paths) {
     await page.goto(path);
-    await expect(page.locator('main')).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: heading })).toBeVisible();
+    await expect(page.getByRole('main')).toHaveCount(1);
     const results = await new AxeBuilder({ page }).analyze();
     expect(results.violations, `violaciones en ${path}`).toEqual([]);
   }
