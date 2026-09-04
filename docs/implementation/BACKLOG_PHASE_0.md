@@ -103,6 +103,7 @@ FNC-GAT-001 es la única tarea que puede autorizar el primer artefacto real de i
 | FNC-SUP-001 | A3/A5 | PLT-003, QA-005 | Baseline ejecutable de cadena de suministro y gaps TM-005 |
 | FNC-SUP-002 | A3/A4/A5 | SUP-001, REL-001 | Procedencia y SBOM del candidato firmados y verificables por OIDC/Sigstore |
 | FNC-SUP-003 | A3/A4/A5 | SUP-002, PLT-012, PLT-013 | Publicación manual por OIDC de tres imágenes ECR inmutables, escaneadas y atestadas; sin desplegar ni autorizar datos |
+| FNC-SUP-004 | A3/A4/A5 | REL-001, SUP-002, SUP-003 | Cobertura cerrada y extraída de todos los orígenes locales que Docker incorpora a las imágenes |
 | FNC-DB-002 | A2/A4 | DB-001, PLT-002 | Spike PostgreSQL de invariantes de migración SQL-first |
 | FNC-PLT-007 | A4/A5 | PLT-002/003, QA-004/005 | CLI segura de desarrollo y diagnóstico local |
 | FNC-PLT-008 | A4 | PLT-002, CFG-001 | Stack local de producto ejecutable con API, worker y almacenamiento |

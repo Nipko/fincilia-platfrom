@@ -12,6 +12,13 @@ SPDX agregado de la release.
 - API, worker y web tienen identidades distintas y no flotantes.
 - Los locks Python contienen versiones y hashes; npm aporta `integrity`.
 - El commit, los inputs y la cabeza de migraciones son reproducibles.
+- Cada origen local de cada instrucción `COPY` está dentro de un input
+  adjudicado. El validador extrae los orígenes desde los Dockerfiles, ignora
+  únicamente copias entre etapas y falla cerrado ante `ADD`, glob, variables,
+  heredoc o sintaxis de flags que no pueda interpretar.
+- Los inputs son árboles disjuntos, no una lista manual de algunos archivos:
+  así también quedan ligados tests, configuración de build, bootstrap de base
+  de datos y archivos públicos que efectivamente entran en las imágenes.
 - Los digests de fuente y locks se calculan sobre blobs Git, por lo que un
   checkout limpio con CRLF en Windows verifica el mismo commit construido con
   LF en Linux; el bundle no confunde filtros locales con código distinto.

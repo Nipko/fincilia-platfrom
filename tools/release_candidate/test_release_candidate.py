@@ -20,6 +20,7 @@ from .model import (
     clean_git_state,
     create_bundle,
     digest_source_input,
+    load_contract,
     npm_packages,
     python_packages,
     verify_bundle,
@@ -61,11 +62,8 @@ def contract() -> dict:
         },
         "schema_version": "1.1.0",
         "source_inputs": [
-            "apps/api/Dockerfile", "apps/api/requirements.txt", "apps/api/src",
-            "apps/web/Dockerfile", "apps/web/package-lock.json", "apps/web/src",
-            "db/migrations", "packages/contracts/python", "packages/platform/python",
-            "workers/document/Dockerfile", "workers/document/requirements.txt",
-            "workers/document/src",
+            "apps/api", "apps/web", "db", "packages/contracts/python",
+            "packages/platform/python", "workers/document",
         ],
         "state": "review_pending", "task": "FNC-REL-001",
         "workflow": {
@@ -94,9 +92,27 @@ class RepositoryFixture:
         write(self.root / "docs/platform/release-candidate.json",
               json.dumps(contract(), sort_keys=True))
         write(self.root / ".gitattributes", "* text=auto eol=lf\n")
-        for path in ("apps/api/Dockerfile", "apps/web/Dockerfile",
-                     "workers/document/Dockerfile"):
-            write(self.root / path, "FROM scratch@sha256:" + "c" * 64 + "\n")
+        dockerfiles = {
+            "apps/api/Dockerfile": (
+                "FROM scratch@sha256:" + "c" * 64 + "\n"
+                "COPY apps/api/requirements.txt /app/requirements.txt\n"
+                "COPY apps/api/src /app/src\n"
+            ),
+            "apps/web/Dockerfile": (
+                "FROM scratch@sha256:" + "c" * 64 + " AS build\n"
+                "COPY apps/web/package-lock.json /app/package-lock.json\n"
+                "COPY [\"apps/web/src\", \"/app/src\"]\n"
+                "FROM scratch@sha256:" + "d" * 64 + "\n"
+                "COPY --from=build /app/src /app/src\n"
+            ),
+            "workers/document/Dockerfile": (
+                "FROM scratch@sha256:" + "c" * 64 + "\n"
+                "COPY workers/document/requirements.txt /app/requirements.txt\n"
+                "COPY workers/document/src /app/src\n"
+            ),
+        }
+        for path, content in dockerfiles.items():
+            write(self.root / path, content)
         write(self.root / "apps/api/requirements.txt", requirement)
         write(self.root / "workers/document/requirements.txt", requirement)
         write(self.root / "apps/web/package-lock.json", json.dumps(lock, sort_keys=True))
@@ -272,6 +288,56 @@ class ReleaseBundleTests(unittest.TestCase):
         for value in ("../repo", "apps/../apps/api", "/absolute", "apps\\api"):
             with self.subTest(value=value), self.assertRaises(ReleaseError):
                 digest_source_input(self.fixture.root, value)
+
+    def test_uncovered_docker_copy_source_is_rejected(self) -> None:
+        write(self.fixture.root / "scripts/bootstrap.sh", "#!/bin/sh\nexit 0\n")
+        dockerfile = self.fixture.root / "apps/api/Dockerfile"
+        write(dockerfile, dockerfile.read_text() + "COPY scripts/bootstrap.sh /app/bootstrap.sh\n")
+        git(self.fixture.root, "add", ".")
+        git(self.fixture.root, "-c", "user.name=Fincilia Test",
+            "-c", "user.email=synthetic@demo.local", "commit", "-qm", "uncovered copy")
+        with self.assertRaisesRegex(ReleaseError, "not covered"):
+            self.fixture.create(self.bundle)
+
+    def test_overlapping_source_inputs_are_rejected(self) -> None:
+        for index, reverse in enumerate((False, True)):
+            payload = contract()
+            if reverse:
+                payload["source_inputs"].insert(0, "apps/api/src")
+            else:
+                payload["source_inputs"].append("apps/api/src")
+            write(self.fixture.root / "docs/platform/release-candidate.json",
+                  json.dumps(payload, sort_keys=True))
+            git(self.fixture.root, "add", ".")
+            git(self.fixture.root, "-c", "user.name=Fincilia Test",
+                "-c", "user.email=synthetic@demo.local", "commit", "-qm",
+                f"overlap-{index}")
+            with self.assertRaisesRegex(ReleaseError, "overlapping"):
+                self.fixture.create(self.base / f"overlap-{index}")
+
+    def test_add_and_dynamic_copy_are_rejected_fail_closed(self) -> None:
+        dockerfile = self.fixture.root / "apps/api/Dockerfile"
+        for index, instruction in enumerate((
+            "ADD apps/api/src /app/src\n",
+            "COPY apps/api/src/*.py /app/src\n",
+            "COPY --chown 10001 apps/api/src /app/src\n",
+        )):
+            with self.subTest(instruction=instruction):
+                write(dockerfile, "FROM scratch@sha256:" + "c" * 64 + "\n" + instruction)
+                git(self.fixture.root, "add", ".")
+                git(self.fixture.root, "-c", "user.name=Fincilia Test",
+                    "-c", "user.email=synthetic@demo.local", "commit", "-qm",
+                    f"unsupported-{index}")
+                with self.assertRaises(ReleaseError):
+                    self.fixture.create(self.base / f"unsupported-{index}")
+
+    def test_repository_contract_covers_every_current_local_copy(self) -> None:
+        root = Path(__file__).resolve().parents[2]
+        loaded = load_contract(root)
+        self.assertEqual(loaded["source_inputs"], [
+            "apps/api", "apps/web", "db", "packages/contracts/python",
+            "packages/platform/python", "workers/document",
+        ])
 
     def test_source_verification_rejects_a_different_commit(self) -> None:
         self.fixture.create(self.bundle)

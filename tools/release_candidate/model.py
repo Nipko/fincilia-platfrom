@@ -12,6 +12,7 @@ import base64
 import hashlib
 import json
 import re
+import shlex
 import subprocess
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -37,6 +38,11 @@ AGGREGATE_SBOM_NAME = "release-dependencies.spdx.json"
 EXPECTED_FILES = frozenset({
     MANIFEST_NAME, CHECKSUM_NAME, AGGREGATE_SBOM_NAME, *SBOM_NAMES.values(),
 })
+DOCKERFILES = {
+    "api": "apps/api/Dockerfile",
+    "worker": "workers/document/Dockerfile",
+    "web": "apps/web/Dockerfile",
+}
 
 
 class ReleaseError(ValueError):
@@ -133,6 +139,145 @@ def _resolved(root: Path, relative: str) -> Path:
     return resolved
 
 
+def _docker_instructions(text: str, dockerfile: str) -> Iterable[str]:
+    """Yield canonical logical Dockerfile instructions.
+
+    Continuations are supported, but parser directives and heredocs are not:
+    accepting syntax we do not understand would turn source coverage into a
+    best-effort claim.
+    """
+    buffer = ""
+    for raw in text.splitlines():
+        stripped = raw.strip()
+        if not buffer and (not stripped or stripped.startswith("#")):
+            continue
+        if stripped.startswith("#"):
+            raise ReleaseError(f"comment inside continued instruction: {dockerfile}")
+        if "<<" in stripped:
+            raise ReleaseError(f"Dockerfile heredocs are not supported: {dockerfile}")
+        if stripped.endswith("\\"):
+            buffer = f"{buffer} {stripped[:-1].strip()}".strip()
+            continue
+        instruction = f"{buffer} {stripped}".strip()
+        buffer = ""
+        if instruction:
+            yield instruction
+    if buffer:
+        raise ReleaseError(f"Dockerfile ends in an incomplete continuation: {dockerfile}")
+
+
+def _docker_copy_sources(root: Path, dockerfile: str) -> list[str]:
+    """Extract local COPY sources and fail closed on unsupported forms."""
+    try:
+        text = _git_blob(root, dockerfile).decode("utf-8")
+    except UnicodeDecodeError as error:
+        raise ReleaseError(f"Dockerfile is not UTF-8: {dockerfile}") from error
+
+    sources: list[str] = []
+    for instruction in _docker_instructions(text, dockerfile):
+        match = re.match(r"^([A-Za-z]+)(?:\s+(.*))?$", instruction, re.DOTALL)
+        if match is None:
+            raise ReleaseError(f"Dockerfile instruction is malformed: {dockerfile}")
+        operation, rest = match.group(1).upper(), (match.group(2) or "").strip()
+        if operation == "ADD":
+            raise ReleaseError(f"ADD is forbidden in release Dockerfiles: {dockerfile}")
+        if operation != "COPY":
+            continue
+        if not rest:
+            raise ReleaseError(f"COPY has no arguments: {dockerfile}")
+
+        from_stage = False
+        while rest.startswith("--"):
+            flag = re.match(r"^--([a-z][a-z-]*)=([^\s]+)\s+(.*)$", rest, re.DOTALL)
+            if flag is None:
+                raise ReleaseError(f"unsupported COPY flag syntax: {dockerfile}")
+            name, _value, rest = flag.groups()
+            if name == "from":
+                from_stage = True
+            rest = rest.strip()
+        if from_stage:
+            continue
+
+        if rest.startswith("["):
+            try:
+                arguments = json.loads(rest)
+            except json.JSONDecodeError as error:
+                raise ReleaseError(f"COPY JSON syntax is invalid: {dockerfile}") from error
+            if (not isinstance(arguments, list) or len(arguments) < 2
+                    or any(not isinstance(item, str) for item in arguments)):
+                raise ReleaseError(f"COPY JSON arguments are invalid: {dockerfile}")
+        else:
+            try:
+                arguments = shlex.split(rest, posix=True)
+            except ValueError as error:
+                raise ReleaseError(f"COPY shell syntax is invalid: {dockerfile}") from error
+            if len(arguments) < 2:
+                raise ReleaseError(f"COPY must have a source and destination: {dockerfile}")
+
+        for source in arguments[:-1]:
+            canonical = _safe_relative(source)
+            if canonical.as_posix() != source:
+                raise ReleaseError(f"COPY source is not canonical: {source}")
+            if any(character in source for character in ("$", "*", "?", "[", "]")):
+                raise ReleaseError(f"dynamic COPY source is not supported: {source}")
+            sources.append(source)
+    return sources
+
+
+def _covered_by_source_input(root: Path, source: str, declared: str) -> bool:
+    source_path = _resolved(root, source)
+    declared_path = _resolved(root, declared)
+    if source_path == declared_path:
+        return True
+    if not declared_path.is_dir():
+        return False
+    try:
+        source_path.relative_to(declared_path)
+    except ValueError:
+        return False
+    return True
+
+
+def validate_docker_source_coverage(root: Path, contract: dict[str, Any]) -> None:
+    """Prove every local byte selected by Docker COPY is a declared input."""
+    declared = contract.get("source_inputs")
+    if (not isinstance(declared, list) or not declared
+            or any(not isinstance(item, str) for item in declared)
+            or len(set(declared)) != len(declared)):
+        raise ReleaseError("source inputs must be a non-empty unique string list")
+    for item in declared:
+        _tracked_files(root, item)
+
+    for index, left in enumerate(declared):
+        left_path = _resolved(root, left)
+        for right in declared[index + 1:]:
+            right_path = _resolved(root, right)
+            for parent, child in ((left_path, right_path), (right_path, left_path)):
+                if not parent.is_dir():
+                    continue
+                try:
+                    child.relative_to(parent)
+                except ValueError:
+                    continue
+                raise ReleaseError(
+                    f"overlapping source inputs are ambiguous: {left}, {right}")
+
+    for scope, dockerfile in DOCKERFILES.items():
+        if not any(_covered_by_source_input(root, dockerfile, item) for item in declared):
+            raise ReleaseError(f"Dockerfile is not covered by source inputs: {scope}")
+        for source in _docker_copy_sources(root, dockerfile):
+            path = _resolved(root, source)
+            if not path.exists():
+                raise ReleaseError(f"COPY source is absent: {source}")
+            if not any(_covered_by_source_input(root, source, item) for item in declared):
+                raise ReleaseError(
+                    f"COPY source is not covered by release inputs: {scope}:{source}")
+
+    for scope, lock in contract.get("dependency_locks", {}).items():
+        if not any(_covered_by_source_input(root, lock, item) for item in declared):
+            raise ReleaseError(f"dependency lock is not covered by source inputs: {scope}")
+
+
 def load_contract(root: Path) -> dict[str, Any]:
     path = _resolved(root, CONTRACT_PATH.as_posix())
     try:
@@ -157,6 +302,7 @@ def load_contract(root: Path) -> dict[str, Any]:
         "provenance_verified": False, "production_authorized": False,
     }:
         raise ReleaseError("contract attempts to claim an unproved release property")
+    validate_docker_source_coverage(root, contract)
     return contract
 
 

@@ -96,7 +96,9 @@ revisión independiente continúan bloqueantes.
 
 - **AC-01.** El bundle se genera sólo desde árbol Git limpio y commit completo.
 - **AC-02.** Cada lock de producto produce un SPDX determinista; inputs, salidas
-  y Dockerfiles quedan ligados por SHA-256.
+  y Dockerfiles quedan ligados por SHA-256. El validador extrae todos los
+  orígenes locales de `COPY` y rechaza cualquier origen no cubierto o sintaxis
+  que no pueda adjudicar sin ambigüedad.
 - **AC-03.** Verificar detecta modificación, omisión, duplicado, ruta ambigua,
   digest inválido, versión flotante y evidencia inexistente.
 - **AC-04.** El manifiesto separa `candidate` de `approved`; el agente nunca puede

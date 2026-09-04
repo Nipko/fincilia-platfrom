@@ -19,18 +19,12 @@
   },
   "schema_version": "1.1.0",
   "source_inputs": [
-    "apps/api/Dockerfile",
-    "apps/api/requirements.txt",
-    "apps/api/src",
-    "apps/web/Dockerfile",
-    "apps/web/package-lock.json",
-    "apps/web/src",
-    "db/migrations",
+    "apps/api",
+    "apps/web",
+    "db",
     "packages/contracts/python",
     "packages/platform/python",
-    "workers/document/Dockerfile",
-    "workers/document/requirements.txt",
-    "workers/document/src"
+    "workers/document"
   ],
   "state": "review_pending",
   "task": "FNC-REL-001",
