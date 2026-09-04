@@ -25,7 +25,8 @@ foundation fria ya cotizada: cero borrados planificados, servicios ECS en cero
 y `real_data_authorized=false`.
 
 - Permitidas: `infra/aws/private-pilot`, `tools/aws_pilot_control`,
-  `tools/aws_private_pilot`, `tools/aws_image_publication`, documentación de
+  `tools/aws_private_pilot`, `tools/aws_image_publication`,
+  `tools/identity_readiness`, documentación de
   plataforma, evidencia, esta ficha, handoff, backlog y `CURRENT_PHASE.md`.
 - Prohibidas: reducir retención o aislamiento para satisfacer el plan gratuito,
   activar tareas ECS, publicar datos reales, poblar secretos en archivos,

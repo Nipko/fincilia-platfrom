@@ -209,8 +209,13 @@ jobs:
             repository="fincilia/private-pilot/${name}"
             aws ecr wait image-scan-complete \
               --repository-name "$repository" --image-id "imageDigest=${digest}"
+            resolved_digest="$(aws ecr describe-images \
+              --repository-name "$repository" \
+              --image-ids "imageTag=${RELEASE_SHA}" \
+              --query 'imageDetails[0].imageDigest' --output text)"
+            test "$resolved_digest" = "$digest"
             aws ecr describe-image-scan-findings \
-              --repository-name "$repository" --image-id "imageDigest=${digest}" \
+              --repository-name "$repository" --image-id "imageTag=${RELEASE_SHA}" \
               > "$RUNNER_TEMP/${name}-scan.json"
           done
 

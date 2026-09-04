@@ -17,6 +17,17 @@ class TofuIdentityDiscoveryTests(unittest.TestCase):
             "cognito_domain": {"value": "domain-sensitive"},
         })
 
+    def private_pilot_outputs(self) -> str:
+        return json.dumps({
+            "cognito": {"value": {
+                "user_pool_id": "pool-private",
+                "web_client_id": "client-private",
+                "hosted_ui_domain": (
+                    "https://fincilia-private.auth.sa-east-1.amazoncognito.com"
+                ),
+            }},
+        })
+
     @patch("tools.identity_readiness.tofu.subprocess.run")
     def test_discovers_in_memory_with_shell_disabled(self, run) -> None:
         run.return_value = subprocess.CompletedProcess(
@@ -47,6 +58,34 @@ class TofuIdentityDiscoveryTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "incomplete"):
             discover_identity(
                 directory=ROOT / "infra" / "aws" / "t0",
+                profile="fincilia-sandbox", region="sa-east-1")
+
+    @patch("tools.identity_readiness.tofu.subprocess.run")
+    def test_discovers_private_pilot_compound_output_without_serializing_it(
+            self, run) -> None:
+        payload = json.loads(self.private_pilot_outputs())["cognito"]["value"]
+        run.return_value = subprocess.CompletedProcess(
+            [], 0, stdout=json.dumps(payload), stderr="")
+        result = discover_identity(
+            directory=ROOT / "infra" / "aws" / "private-pilot",
+            profile="fincilia-sandbox", region="sa-east-1")
+        self.assertEqual({
+            "user_pool_id": "pool-private",
+            "client_id": "client-private",
+            "domain_prefix": "fincilia-private",
+        }, result)
+        self.assertEqual("cognito", run.call_args.args[0][-1])
+
+    @patch("tools.identity_readiness.tofu.subprocess.run")
+    def test_private_pilot_domain_for_another_region_is_rejected(self, run) -> None:
+        payload = json.loads(self.private_pilot_outputs())["cognito"]["value"]
+        payload["hosted_ui_domain"] = (
+            "https://fincilia-private.auth.us-east-1.amazoncognito.com")
+        run.return_value = subprocess.CompletedProcess(
+            [], 0, stdout=json.dumps(payload), stderr="")
+        with self.assertRaisesRegex(RuntimeError, "invalid"):
+            discover_identity(
+                directory=ROOT / "infra" / "aws" / "private-pilot",
                 profile="fincilia-sandbox", region="sa-east-1")
 
     def test_directory_outside_repository_is_rejected(self) -> None:

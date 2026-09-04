@@ -10,6 +10,7 @@ from .cli import main
 from .model import (
     CONTRACT_PATH,
     EXPECTED_SUBJECT,
+    WORKFLOW_PATH,
     PublicationError,
     build_manifest,
     load_json,
@@ -420,6 +421,12 @@ class PublicationManifestTests(unittest.TestCase):
             "environment:private-pilot",
             EXPECTED_SUBJECT,
         )
+
+    def test_workflow_preserves_tag_and_digest_scan_binding(self) -> None:
+        workflow = WORKFLOW_PATH.read_text(encoding="utf-8")
+        self.assertIn('--image-ids "imageTag=${RELEASE_SHA}"', workflow)
+        self.assertIn('test "$resolved_digest" = "$digest"', workflow)
+        self.assertIn('--image-id "imageTag=${RELEASE_SHA}"', workflow)
 
 
 if __name__ == "__main__":

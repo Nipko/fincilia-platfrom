@@ -202,6 +202,9 @@ def validate_sources(
         "allowed-account-ids: 632144225293",
         "role-duration-seconds: 3600",
         "aws ecr wait image-scan-complete",
+        '--image-ids "imageTag=${RELEASE_SHA}"',
+        'test "$resolved_digest" = "$digest"',
+        '--image-id "imageTag=${RELEASE_SHA}"',
         "tools.aws_image_publication.cli manifest",
         'FINCILIA_REAL_DATA_ENABLED: "false"',
     )

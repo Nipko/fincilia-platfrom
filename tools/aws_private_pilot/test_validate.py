@@ -387,6 +387,13 @@ class PrivatePilotContractTests(unittest.TestCase):
         self.assertTrue(any("default route" in item
                             for item in validate_sources(candidate)))
 
+    def test_source_mutation_running_api_as_worker_uid_dies(self) -> None:
+        candidate = source_text().replace(
+            'user                   = "10001"',
+            'user                   = "10002"', 1)
+        self.assertTrue(any("UID 10001" in item
+                            for item in validate_sources(candidate)))
+
 
 if __name__ == "__main__":
     unittest.main()

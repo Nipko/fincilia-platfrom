@@ -180,7 +180,7 @@ resource "aws_ecs_task_definition" "application" {
       image                  = var.api_image
       essential              = true
       readonlyRootFilesystem = true
-      user                   = "10002"
+      user                   = "10001"
       environment            = local.api_environment
       secrets                = local.api_secrets
       portMappings           = [{ containerPort = 8000, hostPort = 8000, protocol = "tcp" }]
@@ -297,7 +297,7 @@ resource "aws_ecs_task_definition" "migrator" {
     image                  = var.api_image
     essential              = true
     readonlyRootFilesystem = true
-    user                   = "10002"
+    user                   = "10001"
     entryPoint             = ["sh", "-c"]
     command                = ["exec python -m db.migrate.apply --dsn \"$${FINCILIA_MIGRATOR_URL}\""]
     environment = [

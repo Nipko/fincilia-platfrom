@@ -19,7 +19,8 @@ class AwsCliCognito:
         self.profile = profile
         self.region = region
 
-    def _call(self, operation: str, arguments: list[str]) -> dict[str, Any]:
+    def _call(self, operation: str, arguments: list[str], *,
+              missing_is_empty: bool = False) -> dict[str, Any]:
         values = [operation, *arguments]
         if any(not SAFE_ARGUMENT.fullmatch(value) for value in values):
             raise ValueError("invalid AWS Cognito selector")
@@ -34,8 +35,11 @@ class AwsCliCognito:
                 timeout=20, check=False, shell=False)
         except (OSError, subprocess.SubprocessError) as error:
             raise RuntimeError("AWS control plane request failed") from error
-        if completed.returncode != 0 or len(completed.stdout.encode("utf-8")) \
-                > MAX_RESPONSE_BYTES:
+        if completed.returncode != 0:
+            if missing_is_empty and "ResourceNotFoundException" in completed.stderr:
+                return {}
+            raise RuntimeError("AWS control plane request failed")
+        if len(completed.stdout.encode("utf-8")) > MAX_RESPONSE_BYTES:
             raise RuntimeError("AWS control plane request failed")
         try:
             value = json.loads(completed.stdout)
@@ -55,10 +59,11 @@ class AwsCliCognito:
         ])
 
     def describe_identity_provider(self, **kwargs: Any) -> dict[str, Any]:
-        return self._call("describe-identity-provider", [
+        result = self._call("describe-identity-provider", [
             "--user-pool-id", kwargs["UserPoolId"],
             "--provider-name", kwargs["ProviderName"],
-        ])
+        ], missing_is_empty=True)
+        return result or {"IdentityProvider": {}}
 
     def describe_user_pool_domain(self, **kwargs: Any) -> dict[str, Any]:
         return self._call("describe-user-pool-domain", ["--domain", kwargs["Domain"]])

@@ -31,6 +31,26 @@ class AwsCliAdapterTests(unittest.TestCase):
             client.describe_user_pool(UserPoolId="sa-east-1_Example123")
         self.assertNotIn("secret-provider-detail", str(raised.exception))
 
+    @patch("tools.identity_readiness.aws_cli.subprocess.run")
+    def test_missing_google_provider_becomes_a_redacted_failed_check(self, run) -> None:
+        run.return_value = subprocess.CompletedProcess(
+            [], 254, stdout="", stderr="ResourceNotFoundException: hidden")
+        client = AwsCliCognito(profile="fincilia-sandbox", region="sa-east-1")
+        self.assertEqual(
+            {"IdentityProvider": {}},
+            client.describe_identity_provider(
+                UserPoolId="sa-east-1_Example123", ProviderName="Google"),
+        )
+
+    @patch("tools.identity_readiness.aws_cli.subprocess.run")
+    def test_access_denied_is_not_misreported_as_missing_provider(self, run) -> None:
+        run.return_value = subprocess.CompletedProcess(
+            [], 254, stdout="", stderr="AccessDeniedException: hidden")
+        client = AwsCliCognito(profile="fincilia-sandbox", region="sa-east-1")
+        with self.assertRaisesRegex(RuntimeError, "control plane request failed"):
+            client.describe_identity_provider(
+                UserPoolId="sa-east-1_Example123", ProviderName="Google")
+
     def test_rejects_shell_metacharacters_before_execution(self) -> None:
         with self.assertRaises(ValueError):
             AwsCliCognito(profile="fincilia;evil", region="sa-east-1")

@@ -218,6 +218,10 @@ def validate_sources(sources: str | None = None) -> list[str]:
         errors.append("API, worker y migrator deben declarar datos reales apagados")
     if sources.count('assign_public_ip = false') != 2:
         errors.append("app y worker deben declarar assign_public_ip=false")
+    if sources.count('user                   = "10001"') != 2:
+        errors.append("API y migrator deben ejecutar con el UID 10001 de su imagen")
+    if sources.count('user                   = "10002"') != 2:
+        errors.append("web y worker deben ejecutar con el UID 10002 de sus imagenes")
     forbidden = (
         'FINCILIA_REAL_DATA_ENABLED", value = "true"',
         'FINCILIA_AI_GATEWAY_ENABLED", value = "true"',
