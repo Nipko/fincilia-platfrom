@@ -6,7 +6,10 @@ import sys
 from pathlib import Path
 
 
-IMAGE = "python:3.12@sha256:a116514e19457bcb7af7efe9c3dd0b9b71e85b317694e7882a1c52aa15a78134"
+IMAGE = (
+    "python:3.12-alpine3.23@sha256:"
+    "f0b72408d0c2ee5cf1df64adce9b92ab4f2d3c8cfbb879ac5ab1d0ec07208555"
+)
 
 
 def validate_compose(path: Path) -> list[str]:

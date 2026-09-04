@@ -1,5 +1,5 @@
 # Imagen de la API. Base fijada por digest: una etiqueta puede reapuntarse.
-FROM python@sha256:a116514e19457bcb7af7efe9c3dd0b9b71e85b317694e7882a1c52aa15a78134
+FROM python:3.12-alpine3.23@sha256:f0b72408d0c2ee5cf1df64adce9b92ab4f2d3c8cfbb879ac5ab1d0ec07208555
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -25,7 +25,7 @@ COPY apps/api/tests /app/tests
 COPY workers/document/src /app/worker_src
 
 # El proceso no corre como root: un upload malicioso no debe encontrarse uid 0.
-RUN useradd --system --uid 10001 --create-home fincilia
+RUN adduser --system --uid 10001 --home /home/fincilia fincilia
 USER 10001
 
 EXPOSE 8000
