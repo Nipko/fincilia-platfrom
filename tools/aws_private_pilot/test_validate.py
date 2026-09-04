@@ -148,13 +148,39 @@ class PrivatePilotContractTests(unittest.TestCase):
             elif resource_type == "aws_budgets_budget":
                 after = {
                     "cost_filter": [],
+                    "cost_types": [{
+                        "include_credit": False,
+                        "include_discount": False,
+                        "include_other_subscription": True,
+                        "include_recurring": True,
+                        "include_refund": False,
+                        "include_subscription": True,
+                        "include_support": True,
+                        "include_tax": True,
+                        "include_upfront": True,
+                        "use_amortized": False,
+                        "use_blended": False,
+                    }],
                     "notification": [
                         {
                             "notification_type": "ACTUAL",
+                            "threshold": 50,
+                            "threshold_type": "PERCENTAGE",
+                            "comparison_operator": "GREATER_THAN",
+                            "subscriber_email_addresses": ["set-out-of-band"],
+                        },
+                        {
+                            "notification_type": "ACTUAL",
+                            "threshold": 80,
+                            "threshold_type": "PERCENTAGE",
+                            "comparison_operator": "GREATER_THAN",
                             "subscriber_email_addresses": ["set-out-of-band"],
                         },
                         {
                             "notification_type": "FORECASTED",
+                            "threshold": 100,
+                            "threshold_type": "PERCENTAGE",
+                            "comparison_operator": "GREATER_THAN",
                             "subscriber_email_addresses": ["set-out-of-band"],
                         },
                     ],
@@ -303,6 +329,32 @@ class PrivatePilotContractTests(unittest.TestCase):
         self.assertTrue(any("depender de tags" in item
                             for item in validate_plan(plan, self.model)))
 
+    def test_budget_including_credits_dies(self) -> None:
+        plan = self.valid_plan()
+        budget = next(item for item in plan["resource_changes"]
+                      if item["type"] == "aws_budgets_budget")
+        budget["change"]["after"]["cost_types"][0]["include_credit"] = True
+        self.assertTrue(any("antes de creditos" in item
+                            for item in validate_plan(plan, self.model)))
+
+    def test_budget_without_early_actual_alert_dies(self) -> None:
+        plan = self.valid_plan()
+        budget = next(item for item in plan["resource_changes"]
+                      if item["type"] == "aws_budgets_budget")
+        budget["change"]["after"]["notification"].pop(0)
+        self.assertTrue(any("ACTUAL 50/80" in item
+                            for item in validate_plan(plan, self.model)))
+
+    def test_budget_contract_cannot_hide_credits_or_early_alert(self) -> None:
+        hidden = self.mutate(
+            "observability", "budget_measurement", value="net_after_credits")
+        self.assertTrue(any("antes de creditos" in item
+                            for item in validate_contract(hidden)))
+        missing = copy.deepcopy(self.model)
+        missing["observability"]["budget_notifications"].pop(0)
+        self.assertTrue(any("50/80/100" in item
+                            for item in validate_contract(missing)))
+
     def test_plan_with_public_ecs_task_dies(self) -> None:
         plan = self.valid_plan()
         service = next(item for item in plan["resource_changes"]
@@ -385,6 +437,14 @@ class PrivatePilotContractTests(unittest.TestCase):
             '\nresource "aws_route" "worker_internet" {\n'
             ' destination_cidr_block = "0.0.0.0/0"\n}\n')
         self.assertTrue(any("default route" in item
+                            for item in validate_sources(candidate)))
+
+    def test_source_mutation_mixing_inline_and_standalone_egress_dies(self) -> None:
+        candidate = source_text() + (
+            '\nresource "aws_security_group" "mixed" {\n'
+            '  egress = []\n}\n'
+        )
+        self.assertTrue(any("mezclar egress inline" in item
                             for item in validate_sources(candidate)))
 
     def test_source_mutation_running_api_as_worker_uid_dies(self) -> None:

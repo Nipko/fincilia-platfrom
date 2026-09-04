@@ -1,7 +1,7 @@
 ---
 id: FNC-PLT-015
 title: Materializacion segura de la foundation private-pilot AWS
-status: in_progress
+status: review_pending
 implementer: Codex principal dev + Integration Steward
 base_sha: 5967f3e72303e01aa3de2e87eee4a62ac79aa214
 gate: DRG-00/DRG-01
@@ -66,3 +66,13 @@ y `real_data_authorized=false`.
 Upgrade comercial de la cuenta, DNS de ACM/ALB, ejecutar la carga del valor
 Google o valores de base, runtime caliente, migraciones, restore target,
 pentest, revisiones humanas y activación de datos reales.
+
+# Resultado observado R2
+
+- Cuenta comercial `PAID/ACTIVE` y preflight habilitado sin relajar controles.
+- Foundation fría completa `36/36`, estado administrado con 165 recursos y
+  runtime ausente `0/11`.
+- RDS privado, cifrado, protegido, con 14 días de backup y estado `stopped`.
+- Plan frío posterior al apply: `147 no-op`; Google quedó preparado por la
+  tarea de identidad separada.
+- Revisiones independientes, runtime, drills y DRG-00/01 permanecen pendientes.

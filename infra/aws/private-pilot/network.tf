@@ -146,7 +146,6 @@ resource "aws_security_group" "endpoints" {
   name        = "${local.name}-endpoints"
   description = "PrivateLink solo desde el worker aislado"
   vpc_id      = aws_vpc.pilot.id
-  egress      = []
 }
 
 resource "aws_vpc_security_group_ingress_rule" "endpoints_worker" {
@@ -175,7 +174,6 @@ resource "aws_security_group" "alb" {
   name        = "${local.name}-alb"
   description = "Unica entrada publica del piloto"
   vpc_id      = aws_vpc.pilot.id
-  egress      = []
 }
 
 resource "aws_vpc_security_group_ingress_rule" "alb_http" {
@@ -198,7 +196,6 @@ resource "aws_security_group" "application" {
   name        = "${local.name}-application"
   description = "Web y API privados detras del ALB"
   vpc_id      = aws_vpc.pilot.id
-  egress      = []
 }
 
 resource "aws_vpc_security_group_egress_rule" "alb_web" {
@@ -246,7 +243,6 @@ resource "aws_security_group" "worker" {
   name        = "${local.name}-worker"
   description = "Sin ingress ni salida general a Internet"
   vpc_id      = aws_vpc.pilot.id
-  egress      = []
 }
 
 resource "aws_vpc_security_group_egress_rule" "worker_endpoints" {
@@ -285,7 +281,6 @@ resource "aws_security_group" "database" {
   name        = "${local.name}-database"
   description = "PostgreSQL solo desde app y worker"
   vpc_id      = aws_vpc.pilot.id
-  egress      = []
 }
 
 resource "aws_vpc_security_group_ingress_rule" "database_application" {
@@ -324,7 +319,6 @@ resource "aws_security_group" "cache" {
   name        = "${local.name}-cache"
   description = "Valkey solo desde app y worker"
   vpc_id      = aws_vpc.pilot.id
-  egress      = []
 }
 
 resource "aws_vpc_security_group_ingress_rule" "cache_application" {

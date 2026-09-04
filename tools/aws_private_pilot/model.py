@@ -154,6 +154,24 @@ def validate_contract(model: dict[str, Any]) -> list[str]:
     if observability.get("audit_evidence_encryption") != \
             "SSE-KMS_customer_managed":
         errors.append("la evidencia de auditoria debe usar CMK")
+    if observability.get("budget_is_hard_cap") is not False:
+        errors.append("AWS Budgets no puede declararse como hard cap")
+    if observability.get("budget_scope") != \
+            "account_wide_until_cost_allocation_tags_are_activated":
+        errors.append("el presupuesto bruto debe declarar alcance account-wide")
+    if observability.get("budget_measurement") != \
+            "gross_before_credits_discounts_and_refunds":
+        errors.append("el presupuesto debe medir gasto bruto antes de creditos")
+    notifications = observability.get("budget_notifications") or []
+    expected_notifications = {
+        ("ACTUAL", 50), ("ACTUAL", 80), ("FORECASTED", 100),
+    }
+    actual_notifications = {
+        (item.get("type"), item.get("threshold_percent"))
+        for item in notifications if isinstance(item, dict)
+    }
+    if len(notifications) != 3 or actual_notifications != expected_notifications:
+        errors.append("el contrato requiere alertas brutas 50/80/100")
 
     required = set(model.get("required_resource_types", []))
     forbidden = set(model.get("forbidden_resource_types", []))
@@ -207,6 +225,10 @@ def validate_sources(sources: str | None = None) -> list[str]:
         'resource "aws_wafv2_web_acl_association" "pilot"',
         'resource "aws_cloudtrail" "pilot"',
         'variable "budget_alert_email"',
+        'include_credit             = false',
+        'include_discount           = false',
+        'include_refund             = false',
+        'threshold                  = 50',
         'notification_type          = "ACTUAL"',
         'notification_type          = "FORECASTED"',
         'subscriber_email_addresses = [var.budget_alert_email]',
@@ -246,6 +268,13 @@ def validate_sources(sources: str | None = None) -> list[str]:
     for token in forbidden:
         if token in sources:
             errors.append(f"fuente contiene patron prohibido: {token}")
+    if 'resource "aws_vpc_security_group_egress_rule"' in sources and re.search(
+        r'^\s*egress\s*(?:=|\{)', sources, re.MULTILINE
+    ):
+        errors.append(
+            "security groups no pueden mezclar egress inline con reglas "
+            "aws_vpc_security_group_egress_rule"
+        )
     if re.search(
         r'resource\s+"aws_route"\s+"(?:worker|data)[^"]*"\s*\{[^}]*'
         r'destination_cidr_block\s*=\s*"0\.0\.0\.0/0"',
@@ -396,17 +425,43 @@ def validate_plan(plan: dict[str, Any], model: dict[str, Any]) -> list[str]:
             if after.get("cost_filter"):
                 errors.append(
                     f"{address}: el presupuesto bruto no puede depender de tags")
+            cost_types = after.get("cost_types") or []
+            cost_type = cost_types[0] if len(cost_types) == 1 else {}
+            excluded_offsets = ("include_credit", "include_discount", "include_refund")
+            included_charges = (
+                "include_other_subscription", "include_recurring",
+                "include_subscription", "include_support", "include_tax",
+                "include_upfront",
+            )
+            if (len(cost_types) != 1
+                    or any(cost_type.get(field) is not False for field in excluded_offsets)
+                    or any(cost_type.get(field) is not True for field in included_charges)
+                    or cost_type.get("use_amortized") is not False
+                    or cost_type.get("use_blended") is not False):
+                errors.append(
+                    f"{address}: el presupuesto debe medir costo bruto antes de creditos")
             notifications = after.get("notification") or []
-            kinds = {entry.get("notification_type") for entry in notifications}
+            actual_notifications = {
+                (
+                    entry.get("notification_type"), entry.get("threshold"),
+                    entry.get("threshold_type"), entry.get("comparison_operator"),
+                )
+                for entry in notifications
+            }
+            expected_notifications = {
+                ("ACTUAL", 50, "PERCENTAGE", "GREATER_THAN"),
+                ("ACTUAL", 80, "PERCENTAGE", "GREATER_THAN"),
+                ("FORECASTED", 100, "PERCENTAGE", "GREATER_THAN"),
+            }
             subscribers = [
                 mailbox
                 for entry in notifications
                 for mailbox in (entry.get("subscriber_email_addresses") or [])
             ]
-            if kinds != {"ACTUAL", "FORECASTED"} or len(notifications) != 2:
+            if actual_notifications != expected_notifications or len(notifications) != 3:
                 errors.append(
-                    f"{address}: faltan alertas ACTUAL y FORECASTED")
-            if len(subscribers) != 2 or any(
+                    f"{address}: faltan alertas brutas ACTUAL 50/80 y FORECASTED 100")
+            if len(subscribers) != 3 or any(
                     not isinstance(item, str) or not item for item in subscribers):
                 errors.append(f"{address}: las alertas no tienen destinatario")
         elif resource_type == "aws_vpc":

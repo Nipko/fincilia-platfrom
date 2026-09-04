@@ -24,6 +24,13 @@ ese límite y el operador debe verificar/enfriar de nuevo antes del séptimo dí
 El almacenamiento RDS, snapshots, S3, KMS, Secrets Manager, ECR, CloudTrail y
 logs pueden seguir generando costo en `cold`; no se presenta como costo cero.
 
+El presupuesto administrado es una alarma account-wide, no un límite duro. Se
+mide antes de aplicar créditos, descuentos o reembolsos para que los créditos
+no oculten la velocidad de consumo. Envía avisos al alcanzar 50 % y 80 % del
+gasto real mensual y cuando el pronóstico supera 100 %. Hasta que las etiquetas
+de asignación de costos hayan sido activadas y madurado en Billing, no se filtra
+por tags: un filtro prematuro podría omitir recursos recién creados.
+
 ## Preparación local una sola vez
 
 Desde PowerShell, en la raíz del repositorio:

@@ -104,7 +104,14 @@
     "alb_access_log_encryption": "SSE-S3_AWS_ALB_constraint",
     "audit_evidence_encryption": "SSE-KMS_customer_managed",
     "budget_alert": true,
-    "budget_is_hard_cap": false
+    "budget_is_hard_cap": false,
+    "budget_scope": "account_wide_until_cost_allocation_tags_are_activated",
+    "budget_measurement": "gross_before_credits_discounts_and_refunds",
+    "budget_notifications": [
+      {"type":"ACTUAL","threshold_percent":50},
+      {"type":"ACTUAL","threshold_percent":80},
+      {"type":"FORECASTED","threshold_percent":100}
+    ]
   },
   "required_resource_types": [
     "aws_acm_certificate", "aws_budgets_budget", "aws_cloudtrail",
