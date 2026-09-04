@@ -104,6 +104,13 @@ resource "aws_secretsmanager_secret" "migrator" {
   recovery_window_in_days = 30
 }
 
+resource "aws_secretsmanager_secret" "database_roles" {
+  name                    = "fincilia/private-pilot/database-roles-v1"
+  description             = "Credenciales SCRAM de roles; solo las consume el bootstrap"
+  kms_key_id              = aws_kms_key.database.arn
+  recovery_window_in_days = 30
+}
+
 resource "aws_secretsmanager_secret" "google" {
   name                    = "fincilia/private-pilot/google-oidc-v1"
   description             = "Client secret Google; provision manual sin estado IaC"
@@ -139,6 +146,16 @@ resource "aws_iam_role" "worker" {
 
 resource "aws_iam_role" "migrator" {
   name               = "${local.name}-migrator"
+  assume_role_policy = data.aws_iam_policy_document.ecs_tasks_assume.json
+}
+
+resource "aws_iam_role" "bootstrap_execution" {
+  name               = "${local.name}-bootstrap-execution"
+  assume_role_policy = data.aws_iam_policy_document.ecs_tasks_assume.json
+}
+
+resource "aws_iam_role" "bootstrap" {
+  name               = "${local.name}-bootstrap"
   assume_role_policy = data.aws_iam_policy_document.ecs_tasks_assume.json
 }
 
@@ -183,6 +200,48 @@ resource "aws_iam_role_policy" "execution" {
   name   = "${local.name}-execution-minimum"
   role   = aws_iam_role.execution.id
   policy = data.aws_iam_policy_document.execution.json
+}
+
+data "aws_iam_policy_document" "bootstrap_execution" {
+  statement {
+    sid       = "PullExactApiRepository"
+    effect    = "Allow"
+    actions   = ["ecr:BatchCheckLayerAvailability", "ecr:BatchGetImage", "ecr:GetDownloadUrlForLayer"]
+    resources = [aws_ecr_repository.runtime["api"].arn]
+  }
+  statement {
+    sid       = "EcrAuthorization"
+    effect    = "Allow"
+    actions   = ["ecr:GetAuthorizationToken"]
+    resources = ["*"]
+  }
+  statement {
+    sid       = "WriteBootstrapLogGroup"
+    effect    = "Allow"
+    actions   = ["logs:CreateLogStream", "logs:PutLogEvents"]
+    resources = ["${aws_cloudwatch_log_group.runtime["bootstrap"].arn}:*"]
+  }
+  statement {
+    sid     = "ReadOnlyBootstrapCredentials"
+    effect  = "Allow"
+    actions = ["secretsmanager:GetSecretValue"]
+    resources = [
+      aws_db_instance.pilot.master_user_secret[0].secret_arn,
+      aws_secretsmanager_secret.database_roles.arn,
+    ]
+  }
+  statement {
+    sid       = "DecryptBootstrapCredentials"
+    effect    = "Allow"
+    actions   = ["kms:Decrypt"]
+    resources = [aws_kms_key.database.arn]
+  }
+}
+
+resource "aws_iam_role_policy" "bootstrap_execution" {
+  name   = "${local.name}-bootstrap-execution-minimum"
+  role   = aws_iam_role.bootstrap_execution.id
+  policy = data.aws_iam_policy_document.bootstrap_execution.json
 }
 
 data "aws_iam_policy_document" "application" {

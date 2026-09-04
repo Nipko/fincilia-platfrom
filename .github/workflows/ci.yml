@@ -36,6 +36,7 @@ jobs:
           tools.aws_beta.test_validate
           tools.aws_image_publication.test_model
           tools.aws_private_pilot.test_validate
+          tools.database_bootstrap.test_control
           tools.brand_clearance.test_validate
           tools.budget_model.test_validate
           tools.canonical_model.test_validate
@@ -50,6 +51,7 @@ jobs:
           tools.idempotency_model.test_validate
           tools.identity_readiness.test_aws_cli
           tools.identity_readiness.test_cli
+          tools.identity_readiness.test_configure_google
           tools.identity_readiness.test_probe
           tools.identity_readiness.test_tofu
           tools.lineage_model.test_validate
@@ -289,6 +291,44 @@ jobs:
           FINCILIA_LOCAL_LIFECYCLE_MODE=persisted docker compose --profile test run --rm lifecycle-test
       - name: Build product images
         run: docker compose --profile migrate build api worker web migrate
+
+      - name: Exercise role bootstrap against disposable PostgreSQL
+        run: |
+          set -euo pipefail
+          docker network create --internal fincilia-bootstrap-ci
+          docker run -d --name fincilia-bootstrap-ci-db \
+            --network fincilia-bootstrap-ci \
+            -e POSTGRES_DB=fincilia_bootstrap_test \
+            -e POSTGRES_USER=fincilia_bootstrap_admin \
+            -e POSTGRES_PASSWORD=fincilia_bootstrap_admin_only \
+            postgres:17.11-alpine3.24@sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73
+          for attempt in $(seq 1 30); do
+            if docker exec fincilia-bootstrap-ci-db pg_isready \
+              -U fincilia_bootstrap_admin -d fincilia_bootstrap_test; then
+              break
+            fi
+            test "$attempt" -lt 30
+            sleep 1
+          done
+          docker run --rm --network fincilia-bootstrap-ci --entrypoint python \
+            -e FINCILIA_BOOTSTRAP_DATABASE_URL=postgresql://fincilia_bootstrap_admin:fincilia_bootstrap_admin_only@fincilia-bootstrap-ci-db:5432/fincilia_bootstrap_test \
+            -e FINCILIA_DB_APP_PASSWORD=fincilia_synthetic_app_password_0001 \
+            -e FINCILIA_DB_WORKER_PASSWORD=fincilia_synthetic_worker_password_001 \
+            -e FINCILIA_DB_MIGRATOR_PASSWORD=fincilia_synthetic_migrator_pass_001 \
+            -e FINCILIA_REAL_DATA_ENABLED=false \
+            fincilia-local-api -m db.bootstrap.roles
+          docker run --rm --network fincilia-bootstrap-ci --entrypoint python \
+            -e FINCILIA_BOOTSTRAP_TEST_URL=postgresql://fincilia_bootstrap_admin:fincilia_bootstrap_admin_only@fincilia-bootstrap-ci-db:5432/fincilia_bootstrap_test \
+            -e FINCILIA_DB_APP_PASSWORD=fincilia_synthetic_app_password_0001 \
+            -e FINCILIA_DB_WORKER_PASSWORD=fincilia_synthetic_worker_password_001 \
+            -e FINCILIA_DB_MIGRATOR_PASSWORD=fincilia_synthetic_migrator_pass_001 \
+            fincilia-local-api -m unittest db.bootstrap.test_roles -v
+
+      - name: Cleanup disposable role-bootstrap database
+        if: always()
+        run: |
+          docker rm -f fincilia-bootstrap-ci-db 2>/dev/null || true
+          docker network rm fincilia-bootstrap-ci 2>/dev/null || true
 
       # Las suites que corren antes de `up.sh` necesitan mas que PostgreSQL: las
       # pruebas documentales hablan con el almacen de objetos y la API con la

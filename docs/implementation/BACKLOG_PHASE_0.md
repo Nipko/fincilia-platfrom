@@ -165,6 +165,7 @@ dependencias de `FNC-GAT-002` ni afirmar que Sprint 1 está habilitado.
 | FNC-PLT-012 | A2/A3/A4 | GAT-005, ARC-003, SEC-003, REL-001 | In progress | Foundation separada integrada; plan/apply y activación continúan bloqueados por DRG-00/01 |
 | FNC-PLT-013 | A2/A3/A4 | PLT-012, GAT-005 | Review pending | Plano de costo frío/encendido y controlador seguro integrados; aplicación y datos reales continúan bloqueados |
 | FNC-PLT-015 | A2/A3/A4/A5 | PLT-012, PLT-013, GAT-005, FIN-003 | In progress | Foundation fría aplicada parcialmente y reconciliada; 32/33 mínimos, RDS pendiente de upgrade directo a Paid plan sin rebajar backup de 14 días |
+| FNC-PLT-016 | A2/A3/A4/A5 | PLT-015, DB-002, GAT-005 | In progress | Bootstrap PostgreSQL de roles mínimos y secretos fuera de IaC; ejecución remota exige RDS, plano warm en cero y revisión independiente |
 | FNC-PLT-014 | A2 | PLT-012 | Review pending | Actividades AWS Credits completadas con USD 200 disponibles; laboratorio sintético retirado por completo |
 | FNC-IAM-001 | A3/A6 | ONB-002, SEC-001, LEG-002 | Review pending | Google y cliente Cognito público aplicados con callbacks exactos y drift cero; PKCE preparado y activación real separada por DRG-00/atestación/revisión |
 | FNC-IAM-002 | A3/A6 | IAM-001, ONB-002, QA-007 | Review pending | Centro de cuenta y recorrido coherente de identidad, sesión, empresas y roles |

@@ -36,10 +36,24 @@ output "cognito" {
 
 output "runtime_secret_arns" {
   value = {
-    application = aws_secretsmanager_secret.application.arn
-    worker      = aws_secretsmanager_secret.worker.arn
-    migrator    = aws_secretsmanager_secret.migrator.arn
-    google      = aws_secretsmanager_secret.google.arn
+    application    = aws_secretsmanager_secret.application.arn
+    database_roles = aws_secretsmanager_secret.database_roles.arn
+    worker         = aws_secretsmanager_secret.worker.arn
+    migrator       = aws_secretsmanager_secret.migrator.arn
+    google         = aws_secretsmanager_secret.google.arn
+  }
+}
+
+output "database_bootstrap" {
+  value = {
+    task_definition_arn      = try(aws_ecs_task_definition.bootstrap[0].arn, null)
+    migration_definition_arn = try(aws_ecs_task_definition.migrator[0].arn, null)
+    subnet_ids               = aws_subnet.application[*].id
+    security_group_id        = aws_security_group.application.id
+    cluster_arn              = aws_ecs_cluster.pilot.arn
+    runtime_plane_enabled    = var.runtime_plane_enabled
+    services_desired_count   = var.service_desired_count
+    real_data_authorized     = false
   }
 }
 

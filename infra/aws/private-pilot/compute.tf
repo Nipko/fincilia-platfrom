@@ -134,11 +134,81 @@ resource "aws_ecr_lifecycle_policy" "runtime" {
 }
 
 resource "aws_cloudwatch_log_group" "runtime" {
-  for_each = toset(["application", "worker", "migrator"])
+  for_each = toset(["application", "bootstrap", "worker", "migrator"])
 
   name              = "/fincilia/private-pilot/${each.key}"
   retention_in_days = 30
   kms_key_id        = aws_kms_key.audit.arn
+}
+
+resource "aws_ecs_task_definition" "bootstrap" {
+  count = var.runtime_plane_enabled ? 1 : 0
+
+  family                   = "${local.name}-bootstrap"
+  requires_compatibilities = ["FARGATE"]
+  network_mode             = "awsvpc"
+  cpu                      = "256"
+  memory                   = "512"
+  execution_role_arn       = aws_iam_role.bootstrap_execution.arn
+  task_role_arn            = aws_iam_role.bootstrap.arn
+
+  runtime_platform {
+    operating_system_family = "LINUX"
+    cpu_architecture        = "X86_64"
+  }
+
+  container_definitions = jsonencode([{
+    name                   = "bootstrap"
+    image                  = var.api_image
+    essential              = true
+    readonlyRootFilesystem = true
+    user                   = "10001"
+    entryPoint             = ["python", "-m", "db.bootstrap.roles"]
+    environment = [
+      { name = "PGDATABASE", value = aws_db_instance.pilot.db_name },
+      { name = "PGSSLMODE", value = "require" },
+      { name = "PGCONNECT_TIMEOUT", value = "10" },
+      { name = "FINCILIA_REAL_DATA_ENABLED", value = "false" },
+    ]
+    secrets = [
+      {
+        name      = "PGHOST"
+        valueFrom = "${aws_db_instance.pilot.master_user_secret[0].secret_arn}:host::"
+      },
+      {
+        name      = "PGPORT"
+        valueFrom = "${aws_db_instance.pilot.master_user_secret[0].secret_arn}:port::"
+      },
+      {
+        name      = "PGUSER"
+        valueFrom = "${aws_db_instance.pilot.master_user_secret[0].secret_arn}:username::"
+      },
+      {
+        name      = "PGPASSWORD"
+        valueFrom = "${aws_db_instance.pilot.master_user_secret[0].secret_arn}:password::"
+      },
+      {
+        name      = "FINCILIA_DB_APP_PASSWORD"
+        valueFrom = "${aws_secretsmanager_secret.database_roles.arn}:FINCILIA_DB_APP_PASSWORD::"
+      },
+      {
+        name      = "FINCILIA_DB_WORKER_PASSWORD"
+        valueFrom = "${aws_secretsmanager_secret.database_roles.arn}:FINCILIA_DB_WORKER_PASSWORD::"
+      },
+      {
+        name      = "FINCILIA_DB_MIGRATOR_PASSWORD"
+        valueFrom = "${aws_secretsmanager_secret.database_roles.arn}:FINCILIA_DB_MIGRATOR_PASSWORD::"
+      },
+    ]
+    logConfiguration = {
+      logDriver = "awslogs"
+      options = {
+        "awslogs-group"         = aws_cloudwatch_log_group.runtime["bootstrap"].name
+        "awslogs-region"        = var.region
+        "awslogs-stream-prefix" = "bootstrap"
+      }
+    }
+  }])
 }
 
 resource "aws_ecs_cluster" "pilot" {

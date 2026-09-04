@@ -112,6 +112,11 @@ Las variables locales viven en un `pilot.auto.tfvars` ignorado. Los valores de
 Secrets Manager se cargan por un procedimiento interactivo que no imprime ni
 versiona el contenido.
 
+El orden seguro entre RDS y el runtime esta definido en
+`DATABASE_BOOTSTRAP_AWS.md`: preparar secretos, ejecutar el job de roles,
+ejecutar migraciones y mantener servicios en cero hasta los gates. El usuario
+maestro administrado por RDS nunca se entrega a API, web, worker o migrador.
+
 ## Verificación estática
 
 ```text

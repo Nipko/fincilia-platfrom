@@ -158,13 +158,25 @@ class PilotControllerTests(unittest.TestCase):
         self.assertFalse(payload["query"]["mutation_performed"])
         self.assertFalse(payload["query"]["state_values_read"])
         self.assertFalse(payload["query"]["secret_values_read"])
+        # La evidencia es append-only y conserva el contrato observado en esa
+        # fecha. El contrato puede crecer despues; no se reescribe el pasado.
         self.assertEqual(
-            sorted(FOUNDATION_REQUIRED_ADDRESSES),
-            payload["foundation"]["missing"],
+            payload["foundation"]["required_count"],
+            len(payload["foundation"]["missing"]),
+        )
+        self.assertTrue(
+            set(payload["foundation"]["missing"]).issubset(
+                FOUNDATION_REQUIRED_ADDRESSES
+            )
         )
         self.assertEqual(
-            sorted(RUNTIME_REQUIRED_ADDRESSES),
-            payload["runtime_plane"]["missing"],
+            payload["runtime_plane"]["required_count"],
+            len(payload["runtime_plane"]["missing"]),
+        )
+        self.assertTrue(
+            set(payload["runtime_plane"]["missing"]).issubset(
+                RUNTIME_REQUIRED_ADDRESSES
+            )
         )
         encoded = json.dumps(payload, sort_keys=True)
         self.assertNotIn("632144225293", encoded)
