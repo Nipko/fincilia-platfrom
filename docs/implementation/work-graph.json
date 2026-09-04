@@ -64,7 +64,9 @@
         "apps/web/src/app/calidad",
         "apps/web/src/app/empresas/[companyId]/documentos",
         "apps/web/src/components/capability-status.tsx",
+        "apps/web/src/components/__tests__/capability-status.test.tsx",
         "apps/web/src/lib/web-capabilities.ts",
+        "apps/web/src/lib/__tests__/web-capabilities.test.ts",
         "apps/web/tests/e2e/web-capability-closure.spec.ts",
         "apps/web/tests/e2e/web-capability-closure.a11y.spec.ts"
       ]

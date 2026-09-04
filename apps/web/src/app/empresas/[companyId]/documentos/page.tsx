@@ -11,6 +11,8 @@ import {
   type Source,
 } from '@/lib/api';
 import { readSession } from '@/lib/session';
+import { CapabilityStatus } from '@/components/capability-status';
+import { DOCUMENT_FORMAT_CAPABILITIES } from '@/lib/web-capabilities';
 import { UploadForm } from '../upload';
 
 export const dynamic = 'force-dynamic';
@@ -261,6 +263,36 @@ export default async function DocumentCenterPage({
           />
         </section>
       ) : null}
+
+      <section className="workspace-section" aria-labelledby="format-capabilities-title">
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">Entrada segura</p>
+            <h2 id="format-capabilities-title">Formatos y tratamiento</h2>
+          </div>
+          <span className="tag">Detección por contenido</span>
+        </div>
+        <p className="meta">
+          La extensión no decide el formato. Cada archivo entra en cuarentena y
+          solo avanza cuando la inspección aplicable termina por completo.
+        </p>
+        <div className="capability-grid document-capability-grid">
+          {DOCUMENT_FORMAT_CAPABILITIES.map((format) => (
+            <CapabilityStatus key={format.id} state={format.state}
+              title={format.label} description={format.inspection}
+              detail={<>
+                <p><strong>Extracción:</strong> {format.extraction}</p>
+                <p><strong>Límite:</strong> {format.boundary}</p>
+              </>} />
+          ))}
+        </div>
+        <div className="notice document-ocr-boundary" role="status">
+          <strong>OCR todavía no transmite documentos.</strong>{' '}
+          Los PDF sin texto quedan identificados como <code>ocr_required</code>
+          y permanecen en cuarentena hasta que exista un proveedor aprobado,
+          región validada, retención definida y revisión humana.
+        </div>
+      </section>
 
       <section className="card document-history-summary" aria-labelledby="document-summary">
         <h2 id="document-summary">Resultado de la consulta</h2>

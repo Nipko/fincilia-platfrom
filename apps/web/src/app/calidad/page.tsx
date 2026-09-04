@@ -15,6 +15,7 @@ import {
   type QualityStatusFilter,
 } from '@/lib/quality-center';
 import { readSession } from '@/lib/session';
+import { QUALITY_RULE_COVERAGE } from '@/lib/web-capabilities';
 import { QualityReviewControls, ScanQualityForm } from './quality-controls';
 
 export const dynamic = 'force-dynamic';
@@ -122,6 +123,30 @@ export default async function QualityPage({
         prueba de fraude, no cambian importes y no habilitan publicacion,
         conciliacion automatica, cierre ni informes certificados.
       </p>
+
+      <details className="card quality-coverage">
+        <summary>Cobertura exacta de las reglas</summary>
+        <p className="meta">
+          Ocho reglas versionadas evalúan estructura y patrones acotados. No
+          usan IA, no cambian importes y ninguna equivale a una acusación.
+        </p>
+        <div className="quality-coverage__grid">
+          {QUALITY_RULE_COVERAGE.map((rule) => (
+            <article key={rule.code}>
+              <div><strong>{rule.label}</strong><span className="tag">
+                {rule.scope === 'dataset' ? 'Conjunto' : 'Movimiento'}
+              </span></div>
+              <p>{rule.description}</p>
+              <code>{rule.code}</code>
+            </article>
+          ))}
+        </div>
+        <p className="quality-coverage__boundary">
+          Fuera de alcance actual: identidad del autor, intención, apropiación,
+          fraude confirmado o cualquier decisión legal. Esos hechos requieren
+          evidencia adicional y revisión humana.
+        </p>
+      </details>
 
       <section className="quality-toolbar" aria-label="Filtros de calidad">
         <form method="get" className="operations-company-filter">

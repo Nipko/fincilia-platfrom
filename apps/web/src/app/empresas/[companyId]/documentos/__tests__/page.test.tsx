@@ -120,6 +120,10 @@ describe('DocumentCenterPage', () => {
     expect(screen.getAllByText('Extracto bancario sintetico').length)
       .toBeGreaterThanOrEqual(2);
     expect(screen.getByRole('heading', { name: 'Cargar documentos' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Formatos y tratamiento' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'CSV' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'PDF' })).toBeInTheDocument();
+    expect(screen.getByText(/OCR todavía no transmite documentos/)).toBeInTheDocument();
     expect(screen.getByLabelText('Extracto o soporte')).toHaveAttribute('multiple');
     expect(screen.getByRole('link', { name: 'extracto-agosto.csv' })).toHaveAttribute(
       'href', `/empresas/${COMPANY}/documentos/${ARTIFACT}`,
@@ -203,6 +207,6 @@ describe('DocumentCenterPage', () => {
     }));
     await renderPage({ nombre: 'no-existe' });
 
-    expect(screen.getByRole('status')).toHaveTextContent(/no hay recepciones visibles/i);
+    expect(screen.getByText(/no hay recepciones visibles/i)).toBeInTheDocument();
   });
 });

@@ -25,7 +25,7 @@ const plans: BillingPlan[] = [
     display_name: 'Contador', audience_code: 'accounting_practice', catalog_state: 'evaluation',
     features: { multi_company_portfolio: true, team_review_workflows: true,
       advanced_quality_controls: true, foundational_security: true, basic_data_export: true },
-    limits: { companies: null, active_members: null, monthly_documents: null, storage_bytes: null },
+    limits: { companies: 25, active_members: 10, monthly_documents: 100, storage_bytes: 4096 },
     commercial: { configured: false, currency_code: null, unit_amount_minor: null, trial_days: null } },
 ];
 
@@ -43,7 +43,8 @@ describe('BillingPanel', () => {
           billing_country: null, tax_profile_state: 'unconfigured' },
         usage: { period_start: '2026-08-01', documents_uploaded: 4,
           storage_bytes: 2048, meter_state: 'observed_append_only' },
-        history: [],
+        history: [{ event_code: 'evaluation_started', reason_code: 'uat_evaluation_selection',
+          occurred_at: '2026-08-31T00:00:00Z', plan_code: 'accountant' }],
       }} />);
 
     expect(screen.getByText('Pagos desactivados')).toBeInTheDocument();
@@ -51,5 +52,9 @@ describe('BillingPanel', () => {
     expect(screen.getByRole('button', { name: 'Evaluación activa' })).toBeDisabled();
     expect(screen.getByText(/nunca concede acceso/)).toBeInTheDocument();
     expect(screen.getByText('Para contadores que administran múltiples clientes.')).toBeInTheDocument();
+    expect(screen.getByRole('progressbar', { name: /Documentos: 4%/ })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Qué está activo y qué no' })).toBeInTheDocument();
+    expect(screen.getByText(/No se ha seleccionado ni configurado/)).toBeInTheDocument();
+    expect(screen.getByText('evaluation_started')).toBeInTheDocument();
   });
 });

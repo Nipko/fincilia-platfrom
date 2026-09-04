@@ -24,7 +24,9 @@ presentar un adaptador apagado como servicio activo.
 - `apps/web/src/app/calidad/**`
 - `apps/web/src/app/empresas/[companyId]/documentos/**`
 - `apps/web/src/components/capability-status.*`
+- `apps/web/src/components/__tests__/capability-status.test.tsx`
 - `apps/web/src/lib/web-capabilities.*`
+- `apps/web/src/lib/__tests__/web-capabilities.test.ts`
 - `apps/web/tests/e2e/web-capability-closure*`
 - esta ficha y su handoff
 - registros centrales por Integration Steward
@@ -50,4 +52,3 @@ presentar un adaptador apagado como servicio activo.
    dependen únicamente de color.
 6. No se añade una dependencia ni se cambia un contrato server-side.
 7. Unitarias, lint, tipos, build, Chromium y Axe focales quedan verdes.
-
