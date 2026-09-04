@@ -181,6 +181,7 @@ dependencias de `FNC-GAT-002` ni afirmar que Sprint 1 está habilitado.
 | FNC-ACC-001 | A4/A5/A6 | ING-005, REC-006, CLS-005, RPT-001 | Review pending | Recorrido contable web guiado sin cambiar semántica ni ejecutar cierre |
 | FNC-UX-003 | A6 | WEB-004, UX-001, IAM-002, ACC-001 | Review pending | Shell SaaS premium, navegación jerárquica, motion accesible y responsive |
 | FNC-LEG-002 | A3/A6 | PRV-001, LEG-001 | Review pending | Centro legal público inglés operado por Parallext LLC, rutas canónicas inglesas y redirects 308 incluidos en el artefacto firmado `37df2db`; revisión jurídica independiente pendiente |
+| FNC-LEG-003 | A2/A3 | LEG-001, LEG-002, ARC-003, GAT-005 | Review pending | Registro versionado de cinco proveedores por plano, datos y límites; contrato y divulgación pública ejecutables; A-02/DRG permanecen cerrados hasta revisión independiente |
 | FNC-SEC-004 | A3/A5 | SEC-001, PLT-005, DB-002 | Review pending | Contexto durable company-scoped con emision idempotente, revalidacion online, revocacion append-only, HMAC y V0021; sin consumidor artificial ni datos reales |
 | FNC-SEC-005 | A3/A5 | SEC-004, DB-002, P3.6 | Review pending | Trabajos nuevos ligados a issued context y revalidados al reclamar, escribir y cerrar; fase expand compatible con filas legacy |
 | FNC-SEC-006 | A3/A6 | SEC-002, IAM-004, UAT-001 | Review pending | Baseline HTTP exacta comprobada en API/web sin asumir HSTS local ni alterar OAuth |

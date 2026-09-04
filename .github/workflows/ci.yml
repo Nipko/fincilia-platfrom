@@ -69,6 +69,7 @@ jobs:
           tools.runtime_config.test_validate
           tools.s1_readiness.test_validate
           tools.supply_chain.test_validate
+          tools.subprocessor_register.test_model
           tools.test_catalog.test_validate
           tools.threat_model.test_validate
           tools.ux_contract.test_validate
