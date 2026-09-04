@@ -82,6 +82,8 @@ RUNTIME_REQUIRED_ADDRESSES = frozenset({
     "aws_wafv2_web_acl.pilot[0]",
 })
 ALLOWED_REGIONS = {"sa-east-1"}
+PAID_ACCOUNT_PLAN = "PAID"
+ACTIVE_ACCOUNT_PLAN = "ACTIVE"
 EXIT_OK = 0
 EXIT_REFUSED = 2
 EXIT_EXTERNAL_FAILURE = 3
@@ -232,6 +234,52 @@ class PilotController:
         )
         assert isinstance(payload, dict)
         return payload
+
+    def _account_plan(self) -> dict[str, str]:
+        payload = self._aws_json("freetier", "get-account-plan-state")
+        plan_type = str(payload.get("accountPlanType", ""))
+        plan_status = str(payload.get("accountPlanStatus", ""))
+        if not plan_type or not plan_status:
+            raise ControlError("AWS no devolvio un plan comercial verificable")
+        return {"type": plan_type, "status": plan_status}
+
+    def commercial_preflight(self) -> dict[str, Any]:
+        """Read the billing capability needed by the missing RDS resource.
+
+        The report deliberately omits account identifiers, credit balances and
+        billing instruments. It only answers whether the current account plan
+        can complete the already-reviewed foundation without weakening the
+        fourteen-day backup policy.
+        """
+        self.guard_identity()
+        database_state = self._database_state()
+        account_plan = self._account_plan()
+        requires_database_creation = database_state == "absent"
+        plan_supports_creation = (
+            account_plan["type"] == PAID_ACCOUNT_PLAN
+            and account_plan["status"] == ACTIVE_ACCOUNT_PLAN
+        )
+        supported = not requires_database_creation or plan_supports_creation
+        return {
+            "ok": True,
+            "command": "commercial-preflight",
+            "account_plan": account_plan,
+            "database_state": database_state,
+            "database_creation_required": requires_database_creation,
+            "foundation_apply_supported": supported,
+            "backup_retention_days": 14,
+            "backup_retention_was_reduced": False,
+            "mutation_performed": False,
+            "real_data_authorized": False,
+        }
+
+    def _require_commercial_plan_for_database(self) -> None:
+        report = self.commercial_preflight()
+        if not report["foundation_apply_supported"]:
+            raise ControlError(
+                "la creacion de RDS no esta autorizada en el plan comercial "
+                "AWS actual; no se aplico ningun cambio"
+            )
 
     def status(self) -> dict[str, Any]:
         identity = self.guard_identity()
@@ -462,6 +510,10 @@ class PilotController:
     def apply_mode(self, mode: str, *, apply: bool) -> dict[str, Any]:
         if not apply:
             raise ControlError("la mutacion requiere --apply")
+        # This guard runs before scaling ECS or changing ALB protection. A free
+        # account cannot satisfy the fixed 14-day RDS retention policy; fail
+        # before any mutation instead of leaving another partial apply.
+        self._require_commercial_plan_for_database()
         alb_arn: str | None = None
         if mode == "cold":
             self.guard_identity()

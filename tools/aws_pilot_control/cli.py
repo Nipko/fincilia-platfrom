@@ -28,6 +28,7 @@ def parser() -> argparse.ArgumentParser:
     value.add_argument("--region", default="sa-east-1")
     commands = value.add_subparsers(dest="command", required=True)
     commands.add_parser("status")
+    commands.add_parser("commercial-preflight")
     plan = commands.add_parser("plan")
     plan.add_argument("mode", choices=("cold", "warm"))
     for command in ("cold", "warm"):
@@ -50,6 +51,8 @@ def main(argv: list[str] | None = None) -> int:
         )
         if args.command == "status":
             report = controller.status()
+        elif args.command == "commercial-preflight":
+            report = controller.commercial_preflight()
         elif args.command == "plan":
             report = controller.plan(args.mode)
         else:

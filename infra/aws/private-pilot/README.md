@@ -16,7 +16,8 @@ Lee primero:
 
 Copiar `pilot.auto.tfvars.example` como `pilot.auto.tfvars`; el segundo está
 ignorado por Git y nunca lleva secretos. Usar `pilotctl.ps1 status`,
-`plan-warm`, `warm -Apply`, `plan-cold` y `cold -Apply` desde la raíz.
+`commercial-preflight`, `plan-warm`, `warm -Apply`, `plan-cold` y
+`cold -Apply` desde la raíz.
 
 El primer `apply` solo puede crear foundation. ACM requiere publicar el challenge
 DNS que aparece en `required_dns_records`; `certificate_ready` permanece `false`

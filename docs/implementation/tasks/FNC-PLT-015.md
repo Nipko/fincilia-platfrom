@@ -42,6 +42,8 @@ y `real_data_authorized=false`.
    nunca se elimina ni recrea a ciegas.
 4. La retención RDS permanece en 14 días; una restricción comercial de AWS se
    reporta como bloqueo y no se disfraza como éxito.
+   El preflight comercial omite saldo e instrumentos y el apply falla antes de
+   cualquier mutación cuando RDS falta y la cuenta no está `PAID/ACTIVE`.
 5. El plano runtime permanece ausente, RDS no público y los datos reales siguen
    desautorizados.
 6. La evidencia no contiene secretos, valores del estado, correos, ARN ni

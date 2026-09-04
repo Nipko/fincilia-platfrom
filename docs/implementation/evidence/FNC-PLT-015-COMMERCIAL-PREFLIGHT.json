@@ -1,0 +1,44 @@
+{
+  "schema_version": "1.0.0",
+  "task_id": "FNC-PLT-015",
+  "environment": "private-pilot",
+  "region": "sa-east-1",
+  "observed_at": "2026-09-04T02:47:25Z",
+  "source_revision": "37b1814d6fbab0c7f6780d3b20bc44a40c399241",
+  "query": {
+    "account_identity_verified": true,
+    "account_identifier_persisted": false,
+    "billing_instrument_read": false,
+    "credit_balance_persisted": false,
+    "secret_value_read": false,
+    "mutation_performed": false
+  },
+  "observed_state": {
+    "account_plan_type": "FREE",
+    "account_plan_status": "ACTIVE",
+    "database_state": "absent",
+    "database_creation_required": true,
+    "foundation_apply_supported": false,
+    "backup_retention_days": 14,
+    "backup_retention_was_reduced": false
+  },
+  "validated_cold_plan": {
+    "create": 7,
+    "read": 2,
+    "update": 5,
+    "delete": 0
+  },
+  "blocker": {
+    "id": "PILOT-RDS-FREE-PLAN-RETENTION",
+    "resolution_requires": "explicit_direct_upgrade_to_paid_account_plan",
+    "apply_refuses_before_any_mutation": true,
+    "do_not_resolve_by_reducing_backup_retention": true,
+    "do_not_upgrade_via": ["AWS Organizations", "AWS Control Tower"]
+  },
+  "gate_state": {
+    "G00-ISOLATED-ENV": "pending",
+    "DRG-00": "not_met",
+    "DRG-01": "not_met",
+    "real_data_authorized": false
+  }
+}

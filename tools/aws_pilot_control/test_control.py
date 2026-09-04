@@ -214,6 +214,69 @@ class PilotControllerTests(unittest.TestCase):
             self.controller(runner).apply_mode("cold", apply=False)
         self.assertEqual(runner.calls, [])
 
+    def test_commercial_preflight_reports_free_plan_without_mutation(self) -> None:
+        runner = FakeRunner([
+            response(IDENTITY),
+            Result(254, "", "DBInstanceNotFound"),
+            response({
+                "accountId": "123456789012",
+                "accountPlanType": "FREE",
+                "accountPlanStatus": "ACTIVE",
+                "accountPlanRemainingCredits": {"amount": 194.46, "unit": "USD"},
+            }),
+        ])
+        report = self.controller(runner).commercial_preflight()
+        self.assertEqual(report["account_plan"], {
+            "type": "FREE", "status": "ACTIVE",
+        })
+        self.assertTrue(report["database_creation_required"])
+        self.assertFalse(report["foundation_apply_supported"])
+        self.assertFalse(report["mutation_performed"])
+        self.assertNotIn("accountId", json.dumps(report))
+        self.assertNotIn("194.46", json.dumps(report))
+        flattened = " ".join(" ".join(call) for call in runner.calls)
+        self.assertNotIn("apply", flattened)
+        self.assertNotIn("update-service", flattened)
+
+    def test_commercial_preflight_accepts_active_paid_plan(self) -> None:
+        runner = FakeRunner([
+            response(IDENTITY),
+            Result(254, "", "DBInstanceNotFound"),
+            response({
+                "accountPlanType": "PAID",
+                "accountPlanStatus": "ACTIVE",
+            }),
+        ])
+        report = self.controller(runner).commercial_preflight()
+        self.assertTrue(report["foundation_apply_supported"])
+        self.assertEqual(report["backup_retention_days"], 14)
+        self.assertFalse(report["backup_retention_was_reduced"])
+
+    def test_apply_refuses_free_plan_before_any_mutation(self) -> None:
+        runner = FakeRunner([
+            response(IDENTITY),
+            Result(254, "", "DBInstanceNotFound"),
+            response({
+                "accountPlanType": "FREE",
+                "accountPlanStatus": "ACTIVE",
+            }),
+        ])
+        with self.assertRaisesRegex(ControlError, "plan comercial"):
+            self.controller(runner).apply_mode("cold", apply=True)
+        flattened = " ".join(" ".join(call) for call in runner.calls)
+        self.assertNotIn("apply", flattened)
+        self.assertNotIn("update-service", flattened)
+        self.assertNotIn("modify-load-balancer-attributes", flattened)
+
+    def test_existing_database_is_not_blocked_by_a_free_plan_read(self) -> None:
+        controller = self.controller(FakeRunner([]))
+        controller.guard_identity = lambda: {}  # type: ignore[method-assign]
+        controller._database_state = lambda: "stopped"  # type: ignore[method-assign]
+        controller._account_plan = lambda: {  # type: ignore[method-assign]
+            "type": "FREE", "status": "ACTIVE",
+        }
+        controller._require_commercial_plan_for_database()
+
     def test_cli_mode_without_apply_returns_refused(self) -> None:
         with patch("tools.aws_pilot_control.cli.PilotController") as controller:
             controller.return_value.apply_mode.side_effect = ControlError(
@@ -225,10 +288,38 @@ class PilotControllerTests(unittest.TestCase):
                     2,
                 )
 
+    def test_cli_commercial_preflight_is_read_only_and_successful(self) -> None:
+        expected = {
+            "ok": True,
+            "command": "commercial-preflight",
+            "mutation_performed": False,
+        }
+        with patch("tools.aws_pilot_control.cli.PilotController") as controller:
+            controller.return_value.commercial_preflight.return_value = expected
+            output = StringIO()
+            with redirect_stdout(output):
+                code = main([
+                    "--account-id", "123456789012", "commercial-preflight",
+                ])
+        self.assertEqual(code, 0)
+        self.assertEqual(json.loads(output.getvalue()), expected)
+
+    def test_incomplete_account_plan_fails_closed(self) -> None:
+        runner = FakeRunner([
+            response(IDENTITY),
+            Result(254, "", "DBInstanceNotFound"),
+            response({"accountPlanType": "PAID"}),
+        ])
+        with self.assertRaisesRegex(ControlError, "plan comercial verificable"):
+            self.controller(runner).commercial_preflight()
+
     def test_cold_scales_before_planning_and_applying(self) -> None:
         controller = self.controller(FakeRunner([]))
         events: list[str] = []
         apply_calls: list[tuple[str, ...]] = []
+        controller._require_commercial_plan_for_database = (  # type: ignore[method-assign]
+            lambda: events.append("commercial-preflight")
+        )
         controller.guard_identity = lambda: events.append("guard") or {}  # type: ignore[method-assign]
         controller._scale_services_to_zero = lambda: events.append("scale")  # type: ignore[method-assign]
         controller._load_balancer_arn = lambda: None  # type: ignore[method-assign]
@@ -242,13 +333,16 @@ class PilotControllerTests(unittest.TestCase):
         )
         controller._stop_database = lambda: events.append("stop-db") or "stop_requested"  # type: ignore[method-assign]
         controller.apply_mode("cold", apply=True)
-        self.assertEqual(events, ["guard", "scale", "plan:cold", "apply", "stop-db"])
+        self.assertEqual(events, [
+            "commercial-preflight", "guard", "scale", "plan:cold", "apply", "stop-db",
+        ])
         self.assertIn("-var=runtime_plane_enabled=false", apply_calls[0])
 
     def test_cold_restores_alb_protection_when_plan_fails(self) -> None:
         controller = self.controller(FakeRunner([]))
         events: list[str] = []
         arn = "arn:aws:elasticloadbalancing:sa-east-1:123456789012:loadbalancer/app/x/y"
+        controller._require_commercial_plan_for_database = lambda: None  # type: ignore[method-assign]
         controller.guard_identity = lambda: {}  # type: ignore[method-assign]
         controller._scale_services_to_zero = lambda: events.append("scale")  # type: ignore[method-assign]
         controller._load_balancer_arn = lambda: arn  # type: ignore[method-assign]
@@ -264,6 +358,9 @@ class PilotControllerTests(unittest.TestCase):
         controller = self.controller(FakeRunner([]))
         events: list[str] = []
         apply_calls: list[tuple[str, ...]] = []
+        controller._require_commercial_plan_for_database = (  # type: ignore[method-assign]
+            lambda: events.append("commercial-preflight")
+        )
         controller.plan = lambda mode: events.append(f"plan:{mode}") or {  # type: ignore[method-assign]
             "plan_file": Path("warm.tfplan")
         }
@@ -274,7 +371,9 @@ class PilotControllerTests(unittest.TestCase):
         )
         controller._start_database = lambda: events.append("start-db") or "start_requested"  # type: ignore[method-assign]
         report = controller.apply_mode("warm", apply=True)
-        self.assertEqual(events, ["plan:warm", "apply", "start-db"])
+        self.assertEqual(events, [
+            "commercial-preflight", "plan:warm", "apply", "start-db",
+        ])
         self.assertIn("-var=runtime_plane_enabled=true", apply_calls[0])
         self.assertEqual(report["services_desired_count"], 0)
         self.assertFalse(report["real_data_authorized"])

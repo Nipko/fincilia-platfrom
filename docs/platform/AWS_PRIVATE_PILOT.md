@@ -47,6 +47,19 @@ Todos los comandos validan la cuenta `--account-id`, el perfil
 infra/aws/private-pilot/pilotctl.ps1 status
 ```
 
+Antes del primer `apply`, ejecutar el preflight comercial de solo lectura:
+
+```powershell
+infra/aws/private-pilot/pilotctl.ps1 commercial-preflight
+```
+
+Si RDS todavía no existe, el resultado sólo permite continuar con un plan de
+cuenta `PAID` y estado `ACTIVE`. El reporte no muestra saldo de créditos,
+instrumentos de pago ni identificadores de cuenta. La restricción existe
+porque el plan gratuito no permite materializar la retención de backup de 14
+días exigida por este entorno. El controlador no reduce ese control y rechaza
+el `apply` antes de escalar ECS o cambiar la protección del ALB.
+
 Además de RDS, ECS, NAT, ALB y Valkey, `status` lee exclusivamente las
 direcciones de propiedad mediante `tofu state list`. No obtiene `state pull`,
 outputs ni valores. El reporte separa foundation y runtime, lista las

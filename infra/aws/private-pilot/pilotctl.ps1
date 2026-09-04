@@ -1,6 +1,6 @@
 param(
     [Parameter(Mandatory = $true, Position = 0)]
-    [ValidateSet("status", "plan-cold", "plan-warm", "cold", "warm")]
+    [ValidateSet("status", "commercial-preflight", "plan-cold", "plan-warm", "cold", "warm")]
     [string]$Command,
     [string]$AccountId = $env:FINCILIA_PILOT_ACCOUNT_ID,
     [string]$Profile = "fincilia-sandbox",
