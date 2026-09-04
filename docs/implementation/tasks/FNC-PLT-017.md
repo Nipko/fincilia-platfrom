@@ -1,7 +1,7 @@
 ---
 id: FNC-PLT-017
 title: Ejecucion temporal del bootstrap y migraciones private-pilot AWS
-status: in_progress
+status: review_pending
 implementer: Codex principal dev + Integration Steward
 base_sha: 4687604
 gate: DRG-00/DRG-01
