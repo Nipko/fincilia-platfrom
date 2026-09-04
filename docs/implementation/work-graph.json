@@ -54,22 +54,5 @@
       "agent_may_accept": false
     }
   ],
-  "active_reservations": [
-    {
-      "task": "FNC-WEB-005",
-      "holder": "Codex principal dev + Integration Steward",
-      "paths": [
-        "apps/web/src/app/cuenta",
-        "apps/web/src/app/recordatorios",
-        "apps/web/src/app/calidad",
-        "apps/web/src/app/empresas/[companyId]/documentos",
-        "apps/web/src/components/capability-status.tsx",
-        "apps/web/src/components/__tests__/capability-status.test.tsx",
-        "apps/web/src/lib/web-capabilities.ts",
-        "apps/web/src/lib/__tests__/web-capabilities.test.ts",
-        "apps/web/tests/e2e/web-capability-closure.spec.ts",
-        "apps/web/tests/e2e/web-capability-closure.a11y.spec.ts"
-      ]
-    }
-  ]
+  "active_reservations": []
 }

@@ -1,9 +1,12 @@
 ---
 id: FNC-WEB-005
 title: Cierre funcional de experiencias web parciales
-status: in_progress
+status: review_pending
 implementer: Codex principal dev + Integration Steward
 base_sha: e4a5764
+reservation_sha: 021bfc0
+implementation_shas: [bc0856f, c2a95de]
+tested_head_sha: c2a95de
 gate: none
 gate_effect: none
 data_ceiling: synthetic_only
@@ -52,3 +55,18 @@ presentar un adaptador apagado como servicio activo.
    dependen únicamente de color.
 6. No se añade una dependencia ni se cambia un contrato server-side.
 7. Unitarias, lint, tipos, build, Chromium y Axe focales quedan verdes.
+
+# Verificacion obtenida
+
+- 55 archivos / 297 pruebas unitarias web: OK.
+- ESLint, TypeScript y build Next de produccion: OK.
+- Chromium funcional focal: 1/1, OK.
+- Axe sobre Cuenta, Ciclos, Calidad y Documentos: 1/1 recorrido, cuatro
+  superficies y cero violaciones.
+- El primer recorrido Axe encontro dos landmarks `main` durante la transicion
+  de Ciclos. El boundary de carga ya no declara un segundo contenido principal
+  y la regresion exige un unico landmark despues de estabilizar cada ruta.
+
+La tarea queda en `review_pending`: las firmas independientes de Product,
+Accounting, Privacy y Accessibility/QA no se presumen ni se sustituyen por las
+pruebas automatizadas.
