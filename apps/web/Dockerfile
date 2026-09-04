@@ -1,11 +1,17 @@
 # Imagen de la web. Base fijada por digest: una etiqueta puede reapuntar a otros
 # bytes manana, y entonces «la misma imagen» deja de serlo.
-FROM node@sha256:d649c27dae7ba0137b3cef5dd75baa422c08dc3d9e3fc0c23dfb172dc3cc6436 AS build
+FROM node:22-alpine3.23@sha256:46825fbbd4e996a78b7a2cdc08d75e38a5a505bdab95dcda55605359bf124bc6 AS build
 
 ENV NEXT_TELEMETRY_DISABLED=1 \
     NODE_ENV=production
 
 WORKDIR /build
+
+# La base oficial aun trae 3.5.7-r0. Las versiones exactas corrigen las CVE
+# criticas que el scan ECR rechazo; sin pin, un mirror puede cambiar el build.
+RUN apk update \
+    && apk add --no-cache --upgrade libcrypto3=3.5.8-r0 libssl3=3.5.8-r0 \
+    && rm -rf /var/cache/apk/*
 
 # `npm ci` instala exactamente lo que dice el lock y falla si no coincide, en vez
 # de resolver de nuevo el arbol y traer otra cosa que la que se reviso.
@@ -22,7 +28,7 @@ RUN npm run typecheck && npm run build
 # --------------------------------------------------------------------------- #
 # Runtime: solo lo que hace falta para servir.
 # --------------------------------------------------------------------------- #
-FROM node@sha256:d649c27dae7ba0137b3cef5dd75baa422c08dc3d9e3fc0c23dfb172dc3cc6436
+FROM node:22-alpine3.23@sha256:46825fbbd4e996a78b7a2cdc08d75e38a5a505bdab95dcda55605359bf124bc6
 
 ENV NEXT_TELEMETRY_DISABLED=1 \
     NODE_ENV=production \
@@ -31,13 +37,17 @@ ENV NEXT_TELEMETRY_DISABLED=1 \
 
 WORKDIR /app
 
+RUN apk update \
+    && apk add --no-cache --upgrade libcrypto3=3.5.8-r0 libssl3=3.5.8-r0 \
+    && rm -rf /var/cache/apk/*
+
 # La salida `standalone` trae su propio servidor y solo las dependencias que
 # usa. `node_modules` entero en la imagen final es superficie que nadie audita.
 COPY --from=build /build/.next/standalone ./
 COPY --from=build /build/.next/static ./.next/static
 COPY --from=build /build/public ./public
 
-RUN useradd --system --uid 10002 --create-home fincilia
+RUN adduser --system --uid 10002 --home /home/fincilia fincilia
 USER 10002
 
 EXPOSE 3000
