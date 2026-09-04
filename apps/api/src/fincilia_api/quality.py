@@ -17,7 +17,9 @@ import psycopg
 from . import repository
 
 
-RULE_VERSION = "quality-rules-v1"
+RULE_VERSION = "quality-rules-v2"
+BASE_RULE_VERSION = "quality-rules-v1"
+RISK_RULE_VERSION = "quality-risk-v2"
 MAX_SCAN_DATASETS = 100
 MAX_FINDINGS_PER_RULE = 500
 DEFAULT_LIMIT = 50
@@ -26,7 +28,7 @@ MAX_OFFSET = 10_000
 
 STATUSES = frozenset(("open", "acknowledged", "resolved", "dismissed", "all"))
 SEVERITIES = frozenset(("info", "warning", "high", "all"))
-RULES = frozenset((
+BASE_RULES = frozenset((
     "dataset_completeness_mismatch",
     "dataset_completeness_unknown",
     "dataset_rejected_records",
@@ -36,6 +38,14 @@ RULES = frozenset((
     "posting_delay_over_31_days",
     "amount_outlier_10x_median",
 ))
+RISK_RULES = frozenset((
+    "cross_dataset_duplicate_fingerprint",
+    "reference_reuse_high_frequency",
+    "same_day_same_amount_burst",
+    "rapid_reversal_pair",
+    "multiple_risk_indicators",
+))
+RULES = BASE_RULES | RISK_RULES
 REASONS = {
     "acknowledged": frozenset(("investigate",)),
     "resolved": frozenset((
@@ -86,9 +96,15 @@ class Finding:
     occurrence_count: int = 1
 
     @property
+    def rule_version(self) -> str:
+        # Las ocho reglas originales conservan su version y, por tanto, su
+        # issue_key. Ampliar el motor no duplica el backlog humano existente.
+        return RISK_RULE_VERSION if self.rule_code in RISK_RULES else BASE_RULE_VERSION
+
+    @property
     def issue_key(self) -> str:
         payload = (
-            f"{RULE_VERSION}|{self.rule_code}|{self.scope_kind}|"
+            f"{self.rule_version}|{self.rule_code}|{self.scope_kind}|"
             f"{self.scope_ref}|{self.discriminator}")
         return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
@@ -143,10 +159,33 @@ def _movement_findings(connection: psycopg.Connection, *, rule_code: str,
     return findings, truncated
 
 
+def _compound_findings(
+        signal_groups: dict[str, list[Finding]]) -> tuple[list[Finding], bool]:
+    """Eleva prioridad solo cuando convergen dos indicadores independientes."""
+    indicators: dict[str, set[str]] = {}
+    for rule_code, findings in signal_groups.items():
+        if rule_code == "multiple_risk_indicators":
+            continue
+        for finding in findings:
+            if finding.scope_kind == "movement":
+                indicators.setdefault(finding.scope_ref, set()).add(rule_code)
+    candidates = sorted(
+        (scope_ref, rules) for scope_ref, rules in indicators.items()
+        if len(rules) >= 2)
+    truncated = len(candidates) > MAX_FINDINGS_PER_RULE
+    return ([
+        Finding(
+            "multiple_risk_indicators", "movement", scope_ref, "high",
+            scope_ref, len(rules))
+        for scope_ref, rules in candidates[:MAX_FINDINGS_PER_RULE]
+    ], truncated)
+
+
 def detect(connection: psycopg.Connection) -> tuple[list[Finding], list[str]]:
     """Evalua reglas cerradas sobre una ventana acotada de datos company-scoped."""
     findings = list(_dataset_findings(connection))
     truncated_rules: list[str] = []
+    advanced_signals: dict[str, list[Finding]] = {}
 
     duplicate, truncated = _group_findings(
         connection,
@@ -237,6 +276,109 @@ LIMIT %s
     findings.extend(outliers)
     if truncated:
         truncated_rules.append("amount_outlier_10x_median")
+
+    advanced_queries = (
+        (
+            "cross_dataset_duplicate_fingerprint", "warning", """
+WITH recent AS (
+  SELECT dataset_version_id FROM fincilia.dataset_version
+  ORDER BY prepared_at DESC, dataset_version_id LIMIT %s
+), repeated AS (
+  SELECT m.dedupe_fingerprint
+  FROM fincilia.canonical_movement m
+  JOIN recent r USING (dataset_version_id)
+  GROUP BY m.dedupe_fingerprint
+  HAVING count(DISTINCT m.dataset_version_id) > 1
+)
+SELECT DISTINCT m.movement_id
+FROM fincilia.canonical_movement m
+JOIN recent r USING (dataset_version_id)
+JOIN repeated d USING (dedupe_fingerprint)
+ORDER BY m.movement_id
+LIMIT %s
+"""),
+        (
+            "reference_reuse_high_frequency", "info", """
+WITH recent AS (
+  SELECT dataset_version_id FROM fincilia.dataset_version
+  ORDER BY prepared_at DESC, dataset_version_id LIMIT %s
+), reused AS (
+  SELECT m.dataset_version_id, m.reference_normalised
+  FROM fincilia.canonical_movement m
+  JOIN recent r USING (dataset_version_id)
+  WHERE m.reference_normalised IS NOT NULL
+  GROUP BY m.dataset_version_id, m.reference_normalised
+  HAVING count(*) >= 5
+)
+SELECT m.movement_id
+FROM fincilia.canonical_movement m
+JOIN reused r USING (dataset_version_id, reference_normalised)
+ORDER BY m.movement_id
+LIMIT %s
+"""),
+        (
+            "same_day_same_amount_burst", "warning", """
+WITH recent AS (
+  SELECT dataset_version_id FROM fincilia.dataset_version
+  ORDER BY prepared_at DESC, dataset_version_id LIMIT %s
+), bursts AS (
+  SELECT m.dataset_version_id, m.financial_account_id, m.occurred_on,
+         m.currency_code, m.direction, m.amount
+  FROM fincilia.canonical_movement m
+  JOIN recent r USING (dataset_version_id)
+  GROUP BY m.dataset_version_id, m.financial_account_id, m.occurred_on,
+           m.currency_code, m.direction, m.amount
+  HAVING count(*) >= 4 AND count(DISTINCT m.dedupe_fingerprint) >= 3
+)
+SELECT m.movement_id
+FROM fincilia.canonical_movement m
+JOIN bursts b USING (dataset_version_id, financial_account_id, occurred_on,
+                     currency_code, direction, amount)
+ORDER BY m.movement_id
+LIMIT %s
+"""),
+        (
+            "rapid_reversal_pair", "warning", """
+WITH recent AS (
+  SELECT dataset_version_id FROM fincilia.dataset_version
+  ORDER BY prepared_at DESC, dataset_version_id LIMIT %s
+), paired AS (
+  SELECT left_m.movement_id AS left_id, right_m.movement_id AS right_id
+  FROM fincilia.canonical_movement left_m
+  JOIN recent lr ON lr.dataset_version_id = left_m.dataset_version_id
+  JOIN fincilia.canonical_movement right_m
+    ON right_m.financial_account_id = left_m.financial_account_id
+   AND right_m.currency_code = left_m.currency_code
+   AND right_m.amount = left_m.amount
+   AND right_m.direction <> left_m.direction
+   AND right_m.reference_normalised = left_m.reference_normalised
+   AND right_m.reference_normalised IS NOT NULL
+   AND right_m.occurred_on BETWEEN left_m.occurred_on AND left_m.occurred_on + 3
+   AND right_m.movement_id <> left_m.movement_id
+  JOIN recent rr ON rr.dataset_version_id = right_m.dataset_version_id
+)
+SELECT movement_id
+FROM (
+  SELECT left_id AS movement_id FROM paired
+  UNION
+  SELECT right_id AS movement_id FROM paired
+) candidates
+ORDER BY movement_id
+LIMIT %s
+"""),
+    )
+    for rule_code, severity, sql in advanced_queries:
+        rule_findings, truncated = _movement_findings(
+            connection, rule_code=rule_code, sql=sql, severity=severity)
+        findings.extend(rule_findings)
+        advanced_signals[rule_code] = rule_findings
+        if truncated:
+            truncated_rules.append(rule_code)
+
+    compound, truncated = _compound_findings(advanced_signals)
+    findings.extend(compound)
+    if truncated:
+        truncated_rules.append("multiple_risk_indicators")
     return findings, truncated_rules
 
 
@@ -258,7 +400,7 @@ def scan(connection: psycopg.Connection, *, company_id: str,
                 "                            EXCLUDED.occurrence_count), "
                 "last_seen_at = now(), updated_at = now() "
                 "RETURNING (xmax = 0)",
-                (company_id, finding.issue_key, finding.rule_code, RULE_VERSION,
+                (company_id, finding.issue_key, finding.rule_code, finding.rule_version,
                  finding.scope_kind, finding.scope_ref, finding.severity,
                  finding.occurrence_count))
             if bool(cursor.fetchone()[0]):

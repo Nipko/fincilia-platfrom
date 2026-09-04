@@ -66,6 +66,16 @@ export const QUALITY_RULE_COVERAGE: readonly QualityCoverage[] = [
     description: 'Señala más de 31 días entre ocurrencia y contabilización.' },
   { code: 'amount_outlier_10x_median', label: 'Volumen fuera del patrón', scope: 'movement',
     description: 'Compara con diez veces la mediana exacta de una muestra suficiente.' },
+  { code: 'cross_dataset_duplicate_fingerprint', label: 'Huella en varios conjuntos', scope: 'movement',
+    description: 'Detecta una misma huella canónica en más de una publicación reciente.' },
+  { code: 'reference_reuse_high_frequency', label: 'Referencia muy reutilizada', scope: 'movement',
+    description: 'Señala una referencia repetida cinco o más veces dentro del conjunto.' },
+  { code: 'same_day_same_amount_burst', label: 'Ráfaga de valores iguales', scope: 'movement',
+    description: 'Agrupa cuatro o más movimientos distintos con el mismo valor y fecha.' },
+  { code: 'rapid_reversal_pair', label: 'Reversión cercana', scope: 'movement',
+    description: 'Encuentra entradas y salidas opuestas con referencia y valor coincidentes.' },
+  { code: 'multiple_risk_indicators', label: 'Indicadores convergentes', scope: 'movement',
+    description: 'Eleva prioridad únicamente cuando coinciden dos o más señales independientes.' },
 ] as const;
 
 export type DeliveryState = 'queued' | 'sent' | 'delivered' | 'failed' | 'suppressed';

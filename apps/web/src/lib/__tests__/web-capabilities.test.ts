@@ -13,7 +13,7 @@ import {
 describe('web capabilities', () => {
   it('mantiene formatos y reglas sin duplicados', () => {
     expect(new Set(DOCUMENT_FORMAT_CAPABILITIES.map((item) => item.id)).size).toBe(4);
-    expect(new Set(QUALITY_RULE_COVERAGE.map((item) => item.code)).size).toBe(8);
+    expect(new Set(QUALITY_RULE_COVERAGE.map((item) => item.code)).size).toBe(13);
     expect(DOCUMENT_FORMAT_CAPABILITIES.find((item) => item.id === 'pdf')?.boundary)
       .toMatch(/OCR requerido/);
   });

@@ -6,15 +6,39 @@ import datetime as dt
 import unittest
 import uuid
 
-from fincilia_api.quality import (Finding, QualityError, QualityQuery, REASONS,
-                                  RULE_VERSION, RULES, _issue)
+from fincilia_api.quality import (BASE_RULE_VERSION, RISK_RULE_VERSION, Finding,
+                                  QualityError, QualityQuery, REASONS,
+                                  RULE_VERSION, RULES, _compound_findings, _issue)
 
 
 class QualityContractTests(unittest.TestCase):
     def test_rule_set_is_closed_and_versioned(self) -> None:
-        self.assertEqual("quality-rules-v1", RULE_VERSION)
-        self.assertEqual(8, len(RULES))
+        self.assertEqual("quality-rules-v2", RULE_VERSION)
+        self.assertEqual(13, len(RULES))
         self.assertNotIn("fraud", " ".join(RULES))
+
+    def test_existing_keys_keep_their_version_when_suite_grows(self) -> None:
+        self.assertEqual(
+            BASE_RULE_VERSION,
+            Finding("duplicate_fingerprint", "movement", "m", "high", "m").rule_version)
+        self.assertEqual(
+            RISK_RULE_VERSION,
+            Finding("rapid_reversal_pair", "movement", "m", "warning", "m").rule_version)
+
+    def test_compound_signal_requires_two_distinct_indicators(self) -> None:
+        only_one = Finding(
+            "rapid_reversal_pair", "movement", "movement-a", "warning", "movement-a")
+        second = Finding(
+            "same_day_same_amount_burst", "movement", "movement-a", "warning", "movement-a")
+        compound, truncated = _compound_findings({
+            only_one.rule_code: [only_one], second.rule_code: [second]})
+        self.assertFalse(truncated)
+        self.assertEqual(1, len(compound))
+        self.assertEqual("multiple_risk_indicators", compound[0].rule_code)
+        self.assertEqual("high", compound[0].severity)
+        self.assertEqual(2, compound[0].occurrence_count)
+        self.assertEqual(
+            [], _compound_findings({only_one.rule_code: [only_one]})[0])
 
     def test_finding_key_is_deterministic_without_becoming_identity(self) -> None:
         finding = Finding(

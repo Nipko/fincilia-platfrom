@@ -2919,7 +2919,12 @@ export type QualityRule =
   | 'duplicate_fingerprint'
   | 'reference_amount_conflict'
   | 'posting_delay_over_31_days'
-  | 'amount_outlier_10x_median';
+  | 'amount_outlier_10x_median'
+  | 'cross_dataset_duplicate_fingerprint'
+  | 'reference_reuse_high_frequency'
+  | 'same_day_same_amount_burst'
+  | 'rapid_reversal_pair'
+  | 'multiple_risk_indicators';
 
 export type QualityIssue = {
   issue_id: string;

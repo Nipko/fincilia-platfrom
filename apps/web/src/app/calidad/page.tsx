@@ -67,6 +67,26 @@ const RULE_CONTENT: Record<QualityRule, { title: string; detail: string }> = {
     title: 'Volumen fuera del patron',
     detail: 'El valor supera diez veces la mediana exacta de una muestra suficiente.',
   },
+  cross_dataset_duplicate_fingerprint: {
+    title: 'Movimiento repetido entre publicaciones',
+    detail: 'La misma huella canonica aparece en mas de un conjunto reciente.',
+  },
+  reference_reuse_high_frequency: {
+    title: 'Referencia usada con frecuencia inusual',
+    detail: 'Una referencia se repite al menos cinco veces dentro del mismo conjunto.',
+  },
+  same_day_same_amount_burst: {
+    title: 'Rafaga de movimientos con el mismo valor',
+    detail: 'Coinciden fecha, cuenta, moneda, direccion y valor en varios hechos distintos.',
+  },
+  rapid_reversal_pair: {
+    title: 'Entrada y salida cercanas',
+    detail: 'Dos movimientos opuestos comparten valor y referencia en una ventana de tres dias.',
+  },
+  multiple_risk_indicators: {
+    title: 'Multiples indicadores requieren revision',
+    detail: 'Convergen dos o mas patrones independientes; la prioridad aumenta, no prueba fraude.',
+  },
 };
 
 function formatWhen(value: string): string {
@@ -127,7 +147,7 @@ export default async function QualityPage({
       <details className="card quality-coverage">
         <summary>Cobertura exacta de las reglas</summary>
         <p className="meta">
-          Ocho reglas versionadas evalúan estructura y patrones acotados. No
+          Trece reglas versionadas evalúan estructura y patrones acotados. No
           usan IA, no cambian importes y ninguna equivale a una acusación.
         </p>
         <div className="quality-coverage__grid">
