@@ -161,6 +161,7 @@ dependencias de `FNC-GAT-002` ni afirmar que Sprint 1 está habilitado.
 | FNC-EXP-001 | A5/A6 | WEB-002, DOM-005, SEC-001 | Review pending | Exportacion CSV canonica determinista de dataset publicado, con permiso explicito, RLS y BFF streaming; solo sintetica y no certificada |
 | FNC-OPS-001 | A5/A6 | WEB-003, QA-006 | Review pending | Centro web company-by-company de ciclos, vencimientos, recordatorios internos e historico operativo sin importes ni mensajeria externa; CI verde, revision humana pendiente |
 | FNC-DQ-001 | A5/A6 | DOM-003, DOM-004, WEB-003, QA-006 | Review pending | Alertas deterministas company-scoped, triaje auditado y resumen visual sin IA, auto-match, cierre ni afirmacion de fraude; revision independiente pendiente |
+| FNC-DQ-002 | A5/A6 | DQ-001, WEB-005 | In progress | Senales avanzadas de riesgo deterministicas, explicables y combinables; solo priorizan revision humana y no afirman fraude |
 | FNC-RPT-001 | A5/A6 | WEB-003, REC-003, DQ-001, EXP-001 | Review pending | Informes operativos e historicos company-scoped, importes exactos por moneda, CSV determinista y web verificada; revision humana pendiente |
 | FNC-ONB-001 | A5/A6 | PLT-008, QA-007, P3.5 | Review pending | Alta atomica de empresa, engagement y configuracion inicial desde la web; solo sintetico mientras DRG-00 siga cerrado |
 | FNC-ONB-002 | A3/A5/A6 | ONB-001, SEC-001, PLT-011 | Review pending | Registro local sintetico y primer espacio completos; FNC-IAM-004 sustituye el pendiente de identidad administrada sin habilitar datos reales |
