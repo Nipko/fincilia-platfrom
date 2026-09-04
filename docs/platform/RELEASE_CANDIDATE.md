@@ -19,6 +19,9 @@ SPDX agregado de la release.
 - Los inputs son árboles disjuntos, no una lista manual de algunos archivos:
   así también quedan ligados tests, configuración de build, bootstrap de base
   de datos y archivos públicos que efectivamente entran en las imágenes.
+- El generador/verificador y el workflow de firma también son materiales
+  adjudicados. Cambiarlos invalida la evidencia durable aunque los bytes de las
+  imágenes permanezcan iguales.
 - Los digests de fuente y locks se calculan sobre blobs Git, por lo que un
   checkout limpio con CRLF en Windows verifica el mismo commit construido con
   LF en Linux; el bundle no confunde filtros locales con código distinto.

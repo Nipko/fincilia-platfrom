@@ -24,6 +24,8 @@
     "db",
     "packages/contracts/python",
     "packages/platform/python",
+    ".github/workflows/release-candidate.yml",
+    "tools/release_candidate",
     "workers/document"
   ],
   "state": "review_pending",

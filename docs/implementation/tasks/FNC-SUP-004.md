@@ -30,7 +30,8 @@ modifica imágenes, dependencias, runtime, datos, gates ni autorizaciones.
 4. `ADD`, rutas dinámicas, traversal, solapamientos y sintaxis no soportada
    fallan cerrados con pruebas adversariales.
 5. Los árboles declarados cubren locks, tests, configuración, migraciones,
-   bootstrap y fuentes que hoy entran en las imágenes.
+   bootstrap y fuentes que hoy entran en las imágenes; el generador y el
+   workflow de firma quedan ligados como materiales de construcción.
 6. El candidato y su evidencia se regeneran sobre el commit corregido; ninguna
    propiedad humana o autorización de datos cambia.
 

@@ -63,7 +63,8 @@ def contract() -> dict:
         "schema_version": "1.1.0",
         "source_inputs": [
             "apps/api", "apps/web", "db", "packages/contracts/python",
-            "packages/platform/python", "workers/document",
+            "packages/platform/python", ".github/workflows/release-candidate.yml",
+            "tools/release_candidate", "workers/document",
         ],
         "state": "review_pending", "task": "FNC-REL-001",
         "workflow": {
@@ -92,6 +93,9 @@ class RepositoryFixture:
         write(self.root / "docs/platform/release-candidate.json",
               json.dumps(contract(), sort_keys=True))
         write(self.root / ".gitattributes", "* text=auto eol=lf\n")
+        write(self.root / ".github/workflows/release-candidate.yml",
+              "name: synthetic-release\n")
+        write(self.root / "tools/release_candidate/model.py", "synthetic = True\n")
         dockerfiles = {
             "apps/api/Dockerfile": (
                 "FROM scratch@sha256:" + "c" * 64 + "\n"
@@ -336,7 +340,8 @@ class ReleaseBundleTests(unittest.TestCase):
         loaded = load_contract(root)
         self.assertEqual(loaded["source_inputs"], [
             "apps/api", "apps/web", "db", "packages/contracts/python",
-            "packages/platform/python", "workers/document",
+            "packages/platform/python", ".github/workflows/release-candidate.yml",
+            "tools/release_candidate", "workers/document",
         ])
 
     def test_source_verification_rejects_a_different_commit(self) -> None:
@@ -360,6 +365,17 @@ class ReleaseBundleTests(unittest.TestCase):
         self.fixture.create(second)
         for name in EXPECTED_FILES:
             self.assertEqual((self.bundle / name).read_bytes(), (second / name).read_bytes())
+
+    def test_tree_digest_still_binds_every_tracked_file(self) -> None:
+        before, count = digest_source_input(self.fixture.root, "apps/api")
+        self.assertGreaterEqual(count, 3)
+        write(self.fixture.root / "apps/api/tests/new_test.py", "synthetic = True\n")
+        git(self.fixture.root, "add", ".")
+        git(self.fixture.root, "-c", "user.name=Fincilia Test",
+            "-c", "user.email=synthetic@demo.local", "commit", "-qm", "new input")
+        after, next_count = digest_source_input(self.fixture.root, "apps/api")
+        self.assertNotEqual(after, before)
+        self.assertEqual(next_count, count + 1)
 
     def test_spdx_overclaim_is_rejected_even_with_recomputed_checksums(self) -> None:
         self.fixture.create(self.bundle)

@@ -10,12 +10,15 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import io
 import json
 import re
 import shlex
 import subprocess
+import tarfile
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from functools import lru_cache
 from pathlib import Path, PurePosixPath
 from typing import Any, Iterable
 
@@ -97,6 +100,50 @@ def _git_blob(root: Path, relative: str) -> bytes:
     except (OSError, subprocess.CalledProcessError) as error:
         raise ReleaseError(f"tracked release input has no Git blob: {relative}") from error
     return result.stdout
+
+
+@lru_cache(maxsize=256)
+def _git_tree_blobs_cached(
+    root_text: str, revision: str, relative: str, files: tuple[str, ...],
+) -> dict[str, bytes]:
+    """Read one immutable Git tree once per commit and declared input."""
+    root = Path(root_text)
+    try:
+        result = subprocess.run(
+            ["git", "archive", "--format=tar", revision, "--", relative],
+            cwd=root, check=True, capture_output=True,
+        )
+    except (OSError, subprocess.CalledProcessError) as error:
+        raise ReleaseError(f"git archive failed for release input: {relative}") from error
+    expected = set(files)
+    observed: dict[str, bytes] = {}
+    try:
+        with tarfile.open(fileobj=io.BytesIO(result.stdout), mode="r:") as archive:
+            for member in archive.getmembers():
+                if not member.isfile():
+                    continue
+                if member.name not in expected or member.name in observed:
+                    raise ReleaseError(
+                        f"Git archive has unexpected release input: {member.name}")
+                stream = archive.extractfile(member)
+                if stream is None:
+                    raise ReleaseError(f"Git archive entry is unreadable: {member.name}")
+                observed[member.name] = stream.read()
+    except (tarfile.TarError, OSError) as error:
+        raise ReleaseError(f"Git archive is unreadable: {relative}") from error
+    if set(observed) != expected:
+        raise ReleaseError(f"Git archive is incomplete for release input: {relative}")
+    return observed
+
+
+def _git_tree_blobs(root: Path, relative: str, files: list[str]) -> dict[str, bytes]:
+    """Read one tracked tree with one Git process instead of one per file."""
+    revision = _run_git(root, "rev-parse", "HEAD")
+    if not REVISION.fullmatch(revision):
+        raise ReleaseError("source revision must be a full 40-character Git SHA")
+    return _git_tree_blobs_cached(
+        str(root.resolve()), revision, relative, tuple(files),
+    )
 
 
 def clean_git_state(root: Path, expected_revision: str | None = None) -> GitState:
@@ -328,9 +375,10 @@ def _tracked_files(root: Path, relative: str) -> list[str]:
 
 def digest_source_input(root: Path, relative: str) -> tuple[str, int]:
     files = _tracked_files(root, relative)
+    blobs = _git_tree_blobs(root, relative, files)
     digest = hashlib.sha256()
     for item in files:
-        raw = _git_blob(root, item)
+        raw = blobs[item]
         digest.update(item.encode("utf-8"))
         digest.update(b"\0")
         digest.update(hashlib.sha256(raw).digest())
