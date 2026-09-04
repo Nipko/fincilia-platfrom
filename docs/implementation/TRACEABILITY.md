@@ -72,6 +72,7 @@ Una celda de implementación vacía significa no implementado. No se rellena con
 | REQ-FNC-104-WEB-FUNCTIONAL-STATUS | WEB-004, ACC-001, IAM-004, ADR-033 | GAT-008 | Inventario ponderado de 12 dominios web y scoring reproducible por dimensión | 10 pruebas adversariales y CLI: 88/59/28 | none | Review pending; no mide exactitud real ni mueve DRG-00/01/GA-01; mobile excluido |
 | REQ-FNC-105-SUBPROCESSOR-REGISTER | A-02, Ley 1581; ARC-003, LEG-001/002, GAT-005 | LEG-003 | Registro por plano de AWS, Google, Cloudflare, Namecheap y GitHub, fuentes oficiales y divulgación pública | Pruebas adversariales y CLI offline del registro | A-02 / DRG-00 / DRG-01 | Review pending; inventario técnico listo, clasificación, DPA y revisión Legal/Privacy/Security siguen pendientes; datos reales no autorizados |
 | REQ-FNC-106-AWS-GROSS-COST-ALERTS | ADR-032; FIN-002/003, PLT-012/015 | FIN-004 | Plan PAID directo, foundation fría y presupuesto account-wide antes de créditos/descuentos/reembolsos | 43 pruebas, plan/apply frío, 147 no-op y consultas AWS redactadas | DRG-00 / DRG-01 | Review pending; alertas 50/80/100 aplicadas, runtime y datos reales no autorizados |
+| REQ-FNC-107-AWS-DB-BOOTSTRAP | ADR-002/032; PLT-015/016, SUP-003 | PLT-017 | Calentamiento temporal, secretos fuera de IaC, roles mínimos, migraciones y retorno a frío | Plan validado, one-off tasks, estado de migración y plan posterior redactados | DRG-00 / DRG-01 | In progress; plan warm seguro, ejecución pendiente, sin semillas ni datos reales |
 
 ## Campos al implementar
 
