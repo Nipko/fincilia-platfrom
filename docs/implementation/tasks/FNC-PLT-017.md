@@ -35,7 +35,9 @@ usuarios, DNS, tráfico público ni aceptación de gates.
 1. Los tres digests ECR exactos existen y corresponden a la release admitida.
 2. El plan warm validado no contiene borrados, mantiene `desired_count=0` y
    `real_data_authorized=false`.
-3. Warm materializa `11/11`, inicia RDS y mantiene API/worker en cero.
+3. Warm deja el plano apto para bootstrap, inicia RDS y mantiene toda capacidad
+   en cero. Mientras ACM no esté validado, reporta como bloqueos explícitos el
+   listener HTTPS y el servicio de aplicación; no los sustituye por HTTP.
 4. `prepare-secrets` escribe por stdin cuatro secretos independientes y no
    expone valores, endpoint, ARN ni credenciales.
 5. Bootstrap termina antes del migrador; ambos one-off salen con código cero,

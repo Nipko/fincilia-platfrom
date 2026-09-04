@@ -206,6 +206,8 @@ def validate_sources(sources: str | None = None) -> list[str]:
         'default     = false',
         'for_each = var.runtime_plane_enabled ? toset([',
         'count = var.runtime_plane_enabled ? 1 : 0',
+        'count = var.runtime_plane_enabled && var.certificate_ready ? 1 : 0',
+        'depends_on = [aws_lb_listener.https]',
         'assign_public_ip = false',
         'condition     = var.service_desired_count == 0',
         'manage_master_user_password   = true',
@@ -282,6 +284,20 @@ def validate_sources(sources: str | None = None) -> list[str]:
         re.DOTALL,
     ):
         errors.append("worker/data no pueden recibir default route")
+    application_marker = 'resource "aws_ecs_service" "application" {'
+    worker_marker = 'resource "aws_ecs_service" "worker" {'
+    application_source = sources.partition(application_marker)[2].partition(
+        worker_marker
+    )[0]
+    if (
+        not application_source
+        or 'count = var.runtime_plane_enabled && var.certificate_ready ? 1 : 0'
+        not in application_source
+        or 'depends_on = [aws_lb_listener.https]' not in application_source
+    ):
+        errors.append(
+            "aws_ecs_service.application requiere certificate_ready y dependencia HTTPS"
+        )
     return errors
 
 

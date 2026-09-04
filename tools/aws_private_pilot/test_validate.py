@@ -454,6 +454,15 @@ class PrivatePilotContractTests(unittest.TestCase):
         self.assertTrue(any("UID 10001" in item
                             for item in validate_sources(candidate)))
 
+    def test_application_service_cannot_precede_verified_certificate(self) -> None:
+        candidate = source_text().replace(
+            "count = var.runtime_plane_enabled && var.certificate_ready ? 1 : 0",
+            "count = var.runtime_plane_enabled ? 1 : 0",
+            1,
+        )
+        self.assertTrue(any("certificate_ready" in item
+                            for item in validate_sources(candidate)))
+
 
 if __name__ == "__main__":
     unittest.main()

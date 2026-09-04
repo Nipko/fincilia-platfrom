@@ -18,6 +18,12 @@ infraestructura persistente de la temporal:
 servicios administrados; la activación de tareas sigue separada y bloqueada por
 DRG-00/01, secretos, migración, DNS/ACM y revisión independiente.
 
+Mientras `certificate_ready=false`, `warm` crea la definición de tarea y el
+servicio worker en cero, pero no crea el servicio de aplicación ni el listener
+HTTPS. Esta dependencia evita registrar el target group en ECS antes de que
+ACM tenga un certificado validado. No se abre un listener HTTP temporal: el
+plano queda apto para ejecutar bootstrap y migraciones sin publicar tráfico.
+
 Amazon RDS sólo permite detener una instancia durante siete días consecutivos;
 después puede reiniciarla automáticamente. Por ello `status` siempre muestra
 ese límite y el operador debe verificar/enfriar de nuevo antes del séptimo día.

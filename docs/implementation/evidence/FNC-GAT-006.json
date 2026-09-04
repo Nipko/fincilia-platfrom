@@ -1,7 +1,7 @@
 {
   "data_classification": "completely_synthetic",
   "database_engine": "PostgreSQL 17",
-  "evidence_sha256": "f16a9a1ca90d566c8f9d8a2a8575d91a24277360f5c745d442ea9c2bd1688c25",
+  "evidence_sha256": "d6a3eea5e741a4e1505f3b088f1510a59777c2d6aa2243b560dbe03675889b6b",
   "executed_suite": {
     "command": "python -m unittest db.tests.test_managed_oidc_identity db.tests.test_api_authorization db.tests.test_issued_authorization_context db.tests.test_processing_authorization_context db.tests.test_api_documents db.tests.test_quarantine_before_raw -v",
     "errors": 0,
@@ -28,7 +28,7 @@
     "db/tests/test_processing_authorization_context.py": "94f28f1a7c519540a39c476473f61de08c2dfac583afb148a1766debed432edb",
     "db/tests/test_quarantine_before_raw.py": "f67feb4a78c73e54b82dca418c9114e8016b1a9ae499ec1e72e25b10ed597354",
     "docs/platform/aws-private-pilot.json": "5f61a8d650112f3e09c7b7c02322654752673a55d83cb7323a98347a458ec5f7",
-    "infra/aws/private-pilot/compute.tf": "89e3abacd6ad2004472de1111a6368d93c63665672cb35798574b8bd08e740db",
+    "infra/aws/private-pilot/compute.tf": "2d28a0a56e75b3cbff634e1234df45712dc6d9b0386a3c624afabee64cf0f6a4",
     "packages/contracts/python/fincilia_contracts/ingestion.py": "6ff01af42e9836bbf2aca37fbf268f599282cc1ad31e124d42c44feba4fd8d19",
     "workers/document/src/fincilia_worker/main.py": "2332d3a3bf8a04f120a452c0502d7fdc33d1ba29821eebc5345cceef3f4e6029"
   },

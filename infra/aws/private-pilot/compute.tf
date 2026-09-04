@@ -396,7 +396,7 @@ resource "aws_ecs_task_definition" "migrator" {
 }
 
 resource "aws_ecs_service" "application" {
-  count = var.runtime_plane_enabled ? 1 : 0
+  count = var.runtime_plane_enabled && var.certificate_ready ? 1 : 0
 
   name                   = "${local.name}-application"
   cluster                = aws_ecs_cluster.pilot.id
@@ -433,6 +433,8 @@ resource "aws_ecs_service" "application" {
       error_message = "Foundation no puede arrancar servicios."
     }
   }
+
+  depends_on = [aws_lb_listener.https]
 }
 
 resource "aws_ecs_service" "worker" {
