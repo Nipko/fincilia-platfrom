@@ -54,5 +54,30 @@
       "agent_may_accept": false
     }
   ],
-  "active_reservations": []
+  "active_reservations": [
+    {
+      "task": "FNC-NTF-002",
+      "paths": [
+        "apps/api/src/fincilia_api/notifications.py",
+        "apps/api/src/fincilia_api/oidc.py",
+        "apps/api/src/fincilia_api/routes.py",
+        "apps/api/tests/test_notifications.py",
+        "apps/api/tests/test_oidc.py",
+        "packages/platform/python/fincilia_platform/settings.py",
+        "packages/notifications",
+        "workers/notification",
+        "db/migrations/V0059__notification_dispatch_and_encrypted_destination.sql",
+        "db/tests/test_notification_dispatch.py",
+        "infra/local/compose.yaml",
+        "infra/local/db/init/001_bootstrap.sql",
+        ".github/workflows/ci.yml",
+        ".env.example",
+        "docs/platform/runtime-config.json",
+        "apps/web/src/app/recordatorios",
+        "apps/web/src/lib/api.ts",
+        "apps/web/src/lib/web-capabilities.ts",
+        "docs/implementation/tasks/FNC-NTF-002.md"
+      ]
+    }
+  ]
 }

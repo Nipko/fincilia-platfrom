@@ -197,6 +197,7 @@ dependencias de `FNC-GAT-002` ni afirmar que Sprint 1 está habilitado.
 | FNC-CLS-006 | A2/A5/A6 | CLS-005, LIN-001, SEC-001 | Review pending | Cierre/reapertura append-only con snapshot digest-only, bloqueo PostgreSQL, SoD y web verificados; solo sintético |
 | FNC-ING-006 | A4/A5/A6 | ING-005, ARC-001 | Review pending | PDF seguro y texto embebido implementados; port OCR desactivado; ADR-009 conserva el gateway obligatorio |
 | FNC-NTF-001 | A2/A4/A6 | OPS-001, ARC-004 | Review pending | Preferencias, intención idempotente, contexto allowlisted, RLS por sujeto e historial; adaptador real desactivado |
+| FNC-NTF-002 | A2/A4/A6 | NTF-001, IAM-004, PLT-017 | In progress | Despacho durable y SES provider-ready con destino KMS, feedback minimizado y activacion cerrada por gates |
 | FNC-BIL-001 | A2/A4/A6 | ARC-001, SEC-001 | Review pending | Tres planes versionados, evaluación idempotente, uso append-only y consola; cobro real desactivado |
 | FNC-GAT-008 | A1/A6 | WEB-004, ACC-001, IAM-004 | Review pending | Inventario ejecutable de 12 dominios: 90 % implementación, 60 % aceptación sintética y 28 % operabilidad productiva; mobile excluido |
 
