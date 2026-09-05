@@ -18,6 +18,8 @@ import {
   fetchCorrections,
   createAccount,
   createAccountBalance,
+  createBillingCheckout,
+  createBillingPortal,
   createBalanceReconciliationStatement,
   createCompletenessAssessment,
   createMapping,
@@ -91,6 +93,63 @@ export async function selectEvaluationPlanAction(
     if (error instanceof ApiError && error.status === 401) redirect('/entrar');
     return { error: 'No se pudo cambiar la evaluación del plan.', done: null };
   }
+}
+
+function trustedStripeRedirect(value: string, expectedHost: string): string {
+  const target = new URL(value);
+  if (target.protocol !== 'https:' || target.hostname !== expectedHost
+      || target.username || target.password) {
+    throw new Error('untrusted Stripe redirect');
+  }
+  return target.toString();
+}
+
+export async function startStripeCheckoutAction(
+  _previous: BillingActionState,
+  formData: FormData,
+): Promise<BillingActionState> {
+  const session = await readSession();
+  if (!session) redirect('/entrar');
+  const firmId = String(formData.get('firmId') ?? '');
+  const planCode = String(formData.get('planCode') ?? '');
+  if (!firmId || !['starter', 'business', 'accountant'].includes(planCode)) {
+    return { error: 'El plan solicitado no es válido.', done: null };
+  }
+  let destination: string;
+  try {
+    const result = await createBillingCheckout(
+      session.token, firmId,
+      planCode as 'starter' | 'business' | 'accountant', crypto.randomUUID(),
+    );
+    destination = trustedStripeRedirect(result.checkout_url, 'checkout.stripe.com');
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) redirect('/entrar');
+    if (error instanceof ApiError && error.status === 409) {
+      return { error: 'Este plan aún no tiene precio comercial publicado.', done: null };
+    }
+    return { error: 'No fue posible abrir el checkout seguro de Stripe.', done: null };
+  }
+  redirect(destination);
+}
+
+export async function openStripePortalAction(
+  _previous: BillingActionState,
+  formData: FormData,
+): Promise<BillingActionState> {
+  const session = await readSession();
+  if (!session) redirect('/entrar');
+  const firmId = String(formData.get('firmId') ?? '');
+  if (!firmId) return { error: 'Falta identificar la firma.', done: null };
+  let destination: string;
+  try {
+    const result = await createBillingPortal(
+      session.token, firmId, crypto.randomUUID());
+    destination = trustedStripeRedirect(result.portal_url, 'billing.stripe.com');
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) redirect('/entrar');
+    return { error: 'El portal de facturación todavía no está disponible.', done: null };
+  }
+  redirect(destination);
 }
 
 export async function updateNotificationPreferenceAction(

@@ -222,7 +222,7 @@ export type BillingOverview = {
     occurred_at: string;
     plan_code: string;
   }[];
-  payments_state: 'disabled';
+  payments_state: 'disabled' | 'ready';
   replayed?: boolean;
 };
 
@@ -1235,6 +1235,37 @@ export function selectEvaluationPlan(
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ plan_code: planCode, idempotency_key: idempotencyKey }),
+    },
+  );
+}
+
+export function createBillingCheckout(
+  token: string,
+  firmId: string,
+  planCode: BillingPlan['plan_code'],
+  idempotencyKey: string,
+): Promise<{ checkout_url: string; expires_at: number }> {
+  return request<{ checkout_url: string; expires_at: number }>(
+    `/api/v1/firms/${encodeURIComponent(firmId)}/billing/checkout`, {
+      token,
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ plan_code: planCode, idempotency_key: idempotencyKey }),
+    },
+  );
+}
+
+export function createBillingPortal(
+  token: string,
+  firmId: string,
+  idempotencyKey: string,
+): Promise<{ portal_url: string }> {
+  return request<{ portal_url: string }>(
+    `/api/v1/firms/${encodeURIComponent(firmId)}/billing/portal`, {
+      token,
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ idempotency_key: idempotencyKey }),
     },
   );
 }

@@ -1348,6 +1348,17 @@ ul {
   gap: 1rem;
   padding: 1.25rem;
 }
+.billing-heading-actions {
+  align-items: flex-end;
+  display: grid;
+  gap: 0.55rem;
+  justify-items: end;
+}
+.billing-heading-actions form { margin: 0; }
+.tag--success {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
 .billing-usage {
   display: grid;
   gap: 0.75rem;

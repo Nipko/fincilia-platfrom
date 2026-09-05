@@ -3,7 +3,9 @@
 import { useActionState } from 'react';
 
 import {
+  openStripePortalAction,
   selectEvaluationPlanAction,
+  startStripeCheckoutAction,
   type BillingActionState,
 } from '@/app/actions';
 import type { BillingOverview, BillingPlan, ManagedFirm } from '@/lib/api';
@@ -84,8 +86,16 @@ export function BillingPanel({
   const [state, action, pending] = useActionState(
     selectEvaluationPlanAction, INITIAL,
   );
+  const [checkoutState, checkoutAction, checkoutPending] = useActionState(
+    startStripeCheckoutAction, INITIAL,
+  );
+  const [portalState, portalAction, portalPending] = useActionState(
+    openStripePortalAction, INITIAL,
+  );
   const current = overview.subscription?.plan.plan_code ?? null;
   const currentPlan = overview.subscription?.plan ?? null;
+  const paymentReady = overview.payments_state === 'ready';
+  const hasStripeCustomer = overview.billing_account.provider_code === 'stripe';
   return (
     <article className="billing-workspace">
       <header className="candidate-heading">
@@ -93,11 +103,24 @@ export function BillingPanel({
           <p className="eyebrow">{firm.legal_name}</p>
           <h3>Plan y uso</h3>
           <p className="meta">
-            Evaluación funcional sin cobro. Precios, impuestos y límites finales
-            todavía no están publicados.
+            {paymentReady
+              ? 'Checkout y gestión de la suscripción se realizan en páginas seguras alojadas por Stripe.'
+              : 'Evaluación funcional sin cobro. Los precios y límites comerciales se publicarán al cerrar los planes.'}
           </p>
         </div>
-        <span className="tag">Pagos desactivados</span>
+        <div className="billing-heading-actions">
+          <span className={`tag ${paymentReady ? 'tag--success' : ''}`}>
+            {paymentReady ? 'Stripe habilitado' : 'Pagos desactivados'}
+          </span>
+          {paymentReady && hasStripeCustomer ? (
+            <form action={portalAction}>
+              <input type="hidden" name="firmId" value={firm.firm_id} />
+              <button className="secondary" type="submit" disabled={portalPending}>
+                {portalPending ? 'Abriendo…' : 'Gestionar facturación'}
+              </button>
+            </form>
+          ) : null}
+        </div>
       </header>
       <div className="billing-usage" aria-label="Uso observado este mes">
         <UsageMeter label="Documentos" value={overview.usage.documents_uploaded}
@@ -142,37 +165,56 @@ export function BillingPanel({
                   ? `${formatMinorAmount(plan.commercial.unit_amount_minor, plan.commercial.currency_code)} · configuración versionada`
                   : 'Precio, impuestos y capacidad comercial aún no publicados.'}
               </p>
-              <form action={action}>
-                <input type="hidden" name="firmId" value={firm.firm_id} />
-                <input type="hidden" name="planCode" value={plan.plan_code} />
-                <button type="submit" className={selected ? 'secondary' : undefined}
-                  disabled={pending || selected}>
-                  {selected ? 'Evaluación activa' : pending ? 'Aplicando…' : 'Usar en evaluación'}
-                </button>
-              </form>
+              {paymentReady ? (
+                <form action={checkoutAction}>
+                  <input type="hidden" name="firmId" value={firm.firm_id} />
+                  <input type="hidden" name="planCode" value={plan.plan_code} />
+                  <button type="submit" className={selected ? 'secondary' : undefined}
+                    disabled={checkoutPending || !plan.commercial.configured}>
+                    {!plan.commercial.configured
+                      ? 'Precio por publicar'
+                      : checkoutPending ? 'Abriendo Stripe…'
+                        : selected && hasStripeCustomer ? 'Cambiar plan' : 'Suscribirme'}
+                  </button>
+                </form>
+              ) : (
+                <form action={action}>
+                  <input type="hidden" name="firmId" value={firm.firm_id} />
+                  <input type="hidden" name="planCode" value={plan.plan_code} />
+                  <button type="submit" className={selected ? 'secondary' : undefined}
+                    disabled={pending || selected}>
+                    {selected ? 'Evaluación activa' : pending ? 'Aplicando…' : 'Usar en evaluación'}
+                  </button>
+                </form>
+              )}
             </section>
           );
         })}
       </div>
       {state.error ? <p className="error" role="alert">{state.error}</p> : null}
       {state.done ? <p className="notice" role="status">{state.done}</p> : null}
+      {checkoutState.error ? <p className="error" role="alert">{checkoutState.error}</p> : null}
+      {portalState.error ? <p className="error" role="alert">{portalState.error}</p> : null}
       <section aria-labelledby={`billing-readiness-${firm.firm_id}`}>
         <div className="section-heading">
           <div><p className="eyebrow">Preparación comercial</p>
             <h4 id={`billing-readiness-${firm.firm_id}`}>Qué está activo y qué no</h4></div>
         </div>
         <div className="capability-grid">
-          <CapabilityStatus state={overview.billing_account.provider_code ? 'planned' : 'blocked'}
+          <CapabilityStatus state={paymentReady ? 'available' : 'blocked'}
             title="Proveedor de pagos"
-            description={overview.billing_account.provider_code
-              ? `Configurado como ${overview.billing_account.provider_code}; todavía sin checkout habilitado.`
-              : 'No se ha seleccionado ni configurado un proveedor de pagos.'} />
+            description={paymentReady
+              ? 'Stripe está configurado; Fincilia no almacena números de tarjeta ni códigos de seguridad.'
+              : 'Stripe está seleccionado, pero no recibe credenciales mientras los pagos estén apagados.'} />
           <CapabilityStatus
             state={overview.billing_account.tax_profile_state === 'verified' ? 'available' : 'blocked'}
             title="Perfil tributario"
             description={`Estado: ${overview.billing_account.tax_profile_state}. No se calculan impuestos sin verificación.`} />
-          <CapabilityStatus state="blocked" title="Checkout y cobros"
-            description="Deshabilitados por contrato. Elegir un plan de evaluación no genera cargos." />
+          <CapabilityStatus state={paymentReady ? 'available' : 'blocked'}
+            title="Checkout y cobros"
+            description={paymentReady
+              ? 'Checkout alojado y webhook firmado; el retorno del navegador nunca activa el plan.'
+              : 'Deshabilitados por contrato. Elegir un plan de evaluación no genera cargos.'} />
         </div>
       </section>
       <section aria-labelledby={`billing-history-${firm.firm_id}`}>

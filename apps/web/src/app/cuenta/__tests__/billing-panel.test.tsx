@@ -2,7 +2,9 @@ import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/app/actions', () => ({
+  openStripePortalAction: vi.fn(),
   selectEvaluationPlanAction: vi.fn(),
+  startStripeCheckoutAction: vi.fn(),
 }));
 
 import { BillingPanel } from '../billing-panel';
@@ -48,13 +50,46 @@ describe('BillingPanel', () => {
       }} />);
 
     expect(screen.getByText('Pagos desactivados')).toBeInTheDocument();
-    expect(screen.getByText(/Precios, impuestos y límites finales/)).toBeInTheDocument();
+    expect(screen.getAllByText(
+      /Precio, impuestos y capacidad comercial/,
+    )).toHaveLength(3);
     expect(screen.getByRole('button', { name: 'Evaluación activa' })).toBeDisabled();
     expect(screen.getByText(/nunca concede acceso/)).toBeInTheDocument();
     expect(screen.getByText('Para contadores que administran múltiples clientes.')).toBeInTheDocument();
     expect(screen.getByRole('progressbar', { name: /Documentos: 4%/ })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Qué está activo y qué no' })).toBeInTheDocument();
-    expect(screen.getByText(/No se ha seleccionado ni configurado/)).toBeInTheDocument();
+    expect(screen.getByText(/Stripe está seleccionado/)).toBeInTheDocument();
     expect(screen.getByText('evaluation_started')).toBeInTheDocument();
+  });
+
+  it('muestra checkout y portal solo cuando Stripe y el precio estan listos', () => {
+    const commercial = {
+      ...plans[1]!, catalog_state: 'commercial' as const,
+      commercial: {
+        configured: true, currency_code: 'USD', unit_amount_minor: 4900,
+        trial_days: 14,
+      },
+    };
+    render(<BillingPanel
+      firm={{ firm_id: 'firm-1', legal_name: 'Firma Sintética', firm_role: 'owner' }}
+      plans={[commercial]}
+      overview={{
+        firm_id: 'firm-1', manager_role: 'owner', payments_state: 'ready',
+        subscription: { subscription_id: 'sub-1', status: 'active', sequence: 2,
+          source_code: 'payment_provider', started_at: '2026-09-04T00:00:00Z',
+          trial_ends_at: null, plan: commercial },
+        billing_account: { configuration_state: 'ready', provider_code: 'stripe',
+          billing_country: null, tax_profile_state: 'pending' },
+        usage: { period_start: '2026-09-01', documents_uploaded: 4,
+          storage_bytes: 2048, meter_state: 'observed_append_only' },
+        history: [{ event_code: 'activated', reason_code: 'stripe_verified_webhook',
+          occurred_at: '2026-09-04T00:00:00Z', plan_code: 'business' }],
+      }} />);
+
+    expect(screen.getByText('Stripe habilitado')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Gestionar facturación' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Cambiar plan' })).toBeEnabled();
+    expect(screen.getByText(/no almacena números de tarjeta/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Evaluación activa' })).not.toBeInTheDocument();
   });
 });

@@ -22,9 +22,13 @@ function formatMoment(epochSeconds: number): string {
   }).format(new Date(epochSeconds * 1000));
 }
 
-export default async function AccountPage() {
+export default async function AccountPage({ searchParams = Promise.resolve({}) }: {
+  searchParams?: Promise<{ checkout?: string | string[] }>;
+} = {}) {
   const session = await readSession();
   if (!session) redirect('/entrar');
+  const checkout = (await searchParams).checkout;
+  const checkoutState = Array.isArray(checkout) ? checkout[0] : checkout;
 
   let me;
   try {
@@ -57,6 +61,18 @@ export default async function AccountPage() {
         </div>
         <SignOut />
       </header>
+
+      {checkoutState === 'success' ? (
+        <p className="notice" role="status">
+          Stripe recibió el checkout. El plan cambiará únicamente cuando Fincilia
+          verifique el webhook; puedes actualizar esta página en unos segundos.
+        </p>
+      ) : null}
+      {checkoutState === 'cancel' ? (
+        <p className="meta" role="status">
+          Checkout cancelado. No se aplicó ningún cambio ni cargo desde Fincilia.
+        </p>
+      ) : null}
 
       <section className="identity-summary" aria-labelledby="identity-summary-title">
         <article className="card identity-profile">
