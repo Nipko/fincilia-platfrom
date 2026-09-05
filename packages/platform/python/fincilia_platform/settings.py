@@ -111,6 +111,15 @@ class Settings(BaseSettings):
     real_data_enabled: bool = Field(default=False)
     ai_gateway_enabled: bool = Field(default=False)
     payments_enabled: bool = Field(default=False)
+    notification_provider: Literal["disabled", "aws_ses"] = Field(
+        default="disabled",
+        description="Correo externo; solo aws_ses tras gates de identidad y datos.")
+    notification_region: str = Field(default="disabled")
+    notification_from_address: str = Field(default="disabled")
+    notification_reply_to_address: str = Field(default="disabled")
+    notification_destination_kms_key_id: str = Field(default="disabled")
+    notification_configuration_set: str = Field(default="disabled")
+    notification_public_origin: str = Field(default="disabled")
     registration_invite_required: bool = Field(
         default=False,
         description="Exige una invitacion de un uso en la beta cerrada sintetica.")
@@ -239,6 +248,51 @@ class Settings(BaseSettings):
                 raise ValueError("OIDC needs a configured DRG-00 KMS attestation")
         elif self.oidc_registration_mode != "disabled":
             raise ValueError("public Google registration requires OIDC")
+
+        notification_values = (
+            self.notification_region,
+            self.notification_from_address,
+            self.notification_reply_to_address,
+            self.notification_destination_kms_key_id,
+            self.notification_configuration_set,
+            self.notification_public_origin,
+        )
+        if self.notification_provider == "disabled":
+            if any(value != "disabled" for value in notification_values):
+                raise ValueError(
+                    "disabled notifications must not receive provider configuration")
+        else:
+            if (
+                self.env != "pilot"
+                or self.secret_source != "aws_secrets_manager"
+                or not self.real_data_enabled
+                or not self.oidc_enabled
+            ):
+                raise ValueError(
+                    "AWS SES requires the gated pilot environment, real data and OIDC")
+            if not re.fullmatch(r"[a-z]{2}-[a-z]+-\d", self.notification_region):
+                raise ValueError("notification region must be an exact AWS region")
+            email_pattern = r"[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@fincilia\.com"
+            if not re.fullmatch(email_pattern, self.notification_from_address,
+                                flags=re.IGNORECASE):
+                raise ValueError("notification From must be a fincilia.com address")
+            if not re.fullmatch(email_pattern, self.notification_reply_to_address,
+                                flags=re.IGNORECASE):
+                raise ValueError("notification Reply-To must be a fincilia.com address")
+            kms_pattern = (
+                rf"arn:aws:kms:{re.escape(self.notification_region)}:"
+                r"\d{12}:key/[0-9a-f-]{36}"
+            )
+            if not re.fullmatch(kms_pattern,
+                                self.notification_destination_kms_key_id,
+                                flags=re.IGNORECASE):
+                raise ValueError("notification destination requires a regional KMS key ARN")
+            if not re.fullmatch(r"[A-Za-z0-9_-]{2,64}",
+                                self.notification_configuration_set):
+                raise ValueError("notification configuration set is invalid")
+            if not re.fullmatch(r"https://[A-Za-z0-9.-]+(?::\d{2,5})?",
+                                self.notification_public_origin):
+                raise ValueError("notification public origin must be exact HTTPS without path")
         return self
 
     @field_validator("engine_release_key")
@@ -385,6 +439,118 @@ class WorkerSettings(Settings):
         return None
 
 
+class NotificationWorkerSettings(BaseSettings):
+    """Configuracion minima del despachador de correo.
+
+    No hereda de :class:`Settings`: hacerlo obligaria a entregar al proceso
+    credenciales de objetos, cache e identidad que nunca utiliza. ``extra``
+    cerrado convierte esa separacion en una propiedad comprobable.
+    """
+
+    model_config = SettingsConfigDict(
+        env_prefix="FINCILIA_", env_file=None, extra="forbid", frozen=True,
+        case_sensitive=False,
+    )
+
+    env: Literal["local", "test", "pilot"]
+    service_name: str = Field(default="fincilia-notification-worker", min_length=3)
+    log_level: Literal["debug", "info", "warning", "error"] = Field(default="info")
+    build_revision: str = Field(default="development")
+    release_id: str = Field(default="unreleased")
+    secret_source: Literal["local_env", "aws_secrets_manager"] = Field(
+        default="local_env")
+    database_url: PostgresDsn
+    database_pool_min: int = Field(default=1, ge=0, le=8)
+    database_pool_max: int = Field(default=4, ge=1, le=16)
+    database_statement_timeout_ms: int = Field(default=15_000, ge=100, le=120_000)
+    real_data_enabled: bool = Field(default=False)
+    oidc_enabled: bool = Field(default=False)
+    data_gate_attestation: str = Field(default="disabled")
+    data_gate_signature: str = Field(default="disabled")
+    data_gate_kms_key_id: str = Field(default="disabled")
+    notification_provider: Literal["disabled", "aws_ses"] = Field(default="disabled")
+    notification_region: str = Field(default="disabled")
+    notification_from_address: str = Field(default="disabled")
+    notification_reply_to_address: str = Field(default="disabled")
+    notification_destination_kms_key_id: str = Field(default="disabled")
+    notification_configuration_set: str = Field(default="disabled")
+    notification_public_origin: str = Field(default="disabled")
+
+    @field_validator("database_pool_max")
+    @classmethod
+    def _worker_pool_bounds(cls, value: int, info: ValidationInfo) -> int:
+        if value < info.data.get("database_pool_min", 0):
+            raise ValueError("database_pool_max must not be below database_pool_min")
+        return value
+
+    @field_validator("build_revision")
+    @classmethod
+    def _worker_revision_is_exact(cls, value: str) -> str:
+        if value != "development" and not re.fullmatch(r"[0-9a-f]{40}", value):
+            raise ValueError("build_revision must be a full Git SHA or development")
+        return value
+
+    @field_validator("release_id")
+    @classmethod
+    def _worker_release_is_exact(cls, value: str) -> str:
+        if value != "unreleased" and not re.fullmatch(
+                r"fnc-[a-z0-9][a-z0-9.-]{2,79}", value):
+            raise ValueError("release_id must be immutable and canonical")
+        return value
+
+    @model_validator(mode="after")
+    def _notification_boundary(self) -> "NotificationWorkerSettings":
+        values = (
+            self.notification_region, self.notification_from_address,
+            self.notification_reply_to_address,
+            self.notification_destination_kms_key_id,
+            self.notification_configuration_set,
+            self.notification_public_origin,
+        )
+        if self.notification_provider == "disabled":
+            if any(value != "disabled" for value in values):
+                raise ValueError(
+                    "disabled notifications must not receive provider configuration")
+            if self.real_data_enabled:
+                raise ValueError("a disabled dispatcher must not enable real data")
+            return self
+        if (
+            self.env != "pilot"
+            or self.secret_source != "aws_secrets_manager"
+            or not self.real_data_enabled
+            or not self.oidc_enabled
+            or any(value == "disabled" for value in (
+                self.data_gate_attestation, self.data_gate_signature,
+                self.data_gate_kms_key_id,
+            ))
+        ):
+            raise ValueError(
+                "AWS SES requires pilot, managed secrets, identity and a data gate")
+        if not re.fullmatch(r"[a-z]{2}-[a-z]+-\d", self.notification_region):
+            raise ValueError("notification region must be an exact AWS region")
+        email_pattern = r"[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@fincilia\.com"
+        if not re.fullmatch(email_pattern, self.notification_from_address,
+                            flags=re.IGNORECASE):
+            raise ValueError("notification From must be a fincilia.com address")
+        if not re.fullmatch(email_pattern, self.notification_reply_to_address,
+                            flags=re.IGNORECASE):
+            raise ValueError("notification Reply-To must be a fincilia.com address")
+        kms_pattern = (
+            rf"arn:aws:kms:{re.escape(self.notification_region)}:"
+            r"\d{12}:key/[0-9a-f-]{36}"
+        )
+        if not re.fullmatch(kms_pattern, self.notification_destination_kms_key_id,
+                            flags=re.IGNORECASE):
+            raise ValueError("notification destination requires a regional KMS key ARN")
+        if not re.fullmatch(r"[A-Za-z0-9_-]{2,64}",
+                            self.notification_configuration_set):
+            raise ValueError("notification configuration set is invalid")
+        if not re.fullmatch(r"https://[A-Za-z0-9.-]+(?::\d{2,5})?",
+                            self.notification_public_origin):
+            raise ValueError("notification public origin must be exact HTTPS without path")
+        return self
+
+
 @functools.lru_cache(maxsize=1)
 def get_api_settings() -> ApiSettings:
     return ApiSettings()  # type: ignore[call-arg]
@@ -393,3 +559,8 @@ def get_api_settings() -> ApiSettings:
 @functools.lru_cache(maxsize=1)
 def get_worker_settings() -> WorkerSettings:
     return WorkerSettings()  # type: ignore[call-arg]
+
+
+@functools.lru_cache(maxsize=1)
+def get_notification_worker_settings() -> NotificationWorkerSettings:
+    return NotificationWorkerSettings()  # type: ignore[call-arg]

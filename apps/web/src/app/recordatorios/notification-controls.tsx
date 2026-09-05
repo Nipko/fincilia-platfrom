@@ -35,22 +35,28 @@ export function NotificationControls({
     syncNotificationRemindersAction, INITIAL,
   );
   const summary = summarizeDeliveries(deliveries);
+  const providerReady = preference.destination_state === 'ready';
   return (
     <section className="card notification-center" aria-labelledby="notification-title">
       <div className="candidate-heading">
         <div>
           <h2 id="notification-title">Avisos por correo</h2>
           <p className="meta">
-            Preferencia por empresa. El proveedor externo aun no esta configurado:
-            cualquier intento queda suprimido y nunca aparece como enviado.
+            {providerReady
+              ? 'Preferencia por empresa. Los avisos usan destino cifrado, horario de silencio y entrega verificable.'
+              : 'Preferencia por empresa. Mientras el proveedor o el destino no estén listos, ningún aviso aparece como enviado.'}
           </p>
         </div>
-        <span className="tag">Entrega externa desactivada</span>
+        <span className="tag">{providerReady ? 'Canal preparado' : 'Entrega externa desactivada'}</span>
       </div>
-      <CapabilityStatus state="blocked" title="Canal de correo"
-        description="Las preferencias y las intenciones quedan registradas, pero ningún mensaje se presenta como enviado mientras el proveedor esté apagado."
+      <CapabilityStatus state={providerReady ? 'available' : 'blocked'} title="Canal de correo"
+        description={providerReady
+          ? 'La cola durable está disponible. Un timeout incierto se detiene para revisión y nunca se reenvía a ciegas.'
+          : 'Las preferencias y las intenciones quedan registradas, pero ningún mensaje se presenta como enviado mientras el proveedor esté apagado.'}
         detail={<span>Destino: {preference.destination_state === 'provider_configuration_pending'
-          ? 'configuración del proveedor pendiente' : preference.destination_state}</span>} />
+          ? 'configuración del proveedor pendiente'
+          : preference.destination_state === 'ready' ? 'cifrado y verificado'
+            : preference.destination_state}</span>} />
       <form action={save} className="notification-preferences">
         <input type="hidden" name="companyId" value={companyId} />
         <label className="check-row">
@@ -84,8 +90,11 @@ export function NotificationControls({
       </form>
       <dl className="notification-summary" aria-label="Resumen de entregas visibles">
         <div><dt>En cola</dt><dd>{summary.queued}</dd></div>
+        <div><dt>En proceso</dt><dd>{summary.sending}</dd></div>
+        <div><dt>Enviadas</dt><dd>{summary.sent}</dd></div>
         <div><dt>Entregadas</dt><dd>{summary.delivered}</dd></div>
         <div><dt>Fallidas</dt><dd>{summary.failed}</dd></div>
+        <div><dt>Por verificar</dt><dd>{summary.uncertain}</dd></div>
         <div><dt>Suprimidas</dt><dd>{summary.suppressed}</dd></div>
       </dl>
       <div>

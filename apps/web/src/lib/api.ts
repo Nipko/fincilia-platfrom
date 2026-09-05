@@ -1887,14 +1887,14 @@ export type NotificationPreference = {
   quiet_from: string;
   quiet_until: string;
   updated_at: string | null;
-  destination_state: 'provider_configuration_pending';
+  destination_state: 'provider_configuration_pending' | 'ready' | 'unavailable' | 'suppressed';
 };
 
 export type NotificationDelivery = {
   delivery_id: string;
   template_code: string;
   context: { period_label: string; due_on: string; action_url: string };
-  status: 'queued' | 'sent' | 'delivered' | 'failed' | 'suppressed';
+  status: 'queued' | 'sending' | 'sent' | 'delivered' | 'failed' | 'uncertain' | 'suppressed';
   suppression_reason: string | null;
   attempt_count: number;
   created_at: string;
@@ -1927,7 +1927,7 @@ export function updateNotificationPreference(
 
 export function syncNotificationReminders(token: string, companyId: string): Promise<{
   created: number; replayed: number; suppressed: number;
-  adapter_state: 'disabled'; notice: string;
+  adapter_state: 'disabled' | 'ready'; notice: string;
 }> {
   return request(
     `/api/v1/companies/${encodeURIComponent(companyId)}/notifications/reminders/sync`,

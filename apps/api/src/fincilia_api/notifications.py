@@ -68,7 +68,20 @@ def validate_preference(*, enabled: bool, locale: str, timezone: str,
     }
 
 
-def read_preference(connection: psycopg.Connection, *, subject_id: str) -> dict[str, Any]:
+def _destination_state(connection: psycopg.Connection, *, subject_id: str,
+                       provider_ready: bool) -> str:
+    if not provider_ready:
+        return "provider_configuration_pending"
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT fincilia.my_notification_destination_state(%s)",
+            (subject_id,))
+        state = cursor.fetchone()[0]
+    return "ready" if state == "active" else state
+
+
+def read_preference(connection: psycopg.Connection, *, subject_id: str,
+                    provider_ready: bool = False) -> dict[str, Any]:
     with connection.cursor() as cursor:
         cursor.execute(
             "SELECT preference_id::text, enabled, locale, timezone, quiet_from, "
@@ -82,7 +95,8 @@ def read_preference(connection: psycopg.Connection, *, subject_id: str) -> dict[
             "purpose_code": "operational_reminder", "enabled": False,
             "locale": "es-CO", "timezone": "America/Bogota",
             "quiet_from": "20:00", "quiet_until": "07:00", "updated_at": None,
-            "destination_state": "provider_configuration_pending",
+            "destination_state": _destination_state(
+                connection, subject_id=subject_id, provider_ready=provider_ready),
         }
     return {
         "preference_id": row[0], "channel": "email",
@@ -91,13 +105,15 @@ def read_preference(connection: psycopg.Connection, *, subject_id: str) -> dict[
         "quiet_from": row[4].strftime("%H:%M"),
         "quiet_until": row[5].strftime("%H:%M"),
         "updated_at": row[6].isoformat(),
-        "destination_state": "provider_configuration_pending",
+        "destination_state": _destination_state(
+            connection, subject_id=subject_id, provider_ready=provider_ready),
     }
 
 
 def write_preference(connection: psycopg.Connection, *, company_id: str,
                      subject_id: str, enabled: bool, locale: str, timezone: str,
-                     quiet_from: str, quiet_until: str) -> dict[str, Any]:
+                     quiet_from: str, quiet_until: str,
+                     provider_ready: bool = False) -> dict[str, Any]:
     value = validate_preference(
         enabled=enabled, locale=locale, timezone=timezone,
         quiet_from=quiet_from, quiet_until=quiet_until)
@@ -113,7 +129,20 @@ def write_preference(connection: psycopg.Connection, *, company_id: str,
             "quiet_until = EXCLUDED.quiet_until, updated_at = now()",
             (company_id, subject_id, value["enabled"], value["locale"],
              value["timezone"], value["quiet_from"], value["quiet_until"]))
-    return read_preference(connection, subject_id=subject_id)
+    return read_preference(
+        connection, subject_id=subject_id, provider_ready=provider_ready)
+
+
+def upsert_verified_destination(connection: psycopg.Connection, *, subject_id: str,
+                                ciphertext: bytes, address_ref: str,
+                                kms_key_ref: str) -> None:
+    """Persiste exclusivamente ciphertext y referencias; nunca acepta correo."""
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT fincilia.upsert_verified_notification_destination("
+            "%s, %s, %s, %s)",
+            (subject_id, address_ref, ciphertext, kms_key_ref),
+        )
 
 
 def _delivery_key(company_id: str, subject_id: str, template: str,
@@ -133,9 +162,31 @@ def _safe_context(period: dict[str, Any], company_id: str) -> dict[str, str]:
     }
 
 
+def _available_at(evaluated_at: dt.datetime, preference: dict[str, Any]) -> dt.datetime:
+    """Mueve una entrega al final de quiet hours en la zona del usuario."""
+    if evaluated_at.tzinfo is None:
+        raise NotificationError(
+            "notification-time-invalid", "evaluated_at must be timezone aware")
+    zone = ZoneInfo(preference["timezone"])
+    local = evaluated_at.astimezone(zone)
+    start = dt.time.fromisoformat(preference["quiet_from"])
+    end = dt.time.fromisoformat(preference["quiet_until"])
+    clock = local.timetz().replace(tzinfo=None)
+    quiet = clock >= start or clock < end if start > end else start <= clock < end
+    if not quiet:
+        return evaluated_at.astimezone(dt.timezone.utc)
+    end_date = local.date()
+    if start > end and clock >= start:
+        end_date += dt.timedelta(days=1)
+    local_end = dt.datetime.combine(end_date, end, tzinfo=zone)
+    return local_end.astimezone(dt.timezone.utc)
+
+
 def sync_reminders(connection: psycopg.Connection, *, company_id: str,
-                   subject_id: str, evaluated_at: dt.datetime) -> dict[str, int]:
-    preference = read_preference(connection, subject_id=subject_id)
+                   subject_id: str, evaluated_at: dt.datetime,
+                   provider_ready: bool = False) -> dict[str, int]:
+    preference = read_preference(
+        connection, subject_id=subject_id, provider_ready=provider_ready)
     cursor: str | None = None
     created = replayed = suppressed = 0
     while True:
@@ -162,17 +213,25 @@ def sync_reminders(connection: psycopg.Connection, *, company_id: str,
                 if row is None:
                     replayed += 1
                     continue
-                reason = ("adapter_unconfigured" if preference["enabled"]
-                          else "user_opt_out")
+                ready = (
+                    preference["enabled"] and provider_ready
+                    and preference["destination_state"] == "ready"
+                )
+                reason = None if ready else (
+                    "user_opt_out" if not preference["enabled"]
+                    else "destination_unavailable" if provider_ready
+                    else "adapter_unconfigured")
                 db_cursor.execute(
                     "INSERT INTO fincilia.notification_delivery "
                     "(company_id, subject_id, intent_id, channel, status, "
-                    "suppression_reason, idempotency_key) "
-                    "VALUES (%s, %s, %s, 'email', 'suppressed', %s, %s)",
-                    (company_id, subject_id, row[0], reason,
-                     _delivery_key(company_id, subject_id, template, business_key)))
+                    "suppression_reason, idempotency_key, available_at) "
+                    "VALUES (%s, %s, %s, 'email', %s, %s, %s, %s)",
+                    (company_id, subject_id, row[0],
+                     "queued" if ready else "suppressed", reason,
+                     _delivery_key(company_id, subject_id, template, business_key),
+                     _available_at(evaluated_at, preference)))
             created += 1
-            suppressed += 1
+            suppressed += 0 if ready else 1
         if not page["has_more"]:
             break
         cursor = page["next_cursor"]

@@ -36,7 +36,26 @@ def isolated_env():
         os.environ.update(saved)
 
 
-def settings() -> ApiSettings:
+def settings(*, notifications: bool = False) -> ApiSettings:
+    notification_config = {}
+    if notifications:
+        notification_config = {
+            "real_data_enabled": True,
+            "data_gate_attestation": "{}",
+            "data_gate_signature": "YQ==",
+            "data_gate_kms_key_id": (
+                "arn:aws:kms:sa-east-1:123456789012:key/"
+                "22345678-1234-1234-1234-123456789abc"),
+            "notification_provider": "aws_ses",
+            "notification_region": "sa-east-1",
+            "notification_from_address": "notifications@fincilia.com",
+            "notification_reply_to_address": "support@fincilia.com",
+            "notification_destination_kms_key_id": (
+                "arn:aws:kms:sa-east-1:123456789012:key/"
+                "32345678-1234-1234-1234-123456789abc"),
+            "notification_configuration_set": "fincilia-uat",
+            "notification_public_origin": "https://fincilia.com",
+        }
     with isolated_env():
         return ApiSettings(
             env="pilot",
@@ -62,6 +81,7 @@ def settings() -> ApiSettings:
             identity_gate_kms_key_id=(
                 "arn:aws:kms:sa-east-1:123456789012:key/"
                 "12345678-1234-1234-1234-123456789abc"),
+            **notification_config,
         )
 
 
@@ -124,6 +144,15 @@ class FakeCognito:
         return self.response
 
 
+class FakeKms:
+    def __init__(self):
+        self.calls = []
+
+    def encrypt(self, **kwargs):
+        self.calls.append(kwargs)
+        return {"CiphertextBlob": b"ciphertext-" + b"x" * 32}
+
+
 class CognitoExchangeTests(unittest.TestCase):
     def exchange(self, *, http=None, cognito=None, nonce=NONCE):
         return exchange_code(
@@ -151,6 +180,22 @@ class CognitoExchangeTests(unittest.TestCase):
                          call["data"]["redirect_uri"])
         self.assertNotIn("client_secret", call["data"])
         self.assertEqual(["access-" + "a" * 40], cognito.tokens)
+
+    def test_active_notifications_encrypt_the_verified_email_before_persistence(self):
+        kms = FakeKms()
+        identity = exchange_code(
+            settings=settings(notifications=True), code=CODE, verifier=VERIFIER,
+            nonce=NONCE, http_client=FakeHttp(), cognito_client=FakeCognito(),
+            kms_client=kms, now=NOW)
+        self.assertIsNotNone(identity.encrypted_email)
+        assert identity.encrypted_email is not None
+        self.assertEqual("ciphertext-" + "x" * 32,
+                         identity.encrypted_email.ciphertext.decode())
+        self.assertNotIn("@example", repr(identity).casefold())
+        self.assertEqual("fincilia-notification-destination-v1",
+                         kms.calls[0]["EncryptionContext"]["purpose"])
+        self.assertEqual(identity.verified_email_ref,
+                         kms.calls[0]["EncryptionContext"]["address_ref"])
 
     def test_nonce_issuer_audience_expiry_and_cross_token_sub_must_match(self):
         cases = (

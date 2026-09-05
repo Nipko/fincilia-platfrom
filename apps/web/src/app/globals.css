@@ -1155,7 +1155,10 @@ code.digest {
 .notification-history__footer a { color: var(--accent); font-size: 0.75rem; font-weight: 750; }
 .notification-reason { color: var(--ink-soft); font-size: 0.76rem; }
 .notification-status--delivered { background: var(--accent-soft); color: var(--accent); }
+.notification-status--sending,
+.notification-status--sent { background: var(--info-soft); color: var(--info); }
 .notification-status--failed { background: var(--danger-soft); color: var(--danger); }
+.notification-status--uncertain { background: var(--warning-soft); color: var(--warning); }
 .notification-status--suppressed { background: var(--warning-soft); color: var(--warning); }
 @media (max-width: 900px) {
   .notification-preferences { grid-template-columns: 1fr 1fr; }

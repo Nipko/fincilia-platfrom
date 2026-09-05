@@ -190,6 +190,10 @@ resource "aws_ecs_task_definition" "bootstrap" {
         valueFrom = "${aws_secretsmanager_secret.database_roles.arn}:FINCILIA_DB_WORKER_PASSWORD::"
       },
       {
+        name      = "FINCILIA_DB_NOTIFICATION_WORKER_PASSWORD"
+        valueFrom = "${aws_secretsmanager_secret.database_roles.arn}:FINCILIA_DB_NOTIFICATION_WORKER_PASSWORD::"
+      },
+      {
         name      = "FINCILIA_DB_MIGRATOR_PASSWORD"
         valueFrom = "${aws_secretsmanager_secret.database_roles.arn}:FINCILIA_DB_MIGRATOR_PASSWORD::"
       },

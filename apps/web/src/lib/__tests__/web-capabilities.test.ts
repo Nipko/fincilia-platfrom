@@ -21,7 +21,11 @@ describe('web capabilities', () => {
   it('resume estados sin convertir suprimidos en entregados', () => {
     expect(summarizeDeliveries([
       { status: 'suppressed' }, { status: 'suppressed' }, { status: 'failed' },
-    ])).toEqual({ queued: 0, sent: 0, delivered: 0, failed: 1, suppressed: 2 });
+      { status: 'uncertain' }, { status: 'sending' },
+    ])).toEqual({
+      queued: 0, sending: 1, sent: 0, delivered: 0, failed: 1,
+      uncertain: 1, suppressed: 2,
+    });
   });
 
   it('formatea capacidad y porcentajes de forma acotada', () => {

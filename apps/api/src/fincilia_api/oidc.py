@@ -23,6 +23,11 @@ import psycopg
 from botocore.exceptions import BotoCoreError, ClientError
 
 from fincilia_platform.settings import ApiSettings
+from fincilia_platform.email_delivery import (
+    AwsKmsDestinationProtector,
+    DeliveryError,
+    EncryptedDestination,
+)
 from fincilia_platform.identity_refs import (
     IdentityReferenceError,
     email_reference,
@@ -64,6 +69,7 @@ class VerifiedIdentity:
     external_subject_ref: str
     verified_email_ref: str
     display_name: str
+    encrypted_email: EncryptedDestination | None = None
 
 
 @dataclass(frozen=True)
@@ -123,6 +129,7 @@ def _id_token_claims(token: str, *, nonce: str, issuer: str,
 
 def exchange_code(*, settings: ApiSettings, code: str, verifier: str,
                   nonce: str, http_client=None, cognito_client=None,
+                  kms_client=None,
                   now: int | None = None) -> VerifiedIdentity:
     if not settings.oidc_enabled or not settings.identity_binding_hmac_key:
         raise OidcError(status=503)
@@ -205,6 +212,19 @@ def exchange_code(*, settings: ApiSettings, code: str, verifier: str,
             settings.identity_binding_hmac_key, email)
     except IdentityReferenceError as error:
         raise OidcError() from error
+    encrypted_email = None
+    if settings.notification_provider == "aws_ses":
+        kms = kms_client or boto3.client(
+            "kms", region_name=settings.notification_region)
+        try:
+            encrypted_email = AwsKmsDestinationProtector(
+                kms, key_id=settings.notification_destination_kms_key_id,
+            ).encrypt(email, address_ref=verified_email_ref)
+        except DeliveryError as error:
+            # Un login no puede crear una sesion sin poder preservar su destino
+            # verificado cuando el canal esta activo: quedaria inscrito pero
+            # silenciosamente inalcanzable.
+            raise OidcError("managed-sign-in-unavailable", status=503) from error
     proposed_name = attributes.get("name")
     if not isinstance(proposed_name, str):
         name_parts = (
@@ -220,6 +240,7 @@ def exchange_code(*, settings: ApiSettings, code: str, verifier: str,
             key, purpose="external-subject", value=f"{settings.oidc_issuer}\x00{subject}"),
         verified_email_ref=verified_email_ref,
         display_name=display_name,
+        encrypted_email=encrypted_email,
     )
 
 

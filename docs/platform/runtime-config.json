@@ -276,6 +276,55 @@
       "safe_example": "info"
     },
     {
+      "class": "plain",
+      "name": "FINCILIA_NOTIFICATION_CONFIGURATION_SET",
+      "owner": "Platform",
+      "required": false,
+      "safe_example": "disabled"
+    },
+    {
+      "class": "plain",
+      "name": "FINCILIA_NOTIFICATION_DESTINATION_KMS_KEY_ID",
+      "owner": "Security",
+      "required": false,
+      "safe_example": "disabled"
+    },
+    {
+      "class": "plain",
+      "name": "FINCILIA_NOTIFICATION_FROM_ADDRESS",
+      "owner": "Product",
+      "required": false,
+      "safe_example": "disabled"
+    },
+    {
+      "class": "feature_gate",
+      "name": "FINCILIA_NOTIFICATION_PROVIDER",
+      "owner": "Platform",
+      "required": false,
+      "safe_example": "disabled"
+    },
+    {
+      "class": "plain",
+      "name": "FINCILIA_NOTIFICATION_PUBLIC_ORIGIN",
+      "owner": "Platform",
+      "required": false,
+      "safe_example": "disabled"
+    },
+    {
+      "class": "plain",
+      "name": "FINCILIA_NOTIFICATION_REGION",
+      "owner": "Platform",
+      "required": false,
+      "safe_example": "disabled"
+    },
+    {
+      "class": "plain",
+      "name": "FINCILIA_NOTIFICATION_REPLY_TO_ADDRESS",
+      "owner": "Product",
+      "required": false,
+      "safe_example": "disabled"
+    },
+    {
       "class": "secret_reference",
       "name": "FINCILIA_OBJECT_ACCESS_KEY",
       "owner": "Security",

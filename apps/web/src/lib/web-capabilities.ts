@@ -78,13 +78,16 @@ export const QUALITY_RULE_COVERAGE: readonly QualityCoverage[] = [
     description: 'Eleva prioridad únicamente cuando coinciden dos o más señales independientes.' },
 ] as const;
 
-export type DeliveryState = 'queued' | 'sent' | 'delivered' | 'failed' | 'suppressed';
+export type DeliveryState =
+  'queued' | 'sending' | 'sent' | 'delivered' | 'failed' | 'uncertain' | 'suppressed';
 
 export const DELIVERY_LABELS: Readonly<Record<DeliveryState, string>> = {
   queued: 'En cola',
+  sending: 'En proceso',
   sent: 'Enviado al proveedor',
   delivered: 'Entregado',
   failed: 'Fallido',
+  uncertain: 'Resultado por verificar',
   suppressed: 'Suprimido',
 };
 
@@ -93,13 +96,16 @@ export const SUPPRESSION_LABELS: Readonly<Record<string, string>> = {
   user_opt_out: 'Preferencia de correo desactivada',
   quiet_hours: 'Dentro del horario de silencio',
   destination_unavailable: 'Destino no disponible',
+  hard_bounce: 'El proveedor rechazó permanentemente el destino',
+  provider_complaint: 'Destino suprimido por reporte del destinatario',
 };
 
 export function summarizeDeliveries(
   deliveries: readonly { status: DeliveryState }[],
 ): Record<DeliveryState, number> {
   const summary: Record<DeliveryState, number> = {
-    queued: 0, sent: 0, delivered: 0, failed: 0, suppressed: 0,
+    queued: 0, sending: 0, sent: 0, delivered: 0, failed: 0,
+    uncertain: 0, suppressed: 0,
   };
   for (const delivery of deliveries) summary[delivery.status] += 1;
   return summary;

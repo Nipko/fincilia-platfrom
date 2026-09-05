@@ -414,6 +414,76 @@
       "reason": "producir exclusivamente conteos operativos agregados y allowlisted para diagnostico del plano de control, sin SELECT transversal ni datos financieros",
       "gate": "DB-G03",
       "human_review_state": "pending"
+    },
+    {
+      "function": "fincilia.upsert_verified_notification_destination",
+      "owner_role": "fincilia_identity",
+      "granted_to": [
+        "fincilia_app"
+      ],
+      "reason": "persistir exclusivamente referencia HMAC y ciphertext KMS del correo verificado del sujeto de sesion sin conceder acceso directo a la tabla global de destinos",
+      "gate": "DB-G03",
+      "human_review_state": "pending"
+    },
+    {
+      "function": "fincilia.my_notification_destination_state",
+      "owner_role": "fincilia_identity",
+      "granted_to": [
+        "fincilia_app"
+      ],
+      "reason": "devolver solo el estado minimizado del destino del sujeto de sesion sin exponer direccion, referencia ni ciphertext",
+      "gate": "DB-G03",
+      "human_review_state": "pending"
+    },
+    {
+      "function": "fincilia.claim_notification_delivery",
+      "owner_role": "fincilia_notification_dispatch",
+      "granted_to": [
+        "fincilia_notification_worker"
+      ],
+      "reason": "reclamar globalmente una entrega con lease y fencing sin conceder al worker lectura directa de identidad, preferencias, destinos o colas",
+      "gate": "DB-G03",
+      "human_review_state": "pending"
+    },
+    {
+      "function": "fincilia.finish_notification_delivery",
+      "owner_role": "fincilia_notification_dispatch",
+      "granted_to": [
+        "fincilia_notification_worker"
+      ],
+      "reason": "cerrar fallos anteriores al contacto con el proveedor usando el lease exacto y reintentos acotados",
+      "gate": "DB-G03",
+      "human_review_state": "pending"
+    },
+    {
+      "function": "fincilia.arm_notification_delivery",
+      "owner_role": "fincilia_notification_dispatch",
+      "granted_to": [
+        "fincilia_notification_worker"
+      ],
+      "reason": "persistir una frontera at-most-once antes de contactar SES para que una caida posterior permanezca incierta y nunca se reenvie a ciegas",
+      "gate": "DB-G03",
+      "human_review_state": "pending"
+    },
+    {
+      "function": "fincilia.settle_armed_notification_delivery",
+      "owner_role": "fincilia_notification_dispatch",
+      "granted_to": [
+        "fincilia_notification_worker"
+      ],
+      "reason": "asentar mediante fencing el resultado inequívoco o incierto del intento previamente armado sin otorgar UPDATE directo",
+      "gate": "DB-G03",
+      "human_review_state": "pending"
+    },
+    {
+      "function": "fincilia.record_notification_feedback",
+      "owner_role": "fincilia_notification_dispatch",
+      "granted_to": [
+        "fincilia_notification_worker"
+      ],
+      "reason": "deduplicar feedback minimizado por digest y suprimir destinos ante rebote o queja sin persistir el payload del proveedor",
+      "gate": "DB-G03",
+      "human_review_state": "pending"
     }
   ]
 }

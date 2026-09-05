@@ -23,6 +23,9 @@ COPY apps/api/tests /app/tests
 # proceso. **No** esta en PYTHONPATH: la API no puede importarlo por accidente,
 # y solo las pruebas lo anaden a `sys.path` explicitamente.
 COPY workers/document/src /app/worker_src
+# Las pruebas de integracion del protocolo de correo importan el cliente de DB,
+# pero la API no lo tiene en PYTHONPATH ni puede arrancarlo accidentalmente.
+COPY workers/notification/src /app/notification_worker_src
 
 # El proceso no corre como root: un upload malicioso no debe encontrarse uid 0.
 RUN adduser --system --uid 10001 --home /home/fincilia fincilia

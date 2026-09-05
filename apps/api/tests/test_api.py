@@ -22,7 +22,9 @@ from pydantic import ValidationError
 
 from fincilia_api.main import create_app
 from fincilia_platform.probes import ProbeResult
-from fincilia_platform.settings import ApiSettings, Settings, WorkerSettings
+from fincilia_platform.settings import (
+    ApiSettings, NotificationWorkerSettings, Settings, WorkerSettings,
+)
 
 BASE_ENV: dict[str, str] = {
     "env": "test",
@@ -139,6 +141,71 @@ class SettingsTests(unittest.TestCase):
             with self.subTest(flag=flag), self.assertRaises(ValidationError):
                 api_settings(**{flag: True})
 
+    def test_notifications_are_disabled_without_provider_configuration(self) -> None:
+        configured = api_settings()
+        self.assertEqual("disabled", configured.notification_provider)
+        values = (
+            configured.notification_region,
+            configured.notification_from_address,
+            configured.notification_reply_to_address,
+            configured.notification_destination_kms_key_id,
+            configured.notification_configuration_set,
+            configured.notification_public_origin,
+        )
+        self.assertEqual(("disabled",) * 6, values)
+        with self.assertRaises(ValidationError):
+            api_settings(notification_region="sa-east-1")
+
+    def test_ses_requires_the_complete_gated_pilot_configuration(self) -> None:
+        configured = {
+            **BASE_ENV,
+            "env": "pilot",
+            "secret_source": "aws_secrets_manager",
+            "object_credentials_source": "aws_workload_identity",
+            "object_access_key": None,
+            "object_secret_key": None,
+            "real_data_enabled": True,
+            "oidc_enabled": True,
+            "oidc_registration_mode": "public_google",
+            "oidc_issuer": "https://issuer.example.test/pool",
+            "oidc_client_id": "client-123456",
+            "oidc_token_endpoint": "https://issuer.example.test/oauth2/token",
+            "oidc_userinfo_endpoint": "https://issuer.example.test/oauth2/userInfo",
+            "oidc_redirect_uri": "https://fincilia.com/api/auth/callback/cognito",
+            "identity_binding_hmac_key": "d" * 40,
+            "identity_gate_attestation": "{}",
+            "identity_gate_signature": "YQ==",
+            "identity_gate_kms_key_id": (
+                "arn:aws:kms:sa-east-1:123456789012:key/"
+                "12345678-1234-1234-1234-123456789abc"),
+            "data_gate_attestation": "{}",
+            "data_gate_signature": "YQ==",
+            "data_gate_kms_key_id": (
+                "arn:aws:kms:sa-east-1:123456789012:key/"
+                "22345678-1234-1234-1234-123456789abc"),
+            "notification_provider": "aws_ses",
+            "notification_region": "sa-east-1",
+            "notification_from_address": "notifications@fincilia.com",
+            "notification_reply_to_address": "support@fincilia.com",
+            "notification_destination_kms_key_id": (
+                "arn:aws:kms:sa-east-1:123456789012:key/"
+                "32345678-1234-1234-1234-123456789abc"),
+            "notification_configuration_set": "fincilia-uat",
+            "notification_public_origin": "https://fincilia.com",
+        }
+        with isolated_env():
+            result = ApiSettings(**configured)  # type: ignore[arg-type]
+        self.assertEqual("aws_ses", result.notification_provider)
+        for removed in (
+            "real_data_enabled", "oidc_enabled", "notification_from_address",
+            "notification_destination_kms_key_id", "notification_public_origin",
+        ):
+            with self.subTest(removed=removed), isolated_env(), \
+                    self.assertRaises(ValidationError):
+                changed = dict(configured)
+                changed.pop(removed)
+                ApiSettings(**changed)  # type: ignore[arg-type]
+
     def test_an_undeclared_variable_is_refused(self) -> None:
         with self.assertRaises(ValidationError):
             api_settings(mystery_switch="on")
@@ -176,6 +243,56 @@ class SettingsTests(unittest.TestCase):
                 with self.subTest(secret=secret):
                     with self.assertRaises(ValidationError):
                         WorkerSettings(**{**payload, secret: BASE_ENV[secret]})  # type: ignore[arg-type]
+
+    def test_notification_worker_refuses_application_secrets(self) -> None:
+        forbidden = ("auth_signing_key", "identifier_tokenization_key",
+                     "authorization_context_hmac_key", "cache_url",
+                     "object_store_endpoint", "object_access_key",
+                     "object_secret_key")
+        payload = {
+            "env": "test",
+            "database_url": BASE_ENV["database_url"],
+        }
+        with isolated_env():
+            worker = NotificationWorkerSettings(**payload)  # type: ignore[arg-type]
+            self.assertEqual("disabled", worker.notification_provider)
+            for secret in forbidden:
+                with self.subTest(secret=secret), self.assertRaises(ValidationError):
+                    NotificationWorkerSettings(
+                        **{**payload, secret: BASE_ENV.get(secret, "synthetic")})  # type: ignore[arg-type]
+
+    def test_notification_worker_requires_the_complete_gated_provider(self) -> None:
+        payload = {
+            "env": "pilot",
+            "secret_source": "aws_secrets_manager",
+            "database_url": BASE_ENV["database_url"],
+            "real_data_enabled": True,
+            "oidc_enabled": True,
+            "data_gate_attestation": "{}",
+            "data_gate_signature": "YQ==",
+            "data_gate_kms_key_id": (
+                "arn:aws:kms:sa-east-1:123456789012:key/"
+                "22345678-1234-1234-1234-123456789abc"),
+            "notification_provider": "aws_ses",
+            "notification_region": "sa-east-1",
+            "notification_from_address": "notifications@fincilia.com",
+            "notification_reply_to_address": "support@fincilia.com",
+            "notification_destination_kms_key_id": (
+                "arn:aws:kms:sa-east-1:123456789012:key/"
+                "32345678-1234-1234-1234-123456789abc"),
+            "notification_configuration_set": "fincilia-uat",
+            "notification_public_origin": "https://fincilia.com",
+        }
+        with isolated_env():
+            configured = NotificationWorkerSettings(**payload)  # type: ignore[arg-type]
+        self.assertEqual("aws_ses", configured.notification_provider)
+        for removed in ("real_data_enabled", "oidc_enabled", "data_gate_signature",
+                        "notification_reply_to_address"):
+            changed = dict(payload)
+            changed.pop(removed)
+            with self.subTest(removed=removed), isolated_env(), \
+                    self.assertRaises(ValidationError):
+                NotificationWorkerSettings(**changed)  # type: ignore[arg-type]
 
     def test_the_base_settings_do_not_require_a_signing_key(self) -> None:
         payload = {key: value for key, value in BASE_ENV.items()

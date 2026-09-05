@@ -18,7 +18,7 @@ from .roles import (
 )
 
 
-SAFE = RoleSecrets("a" * 32, "b" * 32, "c" * 32)
+SAFE = RoleSecrets("a" * 32, "b" * 32, "d" * 32, "c" * 32)
 
 
 class EnvironmentTests(unittest.TestCase):
@@ -28,6 +28,7 @@ class EnvironmentTests(unittest.TestCase):
             "FINCILIA_REAL_DATA_ENABLED": "false",
             "FINCILIA_DB_APP_PASSWORD": "a" * 32,
             "FINCILIA_DB_WORKER_PASSWORD": "b" * 32,
+            "FINCILIA_DB_NOTIFICATION_WORKER_PASSWORD": "d" * 32,
             "FINCILIA_DB_MIGRATOR_PASSWORD": "c" * 32,
         }
 
@@ -89,6 +90,7 @@ class EnvironmentTests(unittest.TestCase):
                 "FINCILIA_BOOTSTRAP_DATABASE_URL": secret,
                 "FINCILIA_DB_APP_PASSWORD": secret,
                 "FINCILIA_DB_WORKER_PASSWORD": secret,
+                "FINCILIA_DB_NOTIFICATION_WORKER_PASSWORD": secret,
                 "FINCILIA_DB_MIGRATOR_PASSWORD": secret,
             })
             with contextlib.redirect_stdout(output):
@@ -111,6 +113,7 @@ class PostgreSQLBootstrapTests(unittest.TestCase):
         cls.secrets = RoleSecrets(
             os.environ["FINCILIA_DB_APP_PASSWORD"],
             os.environ["FINCILIA_DB_WORKER_PASSWORD"],
+            os.environ["FINCILIA_DB_NOTIFICATION_WORKER_PASSWORD"],
             os.environ["FINCILIA_DB_MIGRATOR_PASSWORD"],
         )
 

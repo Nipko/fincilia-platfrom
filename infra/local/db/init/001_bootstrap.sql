@@ -81,11 +81,48 @@ BEGIN
 END
 $bootstrap_identity$;
 
+-- Worker de correo separado: no recibe objetos, tokens ni privilegios de la API.
+DO $bootstrap_notification_worker$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_roles WHERE rolname = 'fincilia_notification_worker'
+  ) THEN
+    CREATE ROLE fincilia_notification_worker
+      LOGIN
+      PASSWORD 'fincilia_local_notification_only'
+      NOSUPERUSER
+      NOCREATEDB
+      NOCREATEROLE
+      NOINHERIT
+      NOBYPASSRLS;
+  END IF;
+END
+$bootstrap_notification_worker$;
+
+-- Autoridad NOLOGIN de las funciones de despacho. El worker solo puede invocar
+-- el protocolo; nunca obtiene acceso directo a identidad o tablas financieras.
+DO $bootstrap_notification_dispatch$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_roles WHERE rolname = 'fincilia_notification_dispatch'
+  ) THEN
+    CREATE ROLE fincilia_notification_dispatch
+      NOLOGIN
+      NOSUPERUSER
+      NOCREATEDB
+      NOCREATEROLE
+      NOINHERIT
+      NOBYPASSRLS;
+  END IF;
+END
+$bootstrap_notification_dispatch$;
+
 -- Para poder ceder la propiedad de una funcion hay que ser miembro del rol que
 -- la recibe. El migrador lo es, y por NOINHERIT no adquiere sus privilegios sin
 -- pedirlo explicitamente.
 GRANT fincilia_dispatch TO fincilia_migrator;
 GRANT fincilia_identity TO fincilia_migrator;
+GRANT fincilia_notification_dispatch TO fincilia_migrator;
 
 -- El migrator es el unico que puede crear objetos en el esquema de producto. El
 -- runtime nunca es propietario: si lo fuera, un fallo de la aplicacion podria

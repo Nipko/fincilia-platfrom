@@ -13,7 +13,8 @@ from importlib import import_module
 __all__ = [
     "CacheProbe", "DatabaseProbe", "ObjectStoreProbe", "Probe", "ProbeResult",
     "build_probes", "probe_all", "GATED_CAPABILITIES", "Settings", "get_settings",
-    "ApiSettings", "WorkerSettings", "get_api_settings", "get_worker_settings",
+    "ApiSettings", "WorkerSettings", "NotificationWorkerSettings",
+    "get_api_settings", "get_worker_settings", "get_notification_worker_settings",
     "GateAttestation", "GateVerificationError", "verify_configured_gate",
 ]
 
@@ -23,7 +24,8 @@ _PROBES = frozenset({
 })
 _SETTINGS = frozenset({
     "GATED_CAPABILITIES", "Settings", "get_settings", "ApiSettings",
-    "WorkerSettings", "get_api_settings", "get_worker_settings",
+    "WorkerSettings", "NotificationWorkerSettings", "get_api_settings",
+    "get_worker_settings", "get_notification_worker_settings",
 })
 _GATES = frozenset({
     "GateAttestation", "GateVerificationError", "verify_configured_gate",

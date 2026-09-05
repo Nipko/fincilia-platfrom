@@ -291,7 +291,7 @@ jobs:
           docker compose up -d --wait postgres
           FINCILIA_LOCAL_LIFECYCLE_MODE=persisted docker compose --profile test run --rm lifecycle-test
       - name: Build product images
-        run: docker compose --profile migrate build api worker web migrate
+        run: docker compose --profile migrate build api worker notification-worker web migrate
 
       - name: Exercise role bootstrap against disposable PostgreSQL
         run: |
@@ -315,6 +315,7 @@ jobs:
             -e FINCILIA_BOOTSTRAP_DATABASE_URL=postgresql://fincilia_bootstrap_admin:fincilia_bootstrap_admin_only@fincilia-bootstrap-ci-db:5432/fincilia_bootstrap_test \
             -e FINCILIA_DB_APP_PASSWORD=fincilia_synthetic_app_password_0001 \
             -e FINCILIA_DB_WORKER_PASSWORD=fincilia_synthetic_worker_password_001 \
+            -e FINCILIA_DB_NOTIFICATION_WORKER_PASSWORD=fincilia_synthetic_notification_password_1 \
             -e FINCILIA_DB_MIGRATOR_PASSWORD=fincilia_synthetic_migrator_pass_001 \
             -e FINCILIA_REAL_DATA_ENABLED=false \
             fincilia-local-api -m db.bootstrap.roles
@@ -322,6 +323,7 @@ jobs:
             -e FINCILIA_BOOTSTRAP_TEST_URL=postgresql://fincilia_bootstrap_admin:fincilia_bootstrap_admin_only@fincilia-bootstrap-ci-db:5432/fincilia_bootstrap_test \
             -e FINCILIA_DB_APP_PASSWORD=fincilia_synthetic_app_password_0001 \
             -e FINCILIA_DB_WORKER_PASSWORD=fincilia_synthetic_worker_password_001 \
+            -e FINCILIA_DB_NOTIFICATION_WORKER_PASSWORD=fincilia_synthetic_notification_password_1 \
             -e FINCILIA_DB_MIGRATOR_PASSWORD=fincilia_synthetic_migrator_pass_001 \
             fincilia-local-api -m unittest db.bootstrap.test_roles -v
 
@@ -391,6 +393,11 @@ jobs:
       - name: Worker job tests against real PostgreSQL and object storage
         run: >-
           docker compose run --rm --no-deps worker
+          python -m unittest discover -s /app/tests -t /app/tests -v
+
+      - name: Notification dispatcher unit tests
+        run: >-
+          docker compose run --rm --no-deps notification-worker
           python -m unittest discover -s /app/tests -t /app/tests -v
 
       # `build web` ya ejecuta `typecheck` y `build` dentro de la imagen: si el

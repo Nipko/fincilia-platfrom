@@ -113,7 +113,9 @@ export async function updateNotificationPreferenceAction(
     return {
       error: null,
       done: result.enabled
-        ? 'Preferencia guardada. La entrega externa sigue desactivada hasta configurar proveedor.'
+        ? result.destination_state === 'ready'
+          ? 'Preferencia guardada. El destino cifrado está listo para recibir avisos.'
+          : 'Preferencia guardada. La entrega externa sigue desactivada hasta completar proveedor y destino.'
         : 'Avisos por correo desactivados para esta empresa.',
     };
   } catch (error) {
@@ -134,7 +136,9 @@ export async function syncNotificationRemindersAction(
     revalidatePath('/recordatorios');
     return {
       error: null,
-      done: `${result.created} intencion(es) nuevas; ${result.replayed} ya existian. Ningun correo fue enviado.`,
+      done: result.adapter_state === 'ready'
+        ? `${result.created} aviso(s) nuevos en cola; ${result.replayed} ya existían.`
+        : `${result.created} intención(es) nuevas; ${result.replayed} ya existían. Ningún correo fue enviado.`,
     };
   } catch (error) {
     if (error instanceof ApiError && error.status === 401) redirect('/entrar');

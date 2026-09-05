@@ -68,7 +68,7 @@ class SecretPreparationTests(unittest.TestCase):
         put_calls = [call for call in runner.calls if call[0][2] == "put-secret-value"]
         self.assertEqual(4, len(put_calls))
         role_values = json.loads(put_calls[0][1]["SecretString"])
-        self.assertEqual(3, len(set(role_values.values())))
+        self.assertEqual(4, len(set(role_values.values())))
         for arguments, payload in put_calls:
             serialized_arguments = " ".join(arguments)
             for secret in role_values.values():
@@ -98,6 +98,7 @@ class SecretPreparationTests(unittest.TestCase):
                 self.roles = {
                     "FINCILIA_DB_APP_PASSWORD": "A" * 40,
                     "FINCILIA_DB_WORKER_PASSWORD": "B" * 40,
+                    "FINCILIA_DB_NOTIFICATION_WORKER_PASSWORD": "D" * 40,
                     "FINCILIA_DB_MIGRATOR_PASSWORD": "C" * 40,
                 }
 

@@ -19,11 +19,17 @@ from psycopg import sql
 
 
 LOCK_KEY = "fincilia_role_bootstrap_v1"
-LOGIN_ROLES = ("fincilia_app", "fincilia_worker", "fincilia_migrator")
-AUTHORITY_ROLES = ("fincilia_dispatch", "fincilia_identity")
+LOGIN_ROLES = (
+    "fincilia_app", "fincilia_worker", "fincilia_notification_worker",
+    "fincilia_migrator",
+)
+AUTHORITY_ROLES = (
+    "fincilia_dispatch", "fincilia_identity", "fincilia_notification_dispatch",
+)
 PASSWORD_ENV = {
     "fincilia_app": "FINCILIA_DB_APP_PASSWORD",
     "fincilia_worker": "FINCILIA_DB_WORKER_PASSWORD",
+    "fincilia_notification_worker": "FINCILIA_DB_NOTIFICATION_WORKER_PASSWORD",
     "fincilia_migrator": "FINCILIA_DB_MIGRATOR_PASSWORD",
 }
 SAFE_DATABASE = re.compile(r"^[A-Za-z_][A-Za-z0-9_$-]{0,62}$")
@@ -38,12 +44,14 @@ class BootstrapError(RuntimeError):
 class RoleSecrets:
     app: str
     worker: str
+    notification_worker: str
     migrator: str
 
     def as_mapping(self) -> dict[str, str]:
         return {
             "fincilia_app": self.app,
             "fincilia_worker": self.worker,
+            "fincilia_notification_worker": self.notification_worker,
             "fincilia_migrator": self.migrator,
         }
 
@@ -93,6 +101,8 @@ def read_environment(environment: dict[str, str] | None = None) -> tuple[str, Ro
     secrets = RoleSecrets(
         app=values.get(PASSWORD_ENV["fincilia_app"], ""),
         worker=values.get(PASSWORD_ENV["fincilia_worker"], ""),
+        notification_worker=values.get(
+            PASSWORD_ENV["fincilia_notification_worker"], ""),
         migrator=values.get(PASSWORD_ENV["fincilia_migrator"], ""),
     )
     for value in secrets.as_mapping().values():
@@ -160,19 +170,26 @@ def bootstrap(connection: psycopg.Connection, secrets: RoleSecrets) -> dict[str,
             for role in AUTHORITY_ROLES:
                 _configure_authority_role(cursor, role)
 
-            cursor.execute("REVOKE fincilia_dispatch FROM fincilia_app, fincilia_worker")
-            cursor.execute("REVOKE fincilia_identity FROM fincilia_app, fincilia_worker")
-            cursor.execute("GRANT fincilia_dispatch TO fincilia_migrator")
-            cursor.execute("GRANT fincilia_identity TO fincilia_migrator")
+            runtime_roles = sql.SQL(", ").join(
+                sql.Identifier(role) for role in LOGIN_ROLES
+                if role != "fincilia_migrator")
+            for authority in AUTHORITY_ROLES:
+                cursor.execute(sql.SQL("REVOKE {} FROM {}").format(
+                    sql.Identifier(authority), runtime_roles))
+                cursor.execute(sql.SQL("GRANT {} TO {}").format(
+                    sql.Identifier(authority), sql.Identifier("fincilia_migrator")))
             cursor.execute(sql.SQL("REVOKE CREATE, TEMPORARY ON DATABASE {} FROM PUBLIC").format(
                 sql.Identifier(database)
             ))
             cursor.execute(sql.SQL(
-                "REVOKE CREATE, TEMPORARY ON DATABASE {} FROM fincilia_app, fincilia_worker"
-            ).format(sql.Identifier(database)))
+                "REVOKE CREATE, TEMPORARY ON DATABASE {} FROM {}"
+            ).format(sql.Identifier(database), runtime_roles))
             cursor.execute(sql.SQL(
-                "GRANT CONNECT ON DATABASE {} TO fincilia_app, fincilia_worker, fincilia_migrator"
-            ).format(sql.Identifier(database)))
+                "GRANT CONNECT ON DATABASE {} TO {}"
+            ).format(
+                sql.Identifier(database),
+                sql.SQL(", ").join(sql.Identifier(role) for role in LOGIN_ROLES),
+            ))
             cursor.execute(sql.SQL("GRANT CREATE ON DATABASE {} TO fincilia_migrator").format(
                 sql.Identifier(database)
             ))

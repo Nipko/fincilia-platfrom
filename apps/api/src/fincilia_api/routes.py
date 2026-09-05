@@ -490,6 +490,13 @@ def exchange_managed_identity(request: Request,
                     "SELECT set_config('fincilia.subject_id', %s, true)",
                     (account.subject_id,),
                 )
+            if identity.encrypted_email is not None:
+                notifications.upsert_verified_destination(
+                    connection, subject_id=account.subject_id,
+                    ciphertext=identity.encrypted_email.ciphertext,
+                    address_ref=identity.encrypted_email.address_ref,
+                    kms_key_ref=identity.encrypted_email.kms_key_ref,
+                )
             # No hay rol en el payload ni en claims de Cognito. PostgreSQL solo
             # reclama el bootstrap si la referencia HMAC fue preconfigurada,
             # coincide con este binding verificado y aun no existe un claim.
@@ -2937,7 +2944,9 @@ def read_notification_preference(
             company_id=context.company_id,
             subject_id=principal.subject_id) as connection:
         return notifications.read_preference(
-            connection, subject_id=principal.subject_id)
+            connection, subject_id=principal.subject_id,
+            provider_ready=(
+                request.app.state.settings.notification_provider == "aws_ses"))
 
 
 @router.put("/companies/{company_id}/notifications/preferences/me",
@@ -2947,17 +2956,16 @@ def update_notification_preference(
         principal: Principal = Depends(principal_dependency)) -> dict:
     context = company_context(request, principal, company_id)
     require(context, "company.read")
-    if request.app.state.settings.real_data_enabled:
-        raise ProblemError(problem(
-            "notifications-disabled", "Notifications unavailable", 503,
-            "external notifications are not enabled for real data"))
+    provider_ready = (
+        request.app.state.settings.notification_provider == "aws_ses")
     with request.app.state.database.session(
             company_id=context.company_id,
             subject_id=principal.subject_id) as connection:
         try:
             result = notifications.write_preference(
                 connection, company_id=context.company_id,
-                subject_id=principal.subject_id, **body.model_dump())
+                subject_id=principal.subject_id, provider_ready=provider_ready,
+                **body.model_dump())
         except notifications.NotificationError as error:
             raise _notification_problem(error) from None
         repository.record_audit(
@@ -2977,24 +2985,27 @@ def sync_notification_reminders(
         principal: Principal = Depends(principal_dependency)) -> dict:
     context = company_context(request, principal, company_id)
     require(context, "company.read")
-    if request.app.state.settings.real_data_enabled:
-        raise ProblemError(problem(
-            "notifications-disabled", "Notifications unavailable", 503,
-            "external notifications are not enabled for real data"))
+    provider_ready = (
+        request.app.state.settings.notification_provider == "aws_ses")
     with request.app.state.database.session(
             company_id=context.company_id,
             subject_id=principal.subject_id) as connection:
         result = notifications.sync_reminders(
             connection, company_id=context.company_id,
             subject_id=principal.subject_id,
-            evaluated_at=dt.datetime.now(dt.timezone.utc))
+            evaluated_at=dt.datetime.now(dt.timezone.utc),
+            provider_ready=provider_ready)
         repository.record_audit(
             connection, subject_id=principal.subject_id,
             company_id=context.company_id, action="notification.reminders.sync",
             resource_kind="company", resource_ref=context.company_id,
             outcome="allowed", detail=result)
-    return {**result, "adapter_state": "disabled",
-            "notice": "no external message was sent"}
+    return {
+        **result,
+        "adapter_state": "ready" if provider_ready else "disabled",
+        "notice": "messages were queued" if provider_ready
+        else "no external message was sent",
+    }
 
 
 @router.get("/companies/{company_id}/notifications/deliveries/me",
