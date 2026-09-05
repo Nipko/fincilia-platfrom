@@ -1,7 +1,7 @@
 ---
 id: FNC-BIL-002
 title: Stripe Checkout, portal y suscripciones verificables
-status: in_progress
+status: review_pending
 implementer: Codex principal dev + Integration Steward
 base_sha: 88781f7
 gate: DRG-00/DRG-01/GA-01

@@ -64,49 +64,6 @@
         "docs/implementation/tasks/FNC-QA-011.md",
         "docs/implementation/handoffs/FNC-QA-011.md"
       ]
-    },
-    {
-      "task": "FNC-BIL-002",
-      "holder": "Codex principal dev + Integration Steward",
-      "paths": [
-        ".env.example",
-        "apps/api/src/fincilia_api/billing.py",
-        "apps/api/src/fincilia_api/stripe_billing.py",
-        "apps/api/src/fincilia_api/routes.py",
-        "apps/api/src/fincilia_api/main.py",
-          "apps/api/tests/test_stripe_billing.py",
-          "apps/api/tests/test_billing_http.py",
-        "apps/api/requirements.in",
-        "apps/api/requirements.txt",
-        "apps/web/src/app/cuenta",
-        "apps/web/src/app/actions.ts",
-        "apps/web/src/lib/api.ts",
-        "apps/web/src/app/globals.css",
-        "packages/platform/python/fincilia_platform/settings.py",
-          "db/migrations/V0064__stripe_billing_runtime.sql",
-          "db/migrations/V0065__stripe_plan_readiness.sql",
-          "db/migrations/V0066__stripe_webhook_serialization.sql",
-          "db/tests/test_stripe_billing.py",
-          "db/bootstrap/roles.py",
-          "db/bootstrap/test_roles.py",
-        "docs/adr/ADR-038-plans-entitlements-billing.md",
-        "docs/database/migration-tooling.json",
-          "docs/platform/runtime-config.json",
-          "infra/aws/private-pilot/variables.tf",
-          "infra/aws/private-pilot/compute.tf",
-          "infra/aws/private-pilot/pilot.auto.tfvars.example",
-          "infra/aws/private-pilot/README.md",
-          "tools/aws_private_pilot/model.py",
-          "tools/aws_private_pilot/test_validate.py",
-          "docs/product/web-functional-status.json",
-          "docs/product/STRIPE_READINESS.md",
-        "docs/implementation/tasks/FNC-BIL-002.md",
-        "docs/implementation/handoffs/FNC-BIL-002.md",
-        "CURRENT_PHASE.md",
-        "docs/implementation/BACKLOG_PHASE_0.md",
-        "docs/implementation/TRACEABILITY.md",
-        "docs/implementation/work-graph.json"
-      ]
     }
   ]
 }
