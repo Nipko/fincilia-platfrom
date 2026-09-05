@@ -2,7 +2,7 @@
   "schema_version": "1.0.0",
   "task_id": "FNC-GAT-008",
   "scope": "web_platform",
-  "measured_at": "2026-09-04",
+  "measured_at": "2026-09-05",
   "data_ceiling": "synthetic_only",
   "gate_claims": {
     "DRG-00": "not_met",
