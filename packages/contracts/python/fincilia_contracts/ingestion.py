@@ -41,7 +41,15 @@ from .open_document import (
     inspect_open_document,
     iter_open_document_texts,
 )
-from .pdf_document import OcrRequired, PdfError, PdfOutcome, inspect_pdf, sniff_pdf, stream_pdf_rows
+from .pdf_document import (
+    OcrDocument,
+    OcrError,
+    OcrRequired,
+    PdfError,
+    PdfOutcome,
+    sniff_pdf,
+    stream_pdf_rows,
+)
 
 # --------------------------------------------------------------------------- #
 # Limites
@@ -319,7 +327,8 @@ class Decision:
         return result
 
 
-def decide_promotion(payload: bytes, filename: str) -> Decision:
+def decide_promotion(payload: bytes, filename: str, *,
+                     ocr_document: OcrDocument | None = None) -> Decision:
     """Escanea el contenido y decide si puede salir de cuarentena.
 
     La regla es una y no admite excepciones por comodidad: **nada llega a la zona
@@ -355,6 +364,39 @@ def decide_promotion(payload: bytes, filename: str) -> Decision:
                             f"page:{row.page_number}:block:{row.block_ordinal}",
                             item.detail))
         except OcrRequired:
+            if ocr_document is not None:
+                try:
+                    if ocr_document.artifact_sha256 != hashlib.sha256(payload).hexdigest():
+                        raise OcrError("the OCR derivative belongs to another artifact")
+                    for block in ocr_document.blocks:
+                        # El límite controla lo que persistimos, no cuánto
+                        # inspeccionamos. Incluso después del hallazgo 50 se
+                        # examina cada bloque restante antes de promover.
+                        detected = scan_secrets(
+                            block.text.encode("utf-8"),
+                            max_findings=max(1, 50 - len(findings)))
+                        if len(findings) < 50:
+                            for item in detected[:50 - len(findings)]:
+                                findings.append(Finding(
+                                    item.kind,
+                                    f"page:{block.page_number}:block:{block.block_ordinal}",
+                                    item.detail))
+                except OcrError:
+                    findings.append(Finding(
+                        "invalid_ocr_derivative", "pdf",
+                        "the OCR derivative is incomplete or belongs to another artifact"))
+                    return Decision(
+                        "quarantined", "ocr_invalid", detection.media_type, "pdf",
+                        tuple(findings), document={
+                            "document_kind": "pdf", "ocr_state": "failed",
+                            "requires_human_review": True})
+                if any(item.kind in SENSITIVE_KINDS for item in findings):
+                    return Decision(
+                        "quarantined", "sensitive_content", detection.media_type,
+                        "pdf", tuple(findings), document=ocr_document.manifest())
+                return Decision(
+                    "promoted", "content_inspected_ocr", detection.media_type,
+                    "pdf", tuple(findings), document=ocr_document.manifest())
             return Decision(
                 "quarantined", "ocr_required", detection.media_type, "pdf",
                 tuple(findings), document={

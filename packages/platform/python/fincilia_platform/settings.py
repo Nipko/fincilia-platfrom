@@ -411,6 +411,10 @@ class WorkerSettings(Settings):
     ganancia, asi que se rechaza explicitamente en vez de ignorarse.
     """
 
+    ocr_provider: Literal["disabled", "local_tesseract"] = Field(
+        default="disabled",
+        description="OCR local dentro del worker; no admite proveedores externos.")
+
     @field_validator("identifier_tokenization_key")
     @classmethod
     def _no_tokenization_key(cls, value: str | None) -> None:

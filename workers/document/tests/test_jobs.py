@@ -29,6 +29,7 @@ from fincilia_contracts.extraction import (  # noqa: E402
 )
 from fincilia_platform.objects import ObjectStoreError  # noqa: E402
 from fincilia_worker import jobs  # noqa: E402
+from fincilia_contracts.pdf_document import OcrBlock, OcrDocument  # noqa: E402
 from xlsx_factory import build_xlsx  # noqa: E402
 from ods_factory import build_ods  # noqa: E402
 
@@ -55,6 +56,22 @@ class FailureClassificationTests(unittest.TestCase):
         rendered = str(result)
         for value in ("Transferencia", "Consignacion", "1.250.000", "3.400.000"):
             self.assertNotIn(value, rendered)
+
+    def test_ocr_profile_is_mappable_shape_without_recognized_values(self) -> None:
+        document = OcrDocument(
+            "a" * 64, "tesseract-5.5.1/pdfium-5.13.0/fincilia-ocr-1",
+            ("spa", "eng"), 1,
+            (OcrBlock(1, 1, "FINCILIA OCR", (0.1, 0.2, 0.8, 0.3), 0.99),))
+
+        result, error, failure = jobs.run_profile(
+            b"not-read-when-ocr-is-present", internal_type="pdf",
+            ocr_document=document)
+
+        self.assertIsNone(error)
+        self.assertIsNone(failure)
+        self.assertEqual(1, result["row_count"])
+        self.assertEqual("Texto OCR", result["columns"][0]["header"])
+        self.assertNotIn("FINCILIA OCR", repr(result))
 
     def test_a_safe_xlsx_uses_the_spreadsheet_profiler(self) -> None:
         payload = build_xlsx([

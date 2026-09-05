@@ -325,6 +325,13 @@
       "safe_example": "disabled"
     },
     {
+      "class": "feature_gate",
+      "name": "FINCILIA_OCR_PROVIDER",
+      "owner": "Data",
+      "required": false,
+      "safe_example": "disabled"
+    },
+    {
       "class": "secret_reference",
       "name": "FINCILIA_OBJECT_ACCESS_KEY",
       "owner": "Security",

@@ -36,9 +36,9 @@ export const DOCUMENT_FORMAT_CAPABILITIES: readonly DocumentFormatCapability[] =
     id: 'pdf',
     label: 'PDF',
     state: 'conditional',
-    inspection: 'PDF pasivo, no cifrado y sin acciones o contenido activo.',
-    extraction: 'Texto embebido por página con ubicación y revisión humana.',
-    boundary: 'Un PDF escaneado sin texto queda como OCR requerido; no se transmite fuera.',
+    inspection: 'PDF pasivo, no cifrado y sin acciones o contenido activo; OCR local aislado.',
+    extraction: 'Texto embebido u OCR por página y bloque, con ubicación y revisión humana.',
+    boundary: 'OCR local hasta 50 páginas; no transmite el documento a proveedores externos.',
   },
 ] as const;
 

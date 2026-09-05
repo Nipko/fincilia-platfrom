@@ -15,7 +15,7 @@ describe('web capabilities', () => {
     expect(new Set(DOCUMENT_FORMAT_CAPABILITIES.map((item) => item.id)).size).toBe(4);
     expect(new Set(QUALITY_RULE_COVERAGE.map((item) => item.code)).size).toBe(13);
     expect(DOCUMENT_FORMAT_CAPABILITIES.find((item) => item.id === 'pdf')?.boundary)
-      .toMatch(/OCR requerido/);
+      .toMatch(/OCR local/);
   });
 
   it('resume estados sin convertir suprimidos en entregados', () => {

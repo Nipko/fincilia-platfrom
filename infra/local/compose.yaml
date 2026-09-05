@@ -205,6 +205,7 @@ services:
       FINCILIA_OBJECT_SECRET_KEY: ${FINCILIA_OBJECT_SECRET_KEY:-fincilia_local_object_only}
       FINCILIA_AI_GATEWAY_ENABLED: "false"
       FINCILIA_REAL_DATA_ENABLED: "false"
+      FINCILIA_OCR_PROVIDER: local_tesseract
     healthcheck:
       test: ["CMD-SHELL", "test -f /tmp/fincilia-worker-alive && find /tmp/fincilia-worker-alive -mmin -1 | grep -q ."]
       interval: 5s
@@ -216,7 +217,7 @@ services:
     security_opt:
       - no-new-privileges:true
     tmpfs:
-      - /tmp
+      - /tmp:size=64m,mode=1777
     depends_on:
       postgres:
         condition: service_healthy

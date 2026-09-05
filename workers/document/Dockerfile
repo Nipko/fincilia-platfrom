@@ -8,6 +8,11 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
+RUN apk add --no-cache \
+    tesseract-ocr=5.5.1-r0 \
+    tesseract-ocr-data-eng=5.5.1-r0 \
+    tesseract-ocr-data-spa=5.5.1-r0
+
 COPY workers/document/requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir --require-hashes --no-deps -r /app/requirements.txt
 

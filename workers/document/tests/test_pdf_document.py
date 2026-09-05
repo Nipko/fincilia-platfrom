@@ -2,15 +2,22 @@ from __future__ import annotations
 
 import hashlib
 import unittest
+from unittest.mock import patch
 
 from fincilia_contracts.ingestion import decide_promotion
 from fincilia_contracts.pdf_document import (
     DisabledOcrPort,
+    OcrBlock,
+    OcrDocument,
+    OcrError,
     OcrRequired,
     PdfError,
     PdfOutcome,
+    deserialize_ocr_document,
     inspect_pdf,
+    ocr_summary,
     sniff_pdf,
+    stream_ocr_rows,
     stream_pdf_rows,
 )
 
@@ -89,6 +96,77 @@ class PdfDocumentTests(unittest.TestCase):
     def test_ocr_port_is_disabled_without_final_configuration(self) -> None:
         with self.assertRaises(OcrRequired):
             DisabledOcrPort().extract(build_pdf(text=None))
+
+    def test_ocr_derivative_is_canonical_and_has_exact_lineage(self) -> None:
+        payload = build_pdf(text=None)
+        digest = hashlib.sha256(payload).hexdigest()
+        document = OcrDocument(
+            digest, "tesseract-5.5.1/pdfium-5.13.0/fincilia-ocr-1",
+            ("spa", "eng"), 1,
+            (OcrBlock(1, 1, "Fecha Monto", (0.1, 0.2, 0.8, 0.3), 0.98),))
+        serialized = document.serialize()
+        self.assertEqual(document, deserialize_ocr_document(serialized))
+        row = list(stream_ocr_rows(document, artifact_sha256=digest))[0]
+        locator = row.locator(digest)
+        self.assertEqual("pdf_ocr", locator["locator_kind"])
+        self.assertEqual(document.ocr_release, locator["ocr_release"])
+        self.assertNotIn("Fecha Monto", repr(document.manifest()))
+        self.assertNotIn("Fecha Monto", repr(ocr_summary(document)))
+
+    def test_ocr_can_promote_only_after_scanning_all_recognized_text(self) -> None:
+        payload = build_pdf(text=None)
+        digest = hashlib.sha256(payload).hexdigest()
+        clean = OcrDocument(
+            digest, "tesseract-5.5.1/pdfium-5.13.0/fincilia-ocr-1",
+            ("spa", "eng"), 1,
+            (OcrBlock(1, 1, "Fecha Monto", (0.1, 0.2, 0.8, 0.3), 0.98),))
+        decision = decide_promotion(payload, "escaneado.pdf", ocr_document=clean)
+        self.assertEqual("promoted", decision.decision)
+        self.assertEqual("content_inspected_ocr", decision.reason_code)
+        self.assertEqual("complete", decision.document["ocr_state"])
+        self.assertNotIn("Fecha Monto", repr(decision.as_dict()))
+
+        sensitive = OcrDocument(
+            digest, clean.ocr_release, clean.languages, 1,
+            (OcrBlock(1, 1, "4111 1111 1111 1111", (0.1, 0.2, 0.8, 0.3), 0.9),))
+        denied = decide_promotion(
+            payload, "escaneado.pdf", ocr_document=sensitive)
+        self.assertEqual("quarantined", denied.decision)
+        self.assertEqual("sensitive_content", denied.reason_code)
+        self.assertNotIn("4111", repr(denied.as_dict()))
+
+    def test_ocr_inspects_every_block_after_the_finding_cap(self) -> None:
+        payload = build_pdf(text=None)
+        digest = hashlib.sha256(payload).hexdigest()
+        blocks = tuple(
+            OcrBlock(1, index + 1,
+                     "AKIA" + "A" * 16 if index < 50 else "final block",
+                     (0.1, 0.1, 0.8, 0.2), 0.9)
+            for index in range(51))
+        document = OcrDocument(
+            digest, "tesseract-5.5.1/pdfium-5.13.0/fincilia-ocr-1",
+            ("eng",), 1, blocks)
+
+        from fincilia_contracts.ingestion import scan_secrets
+        with patch("fincilia_contracts.ingestion.scan_secrets",
+                   wraps=scan_secrets) as scanner:
+            decision = decide_promotion(
+                payload, "synthetic-scanned.pdf", ocr_document=document)
+
+        self.assertEqual("quarantined", decision.decision)
+        self.assertEqual(50, len(decision.findings))
+        self.assertEqual(51, scanner.call_count)
+
+    def test_ocr_derivative_rejects_drift_and_noncanonical_json(self) -> None:
+        payload = build_pdf(text=None)
+        document = OcrDocument(
+            hashlib.sha256(payload).hexdigest(),
+            "tesseract-5.5.1/pdfium-5.13.0/fincilia-ocr-1", ("spa",), 1,
+            (OcrBlock(1, 1, "sintetico", (0.1, 0.1, 0.5, 0.2), 0.9),))
+        with self.assertRaises(OcrError):
+            deserialize_ocr_document(document.serialize() + b"\n")
+        with self.assertRaises(OcrError):
+            list(stream_ocr_rows(document, artifact_sha256="0" * 64))
 
 
 if __name__ == "__main__":

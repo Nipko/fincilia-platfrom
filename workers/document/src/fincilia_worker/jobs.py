@@ -33,7 +33,7 @@ import psycopg
 from fincilia_contracts.extraction import ExtractionError
 from fincilia_contracts.ingestion import RejectedUpload, decide_promotion
 from fincilia_contracts.open_document import OpenDocumentError
-from fincilia_contracts.pdf_document import PdfError, inspect_pdf
+from fincilia_contracts.pdf_document import OcrDocument, PdfError, inspect_pdf
 from fincilia_platform.objects import ObjectStoreError
 from fincilia_contracts.profiling import UnprofilableFile, profile
 from fincilia_contracts.spreadsheet import SpreadsheetError
@@ -55,7 +55,7 @@ UNKNOWN = "unknown"
 # sobre el mismo artefacto es una sola decision, y reejecutarlo no crea otra.
 # Cuando el escaner cambie de verdad, esto sube y la decision se puede revisar
 # sin reescribir la anterior.
-SCANNER_RELEASE = "scan-5"
+SCANNER_RELEASE = "scan-6"
 
 
 @dataclass(frozen=True)
@@ -118,7 +118,8 @@ def dumps(payload) -> str:
 
 
 def run_profile(payload: bytes, *,
-                internal_type: str = "", sheet_identity: str | None = None
+                internal_type: str = "", sheet_identity: str | None = None,
+                ocr_document: OcrDocument | None = None,
                 ) -> tuple[dict | None, str | None, str | None]:
     """Perfila unos bytes. Devuelve `(resultado, codigo, clase_de_fallo)`.
 
@@ -136,6 +137,32 @@ def run_profile(payload: bytes, *,
 
             table = profile_open_document(payload, sheet_identity=sheet_identity)
         elif internal_type == "pdf":
+            if ocr_document is not None:
+                lengths = [len(block.text) for block in ocr_document.blocks]
+                return {
+                    **ocr_document.manifest(),
+                    "state": "complete",
+                    "encoding": "pdf-local-ocr",
+                    "delimiter": "",
+                    "has_header": False,
+                    "row_count": len(ocr_document.blocks),
+                    "column_count": 1,
+                    "ragged_rows": 0,
+                    "truncated": False,
+                    "needs_decision": [],
+                    "columns": [{
+                        "index": 0,
+                        "header": "Texto OCR",
+                        "non_empty": len(ocr_document.blocks),
+                        "empty": 0,
+                        "min_length": min(lengths),
+                        "max_length": max(lengths),
+                        "inferred_type": "text",
+                        "type_confidence": 1.0,
+                        "ambiguous": False,
+                    }],
+                    "effective_encoding": "pdf-local-ocr",
+                }, None, None
             inspection = inspect_pdf(payload)
             return {
                 **inspection.manifest(),
@@ -207,7 +234,9 @@ def classify_extraction(error: Exception) -> tuple[str, str]:
     return "extraction_error", UNKNOWN
 
 
-def run_scan(payload: bytes, filename: str) -> tuple[dict | None, str | None, str | None]:
+def run_scan(payload: bytes, filename: str, *,
+             ocr_document: OcrDocument | None = None
+             ) -> tuple[dict | None, str | None, str | None]:
     """Decide si unos bytes pueden salir de cuarentena.
 
     Devuelve `(decision, codigo, clase_de_fallo)`. Un formato que no se sabe
@@ -215,7 +244,8 @@ def run_scan(payload: bytes, filename: str) -> tuple[dict | None, str | None, st
     escrito, y el trabajo termina bien.
     """
     try:
-        decision = decide_promotion(payload, filename)
+        decision = decide_promotion(
+            payload, filename, ocr_document=ocr_document)
     except RejectedUpload as error:
         # Lo que ni siquiera se puede examinar se queda donde esta. Reintentarlo
         # daria lo mismo.

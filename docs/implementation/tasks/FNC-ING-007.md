@@ -26,6 +26,7 @@ conserva un derivado direccionado por contenido con localizadores por bloque.
 - `packages/platform/python/fincilia_platform/settings.py`
 - `packages/platform/python/tests/**`
 - `db/migrations/V0062__local_pdf_ocr.sql`
+- `db/migrations/V0063__pdf_ocr_migrator_maintenance.sql`
 - `db/tests/test_pdf_ocr.py`
 - `docs/database/migration-tooling.json`
 - `infra/local/compose.yaml`
@@ -34,7 +35,7 @@ conserva un derivado direccionado por contenido con localizadores por bloque.
 - `docs/platform/runtime-config.json`
 - `apps/web/src/app/empresas/[companyId]/**`
 - `apps/web/src/lib/**`
-- `apps/web/e2e/**`
+- `apps/web/tests/e2e/**`
 - `docs/ingestion/PDF_OCR_WORKSPACE.md`
 - esta ficha y su handoff
 - registros centrales por Integration Steward

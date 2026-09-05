@@ -31,7 +31,11 @@ sys.path.insert(0, "/app/src")
 from fincilia_contracts.release import digest_of  # noqa: E402
 from fincilia_platform.db import Database  # noqa: E402
 from fincilia_platform.gates import verify_configured_gate  # noqa: E402
-from fincilia_platform.objects import ObjectStoreError, S3ObjectStore  # noqa: E402
+from fincilia_platform.objects import (  # noqa: E402
+    ObjectStoreError,
+    S3ObjectStore,
+    object_key,
+)
 from fincilia_platform.observability import (  # noqa: E402
     configure as configure_observability,
     correlation,
@@ -39,6 +43,7 @@ from fincilia_platform.observability import (  # noqa: E402
 )
 from fincilia_worker import jobs  # noqa: E402
 from fincilia_worker.config import WorkerSettings, load_settings  # noqa: E402
+from fincilia_worker.local_ocr import LocalTesseractOcr  # noqa: E402
 from fincilia_worker.probes import probe_all  # noqa: E402
 
 HEARTBEAT_PATH = Path("/tmp/fincilia-worker-alive")
@@ -93,6 +98,7 @@ def main() -> int:
 
     database = Database(settings)
     store = S3ObjectStore(settings)
+    ocr = LocalTesseractOcr() if settings.ocr_provider == "local_tesseract" else None
     identity = f"{settings.service_name}-{os.getpid()}"
 
     last_beat = 0.0
@@ -102,7 +108,7 @@ def main() -> int:
             if now - last_beat >= HEARTBEAT_INTERVAL_SECONDS:
                 beat()
                 last_beat = now
-            if not process_one(database, store, identity):
+            if not process_one(database, store, identity, ocr=ocr):
                 # Sin trabajo no se martillea la base: se espera un poco. Sondear
                 # en bucle cerrado consume mas que el trabajo que busca.
                 time.sleep(IDLE_SLEEP_SECONDS)
@@ -113,7 +119,7 @@ def main() -> int:
     return 0
 
 
-def process_one(database: Database, store, identity: str) -> bool:
+def process_one(database: Database, store, identity: str, *, ocr=None) -> bool:
     """Toma un trabajo, lo hace y lo cierra. Devuelve si habia algo que hacer.
 
     Tres transacciones cortas, no una larga: mantener abierta la del reclamo
@@ -132,10 +138,10 @@ def process_one(database: Database, store, identity: str) -> bool:
         return False
 
     with correlation(claim.run_id):
-        return _process_claim(database, store, claim)
+        return _process_claim(database, store, claim, ocr=ocr)
 
 
-def _process_claim(database: Database, store, claim: "jobs.Claim") -> bool:
+def _process_claim(database: Database, store, claim: "jobs.Claim", *, ocr=None) -> bool:
     """Procesa un claim bajo su correlation ID y lo libera al terminar."""
 
     result: dict | None = None
@@ -169,17 +175,42 @@ def _process_claim(database: Database, store, claim: "jobs.Claim") -> bool:
         if claim.kind == "scan":
             result, error_code, failure_class = jobs.run_scan(
                 payload, artifact["filename"])
+            ocr_document = None
+            if (result is not None and result.get("reason_code") == "ocr_required"
+                    and ocr is not None):
+                try:
+                    ocr_document = ocr.extract(payload)
+                    result, error_code, failure_class = jobs.run_scan(
+                        payload, artifact["filename"], ocr_document=ocr_document)
+                except Exception:  # noqa: BLE001 - provider boundary is fail-closed
+                    logger.warning("local OCR did not complete for run %s", claim.run_id)
+                    result["reason_code"] = "ocr_failed"
+                    result["document"] = {
+                        "document_kind": "pdf", "ocr_state": "failed",
+                        "requires_human_review": True,
+                    }
             if result is not None:
                 try:
-                    _record_decision(database, store, claim, artifact, payload, result)
+                    _record_decision(
+                        database, store, claim, artifact, payload, result,
+                        ocr_document=ocr_document
+                        if result.get("decision") == "promoted" else None)
                 except Exception:  # noqa: BLE001
                     logger.exception("could not record the promotion decision")
                     result, error_code, failure_class = None, "decision_unstorable", \
                         jobs.RETRYABLE
         else:
-            result, error_code, failure_class = jobs.run_profile(
-                payload, internal_type=artifact["internal_type"],
-                sheet_identity=artifact.get("sheet_identity"))
+            try:
+                ocr_document = _load_ocr_document(store, artifact)
+                result, error_code, failure_class = jobs.run_profile(
+                    payload, internal_type=artifact["internal_type"],
+                    sheet_identity=artifact.get("sheet_identity"),
+                    ocr_document=ocr_document)
+            except ObjectStoreError as error:
+                logger.error("OCR derivative unreadable for run %s: %s",
+                             claim.run_id, error)
+                result, error_code, failure_class = (
+                    None, "evidence_unreadable", jobs.RETRYABLE)
 
     try:
         with database.session(company_id=claim.company_id) as connection:
@@ -221,22 +252,48 @@ def _artifact_row(database: Database, claim: "jobs.Claim") -> dict:
                 "          AND p.company_id = a.company_id "
                 "          AND p.decision = 'promoted' "
                 "        ORDER BY p.decided_at DESC, p.decision_id DESC LIMIT 1), ''), "
-                "       selection.sheet_identity "
+                "       selection.sheet_identity, "
+                "       ocr.derived_object_key, ocr.derived_sha256, ocr.ocr_release "
                 "FROM fincilia.source_artifact a "
                 "LEFT JOIN fincilia.spreadsheet_selection selection "
                 "  ON selection.artifact_id = a.artifact_id "
                 " AND selection.company_id = a.company_id "
+                "LEFT JOIN LATERAL ("
+                "  SELECT result.derived_object_key, result.derived_sha256, "
+                "         result.ocr_release FROM fincilia.pdf_ocr_result result "
+                "   WHERE result.artifact_id = a.artifact_id "
+                "     AND result.company_id = a.company_id "
+                "   ORDER BY result.created_at DESC, result.ocr_result_id DESC LIMIT 1"
+                ") ocr ON true "
                 "WHERE a.artifact_id = %s",
                 (claim.artifact_id,))
             row = cursor.fetchone()
     if row is None:
         raise ObjectStoreError("the artifact is not visible in its own context")
     return {"object_key": row[0], "filename": row[1], "content_sha256": row[2],
-            "internal_type": row[3], "sheet_identity": row[4]}
+            "internal_type": row[3], "sheet_identity": row[4],
+            "ocr_object_key": row[5], "ocr_sha256": row[6],
+            "ocr_release": row[7]}
+
+
+def _load_ocr_document(store, artifact: dict):
+    if not artifact.get("ocr_object_key"):
+        return None
+    import hashlib
+    from fincilia_contracts.pdf_document import deserialize_ocr_document
+
+    payload = store.get("derived", artifact["ocr_object_key"])
+    if hashlib.sha256(payload).hexdigest() != artifact["ocr_sha256"]:
+        raise ObjectStoreError("the OCR derivative digest does not match its row")
+    document = deserialize_ocr_document(payload)
+    if (document.artifact_sha256 != artifact["content_sha256"]
+            or document.ocr_release != artifact["ocr_release"]):
+        raise ObjectStoreError("the OCR derivative does not match its source artifact")
+    return document
 
 
 def _record_decision(database: Database, store, claim: "jobs.Claim", artifact: dict,
-                     payload: bytes, decision: dict) -> None:
+                     payload: bytes, decision: dict, *, ocr_document=None) -> None:
     """Escribe la decision y, si promueve, copia la evidencia a su zona.
 
     El orden importa y no es arbitrario: primero el objeto en `raw`, despues la
@@ -248,6 +305,19 @@ def _record_decision(database: Database, store, claim: "jobs.Claim", artifact: d
     mismo en el mismo sitio: reintentar un escaneo es inocuo.
     """
     raw_key = None
+    ocr_record = None
+    if ocr_document is not None:
+        import hashlib
+        derivative = ocr_document.serialize()
+        derivative_sha256 = hashlib.sha256(derivative).hexdigest()
+        derivative_key = object_key(claim.company_id, derivative_sha256) + ".ocr.json"
+        store.put(
+            "derived", derivative_key, derivative,
+            content_type="application/vnd.fincilia.pdf-ocr+json",
+            metadata={"company": claim.company_id,
+                      "source-sha256": artifact["content_sha256"],
+                      "ocr-release": ocr_document.ocr_release})
+        ocr_record = (derivative_key, derivative_sha256)
     if decision["decision"] == "promoted":
         store.put("raw", artifact["object_key"], payload,
                   content_type=decision["media_type"],
@@ -267,6 +337,30 @@ def _record_decision(database: Database, store, claim: "jobs.Claim", artifact: d
                  decision["decision"], decision["reason_code"], jobs.SCANNER_RELEASE,
                  decision["media_type"], decision.get("internal_type", ""),
                  jobs.dumps(decision.get("findings", [])), raw_key))
+            if ocr_record is not None:
+                cursor.execute(
+                    "INSERT INTO fincilia.pdf_ocr_result (ocr_result_id, company_id, "
+                    "artifact_id, scan_run_id, source_sha256, derived_object_key, "
+                    "derived_sha256, ocr_release, language_set, page_count, block_count) "
+                    "VALUES (gen_random_uuid(), %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) "
+                    "ON CONFLICT (artifact_id, ocr_release) DO NOTHING",
+                    (claim.company_id, claim.artifact_id, claim.run_id,
+                     artifact["content_sha256"], ocr_record[0], ocr_record[1],
+                     ocr_document.ocr_release, list(ocr_document.languages),
+                     ocr_document.page_count, len(ocr_document.blocks)))
+                cursor.execute(
+                    "SELECT source_sha256, derived_object_key, derived_sha256, "
+                    "ocr_release, language_set, page_count, block_count "
+                    "FROM fincilia.pdf_ocr_result "
+                    "WHERE artifact_id = %s AND ocr_release = %s",
+                    (claim.artifact_id, ocr_document.ocr_release))
+                actual = cursor.fetchone()
+                expected = (
+                    artifact["content_sha256"], ocr_record[0], ocr_record[1],
+                    ocr_document.ocr_release, list(ocr_document.languages),
+                    ocr_document.page_count, len(ocr_document.blocks))
+                if actual is None or tuple(actual) != expected:
+                    raise RuntimeError("the stored OCR derivative conflicts with this scan")
             # Solo lo promovido se lee. Encolar una lectura sobre algo que sigue
             # en cuarentena seria pasear por otro proceso justo lo que no ha
             # pasado inspeccion.
@@ -376,20 +470,31 @@ def _extract_streaming(database: Database, store, claim: "jobs.Claim") -> bool:
                 else:
                     from fincilia_contracts.pdf_document import (
                         PdfOutcome,
+                        ocr_summary,
                         pdf_summary,
                         sniff_pdf,
+                        stream_ocr_rows,
                         stream_pdf_rows,
                     )
 
                     payload = store.get("raw", artifact["object_key"])
-                    _, preamble = sniff_pdf(payload)
-                    pdf_outcome = PdfOutcome()
-                    written = _store_stream(
-                        database, claim, artifact,
-                        stream_pdf_rows(
-                            payload, preamble, outcome=pdf_outcome,
-                            artifact_sha256=artifact["content_sha256"]))
-                    result = pdf_summary(preamble, pdf_outcome)
+                    ocr_document = _load_ocr_document(store, artifact)
+                    if ocr_document is not None:
+                        written = _store_stream(
+                            database, claim, artifact,
+                            stream_ocr_rows(
+                                ocr_document,
+                                artifact_sha256=artifact["content_sha256"]))
+                        result = ocr_summary(ocr_document)
+                    else:
+                        _, preamble = sniff_pdf(payload)
+                        pdf_outcome = PdfOutcome()
+                        written = _store_stream(
+                            database, claim, artifact,
+                            stream_pdf_rows(
+                                payload, preamble, outcome=pdf_outcome,
+                                artifact_sha256=artifact["content_sha256"]))
+                        result = pdf_summary(preamble, pdf_outcome)
             else:
                 stream = store.open("raw", artifact["object_key"])
                 preamble, reader = sniff(stream)

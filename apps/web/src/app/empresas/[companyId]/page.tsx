@@ -32,6 +32,9 @@ const PROMOTION_REASONS: Record<string, string> = {
   unsafe_or_malformed_workbook: 'el libro esta danado o usa una estructura no segura',
   unsafe_or_active_pdf: 'el PDF esta danado, cifrado o contiene funciones activas',
   ocr_required: 'el PDF necesita OCR y permanece en cuarentena',
+  ocr_failed: 'el OCR local no pudo terminar de forma verificable',
+  ocr_invalid: 'el derivado OCR no coincide con la evidencia original',
+  content_inspected_ocr: 'el PDF se inspecciono completamente mediante OCR local',
   unscannable: 'no se pudo examinar',
 };
 

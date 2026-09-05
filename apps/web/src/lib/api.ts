@@ -582,7 +582,10 @@ export type PdfWorkspace = {
   object_count?: number;
   embedded_text?: boolean;
   parser_release?: string;
-  ocr_state: 'not_required' | 'required';
+  ocr_state: 'not_required' | 'required' | 'complete' | 'failed';
+  block_count?: number;
+  ocr_release?: string;
+  ocr_languages?: string[];
   requires_human_review: true;
 };
 

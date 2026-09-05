@@ -32,6 +32,9 @@ const PROMOTION_REASONS: Record<string, string> = {
   unsafe_or_malformed_workbook: 'el libro esta danado o usa una estructura no segura',
   unsafe_or_active_pdf: 'el PDF esta danado, cifrado o contiene funciones activas',
   ocr_required: 'el PDF es pasivo pero necesita reconocimiento optico (OCR)',
+  ocr_failed: 'el OCR local no produjo un derivado completo',
+  ocr_invalid: 'el derivado OCR no coincide con la evidencia',
+  content_inspected_ocr: 'contenido completo inspeccionado mediante OCR local',
   unscannable: 'no se pudo examinar',
 };
 
@@ -264,9 +267,13 @@ export default async function DocumentPage({
           <h2>Espacio de trabajo PDF</h2>
           <section className="card">
             <strong>
-              {document.pdf.ocr_state === 'required'
-                ? 'OCR pendiente'
-                : 'Texto embebido inspeccionado'}
+              {document.pdf.ocr_state === 'complete'
+                ? 'OCR local completado'
+                : document.pdf.ocr_state === 'required'
+                  ? 'OCR pendiente'
+                  : document.pdf.ocr_state === 'failed'
+                    ? 'OCR incompleto'
+                    : 'Texto embebido inspeccionado'}
             </strong>
             <p className="meta">
               {document.pdf.page_count
@@ -278,11 +285,31 @@ export default async function DocumentPage({
               {document.pdf.parser_release
                 ? ` · parser ${document.pdf.parser_release}`
                 : ''}
+              {document.pdf.block_count !== undefined
+                ? ` · ${document.pdf.block_count.toLocaleString('es-CO')} bloque(s)`
+                : ''}
+              {document.pdf.ocr_languages?.length
+                ? ` · idiomas ${document.pdf.ocr_languages.join(', ')}`
+                : ''}
+              {document.pdf.ocr_release
+                ? ` · motor ${document.pdf.ocr_release}`
+                : ''}
             </p>
             {document.pdf.ocr_state === 'required' ? (
               <p className="notice">
-                El OCR externo permanece desactivado hasta aprobar proveedor,
-                region, presupuesto y retencion. El original sigue en cuarentena.
+                El OCR local está en cola o desactivado en este entorno. El original
+                sigue en cuarentena hasta completar e inspeccionar el reconocimiento.
+              </p>
+            ) : document.pdf.ocr_state === 'failed' ? (
+              <p className="notice error" role="alert">
+                El reconocimiento no terminó de forma verificable. No se promovió
+                evidencia ni se inició el perfilado; una persona debe reintentar o
+                revisar el formato.
+              </p>
+            ) : document.pdf.ocr_state === 'complete' ? (
+              <p className="notice" role="status">
+                El documento se reconoció dentro del worker sin transmisión externa.
+                El original y el derivado conservan huellas y linaje separados.
               </p>
             ) : null}
           </section>

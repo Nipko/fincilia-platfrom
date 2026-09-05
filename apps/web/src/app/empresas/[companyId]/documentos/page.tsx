@@ -49,6 +49,9 @@ const PROMOTION_REASON_LABELS: Record<string, string> = {
   unsafe_or_malformed_workbook: 'Hoja de calculo danada o no segura',
   unsafe_or_active_pdf: 'PDF danado, cifrado o activo',
   ocr_required: 'PDF pendiente de OCR',
+  ocr_failed: 'OCR local incompleto; requiere revision',
+  ocr_invalid: 'Derivado OCR no verificable',
+  content_inspected_ocr: 'Contenido inspeccionado mediante OCR local',
   unscannable: 'No fue posible examinar el contenido',
 };
 
@@ -287,10 +290,10 @@ export default async function DocumentCenterPage({
           ))}
         </div>
         <div className="notice document-ocr-boundary" role="status">
-          <strong>OCR todavía no transmite documentos.</strong>{' '}
-          Los PDF sin texto quedan identificados como <code>ocr_required</code>
-          y permanecen en cuarentena hasta que exista un proveedor aprobado,
-          región validada, retención definida y revisión humana.
+          <strong>OCR local y aislado.</strong>{' '}
+          Los PDF escaneados pasivos se reconocen dentro del worker, con un máximo
+          de 50 páginas y sin transmitir el documento a un proveedor externo. El
+          resultado siempre requiere revisión humana antes de mapear o publicar.
         </div>
       </section>
 

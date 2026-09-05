@@ -123,7 +123,8 @@ describe('DocumentCenterPage', () => {
     expect(screen.getByRole('heading', { name: 'Formatos y tratamiento' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'CSV' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'PDF' })).toBeInTheDocument();
-    expect(screen.getByText(/OCR todavía no transmite documentos/)).toBeInTheDocument();
+    expect(screen.getByText(/OCR local y aislado/)).toBeInTheDocument();
+    expect(screen.getByText(/máximo de 50 páginas/)).toBeInTheDocument();
     expect(screen.getByLabelText('Extracto o soporte')).toHaveAttribute('multiple');
     expect(screen.getByRole('link', { name: 'extracto-agosto.csv' })).toHaveAttribute(
       'href', `/empresas/${COMPANY}/documentos/${ARTIFACT}`,

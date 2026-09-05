@@ -25,5 +25,6 @@ test('FNC-WEB-005 cierra estados web sin simular proveedores', async ({ page }) 
   await expect(page.getByRole('heading', { name: 'Formatos y tratamiento' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'CSV' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'PDF' })).toBeVisible();
-  await expect(page.getByText(/OCR todavía no transmite documentos/i)).toBeVisible();
+  await expect(page.getByText(/OCR local y aislado/i)).toBeVisible();
+  await expect(page.getByText(/sin transmitir el documento/i)).toBeVisible();
 });
