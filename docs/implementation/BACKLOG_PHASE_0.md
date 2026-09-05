@@ -200,6 +200,7 @@ dependencias de `FNC-GAT-002` ni afirmar que Sprint 1 está habilitado.
 | FNC-NTF-001 | A2/A4/A6 | OPS-001, ARC-004 | Review pending | Preferencias, intención idempotente, contexto allowlisted, RLS por sujeto e historial; adaptador real desactivado |
 | FNC-NTF-002 | A2/A4/A6 | NTF-001, IAM-004, PLT-017 | Review pending | Despacho durable y SES provider-ready con destino KMS, feedback minimizado y activacion cerrada por gates |
 | FNC-BIL-001 | A2/A4/A6 | ARC-001, SEC-001 | Review pending | Tres planes versionados, evaluación idempotente, uso append-only y consola; cobro real desactivado |
+| FNC-BIL-002 | A2/A4/A5/A6 | BIL-001, IAM-004, SEC-001 | In progress | Checkout/Portal Stripe y webhook idempotente provider-ready; apagado sin precios ni secretos |
 | FNC-GAT-008 | A1/A6 | WEB-004, ACC-001, IAM-004 | Review pending | Inventario ejecutable de 12 dominios: 98 % implementación, 62 % aceptación sintética y 30 % operabilidad productiva; mobile excluido |
 | FNC-QA-011 | A5/A6 | QA-010, ING-007, NTF-002 | In progress | Aislamiento determinista de notificaciones y procesamiento documental en la suite PostgreSQL integral |
 
