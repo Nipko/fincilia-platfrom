@@ -2,7 +2,7 @@
   "schema_version": "1.0.0",
   "task_id": "FNC-GAT-008",
   "scope": "web_platform",
-  "measured_at": "2026-09-03",
+  "measured_at": "2026-09-04",
   "data_ceiling": "synthetic_only",
   "gate_claims": {
     "DRG-00": "not_met",
@@ -90,11 +90,11 @@
       "id": "operations_notifications",
       "label": "Ciclos, recordatorios e historial operativo",
       "weight": 6,
-      "implementation": "partial",
-      "synthetic_acceptance": "component_verified",
-      "production_operability": "blocked",
-      "evidence": ["docs/implementation/tasks/FNC-NTF-001.md", "apps/web/src/app/recordatorios/page.tsx", "apps/api/src/fincilia_api/notifications.py"],
-      "remaining": "Proveedor de correo, entrega real, rebotes, reputacion y runbook de incidentes."
+      "implementation": "complete",
+      "synthetic_acceptance": "synthetic_e2e",
+      "production_operability": "design_and_tests",
+      "evidence": ["docs/implementation/tasks/FNC-NTF-002.md", "workers/notification/src/fincilia_notification_worker/main.py", "db/migrations/V0060__notification_delivery_at_most_once.sql", "apps/web/src/app/recordatorios/page.tsx"],
+      "remaining": "Activar identidad SES, feedback administrado, reputacion y runbook solo despues de DRG-00/01 y revision independiente."
     },
     {
       "id": "reports_exports",
@@ -138,9 +138,9 @@
     }
   ],
   "reported_progress": {
-    "implementation_percent": 90,
-    "synthetic_acceptance_percent": 60,
-    "production_operability_percent": 28
+    "implementation_percent": 93,
+    "synthetic_acceptance_percent": 62,
+    "production_operability_percent": 30
   },
   "interpretation": {
     "implementation_percent": "Cobertura ponderada construida en main; no equivale a despliegue.",

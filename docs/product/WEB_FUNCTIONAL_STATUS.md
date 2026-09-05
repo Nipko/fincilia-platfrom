@@ -5,13 +5,13 @@ fuera del denominador porque el Founder decidio terminar primero la web.
 
 ## Resultado actual
 
-- **90 % de implementacion funcional ponderada.** El nucleo contable y las
-  senales avanzadas de riesgo estan construidos; OCR, notificaciones externas y
+- **93 % de implementacion funcional ponderada.** El nucleo contable, las
+  senales de riesgo y el despacho durable de correo estan construidos; OCR y
   cobro real siguen parciales.
-- **60 % de aceptacion sintetica ponderada.** Existen recorridos E2E amplios,
-  pero Google real esta bloqueado y las integraciones externas solo tienen
-  componentes o adaptadores apagados.
-- **28 % de operabilidad de produccion ponderada.** Hay diseño y pruebas de
+- **62 % de aceptacion sintetica ponderada.** Existen recorridos E2E amplios y
+  el protocolo de correo se probo con roles PostgreSQL reales; Google y SES
+  permanecen apagados por los gates de datos y revision.
+- **30 % de operabilidad de produccion ponderada.** Hay diseño y pruebas de
   controles, pero no se ha demostrado operacion real, DRG-00/01 ni GA-01.
 
 Estos porcentajes no miden precision sobre documentos reales ni certifican un
@@ -24,11 +24,11 @@ la declaración.
 
 1. Identidad Google live y entorno UAT apto para identidad nominal.
 2. DRG-00 y DRG-01 con revisores independientes para empezar casos reales.
-3. Entrega externa de recordatorios y correo transaccional.
+3. Activacion operativa de SES, feedback, reputacion y runbook de correo.
 4. OCR para PDFs escaneados y calibracion autorizada de senales de riesgo.
 5. Checkout, webhooks, impuestos y conciliacion del propio cobro SaaS.
 6. Operacion productiva: despliegue separado, observabilidad, restore, pentest,
    soporte y evidencia de GA.
 
-La funcionalidad movil permanece deliberadamente al final y no reduce el 90 %
+La funcionalidad movil permanece deliberadamente al final y no reduce el 93 %
 de la plataforma web.

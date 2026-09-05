@@ -18,9 +18,9 @@ class WebFunctionalStatusTests(unittest.TestCase):
     def test_canonical_inventory_is_valid_and_reproducible(self) -> None:
         self.assertEqual([], validate(self.model))
         self.assertEqual({
-            "implementation_percent": 88,
-            "synthetic_acceptance_percent": 59,
-            "production_operability_percent": 28,
+            "implementation_percent": 93,
+            "synthetic_acceptance_percent": 62,
+            "production_operability_percent": 30,
         }, calculate(self.model))
 
     def test_weights_cannot_hide_scope(self) -> None:

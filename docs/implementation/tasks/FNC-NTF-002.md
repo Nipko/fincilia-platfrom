@@ -1,7 +1,7 @@
 ---
 id: FNC-NTF-002
 title: Despacho durable de correo y adaptador AWS SES
-status: in_progress
+status: review_pending
 implementer: Codex principal dev + Integration Steward
 base_sha: 2906a00
 gate: DRG-00/DRG-01
