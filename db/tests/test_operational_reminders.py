@@ -48,9 +48,21 @@ class OperationalReminderTests(unittest.TestCase):
                     cursor.execute(
                         "SELECT set_config('fincilia.subject_id', %s, false)",
                         (ANA,))
-                    cursor.execute("DELETE FROM fincilia.notification_delivery")
-                    cursor.execute("DELETE FROM fincilia.notification_intent")
-                    cursor.execute("DELETE FROM fincilia.notification_preference")
+                    cursor.execute(
+                        "DELETE FROM fincilia.notification_feedback_event "
+                        "WHERE company_id = %s", (company,))
+                    cursor.execute(
+                        "DELETE FROM fincilia.notification_delivery_attempt "
+                        "WHERE company_id = %s", (company,))
+                    cursor.execute(
+                        "DELETE FROM fincilia.notification_delivery "
+                        "WHERE company_id = %s", (company,))
+                    cursor.execute(
+                        "DELETE FROM fincilia.notification_intent "
+                        "WHERE company_id = %s", (company,))
+                    cursor.execute(
+                        "DELETE FROM fincilia.notification_preference "
+                        "WHERE company_id = %s", (company,))
         cls.client = TestClient(create_app(build_settings()))
         cls.client.__enter__()
         cls.sources: set[str] = set()
@@ -68,11 +80,20 @@ class OperationalReminderTests(unittest.TestCase):
                         "SELECT set_config('fincilia.company_id', %s, false)",
                         (company,))
                     cursor.execute(
-                        "DELETE FROM fincilia.notification_delivery")
+                        "DELETE FROM fincilia.notification_feedback_event "
+                        "WHERE company_id = %s", (company,))
                     cursor.execute(
-                        "DELETE FROM fincilia.notification_intent")
+                        "DELETE FROM fincilia.notification_delivery_attempt "
+                        "WHERE company_id = %s", (company,))
                     cursor.execute(
-                        "DELETE FROM fincilia.notification_preference")
+                        "DELETE FROM fincilia.notification_delivery "
+                        "WHERE company_id = %s", (company,))
+                    cursor.execute(
+                        "DELETE FROM fincilia.notification_intent "
+                        "WHERE company_id = %s", (company,))
+                    cursor.execute(
+                        "DELETE FROM fincilia.notification_preference "
+                        "WHERE company_id = %s", (company,))
                     cursor.execute(
                         "DELETE FROM fincilia.source_expectation "
                         "WHERE data_source_id = ANY(%s)", (list(cls.sources),))

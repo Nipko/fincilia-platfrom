@@ -380,13 +380,22 @@ class VerticalHarness(unittest.TestCase):
         self.assertEqual(200, response.status_code, response.text)
         return {"Authorization": f"Bearer {response.json()['token']}"}
 
-    def drain(self, limit: int = 16) -> None:
+    def drain(self, limit: int = 256) -> None:
+        """Procesa la cola compartida hasta quiescencia, con tope explícito.
+
+        Las suites PostgreSQL comparten una base desechable. Un límite pequeño
+        podía consumir trabajo residual de otra clase y devolver el artefacto
+        recién subido antes de perfil/extracción. Llegar al límite es un fallo
+        de aislamiento, no una finalización silenciosa.
+        """
         from fincilia_platform.db import Database
         database = Database(self.worker_settings())
         try:
             for _ in range(limit):
                 if not process_one(database, self.store, f"p3-{RUN}"):
                     return
+            raise AssertionError(
+                f"document processing did not quiesce within {limit} jobs")
         finally:
             database.close()
 
@@ -533,9 +542,10 @@ class VerticalTests(VerticalHarness):
 
     def test_the_audit_of_a_preview_counts_rows_and_quotes_none_TST_P3_031(self) -> None:
         artifact = self.promoted(statement_csv("audit"), "extracto.csv")
-        self.client.get(
+        preview = self.client.get(
             f"/api/v1/companies/{ESPIGA}/documents/{artifact}/preview",
             headers=self.auth(PREPARER))
+        self.assertEqual(200, preview.status_code, preview.text)
         events = self.client.get(
             f"/api/v1/companies/{ESPIGA}/audit?limit=50",
             headers=self.auth(REVIEWER)).json()
@@ -1259,9 +1269,10 @@ class AuditTests(VerticalHarness):
 
     def test_the_whole_chain_is_audited_TST_P3_052(self) -> None:
         artifact = self.promoted(statement_csv("chain"), "extracto.csv")
-        self.client.get(
+        preview = self.client.get(
             f"/api/v1/companies/{ESPIGA}/documents/{artifact}/preview",
             headers=self.auth(PREPARER))
+        self.assertEqual(200, preview.status_code, preview.text)
         version_id = self.validated_mapping(artifact)
         dataset_id = self.prepared(artifact, version_id).json()["dataset_version_id"]
         self.client.post(
