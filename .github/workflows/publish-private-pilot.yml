@@ -143,13 +143,13 @@ jobs:
 
       - name: Attest release bundle provenance
         id: bundle_provenance
-        uses: actions/attest@a1948c3f048ba23858d222213b7c278aabede763 # v4.1.1
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
           subject-path: ${{ runner.temp }}/fincilia-release.tar.gz
 
       - name: Attest aggregate release SBOM
         id: bundle_sbom
-        uses: actions/attest@a1948c3f048ba23858d222213b7c278aabede763 # v4.1.1
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
           subject-path: ${{ runner.temp }}/fincilia-release.tar.gz
           sbom-path: ${{ runner.temp }}/fincilia-release/release-dependencies.spdx.json
@@ -221,21 +221,21 @@ jobs:
 
       - name: Attest the exact API image digest
         id: api_attest
-        uses: actions/attest@a1948c3f048ba23858d222213b7c278aabede763 # v4.1.1
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
           subject-name: ${{ env.API_IMAGE }}
           subject-digest: ${{ env.API_DIGEST }}
 
       - name: Attest the exact web image digest
         id: web_attest
-        uses: actions/attest@a1948c3f048ba23858d222213b7c278aabede763 # v4.1.1
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
           subject-name: ${{ env.WEB_IMAGE }}
           subject-digest: ${{ env.WEB_DIGEST }}
 
       - name: Attest the exact worker image digest
         id: worker_attest
-        uses: actions/attest@a1948c3f048ba23858d222213b7c278aabede763 # v4.1.1
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
           subject-name: ${{ env.WORKER_IMAGE }}
           subject-digest: ${{ env.WORKER_DIGEST }}
