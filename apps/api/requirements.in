@@ -1,5 +1,6 @@
 # Dependencias directas de la API. El lockfile se resuelve dentro de
-# python:3.12-slim-bookworm sobre linux/amd64, no en la maquina del desarrollador:
+# la imagen runtime fijada python:3.12-alpine3.23 sobre linux/amd64, no en la
+# maquina del desarrollador:
 # psycopg trae ruedas binarias distintas por plataforma y un lock resuelto en
 # Windows instalaria otra cosa en el contenedor.
 fastapi==0.115.6
