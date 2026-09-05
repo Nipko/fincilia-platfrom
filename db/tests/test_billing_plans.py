@@ -128,7 +128,8 @@ class BillingPlanTests(unittest.TestCase):
             f"/api/v1/firms/{FIRM}/billing", headers=self.auth("beto@demo.local"))
         self.assertEqual(403, denied.status_code, denied.text)
         checkout = self.client.post(
-            f"/api/v1/firms/{FIRM}/billing/checkout", headers=owner)
+            f"/api/v1/firms/{FIRM}/billing/checkout", headers=owner,
+            json={"plan_code": "business", "idempotency_key": str(uuid.uuid4())})
         self.assertEqual(503, checkout.status_code, checkout.text)
 
     def test_runtime_cannot_forge_payment_or_rewrite_subscription(self) -> None:

@@ -21,6 +21,10 @@ tablas hijas antes que sus padres, sin relajar ninguna restricción productiva.
 
 - `db/tests/test_operational_reminders.py`
 - `db/tests/test_p3_vertical.py`
+- `db/tests/test_billing_plans.py`
+- `infra/local/reset-empty.sh`
+- `tools/local_stack/model.py`
+- `tools/local_stack/test_validate.py`
 - esta ficha y su handoff
 - registros centrales por Integration Steward
 
@@ -33,8 +37,10 @@ tablas hijas antes que sus padres, sin relajar ninguna restricción productiva.
 3. Las lecturas que generan auditoría comprueban primero la respuesta HTTP, de
    modo que una preparación incompleta no se confunda con falta de auditoría.
 4. Las pruebas focales y la suite PostgreSQL completa pasan en un esquema
-   migrado y con almacenamiento de objetos real.
-5. No se cambia código productivo, migraciones, RLS, permisos ni semántica
+   migrado, con almacenamiento de objetos real y sin consumidores concurrentes.
+5. El caso de Stripe deshabilitado envía primero un contrato HTTP válido, y el
+   reset vacío verifica las versiones legales canónicas activas para registro.
+6. No se cambia código productivo, migraciones, RLS, permisos ni semántica
    financiera.
 
 # Límites y rollback

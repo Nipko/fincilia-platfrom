@@ -267,6 +267,15 @@ class LocalStackContractTests(unittest.TestCase):
              "LOCAL-RESET-ALLOWLIST"),
             ("'billing_plan_version'", "'missing_reference_catalog'",
              "LOCAL-RESET-ALLOWLIST"),
+            ("(SELECT count(*) FROM fincilia.legal_document_version) <> 6",
+             "(SELECT count(*) FROM fincilia.legal_document_version) <> 2",
+             "LOCAL-RESET-ALLOWLIST"),
+            ("document_version = 'terms-2026-09-03-en'",
+             "document_version = 'terms-obsolete'",
+             "LOCAL-RESET-ALLOWLIST"),
+            ("document_version = 'privacy-2026-09-03-en'",
+             "document_version = 'privacy-obsolete'",
+             "LOCAL-RESET-ALLOWLIST"),
         )
         for original, replacement, expected in mutations:
             with self.subTest(original=original):

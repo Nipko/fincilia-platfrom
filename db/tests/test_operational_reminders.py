@@ -27,6 +27,7 @@ ESPIGA = stable_id("company", "espiga")
 ANDINOS = stable_id("company", "andinos")
 SANDBOX_A = stable_id("company", "sandbox_a")
 ANA = stable_id("subject", "ana")
+SOFIA = stable_id("subject", "sofia")
 OWNER = "sofia@demo.local"
 REVIEWER = "beto@demo.local"
 
@@ -47,7 +48,7 @@ class OperationalReminderTests(unittest.TestCase):
                         (company,))
                     cursor.execute(
                         "SELECT set_config('fincilia.subject_id', %s, false)",
-                        (ANA,))
+                        (SOFIA,))
                     cursor.execute(
                         "DELETE FROM fincilia.notification_feedback_event "
                         "WHERE company_id = %s", (company,))
@@ -79,6 +80,9 @@ class OperationalReminderTests(unittest.TestCase):
                     cursor.execute(
                         "SELECT set_config('fincilia.company_id', %s, false)",
                         (company,))
+                    cursor.execute(
+                        "SELECT set_config('fincilia.subject_id', %s, false)",
+                        (SOFIA,))
                     cursor.execute(
                         "DELETE FROM fincilia.notification_feedback_event "
                         "WHERE company_id = %s", (company,))
@@ -113,7 +117,8 @@ class OperationalReminderTests(unittest.TestCase):
 
     def create_period(self, *, company: str, marker: str,
                       anchor: dt.date, due_offset: int = 0,
-                      grace_days: int = 1) -> tuple[str, str]:
+                      grace_days: int = 1,
+                      responsible_subject_id: str = ANA) -> tuple[str, str]:
         headers = self.auth(OWNER)
         source_response = self.client.post(
             f"/api/v1/companies/{company}/sources", headers=headers,
@@ -135,7 +140,7 @@ class OperationalReminderTests(unittest.TestCase):
                 "custom_days": 1,
                 "due_day_offset": due_offset,
                 "grace_days": grace_days,
-                "responsible_subject_id": ANA,
+                "responsible_subject_id": responsible_subject_id,
                 "timezone": "America/Bogota",
                 "anchor_date": anchor.isoformat(),
             })
@@ -250,12 +255,13 @@ class OperationalReminderTests(unittest.TestCase):
     def test_notification_preferences_sync_and_delivery_states_are_honest(self) -> None:
         today = dt.datetime.now(ZoneInfo("America/Bogota")).date()
         _, expectation_id = self.create_period(
-            company=ESPIGA, marker=f"notify-{uuid.uuid4().hex[:8]}", anchor=today)
-        ana = self.auth("ana@demo.local")
+            company=ESPIGA, marker=f"notify-{uuid.uuid4().hex[:8]}", anchor=today,
+            responsible_subject_id=SOFIA)
+        owner = self.auth(OWNER)
 
         default = self.client.get(
             f"/api/v1/companies/{ESPIGA}/notifications/preferences/me",
-            headers=ana)
+            headers=owner)
         self.assertEqual(200, default.status_code, default.text)
         self.assertFalse(default.json()["enabled"])
         self.assertEqual("provider_configuration_pending",
@@ -263,7 +269,7 @@ class OperationalReminderTests(unittest.TestCase):
 
         enabled = self.client.put(
             f"/api/v1/companies/{ESPIGA}/notifications/preferences/me",
-            headers=ana, json={
+            headers=owner, json={
                 "enabled": True, "locale": "es-CO",
                 "timezone": "America/Bogota", "quiet_from": "20:00",
                 "quiet_until": "07:00"})
@@ -272,19 +278,19 @@ class OperationalReminderTests(unittest.TestCase):
 
         first = self.client.post(
             f"/api/v1/companies/{ESPIGA}/notifications/reminders/sync",
-            headers=ana)
+            headers=owner)
         self.assertEqual(200, first.status_code, first.text)
         self.assertGreaterEqual(first.json()["created"], 1)
         self.assertEqual("disabled", first.json()["adapter_state"])
         replay = self.client.post(
             f"/api/v1/companies/{ESPIGA}/notifications/reminders/sync",
-            headers=ana)
+            headers=owner)
         self.assertEqual(0, replay.json()["created"])
         self.assertGreaterEqual(replay.json()["replayed"], 1)
 
         history = self.client.get(
             f"/api/v1/companies/{ESPIGA}/notifications/deliveries/me",
-            headers=ana)
+            headers=owner)
         self.assertEqual(200, history.status_code, history.text)
         selected = next(item for item in history.json()
                         if expectation_id in repr(item["context"]) or
@@ -297,14 +303,14 @@ class OperationalReminderTests(unittest.TestCase):
 
         invalid = self.client.put(
             f"/api/v1/companies/{ESPIGA}/notifications/preferences/me",
-            headers=ana, json={
+            headers=owner, json={
                 "enabled": True, "locale": "es-CO", "timezone": "Mars/Base",
                 "quiet_from": "20:00", "quiet_until": "07:00"})
         self.assertEqual(422, invalid.status_code, invalid.text)
 
         denied = self.client.get(
             f"/api/v1/companies/{SANDBOX_A}/notifications/preferences/me",
-            headers=ana)
+            headers=owner)
         self.assertEqual(403, denied.status_code, denied.text)
 
 

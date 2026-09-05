@@ -293,6 +293,10 @@ def validate_empty_reset_script(text: str | None) -> list[Finding]:
         "'schema_history', 'subject', 'legal_document_version'",
         "'billing_plan_version'",
         "billing evaluation catalog is not canonical",
+        "(SELECT count(*) FROM fincilia.legal_document_version) <> 6",
+        "document_version = 'terms-2026-09-03-en'",
+        "document_version = 'privacy-2026-09-03-en'",
+        "legal registration references are not canonical",
         "object zones empty",
     ):
         if required not in text:

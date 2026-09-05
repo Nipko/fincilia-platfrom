@@ -149,18 +149,25 @@ BEGIN
     RAISE EXCEPTION 'unexpected subject survived the empty reset';
   END IF;
 
-  IF (SELECT count(*) FROM fincilia.legal_document_version) <> 2
+  IF (SELECT count(*) FROM fincilia.legal_document_version) <> 6
      OR NOT EXISTS (
        SELECT 1 FROM fincilia.legal_document_version
        WHERE document_kind = 'terms'
-         AND document_version = 'terms-2026-08-29'
+         AND document_version = 'terms-2026-09-03-en'
          AND active_for_registration
      )
      OR NOT EXISTS (
        SELECT 1 FROM fincilia.legal_document_version
        WHERE document_kind = 'privacy'
-         AND document_version = 'privacy-2026-08-29'
+         AND document_version = 'privacy-2026-09-03-en'
          AND active_for_registration
+     )
+     OR EXISTS (
+       SELECT 1 FROM fincilia.legal_document_version
+       WHERE active_for_registration
+         AND document_version NOT IN (
+           'terms-2026-09-03-en', 'privacy-2026-09-03-en'
+         )
      ) THEN
     RAISE EXCEPTION 'legal registration references are not canonical';
   END IF;
