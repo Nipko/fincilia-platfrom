@@ -27,9 +27,13 @@ locals {
     { name = "FINCILIA_AUTH_AUDIENCE", value = "fincilia-api" },
     { name = "FINCILIA_AUTH_TOKEN_TTL_SECONDS", value = "900" },
     { name = "FINCILIA_IDENTIFIER_KEY_VERSION", value = "1" },
-    { name = "FINCILIA_REAL_DATA_ENABLED", value = "false" },
+    { name = "FINCILIA_REAL_DATA_ENABLED", value = tostring(var.real_data_enabled) },
     { name = "FINCILIA_AI_GATEWAY_ENABLED", value = "false" },
-    { name = "FINCILIA_PAYMENTS_ENABLED", value = "false" },
+    { name = "FINCILIA_PAYMENTS_ENABLED", value = tostring(var.payments_enabled) },
+    { name = "FINCILIA_PAYMENT_PROVIDER", value = var.payments_enabled ? "stripe" : "disabled" },
+    { name = "FINCILIA_STRIPE_API_VERSION", value = "2026-08-26.dahlia" },
+    { name = "FINCILIA_STRIPE_AUTOMATIC_TAX_ENABLED", value = tostring(var.stripe_automatic_tax_enabled) },
+    { name = "FINCILIA_STRIPE_PUBLIC_ORIGIN", value = var.payments_enabled ? "https://${var.pilot_domain}" : "disabled" },
     { name = "FINCILIA_REGISTRATION_INVITE_REQUIRED", value = "false" },
     { name = "FINCILIA_OIDC_ENABLED", value = "true" },
     { name = "FINCILIA_OIDC_REGISTRATION_MODE", value = "public_google" },
@@ -42,20 +46,29 @@ locals {
     { name = "FINCILIA_DATA_GATE_KMS_KEY_ID", value = aws_kms_key.gate.arn },
   ]
 
-  api_secrets = [for name in [
-    "FINCILIA_DATABASE_URL",
-    "FINCILIA_AUTH_SIGNING_KEY",
-    "FINCILIA_AUTHORIZATION_CONTEXT_HMAC_KEY",
-    "FINCILIA_IDENTIFIER_TOKENIZATION_KEY",
-    "FINCILIA_IDENTITY_BINDING_HMAC_KEY",
-    "FINCILIA_IDENTITY_GATE_ATTESTATION",
-    "FINCILIA_IDENTITY_GATE_SIGNATURE",
-    "FINCILIA_DATA_GATE_ATTESTATION",
-    "FINCILIA_DATA_GATE_SIGNATURE",
-    ] : {
-    name      = name
-    valueFrom = "${aws_secretsmanager_secret.application.arn}:${name}::"
-  }]
+  api_secrets = concat(
+    [for name in [
+      "FINCILIA_DATABASE_URL",
+      "FINCILIA_AUTH_SIGNING_KEY",
+      "FINCILIA_AUTHORIZATION_CONTEXT_HMAC_KEY",
+      "FINCILIA_IDENTIFIER_TOKENIZATION_KEY",
+      "FINCILIA_IDENTITY_BINDING_HMAC_KEY",
+      "FINCILIA_IDENTITY_GATE_ATTESTATION",
+      "FINCILIA_IDENTITY_GATE_SIGNATURE",
+      "FINCILIA_DATA_GATE_ATTESTATION",
+      "FINCILIA_DATA_GATE_SIGNATURE",
+      ] : {
+      name      = name
+      valueFrom = "${aws_secretsmanager_secret.application.arn}:${name}::"
+    }],
+    var.payments_enabled ? [for name in [
+      "FINCILIA_STRIPE_SECRET_KEY",
+      "FINCILIA_STRIPE_WEBHOOK_SECRET",
+      ] : {
+      name      = name
+      valueFrom = "${aws_secretsmanager_secret.application.arn}:${name}::"
+    }] : [],
+  )
 
   web_environment = [
     { name = "FINCILIA_ENV", value = "pilot" },
@@ -96,7 +109,7 @@ locals {
     { name = "FINCILIA_OBJECT_BUCKET_RAW", value = aws_s3_bucket.objects["raw"].id },
     { name = "FINCILIA_OBJECT_BUCKET_DERIVED", value = aws_s3_bucket.objects["derived"].id },
     { name = "FINCILIA_OBJECT_BUCKET_EXPORTS", value = aws_s3_bucket.objects["exports"].id },
-    { name = "FINCILIA_REAL_DATA_ENABLED", value = "false" },
+    { name = "FINCILIA_REAL_DATA_ENABLED", value = tostring(var.real_data_enabled) },
     { name = "FINCILIA_AI_GATEWAY_ENABLED", value = "false" },
     { name = "FINCILIA_DATA_GATE_KMS_KEY_ID", value = aws_kms_key.gate.arn },
   ]

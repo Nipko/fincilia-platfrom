@@ -172,6 +172,11 @@ class SettingsTests(unittest.TestCase):
         with self.assertRaises(ValidationError):
             api_settings(**{**stripe, "oidc_enabled": False})
 
+        exposed = "sk_live_must_never_appear_1234567890"
+        with self.assertRaises(ValidationError) as captured:
+            api_settings(**{**stripe, "stripe_secret_key": exposed})
+        self.assertNotIn(exposed, str(captured.exception))
+
     def test_disabled_payments_reject_partial_stripe_secrets(self) -> None:
         with self.assertRaises(ValidationError):
             api_settings(stripe_webhook_secret="whsec_synthetic1234567890")

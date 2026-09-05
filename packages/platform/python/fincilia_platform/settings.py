@@ -40,6 +40,7 @@ class Settings(BaseSettings):
         extra="forbid",
         frozen=True,
         case_sensitive=False,
+        hide_input_in_errors=True,
     )
 
     env: Literal["local", "test", "pilot"] = Field(

@@ -84,6 +84,32 @@ variable "runtime_plane_enabled" {
   default     = false
 }
 
+variable "real_data_enabled" {
+  description = "Intencion de arrancar con datos reales; no autoriza nada sin una atestacion DRG-01 valida en KMS."
+  type        = bool
+  default     = false
+}
+
+variable "payments_enabled" {
+  description = "Construye Stripe test-mode en la API; exige datos reales atestiguados y secretos externos."
+  type        = bool
+  default     = false
+  validation {
+    condition     = !var.payments_enabled || var.real_data_enabled
+    error_message = "Stripe solo puede solicitarse junto con la verificacion DRG-01 de datos reales."
+  }
+}
+
+variable "stripe_automatic_tax_enabled" {
+  description = "Se mantiene false hasta cerrar nexo, registro fiscal y politica tributaria."
+  type        = bool
+  default     = false
+  validation {
+    condition     = !var.stripe_automatic_tax_enabled || var.payments_enabled
+    error_message = "Stripe Automatic Tax exige pagos habilitados."
+  }
+}
+
 variable "service_desired_count" {
   description = "Foundation siempre crea servicios detenidos; activacion es otra tarea/gate."
   type        = number

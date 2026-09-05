@@ -416,6 +416,24 @@ class PrivatePilotContractTests(unittest.TestCase):
         self.assertTrue(any("patron prohibido" in item
                             for item in validate_sources(candidate)))
 
+    def test_payment_switches_are_off_and_dependency_order_is_enforced(self) -> None:
+        candidate = source_text().replace(
+            'variable "payments_enabled" {\n'
+            '  description = "Construye Stripe test-mode en la API; exige datos reales atestiguados y secretos externos."\n'
+            '  type        = bool\n'
+            '  default     = false',
+            'variable "payments_enabled" {\n'
+            '  description = "Construye Stripe test-mode en la API; exige datos reales atestiguados y secretos externos."\n'
+            '  type        = bool\n'
+            '  default     = true', 1)
+        self.assertTrue(any("payments_enabled debe nacer false" in item
+                            for item in validate_sources(candidate)))
+        candidate = source_text().replace(
+            "condition     = !var.payments_enabled || var.real_data_enabled",
+            "condition     = true", 1)
+        self.assertTrue(any("pagos deben exigir" in item
+                            for item in validate_sources(candidate)))
+
     def test_source_mutation_adding_static_aws_key_dies(self) -> None:
         self.assertTrue(any("patron prohibido" in item for item in
                             validate_sources(source_text() + "\naws_access_key_id\n")))

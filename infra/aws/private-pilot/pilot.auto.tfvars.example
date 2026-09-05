@@ -11,3 +11,6 @@ budget_alert_email     = "alerts@example.invalid"
 gross_monthly_budget_usd = 120
 certificate_ready      = false
 runtime_plane_enabled  = false
+real_data_enabled      = false
+payments_enabled       = false
+stripe_automatic_tax_enabled = false

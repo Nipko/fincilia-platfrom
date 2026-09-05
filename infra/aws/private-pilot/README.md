@@ -41,3 +41,24 @@ La salida correcta antes de DRG-01 conserva `real_data_authorized: false`.
 RDS puede reiniciarse automáticamente tras siete días detenido; `cold` reduce
 cómputo, pero el plano persistente sigue teniendo costos de almacenamiento,
 claves, secretos, auditoría e imágenes.
+
+## Preparación de Stripe (apagada por defecto)
+
+`real_data_enabled`, `payments_enabled` y `stripe_automatic_tax_enabled` nacen
+en `false`. Las dos primeras variables expresan intención de arranque, no
+aprobación: al ponerlas en `true`, la API exige además una atestación DRG-01
+vigente, con dos aprobadores independientes y firma KMS válida. Si falta, el
+contenedor no queda listo.
+
+Solo cuando DRG-00/DRG-01 y DB-G03 estén aprobados, los planes comerciales estén
+versionados y los precios se hayan creado en Stripe test mode:
+
+1. agregar fuera de IaC `FINCILIA_STRIPE_SECRET_KEY` y
+   `FINCILIA_STRIPE_WEBHOOK_SECRET` al secreto de aplicación existente;
+2. registrar `https://fincilia.com/api/v1/billing/webhooks/stripe` en Stripe;
+3. poner `real_data_enabled = true` y `payments_enabled = true` en el tfvars no
+   versionado; Automatic Tax permanece apagado hasta decisión tributaria;
+4. revisar el plan y desplegar una imagen fijada por digest.
+
+Con pagos apagados los dos secretos ni siquiera se inyectan al task definition.
+UAT rechaza claves `sk_live_`; la transición a cobro real pertenece a GA-01.

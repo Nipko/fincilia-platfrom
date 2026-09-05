@@ -29,7 +29,11 @@ proveedor no expuestas, configuracion fail-closed y experiencia web completa.
 - `docs/adr/ADR-038-plans-entitlements-billing.md`
 - `docs/database/migration-tooling.json`
 - `docs/platform/runtime-config.json`
+- `infra/aws/private-pilot/variables.tf`, `compute.tf`,
+  `pilot.auto.tfvars.example` y `README.md`
+- `tools/aws_private_pilot/model.py` y `test_validate.py`
 - `docs/product/web-functional-status.json`
+- `docs/product/STRIPE_READINESS.md`
 - esta ficha y su handoff
 - registros centrales por Integration Steward
 

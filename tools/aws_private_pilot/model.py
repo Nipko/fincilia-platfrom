@@ -239,10 +239,30 @@ def validate_sources(sources: str | None = None) -> list[str]:
     for token in required:
         if token not in sources:
             errors.append(f"fuente no contiene control: {token}")
-    if sources.count('FINCILIA_REAL_DATA_ENABLED", value = "false"') != 4:
+    if sources.count('FINCILIA_REAL_DATA_ENABLED", value = "false"') != 2:
         errors.append(
-            "API, worker, bootstrap y migrator deben declarar datos reales apagados"
+            "bootstrap y migrator deben declarar datos reales apagados"
         )
+    if sources.count(
+            'FINCILIA_REAL_DATA_ENABLED", value = tostring(var.real_data_enabled)') != 2:
+        errors.append("API y worker deben exigir la intencion DRG-01 versionada")
+    if sources.count(
+            'FINCILIA_PAYMENTS_ENABLED", value = tostring(var.payments_enabled)') != 1:
+        errors.append("API debe recibir el interruptor Stripe apagado por defecto")
+    for variable in ("real_data_enabled", "payments_enabled",
+                     "stripe_automatic_tax_enabled"):
+        block = re.search(
+            rf'variable "{variable}"\s*\{{(?P<body>.*?)\n\}}',
+            sources, re.DOTALL)
+        if block is None or not re.search(
+                r'^\s*default\s*=\s*false\s*$', block.group("body"), re.MULTILINE):
+            errors.append(f"{variable} debe nacer false")
+    if "condition     = !var.payments_enabled || var.real_data_enabled" not in sources:
+        errors.append("pagos deben exigir intencion de datos reales")
+    if "condition     = !var.stripe_automatic_tax_enabled || var.payments_enabled" not in sources:
+        errors.append("Automatic Tax debe depender de pagos")
+    if 'var.payments_enabled ? [for name in [' not in sources:
+        errors.append("secretos Stripe solo deben inyectarse con pagos habilitados")
     if sources.count('assign_public_ip = false') != 2:
         errors.append("app y worker deben declarar assign_public_ip=false")
     if sources.count('user                   = "10001"') != 3:
