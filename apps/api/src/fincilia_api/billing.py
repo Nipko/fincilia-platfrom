@@ -14,11 +14,18 @@ import psycopg
 PLAN_CODES = frozenset({"starter", "business", "accountant"})
 
 
-@dataclass(frozen=True)
 class BillingError(Exception):
-    code: str
-    detail: str
-    status: int = 422
+    """Fallo estable que puede atravesar gestores de transaccion.
+
+    Las excepciones necesitan que Python pueda actualizar ``__traceback__``;
+    una dataclass congelada rompe esa operacion al salir de un context manager.
+    """
+
+    def __init__(self, code: str, detail: str, status: int = 422) -> None:
+        super().__init__(code)
+        self.code = code
+        self.detail = detail
+        self.status = status
 
 
 @dataclass(frozen=True)

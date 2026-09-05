@@ -8,10 +8,11 @@ import unittest
 from unittest.mock import patch
 
 from fastapi import FastAPI
+from fastapi.responses import JSONResponse
 from fastapi.testclient import TestClient
 
 from fincilia_api import billing, routes
-from fincilia_api.security import Principal
+from fincilia_api.security import Principal, ProblemError
 from fincilia_api.stripe_billing import (
     CheckoutResult,
     PortalResult,
@@ -66,6 +67,15 @@ def principal() -> Principal:
 
 def make_client(gateway: FakeGateway, *, enabled: bool = True) -> TestClient:
     app = FastAPI()
+
+    @app.exception_handler(ProblemError)
+    async def problem_error_handler(_request, error: ProblemError) -> JSONResponse:
+        return JSONResponse(
+            status_code=error.problem.status,
+            content=error.problem.as_dict(),
+            media_type="application/problem+json",
+        )
+
     app.include_router(routes.router)
     app.state.settings = types.SimpleNamespace(payments_enabled=enabled)
     app.state.database = FakeDatabase()
@@ -75,6 +85,16 @@ def make_client(gateway: FakeGateway, *, enabled: bool = True) -> TestClient:
 
 
 class BillingHttpTests(unittest.TestCase):
+    def test_billing_error_can_cross_a_transaction_context(self) -> None:
+        @contextlib.contextmanager
+        def transaction():
+            yield
+
+        with self.assertRaisesRegex(billing.BillingError, "billing-conflict"):
+            with transaction():
+                raise billing.BillingError(
+                    "billing-conflict", "synthetic conflict", 409)
+
     def test_checkout_uses_only_server_resolved_commercial_fields(self) -> None:
         gateway = FakeGateway()
         reservation = billing.CheckoutReservation(
