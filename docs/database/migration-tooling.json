@@ -484,6 +484,46 @@
       "reason": "deduplicar feedback minimizado por digest y suprimir destinos ante rebote o queja sin persistir el payload del proveedor",
       "gate": "DB-G03",
       "human_review_state": "pending"
+    },
+    {
+      "function": "fincilia.reserve_stripe_checkout",
+      "owner_role": "fincilia_billing_dispatch",
+      "granted_to": ["fincilia_app"],
+      "reason": "resolver version y price_id comerciales y reservar idempotencia despues de comprobar al manager sin exponer las tablas provider-only",
+      "gate": "DB-G03",
+      "human_review_state": "pending"
+    },
+    {
+      "function": "fincilia.complete_stripe_checkout",
+      "owner_role": "fincilia_billing_dispatch",
+      "granted_to": ["fincilia_app"],
+      "reason": "ligar una sesion Checkout exacta a su reserva sin conceder escritura sobre referencias de proveedor",
+      "gate": "DB-G03",
+      "human_review_state": "pending"
+    },
+    {
+      "function": "fincilia.stripe_portal_customer",
+      "owner_role": "fincilia_billing_dispatch",
+      "granted_to": ["fincilia_app"],
+      "reason": "entregar a la frontera Stripe un customer_id solo despues de revalidar al manager, sin exponerlo en respuestas o tablas de producto",
+      "gate": "DB-G03",
+      "human_review_state": "pending"
+    },
+    {
+      "function": "fincilia.record_stripe_webhook",
+      "owner_role": "fincilia_billing_dispatch",
+      "granted_to": ["fincilia_app"],
+      "reason": "deduplicar por digest un evento ya verificado sin conservar su payload ni referencias de tarjeta",
+      "gate": "DB-G03",
+      "human_review_state": "pending"
+    },
+    {
+      "function": "fincilia.apply_stripe_subscription_snapshot",
+      "owner_role": "fincilia_billing_dispatch",
+      "granted_to": ["fincilia_app"],
+      "reason": "materializar el snapshot vigente reconsultado en Stripe mediante una transicion append-oriented, price_id allowlisted y prueba de Checkout",
+      "gate": "DB-G03",
+      "human_review_state": "pending"
     }
   ]
 }

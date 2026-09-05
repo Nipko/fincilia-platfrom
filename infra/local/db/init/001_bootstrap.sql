@@ -117,12 +117,32 @@ BEGIN
 END
 $bootstrap_notification_dispatch$;
 
+-- Autoridad de facturacion. No puede iniciar sesion ni cambiar el esquema; las
+-- unicas entradas son funciones acotadas que el runtime invoca despues de
+-- autorizar al manager o verificar criptograficamente el webhook de Stripe.
+DO $bootstrap_billing_dispatch$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_roles WHERE rolname = 'fincilia_billing_dispatch'
+  ) THEN
+    CREATE ROLE fincilia_billing_dispatch
+      NOLOGIN
+      NOSUPERUSER
+      NOCREATEDB
+      NOCREATEROLE
+      NOINHERIT
+      NOBYPASSRLS;
+  END IF;
+END
+$bootstrap_billing_dispatch$;
+
 -- Para poder ceder la propiedad de una funcion hay que ser miembro del rol que
 -- la recibe. El migrador lo es, y por NOINHERIT no adquiere sus privilegios sin
 -- pedirlo explicitamente.
 GRANT fincilia_dispatch TO fincilia_migrator;
 GRANT fincilia_identity TO fincilia_migrator;
 GRANT fincilia_notification_dispatch TO fincilia_migrator;
+GRANT fincilia_billing_dispatch TO fincilia_migrator;
 
 -- El migrator es el unico que puede crear objetos en el esquema de producto. El
 -- runtime nunca es propietario: si lo fuera, un fallo de la aplicacion podria

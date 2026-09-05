@@ -424,6 +424,48 @@
     },
     {
       "class": "plain",
+      "name": "FINCILIA_PAYMENT_PROVIDER",
+      "owner": "Finance",
+      "required": false,
+      "safe_example": "disabled"
+    },
+    {
+      "class": "plain",
+      "name": "FINCILIA_STRIPE_API_VERSION",
+      "owner": "Platform",
+      "required": false,
+      "safe_example": "2026-08-26.dahlia"
+    },
+    {
+      "class": "feature_gate",
+      "name": "FINCILIA_STRIPE_AUTOMATIC_TAX_ENABLED",
+      "owner": "Finance",
+      "required": false,
+      "safe_example": "false"
+    },
+    {
+      "class": "optional_endpoint",
+      "name": "FINCILIA_STRIPE_PUBLIC_ORIGIN",
+      "owner": "Platform",
+      "required": false,
+      "safe_example": "disabled"
+    },
+    {
+      "class": "secret_reference",
+      "name": "FINCILIA_STRIPE_SECRET_KEY",
+      "owner": "Security",
+      "required": false,
+      "safe_example": "set_in_untracked_local_env"
+    },
+    {
+      "class": "secret_reference",
+      "name": "FINCILIA_STRIPE_WEBHOOK_SECRET",
+      "owner": "Security",
+      "required": false,
+      "safe_example": "set_in_untracked_local_env"
+    },
+    {
+      "class": "plain",
       "name": "FINCILIA_OIDC_CLIENT_ID",
       "owner": "Security",
       "required": false,

@@ -37,6 +37,7 @@ from . import repository
 from .corrections import router as corrections_router
 from .routes import router
 from .security import ProblemError
+from .stripe_billing import StripePaymentGateway
 from .throttle import AttemptThrottle
 
 API_VERSION = "0.1.0"
@@ -121,7 +122,8 @@ async def lifespan(app: FastAPI):
 
 
 def create_app(settings: ApiSettings | None = None,
-               probes: tuple[Probe, ...] | None = None) -> FastAPI:
+               probes: tuple[Probe, ...] | None = None,
+               payment_gateway: object | None = None) -> FastAPI:
     """Fabrica inyectable: las pruebas pasan settings y sondas propias."""
     resolved = settings or get_api_settings()
     app = FastAPI(
@@ -133,6 +135,15 @@ def create_app(settings: ApiSettings | None = None,
         redoc_url=None,
     )
     app.state.settings = resolved
+    app.state.payment_gateway = payment_gateway
+    if resolved.payments_enabled and payment_gateway is None:
+        # Pydantic ya garantizo que los tres valores existen y pertenecen al
+        # entorno pilot atestiguado. El SDK no se construye con pagos apagados.
+        app.state.payment_gateway = StripePaymentGateway(
+            secret_key=resolved.stripe_secret_key or "",
+            webhook_secret=resolved.stripe_webhook_secret or "",
+            public_origin=resolved.stripe_public_origin,
+            automatic_tax_enabled=resolved.stripe_automatic_tax_enabled)
     if probes is not None:
         app.state.probes = probes
 

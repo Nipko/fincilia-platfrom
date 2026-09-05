@@ -25,6 +25,7 @@ LOGIN_ROLES = (
 )
 AUTHORITY_ROLES = (
     "fincilia_dispatch", "fincilia_identity", "fincilia_notification_dispatch",
+    "fincilia_billing_dispatch",
 )
 PASSWORD_ENV = {
     "fincilia_app": "FINCILIA_DB_APP_PASSWORD",

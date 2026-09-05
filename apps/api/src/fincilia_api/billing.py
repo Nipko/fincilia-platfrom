@@ -1,14 +1,10 @@
-"""Planes, suscripciones y uso sin conceder autorización financiera.
-
-El catálogo está versionado y no contiene precio mientras la decisión comercial
-esté pendiente. La selección disponible en UAT es una evaluación sin cobro; no
-se presenta como trial, suscripción pagada ni checkout.
-"""
+"""Planes, suscripciones y uso sin conceder autorización financiera."""
 
 from __future__ import annotations
 
 import datetime as dt
 import hashlib
+import uuid
 from dataclasses import dataclass
 from typing import Any
 
@@ -23,6 +19,16 @@ class BillingError(Exception):
     code: str
     detail: str
     status: int = 422
+
+
+@dataclass(frozen=True)
+class CheckoutReservation:
+    attempt_id: str
+    plan_version_id: str
+    price_id: str
+    customer_id: str | None
+    previous_session_id: str | None
+    state: str
 
 
 def _plan(row: tuple) -> dict[str, Any]:
@@ -65,10 +71,13 @@ def _plan_columns(alias: str) -> str:
 def list_plans(connection: psycopg.Connection) -> list[dict[str, Any]]:
     with connection.cursor() as cursor:
         cursor.execute(
-            f"SELECT {PLAN_COLUMNS} FROM fincilia.billing_plan_version "
+            f"SELECT {PLAN_COLUMNS} FROM ("
+            f"SELECT DISTINCT ON (plan_code) {PLAN_COLUMNS} "
+            "FROM fincilia.billing_plan_version "
             "WHERE catalog_state <> 'retired' "
+            "ORDER BY plan_code, version DESC) latest "
             "ORDER BY CASE plan_code WHEN 'starter' THEN 1 "
-            "WHEN 'business' THEN 2 ELSE 3 END, version DESC")
+            "WHEN 'business' THEN 2 ELSE 3 END")
         return [_plan(row) for row in cursor.fetchall()]
 
 
@@ -113,7 +122,7 @@ def _current_subscription(connection: psycopg.Connection,
 
 
 def read_overview(connection: psycopg.Connection, *, firm_id: str,
-                  subject_id: str) -> dict[str, Any]:
+                  subject_id: str, payments_enabled: bool = False) -> dict[str, Any]:
     role = _assert_manager(
         connection, firm_id=firm_id, subject_id=subject_id)
     now = dt.datetime.now(dt.timezone.utc)
@@ -161,7 +170,7 @@ def read_overview(connection: psycopg.Connection, *, firm_id: str,
             "meter_state": "observed_append_only",
         },
         "history": history,
-        "payments_state": "disabled",
+        "payments_state": "ready" if payments_enabled else "disabled",
     }
 
 
@@ -253,3 +262,127 @@ class DisabledPaymentPort:
             "payments-disabled",
             "checkout is disabled until provider and commercial configuration are approved",
             503)
+
+
+def reserve_checkout(connection: psycopg.Connection, *, firm_id: str,
+                     subject_id: str, plan_code: str,
+                     idempotency_key: str) -> CheckoutReservation:
+    """Reserva en base antes de egress; el servidor resuelve precio y version."""
+    _assert_manager(connection, firm_id=firm_id, subject_id=subject_id)
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT checkout_attempt_id::text, plan_version_id::text, "
+                "external_price_id, external_customer_id, external_session_id, "
+                "checkout_state FROM fincilia.reserve_stripe_checkout(%s,%s,%s,%s)",
+                (firm_id, subject_id, plan_code, idempotency_key))
+            row = cursor.fetchone()
+    except psycopg.Error as error:
+        raise _database_billing_error(error) from None
+    if row is None:
+        raise BillingError("billing-plan-unavailable", "plan is unavailable", 409)
+    return CheckoutReservation(*row)
+
+
+def complete_checkout(connection: psycopg.Connection, *, attempt_id: str,
+                      subject_id: str, session_id: str,
+                      expires_at: dt.datetime) -> str:
+    digest = hashlib.sha256(session_id.encode("utf-8")).hexdigest()
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT fincilia.complete_stripe_checkout(%s,%s,%s,%s,%s)",
+                (attempt_id, subject_id, session_id, digest, expires_at))
+            row = cursor.fetchone()
+    except psycopg.Error as error:
+        raise _database_billing_error(error) from None
+    return str(row[0]) if row else "unknown"
+
+
+def portal_customer(connection: psycopg.Connection, *, firm_id: str,
+                    subject_id: str) -> str:
+    _assert_manager(connection, firm_id=firm_id, subject_id=subject_id)
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT fincilia.stripe_portal_customer(%s,%s)",
+                           (firm_id, subject_id))
+            row = cursor.fetchone()
+    except psycopg.Error as error:
+        raise _database_billing_error(error) from None
+    if row is None:
+        raise BillingError("billing-customer-unavailable",
+                           "billing portal is not available", 409)
+    return str(row[0])
+
+
+def record_ignored_webhook(connection: psycopg.Connection, *, event_id: str,
+                           event_type: str, created: int,
+                           payload: bytes) -> str:
+    event_digest = hashlib.sha256(event_id.encode("utf-8")).hexdigest()
+    payload_digest = hashlib.sha256(payload).hexdigest()
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT fincilia.record_stripe_webhook(%s,%s,%s,%s,%s,'ignored')",
+            (event_id, event_type, _moment(created), event_digest, payload_digest))
+        row = cursor.fetchone()
+    return str(row[0]) if row else "unknown"
+
+
+def apply_verified_subscription(connection: psycopg.Connection, *, event_id: str,
+                                event_type: str, created: int, payload: bytes,
+                                customer_id: str, subscription_id: str,
+                                firm_id: str, plan_code: str, price_id: str,
+                                provider_status: str,
+                                trial_end: int | None) -> str:
+    """Materializa solo el snapshot vigente que el adaptador releyo en Stripe."""
+    try:
+        firm_uuid = str(uuid.UUID(firm_id))
+    except (ValueError, TypeError, AttributeError):
+        raise BillingError("billing-provider-metadata-invalid",
+                           "provider metadata is invalid") from None
+    event_digest = hashlib.sha256(event_id.encode("utf-8")).hexdigest()
+    payload_digest = hashlib.sha256(payload).hexdigest()
+    customer_digest = hashlib.sha256(customer_id.encode("utf-8")).hexdigest()
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT fincilia.apply_stripe_subscription_snapshot("
+                "%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+                (event_id, event_type, _moment(created), event_digest,
+                 payload_digest, customer_id, customer_digest, subscription_id,
+                 firm_uuid, plan_code, price_id, provider_status,
+                 _moment(trial_end) if trial_end is not None else None))
+            row = cursor.fetchone()
+    except psycopg.Error as error:
+        raise _database_billing_error(error) from None
+    return str(row[0]) if row else "unknown"
+
+
+def _moment(epoch_seconds: int) -> dt.datetime:
+    try:
+        return dt.datetime.fromtimestamp(epoch_seconds, tz=dt.timezone.utc)
+    except (OverflowError, OSError, ValueError):
+        raise BillingError("billing-provider-timestamp-invalid",
+                           "provider timestamp is invalid") from None
+
+
+def _database_billing_error(error: psycopg.Error) -> BillingError:
+    message = str(error).splitlines()[0]
+    mapping = {
+        "billing-forbidden": ("billing-forbidden", "firm is not manageable", 403),
+        "billing-plan-invalid": ("billing-plan-invalid", "plan is invalid", 422),
+        "billing-plan-unavailable": ("billing-plan-unavailable", "plan is unavailable", 409),
+        "billing-idempotency-conflict": (
+            "billing-idempotency-conflict", "idempotency key is already used", 409),
+        "billing-customer-unavailable": (
+            "billing-customer-unavailable", "billing portal is not available", 409),
+        "billing-checkout-conflict": (
+            "billing-checkout-conflict", "checkout state conflicts", 409),
+        "billing-checkout-expired": (
+            "billing-checkout-expired", "checkout is no longer available", 409),
+    }
+    for marker, values in mapping.items():
+        if marker in message:
+            return BillingError(*values)
+    return BillingError("billing-operation-rejected",
+                        "billing operation was rejected", 422)

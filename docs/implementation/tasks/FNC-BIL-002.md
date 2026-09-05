@@ -20,10 +20,13 @@ proveedor no expuestas, configuracion fail-closed y experiencia web completa.
 # Rutas reservadas
 
 - `apps/api/**` y `apps/web/**` en la superficie de billing
+- `.env.example`
 - `packages/platform/python/fincilia_platform/settings.py`
 - `db/migrations/V0064__stripe_billing_runtime.sql`
 - `db/tests/test_stripe_billing.py`
+- `db/bootstrap/roles.py` y `db/bootstrap/test_roles.py`
 - `docs/adr/ADR-038-plans-entitlements-billing.md`
+- `docs/database/migration-tooling.json`
 - `docs/platform/runtime-config.json`
 - `docs/product/web-functional-status.json`
 - esta ficha y su handoff

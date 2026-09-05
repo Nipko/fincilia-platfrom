@@ -34,6 +34,7 @@ from . import (access, audit as audit_query, balance_reconciliation, balances, b
                notifications, onboarding, oidc, operations, quality, reconciliation, registration,
                reports, repository, platform_admin)
 from . import company_onboarding
+from .stripe_billing import StripeGatewayError
 from .issued_contexts import issue_context
 from .security import (Principal, ProblemError, company_context, current_principal,
                        forbidden, require, unauthorized)
@@ -236,6 +237,11 @@ class NotificationPreferenceRequest(BaseModel):
 class BillingPlanSelectionRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     plan_code: Literal["starter", "business", "accountant"]
+    idempotency_key: uuid.UUID
+
+
+class BillingPortalRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     idempotency_key: uuid.UUID
 
 
@@ -827,7 +833,8 @@ def billing_overview(
             subject_id=principal.subject_id) as connection:
         try:
             return billing.read_overview(
-                connection, firm_id=str(firm_id), subject_id=principal.subject_id)
+                connection, firm_id=str(firm_id), subject_id=principal.subject_id,
+                payments_enabled=request.app.state.settings.payments_enabled)
         except billing.BillingError as error:
             raise _billing_problem(error) from None
 
@@ -858,18 +865,135 @@ def select_billing_evaluation(
 
 
 @router.post("/firms/{firm_id}/billing/checkout", tags=["billing"])
-def billing_checkout_disabled(
-        request: Request, firm_id: uuid.UUID,
+def create_billing_checkout(
+        request: Request, firm_id: uuid.UUID, body: BillingPlanSelectionRequest,
         principal: Principal = Depends(principal_dependency)) -> dict:
-    with request.app.state.database.session(
-            subject_id=principal.subject_id) as connection:
+    if not request.app.state.settings.payments_enabled:
         try:
-            billing.read_overview(
-                connection, firm_id=str(firm_id), subject_id=principal.subject_id)
             billing.DisabledPaymentPort().checkout()
         except billing.BillingError as error:
             raise _billing_problem(error) from None
-    raise RuntimeError("disabled payment port returned")
+    with request.app.state.database.session(
+            subject_id=principal.subject_id) as connection:
+        try:
+            reservation = billing.reserve_checkout(
+                connection, firm_id=str(firm_id), subject_id=principal.subject_id,
+                plan_code=body.plan_code, idempotency_key=str(body.idempotency_key))
+        except billing.BillingError as error:
+            raise _billing_problem(error) from None
+    try:
+        checkout = request.app.state.payment_gateway.create_checkout(
+            price_id=reservation.price_id, firm_id=str(firm_id),
+            plan_code=body.plan_code,
+            plan_version_id=reservation.plan_version_id,
+            idempotency_key=str(body.idempotency_key),
+            customer_id=reservation.customer_id)
+    except StripeGatewayError as error:
+        raise ProblemError(problem(
+            error.code, "Payment provider unavailable", 502,
+            "the hosted checkout could not be created")) from None
+    expires_at = dt.datetime.fromtimestamp(checkout.expires_at, tz=dt.timezone.utc)
+    with request.app.state.database.session(
+            subject_id=principal.subject_id) as connection:
+        try:
+            billing.complete_checkout(
+                connection, attempt_id=reservation.attempt_id,
+                subject_id=principal.subject_id, session_id=checkout.session_id,
+                expires_at=expires_at)
+        except billing.BillingError as error:
+            raise _billing_problem(error) from None
+        repository.record_audit(
+            connection, subject_id=principal.subject_id, company_id=None,
+            action="billing.checkout.create", resource_kind="firm",
+            resource_ref=str(firm_id), outcome="allowed",
+            detail={"plan_code": body.plan_code})
+    return {"checkout_url": checkout.url, "expires_at": checkout.expires_at}
+
+
+@router.post("/firms/{firm_id}/billing/portal", tags=["billing"])
+def create_billing_portal(
+        request: Request, firm_id: uuid.UUID, body: BillingPortalRequest,
+        principal: Principal = Depends(principal_dependency)) -> dict:
+    if not request.app.state.settings.payments_enabled:
+        raise _billing_problem(billing.BillingError(
+            "payments-disabled", "billing portal is disabled", 503))
+    with request.app.state.database.session(
+            subject_id=principal.subject_id) as connection:
+        try:
+            customer_id = billing.portal_customer(
+                connection, firm_id=str(firm_id), subject_id=principal.subject_id)
+        except billing.BillingError as error:
+            raise _billing_problem(error) from None
+    try:
+        portal = request.app.state.payment_gateway.create_portal(
+            customer_id=customer_id, idempotency_key=str(body.idempotency_key))
+    except StripeGatewayError as error:
+        raise ProblemError(problem(
+            error.code, "Payment provider unavailable", 502,
+            "the hosted billing portal could not be created")) from None
+    with request.app.state.database.session(
+            subject_id=principal.subject_id) as connection:
+        repository.record_audit(
+            connection, subject_id=principal.subject_id, company_id=None,
+            action="billing.portal.create", resource_kind="firm",
+            resource_ref=str(firm_id), outcome="allowed", detail={})
+    return {"portal_url": portal.url}
+
+
+@router.post("/billing/webhooks/stripe", tags=["billing"])
+async def stripe_billing_webhook(request: Request) -> dict:
+    """Entrada sin sesion: firma Stripe primero, persistencia minimizada despues."""
+    if not request.app.state.settings.payments_enabled:
+        raise ProblemError(problem(
+            "payments-disabled", "Webhook unavailable", 503,
+            "payment processing is disabled"))
+    signature = request.headers.get("stripe-signature", "")
+    if not signature or len(signature) > 2048:
+        raise ProblemError(problem(
+            "stripe-webhook-signature-required", "Webhook rejected", 400,
+            "a valid Stripe signature is required"))
+    chunks: list[bytes] = []
+    size = 0
+    async for chunk in request.stream():
+        size += len(chunk)
+        if size > 262_144:
+            raise ProblemError(problem(
+                "stripe-webhook-too-large", "Webhook rejected", 413,
+                "the webhook payload exceeds the accepted limit"))
+        chunks.append(chunk)
+    payload = b"".join(chunks)
+    try:
+        event = request.app.state.payment_gateway.verify_and_resolve(
+            payload, signature)
+    except StripeGatewayError as error:
+        if error.code == "stripe-webhook-resolution-unavailable":
+            raise ProblemError(problem(
+                error.code, "Webhook temporarily unavailable", 503,
+                "the current Stripe subscription could not be resolved")) from None
+        raise ProblemError(problem(
+            "stripe-webhook-invalid", "Webhook rejected", 400,
+            "the Stripe event could not be verified")) from None
+    with request.app.state.database.session() as connection:
+        try:
+            if event.subscription is None:
+                outcome = billing.record_ignored_webhook(
+                    connection, event_id=event.event_id,
+                    event_type=event.event_type, created=event.created,
+                    payload=payload)
+            else:
+                snapshot = event.subscription
+                outcome = billing.apply_verified_subscription(
+                    connection, event_id=event.event_id,
+                    event_type=event.event_type, created=event.created,
+                    payload=payload, customer_id=snapshot.customer_id,
+                    subscription_id=snapshot.subscription_id,
+                    firm_id=snapshot.firm_id, plan_code=snapshot.plan_code,
+                    price_id=snapshot.price_id,
+                    provider_status=snapshot.status,
+                    trial_end=snapshot.trial_end)
+        except billing.BillingError as error:
+            raise _billing_problem(error) from None
+    return {"received": True, "outcome": outcome}
 
 
 def _company_onboarding_problem(

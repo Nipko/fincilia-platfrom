@@ -141,6 +141,41 @@ class SettingsTests(unittest.TestCase):
             with self.subTest(flag=flag), self.assertRaises(ValidationError):
                 api_settings(**{flag: True})
 
+    def test_stripe_accepts_only_complete_test_mode_gated_configuration(self) -> None:
+        stripe = {
+            "env": "pilot", "secret_source": "aws_secrets_manager",
+            "object_credentials_source": "aws_workload_identity",
+            "object_access_key": None, "object_secret_key": None,
+            "real_data_enabled": True, "oidc_enabled": True,
+            "oidc_registration_mode": "public_google",
+            "oidc_issuer": "https://issuer.example.test/pool",
+            "oidc_client_id": "client-synthetic",
+            "oidc_token_endpoint": "https://issuer.example.test/oauth2/token",
+            "oidc_userinfo_endpoint": "https://issuer.example.test/oauth2/userInfo",
+            "oidc_redirect_uri": "https://fincilia.com/api/auth/callback/cognito",
+            "identity_binding_hmac_key": "d" * 40,
+            "identity_gate_attestation": "{}", "identity_gate_signature": "YQ==",
+            "identity_gate_kms_key_id": "kms-identity-synthetic",
+            "data_gate_attestation": "{}", "data_gate_signature": "YQ==",
+            "data_gate_kms_key_id": "kms-data-synthetic",
+            "payments_enabled": True, "payment_provider": "stripe",
+            "stripe_secret_key": "sk_test_synthetic1234567890",
+            "stripe_webhook_secret": "whsec_synthetic1234567890",
+            "stripe_public_origin": "https://fincilia.com",
+        }
+        configured = api_settings(**stripe)
+        self.assertEqual("stripe", configured.payment_provider)
+        self.assertEqual("2026-08-26.dahlia", configured.stripe_api_version)
+        with self.assertRaises(ValidationError):
+            api_settings(**{**stripe,
+                            "stripe_secret_key": "sk_live_synthetic1234567890"})
+        with self.assertRaises(ValidationError):
+            api_settings(**{**stripe, "oidc_enabled": False})
+
+    def test_disabled_payments_reject_partial_stripe_secrets(self) -> None:
+        with self.assertRaises(ValidationError):
+            api_settings(stripe_webhook_secret="whsec_synthetic1234567890")
+
     def test_notifications_are_disabled_without_provider_configuration(self) -> None:
         configured = api_settings()
         self.assertEqual("disabled", configured.notification_provider)

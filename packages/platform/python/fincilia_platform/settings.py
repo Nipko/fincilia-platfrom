@@ -25,7 +25,7 @@ from typing import Literal
 from pydantic import Field, PostgresDsn, ValidationInfo, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-GATED_CAPABILITIES = ("ai_gateway_enabled", "payments_enabled")
+GATED_CAPABILITIES = ("ai_gateway_enabled",)
 
 # Nombres que no nombran una version. El contrato de linaje los lista uno a uno.
 FLOATING_TOKENS = frozenset({"latest", "main", "head", "stable", "current"})
@@ -111,6 +111,17 @@ class Settings(BaseSettings):
     real_data_enabled: bool = Field(default=False)
     ai_gateway_enabled: bool = Field(default=False)
     payments_enabled: bool = Field(default=False)
+    payment_provider: Literal["disabled", "stripe"] = Field(
+        default="disabled",
+        description="Stripe se construye solo con pagos habilitados y gates verificados.")
+    stripe_secret_key: str | None = Field(
+        default=None, description="Clave Stripe test obtenida de Secrets Manager.")
+    stripe_webhook_secret: str | None = Field(
+        default=None, description="Secreto dedicado al endpoint webhook Stripe.")
+    stripe_public_origin: str = Field(default="disabled")
+    stripe_api_version: Literal["2026-08-26.dahlia"] = Field(
+        default="2026-08-26.dahlia")
+    stripe_automatic_tax_enabled: bool = Field(default=False)
     notification_provider: Literal["disabled", "aws_ses"] = Field(
         default="disabled",
         description="Correo externo; solo aws_ses tras gates de identidad y datos.")
@@ -248,6 +259,44 @@ class Settings(BaseSettings):
                 raise ValueError("OIDC needs a configured DRG-00 KMS attestation")
         elif self.oidc_registration_mode != "disabled":
             raise ValueError("public Google registration requires OIDC")
+
+        stripe_values = (
+            self.stripe_secret_key,
+            self.stripe_webhook_secret,
+            None if self.stripe_public_origin == "disabled" else self.stripe_public_origin,
+        )
+        if not self.payments_enabled:
+            if self.payment_provider != "disabled" or any(
+                    value is not None for value in stripe_values):
+                raise ValueError(
+                    "disabled payments must not receive Stripe configuration")
+            if self.stripe_automatic_tax_enabled:
+                raise ValueError("automatic tax cannot run while payments are disabled")
+        else:
+            if (
+                self.env != "pilot"
+                or self.secret_source != "aws_secrets_manager"
+                or not self.real_data_enabled
+                or not self.oidc_enabled
+            ):
+                raise ValueError(
+                    "Stripe requires the gated pilot environment, real data and OIDC")
+            if self.payment_provider != "stripe":
+                raise ValueError("enabled payments require Stripe as the selected provider")
+            if not self.stripe_secret_key or not re.fullmatch(
+                    r"sk_test_[A-Za-z0-9_]{16,}", self.stripe_secret_key):
+                raise ValueError("UAT Stripe requires a test-mode secret key")
+            if not self.stripe_webhook_secret or not re.fullmatch(
+                    r"whsec_[A-Za-z0-9_]{16,}", self.stripe_webhook_secret):
+                raise ValueError("Stripe webhook secret is missing or malformed")
+            if self.stripe_secret_key in {
+                    self.auth_signing_key,
+                    self.identifier_tokenization_key,
+                    self.authorization_context_hmac_key,
+                    self.identity_binding_hmac_key}:
+                raise ValueError("Stripe credentials must not be reused")
+            if self.stripe_public_origin != "https://fincilia.com":
+                raise ValueError("Stripe public origin must be exactly https://fincilia.com")
 
         notification_values = (
             self.notification_region,
