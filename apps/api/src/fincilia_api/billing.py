@@ -31,7 +31,7 @@ class CheckoutReservation:
     state: str
 
 
-def _plan(row: tuple) -> dict[str, Any]:
+def _plan(row: tuple, *, provider_configured: bool = False) -> dict[str, Any]:
     return {
         "plan_version_id": str(row[0]), "plan_code": row[1],
         "version": int(row[2]), "display_name": row[3],
@@ -48,7 +48,7 @@ def _plan(row: tuple) -> dict[str, Any]:
             "monthly_documents": row[13], "storage_bytes": row[14],
         },
         "commercial": {
-            "configured": row[15] is not None,
+            "configured": row[15] is not None and provider_configured,
             "currency_code": row[15], "unit_amount_minor": row[16],
             "trial_days": row[17],
         },
@@ -71,14 +71,16 @@ def _plan_columns(alias: str) -> str:
 def list_plans(connection: psycopg.Connection) -> list[dict[str, Any]]:
     with connection.cursor() as cursor:
         cursor.execute(
-            f"SELECT {PLAN_COLUMNS} FROM ("
+            f"SELECT {PLAN_COLUMNS}, "
+            "fincilia.stripe_plan_ready(plan_version_id) FROM ("
             f"SELECT DISTINCT ON (plan_code) {PLAN_COLUMNS} "
             "FROM fincilia.billing_plan_version "
             "WHERE catalog_state <> 'retired' "
             "ORDER BY plan_code, version DESC) latest "
             "ORDER BY CASE plan_code WHEN 'starter' THEN 1 "
             "WHEN 'business' THEN 2 ELSE 3 END")
-        return [_plan(row) for row in cursor.fetchall()]
+        return [_plan(row[:18], provider_configured=bool(row[18]))
+                for row in cursor.fetchall()]
 
 
 def _assert_manager(connection: psycopg.Connection, *, firm_id: str,
@@ -104,7 +106,8 @@ def _current_subscription(connection: psycopg.Connection,
             "SELECT subscription.subscription_id::text, subscription.status, "
             "subscription.sequence, subscription.source_code, "
             "subscription.started_at, subscription.trial_ends_at, "
-            f"{_plan_columns('plan')} "
+            f"{_plan_columns('plan')}, "
+            "fincilia.stripe_plan_ready(plan.plan_version_id) "
             "FROM fincilia.firm_subscription subscription "
             "JOIN fincilia.billing_plan_version plan "
             "ON plan.plan_version_id = subscription.plan_version_id "
@@ -117,7 +120,7 @@ def _current_subscription(connection: psycopg.Connection,
         "subscription_id": row[0], "status": row[1], "sequence": int(row[2]),
         "source_code": row[3], "started_at": row[4].isoformat(),
         "trial_ends_at": row[5].isoformat() if row[5] else None,
-        "plan": _plan(row[6:]),
+        "plan": _plan(row[6:24], provider_configured=bool(row[24])),
     }
 
 

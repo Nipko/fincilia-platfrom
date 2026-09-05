@@ -524,6 +524,14 @@
       "reason": "materializar el snapshot vigente reconsultado en Stripe mediante una transicion append-oriented, price_id allowlisted y prueba de Checkout",
       "gate": "DB-G03",
       "human_review_state": "pending"
+    },
+    {
+      "function": "fincilia.stripe_plan_ready",
+      "owner_role": "fincilia_billing_dispatch",
+      "granted_to": ["fincilia_app"],
+      "reason": "revelar solo si una version comercial posee un price_id Stripe activo, sin exponer la referencia exacta al catalogo ni al navegador",
+      "gate": "DB-G03",
+      "human_review_state": "pending"
     }
   ]
 }

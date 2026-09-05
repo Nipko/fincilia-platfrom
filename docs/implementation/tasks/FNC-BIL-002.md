@@ -22,7 +22,8 @@ proveedor no expuestas, configuracion fail-closed y experiencia web completa.
 - `apps/api/**` y `apps/web/**` en la superficie de billing
 - `.env.example`
 - `packages/platform/python/fincilia_platform/settings.py`
-- `db/migrations/V0064__stripe_billing_runtime.sql`
+- `db/migrations/V0064__stripe_billing_runtime.sql` y
+  `db/migrations/V0065__stripe_plan_readiness.sql`
 - `db/tests/test_stripe_billing.py`
 - `db/bootstrap/roles.py` y `db/bootstrap/test_roles.py`
 - `docs/adr/ADR-038-plans-entitlements-billing.md`
