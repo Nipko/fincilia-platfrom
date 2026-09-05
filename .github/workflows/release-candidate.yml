@@ -120,13 +120,13 @@ jobs:
 
       - name: Sign SLSA provenance with the workflow OIDC identity
         id: provenance
-        uses: actions/attest@a1948c3f048ba23858d222213b7c278aabede763 # v4.1.1
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
           subject-path: ${{ runner.temp }}/fincilia-release.tar.gz
 
       - name: Sign the aggregate SPDX inventory with the workflow OIDC identity
         id: sbom
-        uses: actions/attest@a1948c3f048ba23858d222213b7c278aabede763 # v4.1.1
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
           subject-path: ${{ runner.temp }}/fincilia-release.tar.gz
           sbom-path: ${{ runner.temp }}/fincilia-release/release-dependencies.spdx.json
