@@ -203,6 +203,7 @@ Hasta S1-READY solo se admite scaffolding, automatización, pruebas, documentaci
 | FNC-PRV-002 | Matriz ejecutable L-01 de retención y borrado | Review pending | Codex + Integration Steward | 19 políticas frescas por digest, dos estados fail-closed y 29 pruebas; plazos y cuatro revisores humanos permanecen pendientes |
 | FNC-SEC-003 | Diseño ejecutable del laboratorio aislado para corpus real | Review pending | Codex + Integration Steward | 37 controles, 6 zonas, 12 casos y 34 pruebas; IdP/proveedor/región/despliegue/evidencia siguen pendientes y datos reales prohibidos |
 | FNC-GAT-008 | Estado funcional ejecutable de plataforma web | Review pending | Codex + Integration Steward | 12 dominios/100 puntos: 98 % implementación, 62 % aceptación sintética y 30 % operabilidad productiva; mobile fuera del denominador |
+| FNC-QA-011 | Aislamiento determinista de la suite PostgreSQL integral | In progress | Codex + Integration Steward | limpieza FK de notificaciones y drenaje acotado de trabajos documentales; solo fixtures sintéticas |
 
 Solo el Integration Steward modifica esta tabla.
 
