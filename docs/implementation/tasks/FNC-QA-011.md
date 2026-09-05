@@ -1,7 +1,7 @@
 ---
 id: FNC-QA-011
 title: Aislamiento determinista de la suite PostgreSQL integral
-status: in_progress
+status: review_pending
 implementer: Codex principal dev + Integration Steward
 base_sha: c16e60d
 gate: S1-READY

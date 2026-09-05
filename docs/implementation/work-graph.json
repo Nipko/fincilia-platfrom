@@ -54,20 +54,5 @@
       "agent_may_accept": false
     }
   ],
-  "active_reservations": [
-    {
-      "task": "FNC-QA-011",
-      "holder": "Codex principal dev + Integration Steward",
-      "paths": [
-        "db/tests/test_operational_reminders.py",
-        "db/tests/test_p3_vertical.py",
-        "db/tests/test_billing_plans.py",
-        "infra/local/reset-empty.sh",
-        "tools/local_stack/model.py",
-        "tools/local_stack/test_validate.py",
-        "docs/implementation/tasks/FNC-QA-011.md",
-        "docs/implementation/handoffs/FNC-QA-011.md"
-      ]
-    }
-  ]
+  "active_reservations": []
 }
