@@ -40,11 +40,11 @@
       "id": "ingestion",
       "label": "Carga y lectura CSV, XLSX, ODS y PDF",
       "weight": 11,
-      "implementation": "partial",
+      "implementation": "complete",
       "synthetic_acceptance": "synthetic_e2e",
       "production_operability": "design_and_tests",
-      "evidence": ["docs/implementation/tasks/FNC-ING-006.md", "apps/web/src/app/empresas/[companyId]/documentos/page.tsx", "apps/api/src/fincilia_api/routes.py"],
-      "remaining": "OCR para PDF sin texto y validacion de volumen con corpus autorizado."
+      "evidence": ["docs/implementation/tasks/FNC-ING-007.md", "workers/document/src/fincilia_worker/local_ocr.py", "apps/web/tests/e2e/pdf-ocr.spec.ts"],
+      "remaining": "Calibrar volumen y reconstruccion de tablas escaneadas con corpus autorizado; OCR externo permanece ausente."
     },
     {
       "id": "mapping_cleaning",
@@ -138,7 +138,7 @@
     }
   ],
   "reported_progress": {
-    "implementation_percent": 93,
+    "implementation_percent": 98,
     "synthetic_acceptance_percent": 62,
     "production_operability_percent": 30
   },

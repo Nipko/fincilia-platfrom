@@ -182,7 +182,7 @@ Hasta S1-READY solo se admite scaffolding, automatización, pruebas, documentaci
 | FNC-ACC-001 | Recorrido contable guiado de punta a punta | Review pending | Codex + Integration Steward | Siete etapas desde configuración hasta expediente previo al cierre, sin ejecutar ni certificar cierre; Accounting/Architecture/UX/QA pendientes |
 | FNC-CLS-006 | Cierre y reapertura real de periodo | Review pending | Codex + Integration Steward | V0046, snapshot append-only, bloqueo DB y reapertura SoD verificados en PostgreSQL; ADR-035 y revisión independiente pendientes |
 | FNC-ING-006 | PDF seguro y OCR desacoplado | Review pending | Codex + Integration Steward | Texto embebido seguro y localizador PDF implementados; OCR externo y datos reales permanecen desactivados |
-| FNC-ING-007 | OCR local aislado para PDF escaneado | In progress | Codex + Integration Steward | Tesseract local sin egress, derivado determinista, límites y linaje PDF en implementación |
+| FNC-ING-007 | OCR local aislado para PDF escaneado | Review pending | Codex + Integration Steward | Tesseract/PDFium local sin egress, derivado SHA-256, inspección integral, RLS, linaje por bloque y recorrido web verificados; revisión independiente/CI pendientes |
 | FNC-NTF-001 | Notificaciones externas verificables | Review pending | Codex + Integration Steward | V0048/V0049, preferencias, intención idempotente, RLS por sujeto, historial y supresión honesta; proveedor/remitente al final |
 | FNC-NTF-002 | Despacho durable de correo y adaptador AWS SES | Review pending | Codex + Integration Steward | V0059-V0061, destino cifrado, worker aislado, frontera at-most-once, feedback y proveedor apagado por defecto; revisión independiente pendiente |
 | FNC-BIL-001 | Planes, entitlements y facturación | Review pending | Codex + Integration Steward | V0050/V0051, tres planes versionados, evaluación por firma, uso append-only y checkout cerrado; proveedor/precios al final |
@@ -202,7 +202,7 @@ Hasta S1-READY solo se admite scaffolding, automatización, pruebas, documentaci
 | FNC-LEG-001 | Plantilla ejecutable de tratamiento para corpus real | Review pending | Codex + Integration Steward | 11 actividades dinámicas, 16 secciones y 26 pruebas; paquete listo para abogado independiente, sin autorizar datos reales ni mover DRG-00 |
 | FNC-PRV-002 | Matriz ejecutable L-01 de retención y borrado | Review pending | Codex + Integration Steward | 19 políticas frescas por digest, dos estados fail-closed y 29 pruebas; plazos y cuatro revisores humanos permanecen pendientes |
 | FNC-SEC-003 | Diseño ejecutable del laboratorio aislado para corpus real | Review pending | Codex + Integration Steward | 37 controles, 6 zonas, 12 casos y 34 pruebas; IdP/proveedor/región/despliegue/evidencia siguen pendientes y datos reales prohibidos |
-| FNC-GAT-008 | Estado funcional ejecutable de plataforma web | Review pending | Codex + Integration Steward | 12 dominios/100 puntos: 93 % implementación, 62 % aceptación sintética y 30 % operabilidad productiva; mobile fuera del denominador |
+| FNC-GAT-008 | Estado funcional ejecutable de plataforma web | Review pending | Codex + Integration Steward | 12 dominios/100 puntos: 98 % implementación, 62 % aceptación sintética y 30 % operabilidad productiva; mobile fuera del denominador |
 
 Solo el Integration Steward modifica esta tabla.
 

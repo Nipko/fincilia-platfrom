@@ -1,22 +1,56 @@
-# Espacio de trabajo PDF y frontera OCR
+# Espacio de trabajo PDF y OCR local
 
-Fincilia acepta PDF por firma, siempre en cuarentena. El escáner del worker
-aislado valida el final inequívoco, los límites de 25 MiB, 250 páginas, 20.000
-objetos y 200.000 bloques, y rechaza cifrado, JavaScript, acciones, enlaces,
-adjuntos, formularios activos, firmas y estructuras que el parser estricto no
-pueda resolver.
+Fincilia acepta PDF por firma y siempre lo recibe en cuarentena. El analizador
+pasivo valida final inequívoco, 25 MiB, 250 páginas, 20.000 objetos y 200.000
+bloques; rechaza cifrado, JavaScript, acciones, enlaces, adjuntos, formularios
+activos, firmas y estructuras ambiguas. Un PDF seguro con texto embebido sigue
+el flujo `pdf_text` de pypdf 6.16.2 y conserva página, bloque, caja, confianza y
+release exacta del parser.
 
-Un PDF pasivo con texto embebido se copia a `raw` y cada bloque se guarda como
-`raw_record` con identidad del artefacto, página, ordinal, caja normalizada,
-confianza y versión del parser. Eso es evidencia extraída, no semántica
-contable: requiere revisión humana y jamás publica movimientos por sí mismo.
+Un PDF seguro sin texto suficiente puede procesarse con Tesseract dentro del
+worker de documentos. El motor queda deshabilitado por defecto y el entorno
+local lo activa con `FINCILIA_OCR_PROVIDER=local_tesseract`. No existe adaptador
+de OCR externo ni salida de red asociada al flujo.
 
-Un PDF pasivo sin texto suficiente queda en cuarentena con `ocr_required`. El
-puerto OCR está implementado pero desactivado. Activarlo exige adjudicar al
-final proveedor, región, idiomas, costo/páginas, conservación, DPA, política por
-empresa y salida exclusivamente por el AI Gateway. No se envían archivos ni
-texto a terceros con la configuración actual.
+## Recorrido y frontera de confianza
 
-La biblioteca está fijada a `pypdf 6.16.2` y sus dos artefactos PyPI por hash.
-El resultado registra `pypdf-6.16.2/fincilia-pdf-1`, por lo que una lectura
-posterior puede demostrar exactamente qué parser produjo el workspace.
+1. El PDF original entra en cuarentena y se valida con el mismo analizador
+   pasivo del flujo de texto embebido.
+2. Solo un PDF seguro, sin texto y dentro de los límites pasa a render local.
+3. PDFium rasteriza una página a la vez y Tesseract 5.5.1 produce bloques con
+   página, caja y confianza.
+4. Todo el texto reconocido, no solo la muestra visible, pasa el escáner de
+   secretos antes de promoción.
+5. Si la inspección aprueba, el manifiesto canónico se guarda en la zona
+   derivada bajo su SHA-256. PostgreSQL conserva únicamente digests, conteos,
+   versión, estado y vínculo exacto al artefacto y ejecución.
+6. Perfil y extracción leen ese derivado verificando de nuevo su digest. Cada
+   registro extraído conserva un localizador `pdf_ocr` y requiere revisión
+   humana antes de mapear o publicar.
+
+El contenido reconocido no se escribe en tablas, logs, auditoría ni resultados
+de trabajos. Un fallo, truncamiento, timeout, exceso de recursos, digest
+divergente o hallazgo sensible termina en cuarentena y no alimenta publicación,
+conciliación, cierre ni informes certificados.
+
+## Límites operativos
+
+- máximo 50 páginas por documento;
+- máximo 16 millones de píxeles por página y 300 millones por documento;
+- máximo 20 segundos por página y 240 segundos por documento;
+- máximo 8 MiB de salida TSV por página;
+- temporales en `tmpfs` de 64 MiB;
+- idiomas locales permitidos: español e inglés;
+- releases exactas: Tesseract 5.5.1, pypdfium2 5.13.0 y Pillow 12.3.0.
+
+La implementación recupera texto y coordenadas. La reconstrucción semántica de
+tablas densas escaneadas sigue siendo una mejora posterior: hoy el usuario ve
+una columna de transcripción OCR y debe limpiar/mapear de forma explícita.
+
+## Rollback y mantenimiento
+
+Para desactivar el productor se usa `FINCILIA_OCR_PROVIDER=disabled` y se
+despliega el worker anterior. V0062 y V0063 son expansivas y pueden permanecer
+sin productores. No se reescriben migraciones aplicadas. Las políticas de
+retención eliminan metadatos y objetos derivados según L-01; restaurar un backup
+exige reaplicar los tombstones correspondientes.

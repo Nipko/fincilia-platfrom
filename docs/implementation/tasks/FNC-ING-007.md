@@ -1,9 +1,10 @@
 ---
 id: FNC-ING-007
 title: OCR local aislado para PDF escaneado
-status: in_progress
+status: review_pending
 implementer: Codex principal dev + Integration Steward
 base_sha: ea3c938
+implementation_sha: e4e7dfd
 gate: DRG-00/DRG-01
 gate_effect: none
 data_ceiling: synthetic_only
@@ -56,3 +57,9 @@ conserva un derivado direccionado por contenido con localizadores por bloque.
 
 Solo datos sintéticos. No mueve DRG-00/01, no publica movimientos, no acepta
 ADR-036 y no transmite documentos a IA ni a un proveedor OCR.
+
+# Estado de entrega
+
+Los ocho criterios tienen evidencia y el handoff reproducible está disponible.
+La tarea queda en `review_pending` hasta revisión independiente y CI del commit
+integrado; no se declara `done` ni se mueve ningún gate.
