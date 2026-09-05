@@ -34,8 +34,10 @@
   activa una suscripción.
 - Ante eventos fuera de orden se relee el snapshot vigente de la suscripción;
   `customer.subscription.deleted` usa su objeto final firmado, porque el recurso
-  puede dejar de ser recuperable. Una caída de consulta responde 503 para pedir
-  reintento, mientras una firma inválida responde 400.
+  puede dejar de ser recuperable. La base serializa eventos por firma y descarta
+  una baja antigua si ya existe otra suscripción ligada. Una caída de consulta o
+  persistencia responde 503 para pedir reintento, mientras una firma inválida
+  responde 400.
 - SDK `stripe==15.6.1` y API `2026-08-26.dahlia` quedan fijados. Su actualización
   exige lock, pruebas de contrato y revisión de changelog.
 - Las referencias exactas de customer, subscription, price y Checkout viven en

@@ -130,15 +130,15 @@
       "id": "billing",
       "label": "Planes, limites y facturacion SaaS",
       "weight": 3,
-      "implementation": "partial",
+      "implementation": "complete",
       "synthetic_acceptance": "component_verified",
       "production_operability": "blocked",
-      "evidence": ["docs/implementation/tasks/FNC-BIL-001.md", "apps/api/src/fincilia_api/billing.py", "apps/web/src/app/cuenta/billing-panel.tsx"],
-      "remaining": "Seleccionar proveedor, checkout, webhooks, impuestos, cartera y conciliacion de cobros."
+      "evidence": ["docs/implementation/tasks/FNC-BIL-002.md", "apps/api/src/fincilia_api/stripe_billing.py", "db/migrations/V0066__stripe_webhook_serialization.sql", "apps/web/src/app/cuenta/billing-panel.tsx"],
+      "remaining": "Publicar planes y precios al final; ejecutar aceptacion PostgreSQL y Stripe test mode, revisar impuestos y superar DRG-00/01 y GA-01."
     }
   ],
   "reported_progress": {
-    "implementation_percent": 98,
+    "implementation_percent": 100,
     "synthetic_acceptance_percent": 62,
     "production_operability_percent": 30
   },

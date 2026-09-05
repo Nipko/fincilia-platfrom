@@ -31,9 +31,11 @@ Eventos allowlisted:
 - `invoice.payment_failed`
 
 Un evento firmado no basta para crear la primera relación: debe corresponder a
-una reserva Checkout vigente creada por un manager. Duplicados devuelven éxito
-idempotente; fallos temporales al resolver la suscripción devuelven 503 para que
-Stripe reintente.
+una reserva Checkout vigente creada por un manager. Duplicados byte-identicos
+devuelven éxito idempotente y una colisión de ID/digest se rechaza. La
+materialización se serializa por firma; una baja atrasada de una suscripción
+anterior no puede cancelar la actual. Fallos temporales del proveedor o de
+PostgreSQL devuelven 503 para que Stripe reintente.
 
 ## Datos que se suministran al final
 
@@ -67,7 +69,7 @@ inventado por código.
 
 ## Evidencia antes de habilitar
 
-1. Revisión independiente de V0064/V0065 y las seis funciones definer.
+1. Revisión independiente de V0064/V0065/V0066 y las seis funciones definer.
 2. PostgreSQL real: RLS, concurrencia, duplicados, cancelación e inbox mínimo.
 3. Stripe test mode: alta, cambio, pago fallido, recuperación, portal y baja.
 4. Confirmar que logs, auditoría y respuestas no contienen claves, payloads,
