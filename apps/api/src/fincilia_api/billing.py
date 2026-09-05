@@ -323,11 +323,14 @@ def record_ignored_webhook(connection: psycopg.Connection, *, event_id: str,
                            payload: bytes) -> str:
     event_digest = hashlib.sha256(event_id.encode("utf-8")).hexdigest()
     payload_digest = hashlib.sha256(payload).hexdigest()
-    with connection.cursor() as cursor:
-        cursor.execute(
-            "SELECT fincilia.record_stripe_webhook(%s,%s,%s,%s,%s,'ignored')",
-            (event_id, event_type, _moment(created), event_digest, payload_digest))
-        row = cursor.fetchone()
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT fincilia.record_stripe_webhook(%s,%s,%s,%s,%s,'ignored')",
+                (event_id, event_type, _moment(created), event_digest, payload_digest))
+            row = cursor.fetchone()
+    except psycopg.Error as error:
+        raise _database_billing_error(error) from None
     return str(row[0]) if row else "unknown"
 
 
@@ -383,9 +386,18 @@ def _database_billing_error(error: psycopg.Error) -> BillingError:
             "billing-checkout-conflict", "checkout state conflicts", 409),
         "billing-checkout-expired": (
             "billing-checkout-expired", "checkout is no longer available", 409),
+        "billing-webhook-conflict": (
+            "billing-webhook-conflict", "webhook replay conflicts with prior evidence", 409),
     }
     for marker, values in mapping.items():
         if marker in message:
             return BillingError(*values)
+    sqlstate = getattr(error, "sqlstate", None) or ""
+    if sqlstate.startswith("08") or sqlstate in {"40001", "40P01", "55P03"}:
+        return BillingError(
+            "billing-temporarily-unavailable",
+            "billing persistence is temporarily unavailable",
+            503,
+        )
     return BillingError("billing-operation-rejected",
                         "billing operation was rejected", 422)

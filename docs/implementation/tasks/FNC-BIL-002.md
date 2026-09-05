@@ -23,7 +23,8 @@ proveedor no expuestas, configuracion fail-closed y experiencia web completa.
 - `.env.example`
 - `packages/platform/python/fincilia_platform/settings.py`
 - `db/migrations/V0064__stripe_billing_runtime.sql` y
-  `db/migrations/V0065__stripe_plan_readiness.sql`
+  `db/migrations/V0065__stripe_plan_readiness.sql` y
+  `db/migrations/V0066__stripe_webhook_serialization.sql`
 - `db/tests/test_stripe_billing.py`
 - `db/bootstrap/roles.py` y `db/bootstrap/test_roles.py`
 - `docs/adr/ADR-038-plans-entitlements-billing.md`

@@ -135,13 +135,15 @@ class StripeBillingDatabaseTests(unittest.TestCase):
             )
         return reservation
 
-    def _apply(self, *, provider_event_id: str, status: str = "active") -> str:
+    def _apply(self, *, provider_event_id: str, status: str = "active",
+               subscription_id: str = SUBSCRIPTION,
+               payload: bytes = b'{"synthetic":true}') -> str:
         with runtime_for() as connection:
             return billing.apply_verified_subscription(
                 connection, event_id=provider_event_id,
                 event_type="customer.subscription.updated",
-                created=int(time.time()), payload=b'{"synthetic":true}',
-                customer_id=CUSTOMER, subscription_id=SUBSCRIPTION,
+                created=int(time.time()), payload=payload,
+                customer_id=CUSTOMER, subscription_id=subscription_id,
                 firm_id=FIRM, plan_code="business", price_id=PRICE,
                 provider_status=status, trial_end=None,
             )
@@ -204,6 +206,74 @@ class StripeBillingDatabaseTests(unittest.TestCase):
                 "WHERE provider_event_id = %s", (shared_event,)).fetchone()[0]
         self.assertEqual((1, 1), (current, inbox))
 
+    def test_two_distinct_concurrent_snapshots_are_serialized_per_firm(self) -> None:
+        self._ready_checkout()
+        events = (event_id(), event_id())
+
+        def deliver(provider_event_id: str) -> str:
+            return self._apply(provider_event_id=provider_event_id)
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
+            outcomes = list(pool.map(deliver, events))
+        self.assertEqual(["materialized", "unchanged"], sorted(outcomes))
+        with psycopg.connect(MIGRATOR_DSN) as connection:
+            current = connection.execute(
+                "SELECT count(*) FROM fincilia.firm_subscription "
+                "WHERE firm_id = %s AND ended_at IS NULL", (FIRM,)).fetchone()[0]
+            inbox = connection.execute(
+                "SELECT count(*) FROM fincilia.billing_webhook_inbox "
+                "WHERE provider_event_id = ANY(%s)", (list(events),)).fetchone()[0]
+        self.assertEqual((1, 2), (current, inbox))
+
+    def test_stale_delete_cannot_cancel_a_newer_provider_subscription(self) -> None:
+        self._ready_checkout()
+        old_subscription = "sub_FNCBIL002OLD00001"
+        new_subscription = "sub_FNCBIL002NEW00001"
+        self.assertEqual(
+            "materialized",
+            self._apply(provider_event_id=event_id(),
+                        subscription_id=old_subscription),
+        )
+        self.assertEqual(
+            "unchanged",
+            self._apply(provider_event_id=event_id(),
+                        subscription_id=new_subscription),
+        )
+        with runtime_for() as connection:
+            stale = billing.apply_verified_subscription(
+                connection, event_id=event_id(),
+                event_type="customer.subscription.deleted",
+                created=int(time.time()), payload=b'{"synthetic":"stale-delete"}',
+                customer_id=CUSTOMER, subscription_id=old_subscription,
+                firm_id=FIRM, plan_code="business", price_id=PRICE,
+                provider_status="canceled", trial_end=None,
+            )
+        self.assertEqual("stale", stale)
+        with psycopg.connect(MIGRATOR_DSN) as connection:
+            current = connection.execute(
+                "SELECT status, sequence FROM fincilia.firm_subscription "
+                "WHERE firm_id = %s AND ended_at IS NULL", (FIRM,)).fetchone()
+            bound = connection.execute(
+                "SELECT external_subscription_id FROM "
+                "fincilia.billing_provider_binding WHERE firm_id = %s",
+                (FIRM,),
+            ).fetchone()[0]
+        self.assertEqual(("active", 1), current)
+        self.assertEqual(new_subscription, bound)
+
+    def test_same_event_identifier_with_different_payload_is_rejected(self) -> None:
+        self._ready_checkout()
+        provider_event_id = event_id()
+        self.assertEqual(
+            "materialized",
+            self._apply(provider_event_id=provider_event_id,
+                        payload=b'{"synthetic":"first"}'),
+        )
+        with self.assertRaisesRegex(billing.BillingError,
+                                    "billing-webhook-conflict"):
+            self._apply(provider_event_id=provider_event_id,
+                        payload=b'{"synthetic":"different"}')
+
     def test_member_spoofing_and_missing_checkout_proof_fail_closed(self) -> None:
         with runtime_for(BETO) as connection:
             with self.assertRaisesRegex(billing.BillingError, "billing-forbidden"):
@@ -245,6 +315,7 @@ class StripeBillingDatabaseTests(unittest.TestCase):
             ("complete_stripe_checkout",),
             ("record_stripe_webhook",),
             ("reserve_stripe_checkout",),
+            ("stripe_plan_ready",),
             ("stripe_portal_customer",),
         ], routines)
 

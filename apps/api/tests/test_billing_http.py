@@ -159,6 +159,30 @@ class BillingHttpTests(unittest.TestCase):
                 self.assertEqual(expected, response.status_code, response.text)
                 self.assertNotIn("provider detail", response.text)
 
+    def test_webhook_database_outage_is_retryable(self) -> None:
+        gateway = FakeGateway()
+        gateway.verified = VerifiedStripeEvent(
+            "evt_FNCBIL002HTTP", "customer.subscription.updated", 1_800_000_000,
+            SubscriptionSnapshot(
+                "cus_FNCBIL002HTTP", "sub_FNCBIL002HTTP", FIRM,
+                "business", "price_FNCBIL002HTTP", "active", None))
+        unavailable = billing.BillingError(
+            "billing-temporarily-unavailable",
+            "billing persistence is temporarily unavailable",
+            503,
+        )
+        with (
+            patch.object(routes.billing, "apply_verified_subscription",
+                         side_effect=unavailable),
+            make_client(gateway) as client,
+        ):
+            response = client.post(
+                "/api/v1/billing/webhooks/stripe", content=b"{}",
+                headers={"Stripe-Signature": "t=1,v1=synthetic"})
+        self.assertEqual(503, response.status_code, response.text)
+        self.assertTrue(
+            response.json()["type"].endswith("/billing-temporarily-unavailable"))
+
     def test_disabled_or_oversized_webhook_fails_before_persistence(self) -> None:
         gateway = FakeGateway()
         with make_client(gateway, enabled=False) as client:
