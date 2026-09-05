@@ -520,7 +520,21 @@ REVOKE ALL ON FUNCTION fincilia.record_stripe_webhook(
 REVOKE ALL ON FUNCTION fincilia.apply_stripe_subscription_snapshot(
   text, text, timestamptz, text, text, text, text, text, uuid, text, text, text, timestamptz)
   FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION fincilia.reserve_stripe_checkout(uuid, uuid, text, uuid),
+  fincilia.complete_stripe_checkout(uuid, uuid, text, text, timestamptz),
+  fincilia.stripe_portal_customer(uuid, uuid),
+  fincilia.record_stripe_webhook(text, text, timestamptz, text, text, text),
+  fincilia.apply_stripe_subscription_snapshot(
+    text, text, timestamptz, text, text, text, text, text, uuid, text, text, text, timestamptz)
+  TO fincilia_app;
+COMMENT ON FUNCTION fincilia.apply_stripe_subscription_snapshot(
+  text, text, timestamptz, text, text, text, text, text, uuid, text, text, text, timestamptz)
+  IS 'Materializa un snapshot vigente solo tras verificacion Stripe en la API.';
 
+-- PostgreSQL exige que el nuevo propietario pueda crear objetos en el esquema
+-- durante el cambio de owner. El permiso existe solo dentro de esta transaccion
+-- de migracion y se retira inmediatamente despues de los cinco cambios.
+GRANT CREATE ON SCHEMA fincilia TO fincilia_billing_dispatch;
 ALTER FUNCTION fincilia.reserve_stripe_checkout(uuid, uuid, text, uuid)
   OWNER TO fincilia_billing_dispatch;
 ALTER FUNCTION fincilia.complete_stripe_checkout(uuid, uuid, text, text, timestamptz)
@@ -532,17 +546,7 @@ ALTER FUNCTION fincilia.record_stripe_webhook(text, text, timestamptz, text, tex
 ALTER FUNCTION fincilia.apply_stripe_subscription_snapshot(
   text, text, timestamptz, text, text, text, text, text, uuid, text, text, text, timestamptz)
   OWNER TO fincilia_billing_dispatch;
-
-GRANT EXECUTE ON FUNCTION fincilia.reserve_stripe_checkout(uuid, uuid, text, uuid),
-  fincilia.complete_stripe_checkout(uuid, uuid, text, text, timestamptz),
-  fincilia.stripe_portal_customer(uuid, uuid),
-  fincilia.record_stripe_webhook(text, text, timestamptz, text, text, text),
-  fincilia.apply_stripe_subscription_snapshot(
-    text, text, timestamptz, text, text, text, text, text, uuid, text, text, text, timestamptz)
-  TO fincilia_app;
+REVOKE CREATE ON SCHEMA fincilia FROM fincilia_billing_dispatch;
 
 COMMENT ON TABLE fincilia.billing_provider_binding IS
   'Referencias Stripe exactas provider-only; no PAN, CVV, email ni payload.';
-COMMENT ON FUNCTION fincilia.apply_stripe_subscription_snapshot(
-  text, text, timestamptz, text, text, text, text, text, uuid, text, text, text, timestamptz)
-  IS 'Materializa un snapshot vigente solo tras verificacion Stripe en la API.';

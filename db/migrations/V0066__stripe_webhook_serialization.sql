@@ -1,6 +1,12 @@
 -- FNC-BIL-002: serializa el estado Stripe por firma y distingue un replay
 -- exacto de una colision de evidencia. V0064/V0065 permanecen inmutables.
 
+-- Las funciones ya pertenecen a la autoridad NOLOGIN desde V0064. Se entra a
+-- ese rol de forma explicita para reemplazarlas y administrar su ACL; NOINHERIT
+-- impide suponer que la membresia del migrador equivale a ser el propietario.
+GRANT CREATE ON SCHEMA fincilia TO fincilia_billing_dispatch;
+SET LOCAL ROLE fincilia_billing_dispatch;
+
 CREATE OR REPLACE FUNCTION fincilia.record_stripe_webhook(
   p_event_id text, p_event_type text, p_created_at timestamptz,
   p_event_digest text, p_payload_digest text, p_outcome text)
@@ -239,3 +245,6 @@ COMMENT ON FUNCTION fincilia.record_stripe_webhook(
 COMMENT ON FUNCTION fincilia.apply_stripe_subscription_snapshot(
   text, text, timestamptz, text, text, text, text, text, uuid, text, text, text, timestamptz)
   IS 'Serializa por firma y no deja que una baja antigua cancele otra suscripcion.';
+
+RESET ROLE;
+REVOKE CREATE ON SCHEMA fincilia FROM fincilia_billing_dispatch;

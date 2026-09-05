@@ -18,9 +18,10 @@ AS $$
 $$;
 
 REVOKE ALL ON FUNCTION fincilia.stripe_plan_ready(uuid) FROM PUBLIC;
-ALTER FUNCTION fincilia.stripe_plan_ready(uuid)
-  OWNER TO fincilia_billing_dispatch;
 GRANT EXECUTE ON FUNCTION fincilia.stripe_plan_ready(uuid) TO fincilia_app;
-
 COMMENT ON FUNCTION fincilia.stripe_plan_ready(uuid) IS
   'Expone solo readiness booleana del plan; nunca la referencia Stripe exacta.';
+GRANT CREATE ON SCHEMA fincilia TO fincilia_billing_dispatch;
+ALTER FUNCTION fincilia.stripe_plan_ready(uuid)
+  OWNER TO fincilia_billing_dispatch;
+REVOKE CREATE ON SCHEMA fincilia FROM fincilia_billing_dispatch;

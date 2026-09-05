@@ -47,6 +47,17 @@ def runtime_for(subject_id: str | None = None):
             yield connection
 
 
+@contextmanager
+def migrator_for(subject_id: str = SOFIA):
+    """Consulta fixtures protegidos sin convertir al migrador en bypass RLS."""
+    with psycopg.connect(MIGRATOR_DSN) as connection:
+        connection.execute(
+            "SELECT set_config('fincilia.subject_id', %s, false)",
+            (subject_id,),
+        )
+        yield connection
+
+
 class StripeBillingDatabaseTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
@@ -54,7 +65,7 @@ class StripeBillingDatabaseTests(unittest.TestCase):
             raise unittest.SkipTest("migrator and runtime DSNs are required")
         seed(MIGRATOR_DSN, secret=DEFAULT_SECRET)
         cls._clean(remove_catalog=True)
-        with psycopg.connect(MIGRATOR_DSN) as connection:
+        with migrator_for() as connection:
             connection.execute(
                 "INSERT INTO fincilia.billing_plan_version ("
                 "plan_version_id, plan_code, version, display_name, audience_code, "
@@ -83,7 +94,7 @@ class StripeBillingDatabaseTests(unittest.TestCase):
 
     @classmethod
     def _clean(cls, *, remove_catalog: bool) -> None:
-        with psycopg.connect(MIGRATOR_DSN) as connection:
+        with migrator_for() as connection:
             connection.execute(
                 "DELETE FROM fincilia.billing_webhook_inbox "
                 "WHERE provider_event_id LIKE %s", (EVENT_PREFIX + "%",))
@@ -172,7 +183,7 @@ class StripeBillingDatabaseTests(unittest.TestCase):
         self.assertEqual(3, overview["subscription"]["sequence"])
         self.assertEqual("payment_provider", overview["subscription"]["source_code"])
 
-        with psycopg.connect(MIGRATOR_DSN) as connection:
+        with migrator_for() as connection:
             row = connection.execute(
                 "SELECT state, external_session_id, session_digest "
                 "FROM fincilia.billing_checkout_attempt "
@@ -197,7 +208,7 @@ class StripeBillingDatabaseTests(unittest.TestCase):
         with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
             outcomes = list(pool.map(deliver, range(2)))
         self.assertEqual(["duplicate", "materialized"], sorted(outcomes))
-        with psycopg.connect(MIGRATOR_DSN) as connection:
+        with migrator_for() as connection:
             current = connection.execute(
                 "SELECT count(*) FROM fincilia.firm_subscription "
                 "WHERE firm_id = %s AND ended_at IS NULL", (FIRM,)).fetchone()[0]
@@ -216,7 +227,7 @@ class StripeBillingDatabaseTests(unittest.TestCase):
         with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
             outcomes = list(pool.map(deliver, events))
         self.assertEqual(["materialized", "unchanged"], sorted(outcomes))
-        with psycopg.connect(MIGRATOR_DSN) as connection:
+        with migrator_for() as connection:
             current = connection.execute(
                 "SELECT count(*) FROM fincilia.firm_subscription "
                 "WHERE firm_id = %s AND ended_at IS NULL", (FIRM,)).fetchone()[0]
@@ -249,7 +260,7 @@ class StripeBillingDatabaseTests(unittest.TestCase):
                 provider_status="canceled", trial_end=None,
             )
         self.assertEqual("stale", stale)
-        with psycopg.connect(MIGRATOR_DSN) as connection:
+        with migrator_for() as connection:
             current = connection.execute(
                 "SELECT status, sequence FROM fincilia.firm_subscription "
                 "WHERE firm_id = %s AND ended_at IS NULL", (FIRM,)).fetchone()
@@ -304,12 +315,21 @@ class StripeBillingDatabaseTests(unittest.TestCase):
                 with self.assertRaises(psycopg.errors.InsufficientPrivilege):
                     connection.execute(f"SELECT * FROM fincilia.{table} LIMIT 1")
 
-        with psycopg.connect(MIGRATOR_DSN) as connection:
+        with migrator_for() as connection:
             routines = connection.execute(
-                "SELECT routine_name FROM information_schema.routine_privileges "
-                "WHERE grantee = 'fincilia_app' AND routine_schema = 'fincilia' "
-                "AND routine_name LIKE '%stripe%' ORDER BY routine_name"
+                "SELECT procedure.proname FROM pg_catalog.pg_proc procedure "
+                "JOIN pg_catalog.pg_namespace namespace "
+                "ON namespace.oid = procedure.pronamespace "
+                "WHERE namespace.nspname = 'fincilia' "
+                "AND procedure.proname LIKE '%stripe%' "
+                "AND has_function_privilege("
+                "'fincilia_app', procedure.oid, 'EXECUTE') "
+                "ORDER BY procedure.proname"
             ).fetchall()
+            billing_dispatch_can_create = connection.execute(
+                "SELECT has_schema_privilege("
+                "'fincilia_billing_dispatch', 'fincilia', 'CREATE')"
+            ).fetchone()[0]
         self.assertEqual([
             ("apply_stripe_subscription_snapshot",),
             ("complete_stripe_checkout",),
@@ -318,6 +338,7 @@ class StripeBillingDatabaseTests(unittest.TestCase):
             ("stripe_plan_ready",),
             ("stripe_portal_customer",),
         ], routines)
+        self.assertFalse(billing_dispatch_can_create)
 
     def test_ignored_event_is_minimal_and_idempotent(self) -> None:
         provider_event_id = event_id()
@@ -331,7 +352,7 @@ class StripeBillingDatabaseTests(unittest.TestCase):
                 event_type="charge.refunded", created=int(time.time()),
                 payload=b'{"synthetic":true}')
         self.assertEqual(("ignored", "duplicate"), (first, replay))
-        with psycopg.connect(MIGRATOR_DSN) as connection:
+        with migrator_for() as connection:
             row = connection.execute(
                 "SELECT processing_state, outcome_code, provider_event_digest, "
                 "payload_digest FROM fincilia.billing_webhook_inbox "
