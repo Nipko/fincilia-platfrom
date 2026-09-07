@@ -155,7 +155,7 @@ jobs:
           sbom-path: ${{ runner.temp }}/fincilia-release/release-dependencies.spdx.json
 
       - name: Obtain a bounded AWS session through GitHub OIDC
-        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+        uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
         with:
           aws-region: sa-east-1
           role-to-assume: ${{ vars.AWS_PRIVATE_PILOT_PUBLISH_ROLE_ARN }}
