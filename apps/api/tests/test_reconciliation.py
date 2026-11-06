@@ -48,7 +48,11 @@ def candidate_row(*, amount: str = "1234.56", currency: str = "COP",
         "Abono sintético", "REF-01", dt.date(2026, 2, 14), "confirmed",
         right_ordinal,
     )
-    return left + right + (1, reference_match)
+    # FNC-SMB-003: diferencia exacta (cero para un par exacto), cuentas,
+    # releases y versiones de esquema de cada lado.
+    release = uuid.uuid4()
+    return left + right + (1, reference_match, Decimal("0"), uuid.uuid4(),
+                           uuid.uuid4(), release, release, "0.1.0", "0.1.0")
 
 
 class FakeCursor:
@@ -112,7 +116,7 @@ class CandidateQueryTests(unittest.TestCase):
 
     def test_exploration_is_paginated_deterministic_and_candidate_only(self) -> None:
         rows = [candidate_row(left_ordinal=index, right_ordinal=index + 10)
-                for index in range(1, 4)]
+                for index in range(1, 8)]
         connection = FakeConnection(
             [dataset_row(LEFT), dataset_row(RIGHT)], rows)
         result = explore_candidates(
@@ -123,14 +127,38 @@ class CandidateQueryTests(unittest.TestCase):
         self.assertFalse(result["proves_balance_reconciliation"])
         self.assertTrue(result["truncated"])
         self.assertEqual(2, len(result["candidates"]))
+        # El orden es estable: con las mismas senales y fechas, el ordinal.
+        self.assertEqual([5, 6], [item["left"]["record_ordinal"]
+                                  for item in result["candidates"]])
         self.assertEqual("all", result["reference_mode"])
         self.assertEqual("optional_non_decisive_filter_and_order",
                          result["reference_role"])
         statement, params = connection.calls[1]
-        self.assertIn("LIMIT %s OFFSET %s", statement)
-        self.assertIn("ORDER BY reference_match DESC", statement)
+        self.assertIn("LIMIT %s", statement)
         self.assertIn("AND CASE %s", statement)
-        self.assertEqual((RIGHT, 7, LEFT, "all", 3, 4), params)
+        # Tolerancia cero por defecto: la condicion es la igualdad exacta.
+        self.assertEqual((RIGHT, "0", "0", 7, LEFT, "all", 5001), params)
+
+    def test_tolerance_is_a_bounded_decimal_string(self) -> None:
+        for value in ("1e3", "-1", "10000000.5", "abc", 12.5):
+            with self.subTest(value=value):
+                connection = FakeConnection([dataset_row(LEFT), dataset_row(RIGHT)])
+                with self.assertRaises(CandidateQueryError) as raised:
+                    explore_candidates(connection, left_dataset_id=LEFT,
+                                       right_dataset_id=RIGHT,
+                                       tolerance_amount=value)
+                self.assertEqual("tolerance-invalid", raised.exception.code)
+
+    def test_tolerance_candidate_carries_difference_and_explanation(self) -> None:
+        row = list(candidate_row(amount="100000", reference_match=False))
+        row[10] = Decimal("98810")
+        row[20] = Decimal("1190.000000000000")
+        candidate = candidate_from_row(tuple(row))
+        self.assertIn("amount_within_tolerance", candidate["signals"])
+        self.assertNotIn("exact_amount", candidate["signals"])
+        self.assertEqual("1190.000000000000", candidate["amount_difference"])
+        self.assertIn("Diferencia de $1.190 (posible retención o comisión)",
+                      candidate["explanation"])
 
     def test_reference_filter_is_explicit_and_never_adds_a_score(self) -> None:
         for mode in ("matching", "different"):
@@ -142,7 +170,7 @@ class CandidateQueryTests(unittest.TestCase):
                     connection, left_dataset_id=LEFT, right_dataset_id=RIGHT,
                     reference_mode=mode)
                 self.assertEqual(mode, result["reference_mode"])
-                self.assertEqual(mode, connection.calls[1][1][3])
+                self.assertEqual(mode, connection.calls[1][1][5])
                 self.assertNotIn("score", result["candidates"][0])
 
     def test_missing_foreign_or_ineligible_dataset_is_neutral(self) -> None:
@@ -205,7 +233,7 @@ class CandidateQueryTests(unittest.TestCase):
             uuid.uuid4(), uuid.uuid4(), uuid.uuid4(), "fnc-rec-exact-v1",
             list(RULES), 3, 1, uuid.uuid4(), "Ada Preparadora", now,
             None, None, None, None, None, None, uuid.uuid4(), uuid.uuid4(),
-            False,
+            False, None, None, None, None, None, None, None, None, None,
         )
         connection = FakeConnection([row, row])
         result = list_review_queue(
@@ -227,7 +255,7 @@ class CandidateQueryTests(unittest.TestCase):
             candidate_id, uuid.uuid4(), uuid.uuid4(), "fnc-rec-exact-v1",
             list(RULES), 3, 1, uuid.uuid4(), "Ada Preparadora", now,
             None, None, None, None, None, None, uuid.uuid4(), uuid.uuid4(),
-            False,
+            False, None, None, None, None, None, None, None, None, None,
         )
         connection = FakeConnection([row])
 

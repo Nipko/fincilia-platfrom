@@ -21,7 +21,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from fincilia_contracts.errors import problem
 from fincilia_contracts.release import digest_of
 
-from . import repository
+from . import operating_profile, repository
 from .routes import principal_dependency
 from .security import Principal, ProblemError, company_context, forbidden, require
 
@@ -273,7 +273,7 @@ def list_proposals(connection: psycopg.Connection, *, dataset_id: str) -> list[d
             "o.proposed_value, o.reason_code, o.reason_comment, o.sequence, "
             "o.created_by, a.display_name, o.created_at, r.decision, r.reviewer_id, "
             "rv.display_name, r.rationale, r.reviewed_at, "
-            "ai.application_item_id, app.result_dataset_version_id "
+            "ai.application_item_id, app.result_dataset_version_id, r.review_mode "
             "FROM fincilia.field_overlay o "
             "JOIN fincilia.subject a ON a.subject_id = o.created_by "
             "LEFT JOIN fincilia.field_overlay_review r ON r.overlay_id = o.overlay_id "
@@ -296,7 +296,8 @@ def list_proposals(connection: psycopg.Connection, *, dataset_id: str) -> list[d
              "reviewer_id": str(row[12]) if row[12] else None,
              "reviewer_name": row[13], "review_rationale": row[14],
              "reviewed_at": row[15].isoformat() if row[15] else None,
-             "result_dataset_version_id": str(row[17]) if row[17] else None}
+             "result_dataset_version_id": str(row[17]) if row[17] else None,
+             "review_mode": row[18]}
             for row in rows]
 
 
@@ -323,7 +324,8 @@ def review(connection: psycopg.Connection, *, overlay_id: str, decision: str,
         row = cursor.fetchone()
         if row is None:
             raise CorrectionError("correction-unknown", "correction is unavailable")
-        if str(row[2]) == reviewer_id:
+        if str(row[2]) == reviewer_id and not operating_profile.allows_self_review(
+                connection, str(row[0])):
             raise CorrectionError("segregation-of-duties",
                                   "the author cannot review their own correction")
         if row[3] is not None:
@@ -332,13 +334,14 @@ def review(connection: psycopg.Connection, *, overlay_id: str, decision: str,
         cursor.execute(
             "INSERT INTO fincilia.field_overlay_review (company_id, overlay_id, "
             "decision, reviewer_id, rationale) VALUES (%s, %s, %s, %s, %s) "
-            "RETURNING review_id, reviewed_at",
+            "RETURNING review_id, reviewed_at, review_mode",
             (str(row[0]), overlay_id, decision, reviewer_id, rationale))
-        review_id, reviewed_at = cursor.fetchone()
+        review_id, reviewed_at, review_mode = cursor.fetchone()
     return {"review_id": str(review_id), "overlay_id": overlay_id,
             "dataset_version_id": str(row[1]), "decision": decision,
             "reviewer_id": reviewer_id, "rationale": rationale,
-            "reviewed_at": reviewed_at.isoformat(), "applied": False}
+            "reviewed_at": reviewed_at.isoformat(), "review_mode": review_mode,
+            "applied": False}
 
 
 class ProposalRequest(BaseModel):

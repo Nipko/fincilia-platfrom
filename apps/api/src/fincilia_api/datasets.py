@@ -58,6 +58,8 @@ from fincilia_contracts.release import (
     reproduction_key,
 )
 
+from . import operating_profile
+
 logger = logging.getLogger("fincilia.api.datasets")
 
 # Techo de una publicacion. Ya no es un numero arbitrario menor que el de la
@@ -699,8 +701,8 @@ def approved_release(connection: psycopg.Connection,
         raise PreparationError(
             "engine-release-not-approved",
             f"the engine release {release_key} is in {state}; publishing needs an "
-            "approved release, and approving one is a human decision this service "
-            "does not take")
+            "approved release, and approving one is a human decision of the "
+            "platform operator (ADR-039 §6), never of a company user")
     if not row[4] or row[6] is None:
         raise PreparationError(
             "engine-release-unattested",
@@ -826,6 +828,9 @@ def _preparation_context(connection: psycopg.Connection, *, company_id: str,
         "decisions": decisions,
         "release": release,
         "plan": plan,
+        # ADR-039 §5: una factura `partial` o un MT940 que no cuadra se extraen,
+        # pero su dataset nunca nace `verified` y no alimenta cruce ni cierre.
+        "source_verified": str(summary.get("source_status") or "complete") == "complete",
     }
 
 
@@ -1647,7 +1652,8 @@ def _finalise(database, *, company_id: str, subject_id: str, dataset_id: str,
                 "record_count = %s, movement_count = %s, rejected_count = %s, "
                 "validated_by = %s, validated_at = now() "
                 "WHERE dataset_version_id = %s AND state = 'staging'",
-                ("verified" if rejected == 0 else "mismatch", movements + rejected,
+                ("verified" if rejected == 0 and context.get("source_verified", True)
+                 else "mismatch", movements + rejected,
                  movements, rejected, subject_id, dataset_id))
 
     return Preparation(
@@ -1800,7 +1806,9 @@ def approve_override(connection: psycopg.Connection, *, override_id: str,
                     "dataset_version_id": str(dataset_version_id)}
         raise OverrideError("override-already-approved",
                             "this override already carries an approval")
-    if str(created_by) == subject_id:
+    # Perfil `simple`: el autor puede aprobar y la fila queda `self_reviewed`.
+    if (str(created_by) == subject_id
+            and operating_profile.scoped_profile(connection) != operating_profile.SIMPLE):
         raise OverrideError(
             "segregation-of-duties",
             "the subject who wrote this override cannot approve it")
@@ -1809,11 +1817,14 @@ def approve_override(connection: psycopg.Connection, *, override_id: str,
         cursor.execute(
             "UPDATE fincilia.lineage_row_override "
             "SET approved_by = %s, approved_at = now() "
-            "WHERE override_id = %s AND approved_by IS NULL",
+            "WHERE override_id = %s AND approved_by IS NULL "
+            "RETURNING review_mode",
             (subject_id, override_id))
+        updated = cursor.fetchone()
     return {"override_id": override_id, "field_name": field_name,
             "approved_by": subject_id,
-            "dataset_version_id": str(dataset_version_id)}
+            "dataset_version_id": str(dataset_version_id),
+            "review_mode": updated[0] if updated else None}
 
 
 def load_overrides(connection: psycopg.Connection, *, dataset_version_id: str,
@@ -1958,7 +1969,8 @@ def publication_blockers(connection: psycopg.Connection, *, dataset: dict[str, A
             f"a dataset in {state} cannot be published"))
         return tuple(blockers)
 
-    if str(dataset["prepared_by"]) == subject_id:
+    if (str(dataset["prepared_by"]) == subject_id
+            and operating_profile.scoped_profile(connection) != operating_profile.SIMPLE):
         blockers.append(PublicationBlocker(
             "segregation-of-duties",
             "the subject who prepared this version cannot publish it"))
@@ -2074,7 +2086,7 @@ def load_dataset(connection: psycopg.Connection,
             "       d.validated_by, d.published_by, d.published_at, "
             "       d.rejected_reason, d.canonical_schema_version, "
             "       e.release_key, m.reproduction_key, m.reproducible, "
-            "       m.locale, m.timezone, m.deterministic_config "
+            "       m.locale, m.timezone, m.deterministic_config, d.review_mode "
             "FROM fincilia.dataset_version d "
             "JOIN fincilia.engine_release e ON e.release_id = d.engine_release_id "
             "LEFT JOIN fincilia.reproducibility_manifest m "
@@ -2098,6 +2110,7 @@ def load_dataset(connection: psycopg.Connection,
             "reproduction_key": row[18], "reproducible": row[19],
             "locale": row[20], "timezone": row[21],
             "deterministic_config": row[22]},
+        "review_mode": row[23] if row[13] else None,
     }
 
 

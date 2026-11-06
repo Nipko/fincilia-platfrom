@@ -33,7 +33,8 @@ from . import (access, audit as audit_query, balance_reconciliation, balances, b
                close_period, close_readiness, close_review, datasets, exports, financial_lineage,
                notifications, onboarding, oidc, operations, quality, reconciliation, registration,
                reports, repository, platform_admin)
-from . import company_onboarding
+from . import company_onboarding, operating_profile, reconciliation_rules, templates
+from . import upload_schedule
 from .stripe_billing import StripeGatewayError
 from .issued_contexts import issue_context
 from .security import (Principal, ProblemError, company_context, current_principal,
@@ -100,6 +101,8 @@ class CompanyDetail(CompanySummary):
     engagement_id: str | None
     authorization_version: int
     permissions: list[str]
+    # ADR-039: `estricto` por defecto; se resuelve en la base, nunca en el cliente.
+    operating_profile: Literal["simple", "estricto"] = "estricto"
 
 
 class ManagedFirm(BaseModel):
@@ -135,6 +138,21 @@ class CompanyProvisionRequest(BaseModel):
     country_code: str = Field(min_length=2, max_length=2)
     tax_identifier: object
     setup: InitialCompanySetupRequest | None = None
+    # ADR-039: una sola pregunta en el alta. La banda sugiere el perfil y una
+    # eleccion explicita prevalece. Sin respuesta la API conserva `estricto`.
+    team_size_band: Literal["1-2", "3+"] | None = None
+    operating_profile: Literal["simple", "estricto"] | None = None
+
+
+class OperatingProfileChangeRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    operating_profile: Literal["simple", "estricto"]
+    reason: str = Field(min_length=10, max_length=500)
+
+
+class UploadScheduleRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    cadence: Literal["weekly", "biweekly", "monthly"]
 
 
 class CompanyProvisionResponse(CompanyDetail):
@@ -173,6 +191,9 @@ class MatchProposalRequest(BaseModel):
     left_movement_id: str = Field(min_length=36, max_length=36)
     right_movement_id: str = Field(min_length=36, max_length=36)
     max_days: int = Field(default=3, ge=0, le=31)
+    # ADR-039 §4: tolerancia explicita en texto decimal exacto; nunca float.
+    tolerance_amount: str | None = Field(default=None, max_length=32)
+    tolerance_percent: str | None = Field(default=None, max_length=16)
 
 
 class MatchDecisionRequest(BaseModel):
@@ -791,6 +812,77 @@ def platform_revoke_role(
     raise forbidden()
 
 
+class EngineReleaseApprovalRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    # El digest de lo que el operador vio en el listado. Si los componentes
+    # cambiaron entre la lectura y la firma, no se firma.
+    components_digest: str = Field(pattern=r"^[0-9a-f]{64}$")
+    approval_ref: str = Field(min_length=3, max_length=200)
+    rationale: str = Field(min_length=3, max_length=500)
+
+
+@router.get("/platform/engine-releases", tags=["platform"])
+def platform_engine_releases(
+        request: Request,
+        principal: Principal = Depends(principal_dependency),
+        ) -> list[dict]:
+    """Versiones del motor y su firma. Plano de plataforma, nunca de empresa."""
+    try:
+        with request.app.state.database.session(
+                subject_id=principal.subject_id) as connection:
+            return platform_admin.engine_releases(connection)
+    except psycopg.Error as error:
+        _platform_forbidden(error)
+    raise forbidden()
+
+
+@router.post("/platform/engine-releases/{release_key}/approval", tags=["platform"])
+def platform_approve_engine_release(
+        request: Request, release_key: str, body: EngineReleaseApprovalRequest,
+        principal: Principal = Depends(principal_dependency),
+        ) -> dict:
+    """Un operador o superadmin de plataforma aprueba lo que se le mostro.
+
+    ADR-039 §6: la empresa publica con la version vigente y nunca ve este paso.
+    """
+    if not re.fullmatch(r"[A-Za-z0-9._-]{3,120}", release_key):
+        raise ProblemError(problem(
+            "invalid-request", "Invalid request", 422,
+            "engine release key is invalid"))
+    try:
+        with request.app.state.database.session(
+                subject_id=principal.subject_id) as connection:
+            return platform_admin.approve_engine_release(
+                connection, release_key=release_key,
+                components_digest=body.components_digest,
+                approval_ref=body.approval_ref, rationale=body.rationale)
+    except LookupError:
+        raise ProblemError(problem(
+            "engine-release-unknown", "Engine release not found", 404,
+            "no engine release is registered with that key")) from None
+    except ValueError:
+        raise ProblemError(problem(
+            "engine-release-components-changed", "Components changed", 409,
+            "the components shown are not the components stored; review them "
+            "again before approving")) from None
+    except psycopg.errors.CheckViolation:
+        raise ProblemError(problem(
+            "engine-release-not-draft", "Engine release cannot be approved", 409,
+            "only a draft engine release whose components match what was shown "
+            "can be approved")) from None
+    except psycopg.errors.NoDataFound:
+        raise ProblemError(problem(
+            "engine-release-unknown", "Engine release not found", 404,
+            "no engine release is registered with that key")) from None
+    except psycopg.errors.InvalidParameterValue:
+        raise ProblemError(problem(
+            "invalid-request", "Invalid request", 422,
+            "engine release approval is invalid")) from None
+    except psycopg.Error as error:
+        _platform_forbidden(error)
+    raise forbidden()
+
+
 @router.get("/companies", response_model=list[CompanySummary], tags=["companies"])
 def list_companies(request: Request,
                          principal: Principal = Depends(principal_dependency),
@@ -1042,6 +1134,14 @@ def provision_company(
             grace_days=body.setup.grace_days,
         )
 
+    try:
+        initial_profile = operating_profile.resolve_initial_profile(
+            operating_profile=body.operating_profile,
+            team_size_band=body.team_size_band)
+    except operating_profile.OperatingProfileError as error:
+        raise ProblemError(problem(
+            error.code, "Company provisioning rejected", 422, error.detail)) from None
+
     settings = request.app.state.settings
     database = request.app.state.database
     company_id = str(uuid.uuid4())
@@ -1059,7 +1159,8 @@ def provision_company(
                 tax_identifier=tax_identifier,
                 idempotency_key=idempotency_key,
                 tokenization_key=settings.identifier_tokenization_key,
-                key_version=settings.identifier_key_version, setup=setup)
+                key_version=settings.identifier_key_version, setup=setup,
+                operating_profile=initial_profile)
     except company_onboarding.CompanyOnboardingError as error:
         failure = error
 
@@ -1115,13 +1216,130 @@ def read_company(request: Request, company_id: str,
             company_id=context.company_id, action="company.read",
             resource_kind="company", resource_ref=context.company_id,
             outcome="allowed", detail={"roles": list(context.roles)})
+        profile = operating_profile.current_profile(connection, context.company_id)
     return CompanyDetail(
         company_id=company.company_id, legal_name=company.legal_name,
         country_code=company.country_code, status=company.status,
         roles=list(context.roles), firm_id=context.firm_id,
         engagement_id=context.engagement_id,
         authorization_version=context.authorization_version,
-        permissions=sorted(context.permissions))
+        permissions=sorted(context.permissions),
+        operating_profile=profile)
+
+
+def _operating_profile_problem(
+        error: operating_profile.OperatingProfileError) -> ProblemError:
+    if error.status == 404:
+        return forbidden()
+    return ProblemError(problem(
+        error.code, "Operating profile request rejected", error.status, error.detail))
+
+
+@router.get("/companies/{company_id}/operating-profile", tags=["companies"])
+def read_operating_profile(
+        request: Request, company_id: str,
+        principal: Principal = Depends(principal_dependency)) -> dict:
+    """Perfil operativo vigente e historial (ADR-039)."""
+    context = company_context(request, principal, company_id)
+    require(context, "company.read")
+    with request.app.state.database.session(
+            company_id=context.company_id,
+            subject_id=principal.subject_id) as connection:
+        result = operating_profile.read_profile(
+            connection, company_id=context.company_id, roles=tuple(context.roles))
+        repository.record_audit(
+            connection, subject_id=principal.subject_id,
+            company_id=context.company_id, action="company.operating_profile.read",
+            resource_kind="company", resource_ref=context.company_id,
+            outcome="allowed", detail={"operating_profile": result["operating_profile"]})
+    return result
+
+
+@router.put("/companies/{company_id}/operating-profile", tags=["companies"])
+def change_operating_profile(
+        request: Request, company_id: str, body: OperatingProfileChangeRequest,
+        principal: Principal = Depends(principal_dependency)) -> dict:
+    """Solo el owner cambia el perfil; motivo obligatorio y auditoria."""
+    context = company_context(request, principal, company_id)
+    require(context, "company.read")
+    refusal: operating_profile.OperatingProfileError | None = None
+    result: dict | None = None
+    with request.app.state.database.session(
+            company_id=context.company_id,
+            subject_id=principal.subject_id) as connection:
+        try:
+            result = operating_profile.change_profile(
+                connection, company_id=context.company_id,
+                actor_id=principal.subject_id, roles=tuple(context.roles),
+                operating_profile=body.operating_profile, reason=body.reason)
+        except operating_profile.OperatingProfileError as error:
+            refusal = error
+            repository.record_audit(
+                connection, subject_id=principal.subject_id,
+                company_id=context.company_id,
+                action="company.operating_profile.change",
+                resource_kind="company", resource_ref=context.company_id,
+                outcome="denied", detail={"reason": error.code})
+    if refusal is not None:
+        raise _operating_profile_problem(refusal)
+    if result is None:
+        raise RuntimeError("operating profile change completed without a result")
+    return result
+
+
+def _upload_schedule_problem(error: upload_schedule.UploadScheduleError) -> ProblemError:
+    return ProblemError(problem(
+        error.code, "Upload schedule request rejected", error.status, error.detail))
+
+
+@router.get("/companies/{company_id}/upload-schedule", tags=["companies"])
+def read_upload_schedule(
+        request: Request, company_id: str,
+        principal: Principal = Depends(principal_dependency)) -> dict:
+    """«¿Cada cuanto subes tu extracto?» y el estado del periodo vigente."""
+    context = company_context(request, principal, company_id)
+    require(context, "company.read")
+    with request.app.state.database.session(
+            company_id=context.company_id,
+            subject_id=principal.subject_id) as connection:
+        return upload_schedule.read_schedule(
+            connection, company_id=context.company_id, roles=tuple(context.roles))
+
+
+@router.put("/companies/{company_id}/upload-schedule", tags=["companies"])
+def change_upload_schedule(
+        request: Request, company_id: str, body: UploadScheduleRequest,
+        principal: Principal = Depends(principal_dependency)) -> dict:
+    """Solo el owner cambia la cadencia; queda auditada y en historial."""
+    context = company_context(request, principal, company_id)
+    require(context, "company.read")
+    refusal: upload_schedule.UploadScheduleError | None = None
+    result: dict | None = None
+    with request.app.state.database.session(
+            company_id=context.company_id,
+            subject_id=principal.subject_id) as connection:
+        try:
+            result = upload_schedule.change_schedule(
+                connection, company_id=context.company_id,
+                actor_id=principal.subject_id, roles=tuple(context.roles),
+                cadence=body.cadence)
+            if result["changed"]:
+                upload_schedule.sync_upload_reminder(
+                    connection, company_id=context.company_id,
+                    subject_id=principal.subject_id)
+        except upload_schedule.UploadScheduleError as error:
+            refusal = error
+            repository.record_audit(
+                connection, subject_id=principal.subject_id,
+                company_id=context.company_id,
+                action="company.upload_schedule.change", resource_kind="company",
+                resource_ref=context.company_id, outcome="denied",
+                detail={"reason": error.code})
+    if refusal is not None:
+        raise _upload_schedule_problem(refusal)
+    if result is None:
+        raise RuntimeError("upload schedule change completed without a result")
+    return result
 
 
 @router.get("/companies/{company_id}/audit", response_model=list[AuditEvent],
@@ -1727,6 +1945,117 @@ def preview_canonical_mapping(request: Request, company_id: str, artifact_id: st
                     "range_rows": result["range_record_count"],
                     "blockers": len(result["blockers"])})
     return result
+
+
+class TemplateMappingRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    data_source_id: str = Field(min_length=36, max_length=36)
+    # Validar en el mismo paso solo si no queda ningun bloqueo; si queda alguno,
+    # el mapeo queda en borrador y la respuesta lo enumera.
+    validate_when_clear: bool = False
+
+
+@router.get("/companies/{company_id}/documents/{artifact_id}/template-detection",
+            tags=["mapping"])
+def detect_document_template(request: Request, company_id: str, artifact_id: str,
+                             principal: Principal = Depends(
+                                 principal_dependency)) -> dict:
+    """Plantilla bancaria o formato conocido detectado, sin escribir nada."""
+    context = company_context(request, principal, company_id)
+    require(context, "dataset.map")
+    database = request.app.state.database
+    with database.session(company_id=context.company_id,
+                          subject_id=principal.subject_id) as connection:
+        _artifact_or_forbidden(connection, artifact_id)
+        detection = templates.detect(connection, artifact_id=artifact_id)
+    detection.pop("run_id", None)
+    return detection
+
+
+@router.post("/companies/{company_id}/documents/{artifact_id}/template-mapping",
+             tags=["mapping"], status_code=201)
+def create_template_mapping(request: Request, company_id: str, artifact_id: str,
+                            body: TemplateMappingRequest,
+                            principal: Principal = Depends(
+                                principal_dependency)) -> dict:
+    """Crea el mapeo propuesto cuando la deteccion es inequivoca.
+
+    Si no lo es responde 409 `template-not-detected` y el mapeo manual sigue
+    siendo el camino. El mapeo creado pasa por los mismos bloqueos que uno
+    escrito a mano: la plantilla ahorra el trabajo, no la revision.
+    """
+    context = company_context(request, principal, company_id)
+    require(context, "dataset.map")
+    database = request.app.state.database
+    with database.session(company_id=context.company_id,
+                          subject_id=principal.subject_id) as connection:
+        _artifact_or_forbidden(connection, artifact_id)
+        _source_or_forbidden(connection, body.data_source_id)
+        detection = templates.detect(connection, artifact_id=artifact_id)
+        if detection["status"] != "ready" or not detection.get("definition"):
+            raise ProblemError(problem(
+                "template-not-detected", "No unambiguous template", 409,
+                "no template matches this document unambiguously; map the "
+                "columns manually", template=detection.get("template"),
+                findings=detection.get("findings") or []))
+        definition = dict(detection["definition"])
+        template = detection["template"] or {}
+        profile_run = datasets.latest_run(connection, artifact_id, "profile")
+        profile = (profile_run or {}).get("result") or {}
+        source_schema = datasets.schema_digest(profile)
+        display_name = templates.template_display_name(
+            str(template.get("template_id") or "documento"), body.data_source_id)
+        mapping_id = templates.existing_template_mapping(
+            connection, data_source_id=body.data_source_id,
+            display_name=display_name)
+        try:
+            if mapping_id is None:
+                created = datasets.create_mapping(
+                    connection, company_id=context.company_id,
+                    data_source_id=body.data_source_id, artifact_id=artifact_id,
+                    display_name=display_name, definition=definition,
+                    subject_id=principal.subject_id, source_schema=source_schema)
+                created["replayed"] = False
+            else:
+                created = datasets.create_mapping_version(
+                    connection, company_id=context.company_id,
+                    mapping_id=mapping_id, artifact_id=artifact_id,
+                    definition=definition, subject_id=principal.subject_id,
+                    source_schema=source_schema)
+        except (datasets.MappingReferenceRefused, datasets.MappingNameConflict):
+            raise forbidden() from None
+        except datasets.MappingSchemaDrift:
+            raise ProblemError(problem(
+                "mapping-template-schema-drift", "Template is not compatible", 409,
+                "the document schema differs from the latest version of this "
+                "source's template")) from None
+        mapping = datasets.mapping_from_definition(definition)
+        blockers = datasets.blockers_for(mapping, profile, [], definition)
+        extract_run = datasets.latest_run(connection, artifact_id, "extract")
+        if extract_run is not None:
+            blockers.extend(datasets.range_blockers(
+                mapping, datasets.count_records(connection, extract_run["run_id"])))
+        validated = False
+        if body.validate_when_clear and not blockers:
+            datasets.validate_mapping_version(
+                connection, mapping_version_id=created["mapping_version_id"],
+                subject_id=principal.subject_id)
+            validated = True
+        repository.record_audit(
+            connection, subject_id=principal.subject_id,
+            company_id=context.company_id, action="dataset.map",
+            resource_kind="mapping", resource_ref=created["mapping_version_id"],
+            outcome="allowed", detail={
+                "artifact": artifact_id, "template": template.get("template_id"),
+                "template_source": template.get("source"),
+                "replayed": bool(created.get("replayed")),
+                "validated": validated, "blockers": len(blockers)})
+        version = datasets.load_mapping_version(
+            connection, created["mapping_version_id"]) or {}
+    return {**created, "state": version.get("state", created.get("state")),
+            "template": template, "definition": definition,
+            "blockers": blockers, "validated": validated}
 
 
 @router.post("/companies/{company_id}/mappings", tags=["mapping"], status_code=201)
@@ -2363,8 +2692,9 @@ def reconciliation_candidates(
         max_days: int = reconciliation.DEFAULT_DATE_WINDOW_DAYS,
         reference_mode: str = "all",
         offset: int = 0, limit: int = reconciliation.DEFAULT_CANDIDATE_LIMIT,
+        tolerance_amount: str | None = None, tolerance_percent: str | None = None,
         principal: Principal = Depends(principal_dependency)) -> dict:
-    """Explora hipotesis exactas; nunca confirma ni persiste un match."""
+    """Explora hipotesis explicables; nunca confirma ni persiste un match."""
     context = company_context(request, principal, company_id)
     require(context, "movement.read")
     # El gate de Settings hace hoy imposible encender datos reales. Esta guarda
@@ -2382,7 +2712,9 @@ def reconciliation_candidates(
             return reconciliation.explore_candidates(
                 connection, left_dataset_id=left_dataset_id,
                 right_dataset_id=right_dataset_id, max_days=max_days,
-                offset=offset, limit=limit, reference_mode=reference_mode)
+                offset=offset, limit=limit, reference_mode=reference_mode,
+                tolerance_amount=tolerance_amount,
+                tolerance_percent=tolerance_percent)
         except reconciliation.CandidateQueryError as error:
             if error.code == "candidate-scope-unavailable":
                 raise forbidden() from None
@@ -2448,6 +2780,56 @@ def reconciliation_review_queue(
             raise _review_problem(error) from None
 
 
+@router.get("/companies/{company_id}/reconciliation/unmatched",
+            tags=["reconciliation"])
+def reconciliation_unmatched(
+        request: Request, company_id: str, left_dataset_id: str,
+        right_dataset_id: str, offset: int = 0, limit: int = 50,
+        principal: Principal = Depends(principal_dependency)) -> dict:
+    """Movimientos sin confirmacion vigente de un par de datasets elegibles."""
+    context = company_context(request, principal, company_id)
+    require(context, "movement.read")
+    _synthetic_reconciliation_only(request)
+    with request.app.state.database.session(
+            company_id=context.company_id,
+            subject_id=principal.subject_id) as connection:
+        try:
+            return reconciliation.list_unmatched(
+                connection, left_dataset_id=left_dataset_id,
+                right_dataset_id=right_dataset_id, offset=offset, limit=limit)
+        except reconciliation.CandidateQueryError as error:
+            if error.code == "candidate-scope-unavailable":
+                raise forbidden() from None
+            raise ProblemError(problem(
+                error.code, "Unmatched request invalid", 422, error.detail)) from None
+
+
+@router.get("/companies/{company_id}/reconciliation/summary",
+            tags=["reconciliation"])
+def reconciliation_period_summary(
+        request: Request, company_id: str, period_start: dt.date | None = None,
+        period_end: dt.date | None = None,
+        principal: Principal = Depends(principal_dependency)) -> dict:
+    """Conteos del periodo (por defecto, el mes en curso). Nunca importes."""
+    context = company_context(request, principal, company_id)
+    require(context, "movement.read")
+    _synthetic_reconciliation_only(request)
+    today = dt.datetime.now(dt.timezone.utc).date()
+    start = period_start or today.replace(day=1)
+    end = period_end or (
+        (start.replace(day=1) + dt.timedelta(days=32)).replace(day=1)
+        - dt.timedelta(days=1))
+    with request.app.state.database.session(
+            company_id=context.company_id,
+            subject_id=principal.subject_id) as connection:
+        try:
+            return reconciliation.reconciliation_summary(
+                connection, period_start=start, period_end=end)
+        except reconciliation.CandidateQueryError as error:
+            raise ProblemError(problem(
+                error.code, "Summary request invalid", 422, error.detail)) from None
+
+
 @router.get("/companies/{company_id}/reconciliation/reviews/{candidate_id}",
             tags=["reconciliation"])
 def reconciliation_review(
@@ -2490,7 +2872,8 @@ def propose_reconciliation_review(
                 right_dataset_id=body.right_dataset_id,
                 left_movement_id=body.left_movement_id,
                 right_movement_id=body.right_movement_id,
-                max_days=body.max_days)
+                max_days=body.max_days, tolerance_amount=body.tolerance_amount,
+                tolerance_percent=body.tolerance_percent)
         except (reconciliation.ReviewCommandError,
                 reconciliation.CandidateQueryError) as error:
             refusal = error
@@ -2541,6 +2924,216 @@ def decide_reconciliation_review(
     if result is None:
         raise RuntimeError("review decision completed without a result")
     return result
+
+
+# --------------------------------------------------------------------------- #
+# Reglas de conciliacion aprobadas (ADR-039 §4, FNC-SMB-003)
+# --------------------------------------------------------------------------- #
+
+class RuleConditionsBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    description_contains: str = Field(min_length=3, max_length=200)
+    financial_account_id: str | None = Field(default=None, min_length=36, max_length=36)
+    direction: Literal["inflow", "outflow"] | None = None
+    # Texto decimal exacto: nunca float.
+    max_amount_difference: str = Field(default="0", max_length=32)
+    currency: str = Field(min_length=3, max_length=3)
+
+
+class RuleCreateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    conditions: RuleConditionsBody
+    created_from_decision_id: str | None = Field(default=None, min_length=36,
+                                                 max_length=36)
+
+
+class RuleProposalRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    decision_id: str = Field(min_length=36, max_length=36)
+
+
+class RuleStatusRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    action: Literal["pause", "resume", "retire"]
+
+
+class RuleApplyRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    left_dataset_id: str = Field(min_length=36, max_length=36)
+    right_dataset_id: str = Field(min_length=36, max_length=36)
+    max_days: int = Field(default=3, ge=0, le=31)
+
+
+class DecisionReversalRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    reason_code: str = Field(min_length=3, max_length=80)
+
+
+def _rule_problem(error: reconciliation_rules.RuleCommandError) -> ProblemError:
+    if error.status == 403:
+        return forbidden()
+    if error.status == 404:
+        return ProblemError(problem(error.code, "Reconciliation rule unavailable",
+                                    404, error.detail))
+    return ProblemError(problem(error.code, "Reconciliation rule rejected",
+                                error.status, error.detail))
+
+
+def _rule_command(request: Request, principal: Principal, company_id: str, *,
+                  permissions: tuple[str, ...], audit_action: str,
+                  resource_ref: str, run) -> dict:
+    context = company_context(request, principal, company_id)
+    require(context, "movement.read")
+    for permission in permissions:
+        require(context, permission)
+    _synthetic_reconciliation_only(request)
+    key = request.headers.get("idempotency-key", "")
+    refusal: reconciliation_rules.RuleCommandError | None = None
+    result: dict | None = None
+    with request.app.state.database.session(
+            company_id=context.company_id,
+            subject_id=principal.subject_id) as connection:
+        try:
+            result = run(connection, context.company_id, key)
+        except reconciliation_rules.RuleCommandError as error:
+            refusal = error
+            repository.record_audit(
+                connection, subject_id=principal.subject_id,
+                company_id=context.company_id, action=audit_action,
+                resource_kind="reconciliation_rule", resource_ref=resource_ref[:80],
+                outcome="denied", detail={"reason": error.code})
+    if refusal is not None:
+        raise _rule_problem(refusal)
+    if result is None:
+        raise RuntimeError("rule command completed without a result")
+    return result
+
+
+@router.get("/companies/{company_id}/reconciliation/rules", tags=["reconciliation"])
+def list_reconciliation_rules(
+        request: Request, company_id: str, status: str | None = None,
+        limit: int = 100,
+        principal: Principal = Depends(principal_dependency)) -> list[dict]:
+    context = company_context(request, principal, company_id)
+    require(context, "movement.read")
+    _synthetic_reconciliation_only(request)
+    with request.app.state.database.session(
+            company_id=context.company_id,
+            subject_id=principal.subject_id) as connection:
+        try:
+            return reconciliation_rules.list_rules(connection, status=status,
+                                                   limit=limit)
+        except reconciliation_rules.RuleCommandError as error:
+            raise _rule_problem(error) from None
+
+
+@router.get("/companies/{company_id}/reconciliation/rules/{rule_id}",
+            tags=["reconciliation"])
+def read_reconciliation_rule(
+        request: Request, company_id: str, rule_id: str,
+        principal: Principal = Depends(principal_dependency)) -> dict:
+    context = company_context(request, principal, company_id)
+    require(context, "movement.read")
+    _synthetic_reconciliation_only(request)
+    with request.app.state.database.session(
+            company_id=context.company_id,
+            subject_id=principal.subject_id) as connection:
+        try:
+            return reconciliation_rules.get_rule(connection, rule_id=rule_id)
+        except reconciliation_rules.RuleCommandError as error:
+            raise _rule_problem(error) from None
+
+
+@router.post("/companies/{company_id}/reconciliation/rules/proposal",
+             tags=["reconciliation"])
+def propose_reconciliation_rule(
+        request: Request, company_id: str, body: RuleProposalRequest,
+        principal: Principal = Depends(principal_dependency)) -> dict:
+    """«¿Aplicar siempre?»: condiciones pre-rellenadas. No escribe nada."""
+    context = company_context(request, principal, company_id)
+    require(context, "movement.read")
+    require(context, "match.propose")
+    _synthetic_reconciliation_only(request)
+    with request.app.state.database.session(
+            company_id=context.company_id,
+            subject_id=principal.subject_id) as connection:
+        try:
+            return reconciliation_rules.propose_from_decision(
+                connection, company_id=context.company_id,
+                decision_id=body.decision_id)
+        except reconciliation_rules.RuleCommandError as error:
+            raise _rule_problem(error) from None
+
+
+@router.post("/companies/{company_id}/reconciliation/rules", tags=["reconciliation"],
+             status_code=201)
+def create_reconciliation_rule(
+        request: Request, company_id: str, body: RuleCreateRequest,
+        principal: Principal = Depends(principal_dependency)) -> dict:
+    return _rule_command(
+        request, principal, company_id, permissions=("match.propose",),
+        audit_action="match.rule.create", resource_ref="unmaterialized",
+        run=lambda connection, scoped, key: reconciliation_rules.create_rule(
+            connection, company_id=scoped, actor_id=principal.subject_id,
+            idempotency_key=key, conditions=body.conditions.model_dump(),
+            created_from_decision_id=body.created_from_decision_id))
+
+
+@router.post("/companies/{company_id}/reconciliation/rules/apply",
+             tags=["reconciliation"])
+def apply_reconciliation_rules(
+        request: Request, company_id: str, body: RuleApplyRequest,
+        principal: Principal = Depends(principal_dependency)) -> dict:
+    """Aplica las reglas activas a un par de datasets verificados."""
+    return _rule_command(
+        request, principal, company_id, permissions=("match.propose",),
+        audit_action="match.rule.apply", resource_ref=body.left_dataset_id,
+        run=lambda connection, scoped, key: reconciliation_rules.apply_rules(
+            connection, company_id=scoped, actor_id=principal.subject_id,
+            idempotency_key=key, left_dataset_id=body.left_dataset_id,
+            right_dataset_id=body.right_dataset_id, max_days=body.max_days))
+
+
+@router.post("/companies/{company_id}/reconciliation/rules/{rule_id}/approval",
+             tags=["reconciliation"])
+def approve_reconciliation_rule(
+        request: Request, company_id: str, rule_id: str,
+        principal: Principal = Depends(principal_dependency)) -> dict:
+    return _rule_command(
+        request, principal, company_id, permissions=("match.confirm",),
+        audit_action="match.rule.approve", resource_ref=rule_id,
+        run=lambda connection, scoped, key: reconciliation_rules.approve_rule(
+            connection, company_id=scoped, actor_id=principal.subject_id,
+            idempotency_key=key, rule_id=rule_id))
+
+
+@router.post("/companies/{company_id}/reconciliation/rules/{rule_id}/status",
+             tags=["reconciliation"])
+def change_reconciliation_rule_status(
+        request: Request, company_id: str, rule_id: str, body: RuleStatusRequest,
+        principal: Principal = Depends(principal_dependency)) -> dict:
+    return _rule_command(
+        request, principal, company_id, permissions=("match.confirm",),
+        audit_action=f"match.rule.{body.action}", resource_ref=rule_id,
+        run=lambda connection, scoped, key: reconciliation_rules.transition_rule(
+            connection, company_id=scoped, actor_id=principal.subject_id,
+            idempotency_key=key, rule_id=rule_id, action=body.action))
+
+
+@router.post("/companies/{company_id}/reconciliation/decisions/{decision_id}/reversal",
+             tags=["reconciliation"])
+def revert_reconciliation_decision(
+        request: Request, company_id: str, decision_id: str,
+        body: DecisionReversalRequest,
+        principal: Principal = Depends(principal_dependency)) -> dict:
+    """Deshace una aplicacion de regla. La decision original se conserva."""
+    return _rule_command(
+        request, principal, company_id, permissions=("match.reject",),
+        audit_action="match.rule.revert", resource_ref=decision_id,
+        run=lambda connection, scoped, key: reconciliation_rules.revert_decision(
+            connection, company_id=scoped, actor_id=principal.subject_id,
+            idempotency_key=key, decision_id=decision_id,
+            reason_code=body.reason_code))
 
 
 @router.get("/companies/{company_id}/reconciliation/group-proposals",
@@ -3119,6 +3712,12 @@ def sync_notification_reminders(
             subject_id=principal.subject_id,
             evaluated_at=dt.datetime.now(dt.timezone.utc),
             provider_ready=provider_ready)
+        # FNC-SMB-006: el recordatorio de carga usa el mismo mecanismo, pero es
+        # solo en la app (ADR-037 sigue sin adaptadores externos para el).
+        uploads = upload_schedule.sync_upload_reminder(
+            connection, company_id=context.company_id,
+            subject_id=principal.subject_id)
+        result = {key: result[key] + uploads[key] for key in result}
         repository.record_audit(
             connection, subject_id=principal.subject_id,
             company_id=context.company_id, action="notification.reminders.sync",
@@ -3359,6 +3958,9 @@ def _close_period_problem(error: close_period.ClosePeriodError) -> ProblemError:
         "accounting-period-segregation-of-duties",
         "accounting-period-evidence-stale",
         "accounting-period-reopen-already-decided",
+        "accounting-period-already-certified",
+        "accounting-period-certification-unavailable",
+        "accounting-period-certifier-ineligible",
     }
     status = 409 if error.code in conflicts else 422
     return ProblemError(problem(
@@ -3502,6 +4104,41 @@ def decide_accounting_period_reopen(
         raise _close_period_problem(refusal)
     if result is None:
         raise RuntimeError("reopen decision completed without a result")
+    if result["replayed"]:
+        response.status_code = 200
+    return result
+
+
+@router.post("/companies/{company_id}/accounting-periods/{close_id}/certification",
+             tags=["accounting-periods"], status_code=201)
+def certify_accounting_period(
+        request: Request, response: Response, company_id: str, close_id: str,
+        principal: Principal = Depends(principal_dependency)) -> dict:
+    """Certificacion independiente de un cierre autorrevisado (ADR-039 §3)."""
+    context = company_context(request, principal, company_id)
+    require(context, "close.approve")
+    _close_review_synthetic_only(request)
+    refusal: close_period.ClosePeriodError | None = None
+    result: dict[str, object] | None = None
+    with request.app.state.database.session(
+            company_id=context.company_id,
+            subject_id=principal.subject_id) as connection:
+        try:
+            result = close_period.certify_close(
+                connection, company_id=context.company_id,
+                actor_id=principal.subject_id, close_id=close_id)
+        except close_period.ClosePeriodError as error:
+            refusal = error
+            reference = close_id if len(close_id) <= 80 else "invalid"
+            repository.record_audit(
+                connection, subject_id=principal.subject_id,
+                company_id=context.company_id, action="accounting.period.certify",
+                resource_kind="accounting_period", resource_ref=reference,
+                outcome="denied", detail={"reason": error.code})
+    if refusal is not None:
+        raise _close_period_problem(refusal)
+    if result is None:
+        raise RuntimeError("accounting period certification completed without a result")
     if result["replayed"]:
         response.status_code = 200
     return result
