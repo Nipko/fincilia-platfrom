@@ -1,5 +1,21 @@
 # Dónde retomar
 
+## Estado vigente (2026-11-04)
+
+| Campo | Valor |
+|---|---|
+| Rama de trabajo | `feat/pyme-modo-simple` desde `main` `b3f5110` |
+| Migraciones en `main` | `V0001`–`V0066`; FNC-SMB-001 añade `V0067` |
+| Decisión vigente | FNC-PRD-002: pyme directa con perfiles `simple`/`estricto` (ADR-039) |
+| En curso | FNC-SMB-001 perfiles y modos de revisión; FNC-SMB-002 facturas DIAN, MT940 y plantillas bancarias |
+| Siguiente | FNC-SMB-003 tolerancias y reglas aprobadas; FNC-SMB-004 flujo de tres pasos; FNC-SMB-005 motor sin CLI |
+| PostgreSQL local | Docker dentro de WSL (`wsl docker compose -f infra/local/compose.yaml ...`) |
+| Gates | S1-READY, DRG-00, DRG-01 y GA-01 siguen `not_met` |
+
+La tabla siguiente es histórica (P3.6-R2) y se conserva como evidencia.
+
+## Histórico P3.6-R2
+
 | Campo | Valor |
 |---|---|
 | Rama | `claude/principal-dev` |

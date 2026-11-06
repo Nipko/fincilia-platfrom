@@ -205,6 +205,13 @@ Hasta S1-READY solo se admite scaffolding, automatización, pruebas, documentaci
 | FNC-SEC-003 | Diseño ejecutable del laboratorio aislado para corpus real | Review pending | Codex + Integration Steward | 37 controles, 6 zonas, 12 casos y 34 pruebas; IdP/proveedor/región/despliegue/evidencia siguen pendientes y datos reales prohibidos |
 | FNC-GAT-008 | Estado funcional ejecutable de plataforma web | Review pending | Codex + Integration Steward | 12 dominios/100 puntos: 98 % implementación, 62 % aceptación sintética y 30 % operabilidad productiva; mobile fuera del denominador |
 | FNC-QA-011 | Aislamiento determinista de la suite PostgreSQL integral | Review pending | Codex + Integration Steward | 431 pruebas PostgreSQL repetibles en volumen persistente; reset vacío V0066 verificado; revisión QA/Database pendiente |
+| FNC-PRD-002 | Pyme directa y perfiles operativos Simple/Estricto | Accepted por FOUNDER-01 | Integration Steward | Decisión en `docs/implementation/decision_requests/FNC-PRD-002-PYME-OPERATING-PROFILES.md`; ADR-039; revisión independiente pendiente |
+| FNC-SMB-001 | Perfil operativo por empresa, modos de revisión y certificación posterior del cierre | Review pending | Claude + Integration Steward | V0067; SoD por perfil en 9 tablas, `estricto` sin cambios de errcode; certificación append-only; revisión Security/Database/Accounting pendiente |
+| FNC-SMB-002 | Facturas DIAN UBL, MT940 y plantillas bancarias | Review pending | Claude + Integration Steward | V0068 y `scan-7`; 5 plantillas `synthetic_hypothesis` sin columnas públicas verificadas; calibración requiere DRG-00 |
+| FNC-SMB-003 | Cruce con tolerancias, explicación llana y reglas aprobadas | Review pending | Claude + Integration Steward | V0069; reglas versionadas, `approved_rule` solo con regla activa y fuentes verificadas; reversión append-only |
+| FNC-SMB-004 | Flujo pyme de tres pasos y bandeja de pendientes | Review pending | Claude + Integration Steward | Inicio Simple, ajustes de perfil, bandeja, reglas, oferta de plantilla; Playwright 52 e2e + 30 a11y verdes en proyecto aislado |
+| FNC-SMB-005 | Aprobación del motor sin CLI para el usuario final | Review pending | Claude + Integration Steward | V0070; aprobación por operador de plataforma (SECURITY DEFINER) |
+| FNC-SMB-006 | Buzón de extractos, programación y resúmenes | Review pending | Claude + Integration Steward | V0071; cadencia y recordatorios solo in-app; buzón de correo y canales externos siguen pendientes por DRG-00/ADR-037 |
 
 Solo el Integration Steward modifica esta tabla.
 
