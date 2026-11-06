@@ -532,6 +532,14 @@
       "reason": "revelar solo si una version comercial posee un price_id Stripe activo, sin exponer la referencia exacta al catalogo ni al navegador",
       "gate": "DB-G03",
       "human_review_state": "pending"
+    },
+    {
+      "function": "fincilia.platform_admin_approve_engine_release",
+      "owner_role": "fincilia_identity",
+      "granted_to": ["fincilia_app", "fincilia_migrator"],
+      "reason": "aprobar desde el plano de plataforma una version del motor en borrador, exigiendo rol operador o superadmin y los componentes mostrados, sin abrir engine_release al runtime",
+      "gate": "DB-G03",
+      "human_review_state": "pending"
     }
   ]
 }
