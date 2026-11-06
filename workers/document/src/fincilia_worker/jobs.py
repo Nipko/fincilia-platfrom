@@ -30,7 +30,9 @@ from dataclasses import dataclass
 
 import psycopg
 
+from fincilia_contracts.dian_invoice import DianInvoiceError
 from fincilia_contracts.extraction import ExtractionError
+from fincilia_contracts.mt940 import MT940Error
 from fincilia_contracts.ingestion import RejectedUpload, decide_promotion
 from fincilia_contracts.open_document import OpenDocumentError
 from fincilia_contracts.pdf_document import OcrDocument, PdfError, inspect_pdf
@@ -55,7 +57,20 @@ UNKNOWN = "unknown"
 # sobre el mismo artefacto es una sola decision, y reejecutarlo no crea otra.
 # Cuando el escaner cambie de verdad, esto sube y la decision se puede revisar
 # sin reescribir la anterior.
-SCANNER_RELEASE = "scan-6"
+#
+# scan-7 (FNC-SMB-002): la factura DIAN UBL y el MT940 se promueven y se
+# extraen. Un artefacto evaluado por scan-6 se puede reevaluar sin reescribir
+# su decision anterior.
+SCANNER_RELEASE = "scan-7"
+
+# Formatos estructurados con extractor propio. V0068 admite sus localizadores
+# (`xml_element`, `mt940_tag`) en `raw_record`; ninguno se lee como CSV.
+STRUCTURED_TYPES = frozenset({"dian_invoice", "mt940"})
+
+# Ningun formato promovido queda hoy sin extractor. Se conserva el conjunto, y
+# su rama de fallo cerrado, para el proximo formato que llegue antes que su
+# localizador.
+STRUCTURED_PENDING: frozenset[str] = frozenset()
 
 
 @dataclass(frozen=True)
@@ -127,7 +142,18 @@ def run_profile(payload: bytes, *,
     transcribiera datos seria una copia parcial del documento viviendo donde vive
     el metadato, con otras reglas de acceso.
     """
+    if internal_type in STRUCTURED_PENDING:
+        # Perfilarlo como texto delimitado inventaria columnas que no existen.
+        return None, "structured_extractor_pending", FATAL
     try:
+        if internal_type == "dian_invoice":
+            from fincilia_contracts.structured_rows import profile_invoice
+
+            return profile_invoice(payload), None, None
+        if internal_type == "mt940":
+            from fincilia_contracts.structured_rows import profile_mt940
+
+            return profile_mt940(payload), None, None
         if internal_type == "xlsx":
             from fincilia_contracts.profiling import profile_workbook
 
@@ -172,7 +198,7 @@ def run_profile(payload: bytes, *,
             }, None, None
         else:
             table = profile(payload)
-    except UnprofilableFile as error:
+    except (UnprofilableFile, DianInvoiceError, MT940Error) as error:
         # El fichero es el que es: reintentarlo dara lo mismo.
         logger.warning("unprofilable artifact: %s", error)
         return None, "unprofilable", FATAL
@@ -192,6 +218,10 @@ class RawRecordConflict(RuntimeError):
     Reintentar no lo arregla —volveria a divergir— y quedarse con una de las dos
     en silencio deja publicada una evidencia que nadie eligio.
     """
+
+
+class StructuredExtractorPending(RuntimeError):
+    """El formato se inspecciono entero, pero su extraccion aun no se guarda."""
 
 
 class StaleLease(RuntimeError):
@@ -218,8 +248,12 @@ def classify_extraction(error: Exception) -> tuple[str, str]:
         # Lo que hace falta es que alguien mire por que dos lecturas del mismo
         # tramo no coinciden.
         return "raw_record_conflict", FATAL
+    if isinstance(error, StructuredExtractorPending):
+        # No es un fichero roto: falta el localizador en la base. Reintentar no
+        # lo arregla y adivinar una tabla tampoco.
+        return "structured_extractor_pending", FATAL
     if isinstance(error, (ExtractionError, SpreadsheetError, OpenDocumentError,
-                          PdfError)):
+                          PdfError, DianInvoiceError, MT940Error)):
         # El fichero es el que es: releerlo dara lo mismo.
         logger.warning("unextractable artifact: %s", error)
         return "unextractable", FATAL

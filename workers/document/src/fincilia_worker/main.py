@@ -430,7 +430,25 @@ def _extract_streaming(database: Database, store, claim: "jobs.Claim") -> bool:
         outcome = StreamOutcome()
         stream = None
         try:
-            if artifact["internal_type"] in {"xlsx", "ods", "pdf"}:
+            if artifact["internal_type"] in jobs.STRUCTURED_PENDING:
+                raise jobs.StructuredExtractorPending(artifact["internal_type"])
+            if artifact["internal_type"] in jobs.STRUCTURED_TYPES:
+                # Factura DIAN y MT940: el documento se lee entero con el parser
+                # acotado que ya decidio su promocion, y cada hecho sale como
+                # un registro con localizador `xml_element` o `mt940_tag`.
+                from fincilia_contracts.structured_rows import (
+                    stream_invoice_rows,
+                    stream_mt940_rows,
+                )
+
+                payload = store.get("raw", artifact["object_key"])
+                streamer = (stream_invoice_rows
+                            if artifact["internal_type"] == "dian_invoice"
+                            else stream_mt940_rows)
+                rows, result = streamer(
+                    payload, artifact_sha256=artifact["content_sha256"])
+                written = _store_stream(database, claim, artifact, rows)
+            elif artifact["internal_type"] in {"xlsx", "ods", "pdf"}:
                 if artifact["internal_type"] == "ods":
                     from fincilia_contracts.open_document import (
                         OpenDocumentOutcome,
