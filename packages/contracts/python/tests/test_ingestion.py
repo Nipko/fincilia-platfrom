@@ -30,6 +30,7 @@ from fincilia_contracts.ingestion import (ACCEPTED_MEDIA_TYPES, FULLY_INSPECTABL
                                           sha256_bytes)
 from xlsx_factory import build_xlsx
 from ods_factory import build_ods
+import structured_factory
 
 CSV = b"fecha,descripcion,valor\n2026-01-02,Pago proveedor,-125000.00\n"
 NEWLINE = b"\n"
@@ -376,7 +377,8 @@ class PromotionTests(unittest.TestCase):
     def test_only_what_can_be_read_whole_is_promotable(self) -> None:
         # Si esta lista creciera sin un analizador detras, la regla dejaria de
         # significar nada.
-        self.assertEqual({"text/csv", "xlsx", "ods"}, set(FULLY_INSPECTABLE))
+        self.assertEqual({"text/csv", "xlsx", "ods", "dian_invoice", "mt940"},
+                         set(FULLY_INSPECTABLE))
         self.assertNotIn("application/zip", FULLY_INSPECTABLE)
         self.assertNotIn("application/pdf", FULLY_INSPECTABLE)
 
@@ -392,6 +394,76 @@ class PromotionTests(unittest.TestCase):
     def test_a_decision_is_serialisable_without_the_payload(self) -> None:
         rendered = str(decide_promotion(CSV, "extracto.csv").as_dict())
         self.assertNotIn("Pago proveedor", rendered)
+
+
+class StructuredFormatTests(unittest.TestCase):
+    """Factura DIAN UBL y MT940: firma por contenido, inspeccion completa."""
+
+    def test_xml_and_mt940_are_detected_by_bytes_not_name(self) -> None:
+        self.assertEqual("application/xml",
+                         detect(structured_factory.invoice(), "factura.csv").media_type)
+        detection = detect(structured_factory.mt940(), "extracto.txt")
+        self.assertEqual("text/x-mt940", detection.media_type)
+        # `.txt` es generico; no es una mentira del nombre.
+        self.assertTrue(detection.extension_matches)
+        self.assertFalse(detect(structured_factory.invoice(), "factura.csv")
+                         .extension_matches)
+
+    def test_both_formats_are_admitted_into_quarantine(self) -> None:
+        for payload, name in ((structured_factory.invoice(), "factura.xml"),
+                              (structured_factory.mt940(), "extracto.sta")):
+            with self.subTest(name=name):
+                self.assertEqual("quarantine", admit(payload, name).zone)
+
+    def test_a_dian_invoice_is_promoted_after_full_reading(self) -> None:
+        for payload in (structured_factory.invoice(),
+                        structured_factory.attached_document(
+                            structured_factory.invoice_xml())):
+            decision = decide_promotion(payload, "factura.xml")
+            self.assertEqual("promoted", decision.decision)
+            self.assertEqual("dian_invoice", decision.internal_type)
+            self.assertEqual("complete", decision.document["status"])
+            self.assertNotIn(structured_factory.SUPPLIER_NIT, str(decision.as_dict()))
+
+    def test_a_doctype_is_rejected_as_active_content(self) -> None:
+        hostile = (b'<?xml version="1.0"?><!DOCTYPE x [<!ENTITY e SYSTEM '
+                   b'"file:///etc/hostname">]><x>&e;</x>')
+        decision = decide_promotion(hostile, "factura.xml")
+        self.assertEqual(("rejected", "unsafe_xml"),
+                         (decision.decision, decision.reason_code))
+
+    def test_generic_or_malformed_xml_stays_in_quarantine(self) -> None:
+        generic = decide_promotion(b"<nota>FNC-SYN</nota>", "nota.xml")
+        self.assertEqual(("quarantined", "no_scanner_for_format"),
+                         (generic.decision, generic.reason_code))
+        broken = decide_promotion(b"<?xml version='1.0'?><Invoice><a>", "f.xml")
+        self.assertEqual(("quarantined", "unsafe_or_malformed_xml"),
+                         (broken.decision, broken.reason_code))
+
+    def test_a_secret_inside_an_invoice_quarantines_it(self) -> None:
+        payload = structured_factory.invoice(
+            extra_inside=f"<cbc:Note>{AWS_SHAPED}</cbc:Note>")
+        decision = decide_promotion(payload, "factura.xml")
+        self.assertEqual(("quarantined", "sensitive_content"),
+                         (decision.decision, decision.reason_code))
+
+    def test_an_mt940_is_promoted_with_its_balance_check(self) -> None:
+        decision = decide_promotion(structured_factory.mt940(), "extracto.sta")
+        self.assertEqual(("promoted", "mt940"),
+                         (decision.decision, decision.internal_type))
+        self.assertEqual("balanced", decision.document["balance_check"])
+
+    def test_an_unbalanced_mt940_says_so_in_findings(self) -> None:
+        decision = decide_promotion(
+            structured_factory.mt940(closing="C260331COP1090000,00"), "extracto.sta")
+        self.assertEqual("mismatch", decision.document["balance_check"])
+        self.assertIn("balance_check", {item.kind for item in decision.findings})
+
+    def test_a_broken_mt940_stays_in_quarantine(self) -> None:
+        payload = structured_factory.mt940() + b"linea suelta fuera de etiqueta\r\n"
+        decision = decide_promotion(payload, "extracto.sta")
+        self.assertEqual(("quarantined", "malformed_mt940"),
+                         (decision.decision, decision.reason_code))
 
 
 if __name__ == "__main__":

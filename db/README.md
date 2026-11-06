@@ -145,10 +145,13 @@ ninguno tiene `BYPASSRLS`.
 | `fincilia_dispatch` | ser dueño de las funciones de cola | no inicia sesión, no crea nada |
 
 Y un rol que **no** existe: ninguno del runtime puede escribir `engine_release`
-ni `release_approval`. Aprobar una versión del motor es un acto de plataforma que
-se hace con `db/admin/releases.py`, corriendo como migrador. Que la API no pueda
-hacerlo es una propiedad del motor, no una promesa del código, y hay una prueba
-que lo comprueba consultando privilegios reales.
+ni `release_approval`. Aprobar una versión del motor es un acto de plataforma:
+se hace con `db/admin/releases.py` corriendo como migrador o, desde V0070
+(ADR-039 §6), con `fincilia.platform_admin_approve_engine_release`, una función
+`SECURITY DEFINER` de `fincilia_identity` que exige rol de plataforma operador o
+superadmin y los componentes mostrados. Que la API no pueda escribir esas tablas
+directamente es una propiedad del motor, no una promesa del código, y hay una
+prueba que lo comprueba consultando privilegios reales.
 
 `fincilia_dispatch` existe por una razón concreta. Las funciones de cola son
 `SECURITY DEFINER`, y una función `SECURITY DEFINER` **sí** se salta los

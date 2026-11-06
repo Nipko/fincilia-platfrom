@@ -542,6 +542,13 @@ export default async function ReconciliationPage({
                       <li key={signal}>{SIGNAL_LABELS[signal] ?? signal}</li>
                     ))}
                   </ul>
+                  {candidate.explanation?.length ? (
+                    <ul aria-label="Explicacion del candidato">
+                      {candidate.explanation.map((line, index) => (
+                        <li key={`explicacion-${index}`}>{line}</li>
+                      ))}
+                    </ul>
+                  ) : null}
                 </div>
                 <div className="candidate-movement candidate-movement--right">
                   <span className="candidate-side">Dataset derecho</span>

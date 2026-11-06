@@ -3874,3 +3874,34 @@ body {
   .app-body .button-link:hover,
   .app-body .primary-link:hover { transform: none; }
 }
+
+/* FNC-SMB-004 · modo pyme: tres pasos, bandeja unica y modo de revision. */
+.review-mode { font-family: var(--font); }
+.review-mode--independent { background: var(--accent-soft); color: var(--accent-strong); }
+.review-mode--self_reviewed { background: var(--warning-soft); color: var(--warning); }
+.review-mode--approved_rule { background: var(--ground); color: var(--ink); }
+.simple-steps { display: grid; gap: 1rem; list-style: none; margin: 0; padding: 0; }
+.simple-step { display: grid; gap: 0.6rem; }
+.simple-step > header { align-items: baseline; display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.simple-step > header h3 { margin: 0; }
+.simple-step__number {
+  align-items: center;
+  background: var(--accent);
+  border-radius: 999px;
+  color: var(--brand-contrast);
+  display: inline-flex;
+  font-weight: 700;
+  height: 2rem;
+  justify-content: center;
+  width: 2rem;
+}
+.pending-list { display: grid; gap: 0.75rem; list-style: none; margin: 0; padding: 0; }
+.pending-item { border-inline-start: 4px solid var(--warning); display: grid; gap: 0.35rem; }
+.pending-item h4 { font-size: 1rem; margin: 0; }
+.pending-item ul { margin: 0; padding-inline-start: 1.2rem; }
+.close-certification--self_reviewed { border-inline-start: 4px solid var(--warning); }
+.close-certification--certified { border-inline-start: 4px solid var(--accent); }
+.mode-switch { align-items: center; display: flex; flex-wrap: wrap; gap: 0.75rem; justify-content: space-between; }
+.team-size-options { border: 0; display: grid; gap: 0.6rem; margin: 0; padding: 0; }
+.team-size-options label { align-items: flex-start; display: flex; gap: 0.5rem; }
+.profile-history { margin: 0; padding-inline-start: 1.2rem; }

@@ -22,6 +22,7 @@ test('owner crea empresa, cuenta, fuente y ciclo y entra al espacio nuevo', asyn
   await page.getByLabel('Razon social').fill(legalName);
   await page.getByLabel('Identificacion tributaria sintetica')
     .fill(`SYN-TAX-${marker}`);
+  await page.getByRole('radio', { name: /3 o más/ }).check();
   await page.getByLabel('Nombre visible de la cuenta')
     .fill('Cuenta inicial E2E');
   await page.getByLabel('Identificador sintetico de cuenta')

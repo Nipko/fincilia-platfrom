@@ -7,6 +7,7 @@ import {
   proposeMatchAction,
   type MatchReviewState,
 } from '@/app/actions';
+import { ReviewModeBadge } from '@/components/review-mode-badge';
 import type { MatchReview, ReconciliationCandidate } from '@/lib/api';
 
 const INITIAL: MatchReviewState = { error: null, done: null };
@@ -130,6 +131,7 @@ export function MatchReviewPanel({
         aria-label="Estado de revision">
         <strong>{review.status === 'confirmed' ? 'Revision confirmada' : 'Candidato rechazado'}</strong>
         <span>{REASON_LABELS[review.decision.reason_code] ?? review.decision.reason_code}</span>
+        <ReviewModeBadge mode={review.decision.review_mode ?? review.review_mode} />
         <span className="meta">
           {review.decision.decided_by_name} · {formatTimestamp(review.decision.decided_at)}
         </span>
@@ -162,6 +164,13 @@ export function MatchReviewPanel({
       id={`revision-${review.candidate_id}`}
       aria-label="Estado de revision">
       <strong>Pendiente de decision humana</strong>
+      {review.explanation?.length ? (
+        <ul aria-label="Por que se propuso">
+          {review.explanation.map((line, index) => (
+            <li key={`${review.candidate_id}:${index}`}>{line}</li>
+          ))}
+        </ul>
+      ) : null}
       <span className="meta">
         Propuesto por {review.proposed_by_name} · {formatTimestamp(review.proposed_at)}
       </span>

@@ -15,7 +15,7 @@ from typing import Any
 
 import psycopg
 
-from . import financial_lineage
+from . import financial_lineage, operating_profile
 from fincilia_contracts.money import MoneyError, format_money, parse_money
 from fincilia_contracts.release import digest_of
 
@@ -109,13 +109,15 @@ def _item_row(row: tuple[Any, ...]) -> dict[str, Any]:
         "approved_by": str(row[9]) if row[9] else None,
         "decision_version": int(row[10]), "lineage_state": row[11],
         "created_at": row[12].isoformat(),
+        "review_mode": row[13] if row[9] else None,
     }
 
 
 ITEM_SELECT = (
     "SELECT item_decision_id, item_root_id, statement_root_id, adjustment_side, "
     "amount, currency_code, reason_code, state, prepared_by, approved_by, "
-    "decision_version, lineage_state, created_at FROM fincilia.reconciling_item "
+    "decision_version, lineage_state, created_at, review_mode "
+    "FROM fincilia.reconciling_item "
 )
 
 
@@ -739,7 +741,10 @@ def decide_item(connection: psycopg.Connection, *, company_id: str, subject_id: 
         if not valid:
             raise ReconciliationError("reconciling-item-decision-conflict",
                                       "the decision is incompatible with current state")
-        if str(previous[8]) == subject_id:
+        # En `simple` el preparador puede decidir su partida; la fila queda
+        # `self_reviewed`. En `estricto` se conserva el rechazo historico.
+        if str(previous[8]) == subject_id and not operating_profile.allows_self_review(
+                connection, company_id):
             raise ReconciliationError("reconciling-item-sod-conflict",
                                       "the preparer cannot approve their own item")
         cursor.execute(

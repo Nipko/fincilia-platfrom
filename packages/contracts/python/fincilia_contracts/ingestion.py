@@ -36,6 +36,8 @@ from .spreadsheet import (
     inspect_workbook,
     iter_inspection_texts,
 )
+from .dian_invoice import DianInvoiceError, looks_like_xml, parse_dian_invoice
+from .mt940 import MT940Error, looks_like_mt940, parse_mt940
 from .open_document import (
     OpenDocumentError,
     inspect_open_document,
@@ -93,6 +95,8 @@ ACCEPTED_MEDIA_TYPES: Final[frozenset[str]] = frozenset({
     "text/csv", "application/pdf",
     # `application/zip` cubre xlsx/ods: son ZIP por dentro y se miran como ZIP.
     "application/zip",
+    # XML (factura DIAN UBL) y MT940 se reconocen por contenido, no por nombre.
+    "application/xml", "text/x-mt940",
 })
 
 EXTENSION_TYPES: Final[dict[str, str]] = {
@@ -101,7 +105,12 @@ EXTENSION_TYPES: Final[dict[str, str]] = {
     ".ods": "application/zip", ".zip": "application/zip",
     ".xls": "application/vnd.ms-excel", ".gz": "application/gzip",
     ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+    ".xml": "application/xml", ".sta": "text/x-mt940", ".mt940": "text/x-mt940",
 }
+
+# `.txt` es generico: un MT940 suele llegar asi y no por eso miente su nombre.
+COMPATIBLE_DECLARATIONS: Final[frozenset[tuple[str, str]]] = frozenset({
+    ("text/plain", "text/x-mt940")})
 
 DELIMITERS: Final[tuple[str, ...]] = (",", ";", "\t", "|")
 
@@ -196,12 +205,21 @@ def detect(payload: bytes, filename: str = "") -> Detection:
     if not detected:
         if not looks_textual(head):
             raise RejectedUpload("unrecognised binary content")
-        text = head.decode("utf-8", errors="replace")
-        first = text.splitlines()[0] if text.splitlines() else ""
-        detected = "text/csv" if any(item in first for item in DELIMITERS) else "text/plain"
+        # Los formatos estructurados se miran antes que el delimitador: la
+        # primera linea de un XML o de un MT940 puede llevar comas sin ser CSV.
+        if looks_like_xml(head):
+            detected = "application/xml"
+        elif looks_like_mt940(head):
+            detected = "text/x-mt940"
+        else:
+            text = head.decode("utf-8", errors="replace")
+            first = text.splitlines()[0] if text.splitlines() else ""
+            detected = ("text/csv" if any(item in first for item in DELIMITERS)
+                        else "text/plain")
 
-    return Detection(detected, declared, declared is None or declared == detected,
-                     len(head))
+    matches = (declared is None or declared == detected
+               or (declared, detected) in COMPATIBLE_DECLARATIONS)
+    return Detection(detected, declared, matches, len(head))
 
 
 def check_size(byte_size: int) -> None:
@@ -285,7 +303,8 @@ def identify_archive(payload: bytes) -> str:
 # Tipos tecnicos que se saben inspeccionar de principio a fin. XLSX se expresa
 # por su identidad interna, no por `application/zip`: un ZIP generico sigue sin
 # ser promovible y una extension `.xlsx` no decide nada.
-FULLY_INSPECTABLE: Final[frozenset[str]] = frozenset({"text/csv", "xlsx", "ods"})
+FULLY_INSPECTABLE: Final[frozenset[str]] = frozenset({
+    "text/csv", "xlsx", "ods", "dian_invoice", "mt940"})
 
 SENSITIVE_KINDS: Final[frozenset[str]] = frozenset({
     "payment_card_number", "private_key", "aws_access_key", "bearer_token",
@@ -415,6 +434,12 @@ def decide_promotion(payload: bytes, filename: str, *,
         return Decision(
             "promoted", "content_inspected", detection.media_type, "pdf",
             tuple(findings), document=inspection.manifest())
+
+    if detection.media_type == "application/xml":
+        return _decide_xml(payload, detection.media_type, findings)
+
+    if detection.media_type == "text/x-mt940":
+        return _decide_mt940(payload, detection.media_type, findings)
 
     if detection.media_type == "application/zip":
         findings.extend(inspect_archive(payload))
@@ -551,6 +576,69 @@ def decide_promotion(payload: bytes, filename: str, *,
 
     return Decision("promoted", "content_inspected", detection.media_type, internal,
                     tuple(findings))
+
+
+def _decide_xml(payload: bytes, media_type: str,
+                findings: list[Finding]) -> Decision:
+    """Factura DIAN UBL: se lee entera con el parser acotado o no sale.
+
+    Una DTD o entidad es contenido activo y se rechaza. Un XML legible que no es
+    factura UBL se queda en cuarentena: no hay analizador para el.
+    """
+    try:
+        invoice = parse_dian_invoice(payload)
+    except DianInvoiceError as error:
+        if error.code == "unsafe_xml_declaration":
+            findings.append(Finding(
+                "unsafe_xml_declaration", "xml document",
+                "DTD and entity declarations are never accepted"))
+            return Decision("rejected", "unsafe_xml", media_type, "xml",
+                            tuple(findings))
+        if error.code in {"not_a_dian_invoice", "unsupported_ubl_document"}:
+            findings.append(Finding(error.code, "xml document",
+                                    "only UBL 2.1 Invoice and AttachedDocument are read"))
+            return Decision("quarantined", "no_scanner_for_format", media_type, "xml",
+                            tuple(findings))
+        findings.append(Finding(
+            error.code, "xml document",
+            "the document is malformed or outside the accepted XML limits"))
+        return Decision("quarantined", "unsafe_or_malformed_xml", media_type, "xml",
+                        tuple(findings))
+    count_lines(payload)
+    findings.extend(scan_secrets(payload))
+    if any(item.kind in SENSITIVE_KINDS for item in findings):
+        return Decision("quarantined", "sensitive_content", media_type,
+                        "dian_invoice", tuple(findings))
+    return Decision("promoted", "content_inspected", media_type, "dian_invoice",
+                    tuple(findings), document=invoice.manifest())
+
+
+def _decide_mt940(payload: bytes, media_type: str,
+                  findings: list[Finding]) -> Decision:
+    """MT940: se lee entero y se comprueba su saldo antes de decidir.
+
+    Un descuadre no impide promover la evidencia —el fichero es el que es—, pero
+    queda escrito como hallazgo y en el manifiesto para que nada aguas abajo lo
+    trate como verificado.
+    """
+    count_lines(payload)
+    try:
+        statement = parse_mt940(payload)
+    except MT940Error:
+        findings.append(Finding("mt940_structure", "mt940 file",
+                                "the file does not follow the MT940 layout or limits"))
+        return Decision("quarantined", "malformed_mt940", media_type, "mt940",
+                        tuple(findings))
+    if statement.balance_check != "balanced":
+        findings.append(Finding(
+            "balance_check", "mt940 file",
+            f"opening plus movements versus closing: {statement.balance_check}"))
+    findings.extend(scan_secrets(payload))
+    if any(item.kind in SENSITIVE_KINDS for item in findings):
+        return Decision("quarantined", "sensitive_content", media_type, "mt940",
+                        tuple(findings))
+    return Decision("promoted", "content_inspected", media_type, "mt940",
+                    tuple(findings), document=statement.manifest())
 
 
 def luhn_valid(digits: str) -> bool:

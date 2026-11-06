@@ -18,7 +18,7 @@ from typing import Any
 import psycopg
 from psycopg.types.json import Jsonb
 
-from . import close_review, repository
+from . import close_review, operating_profile, repository
 
 
 SNAPSHOT_SCHEMA_VERSION = "accounting-close-v1"
@@ -88,9 +88,14 @@ PERIOD_SELECT = (
     "c.snapshot_digest, c.closed_by, closer.display_name, c.closed_at, "
     "r.request_id, r.reason_code, r.rationale, r.requested_by, "
     "requester.display_name, r.requested_at, d.decision_id, d.decision, "
-    "d.reason_code, d.decided_by, decider.display_name, d.decided_at "
+    "d.reason_code, d.decided_by, decider.display_name, d.decided_at, "
+    "c.review_mode, c.certification, cert.certification_id, cert.certified_by, "
+    "certifier.display_name, cert.certified_at, d.review_mode "
     "FROM fincilia.accounting_period_close c "
     "JOIN fincilia.subject closer ON closer.subject_id=c.closed_by "
+    "LEFT JOIN fincilia.accounting_period_close_certification cert "
+    "  ON cert.close_id=c.close_id AND cert.company_id=c.company_id "
+    "LEFT JOIN fincilia.subject certifier ON certifier.subject_id=cert.certified_by "
     "LEFT JOIN fincilia.accounting_period_reopen_request r "
     "  ON r.close_id=c.close_id AND r.company_id=c.company_id "
     "LEFT JOIN fincilia.subject requester ON requester.subject_id=r.requested_by "
@@ -100,10 +105,33 @@ PERIOD_SELECT = (
 )
 
 
+def _certification(row: tuple[Any, ...]) -> tuple[str, str, dict[str, Any] | None]:
+    """Modo del cierre, certificacion efectiva y fila de certificacion posterior.
+
+    Una fila sin estas columnas equivale a un cierre independiente y
+    certificado, que es lo que la base garantizaba antes de V0067.
+    """
+    if len(row) <= 24:
+        return "independent", "certified", None
+    review_mode = row[24]
+    certification = row[25]
+    record = None
+    if row[26] is not None:
+        certification = "certified"
+        record = {
+            "certification_id": str(row[26]),
+            "certified_by": str(row[27]),
+            "certifier_name": row[28],
+            "certified_at": row[29].isoformat(),
+        }
+    return review_mode, certification, record
+
+
 def _row(row: tuple[Any, ...], *, replayed: bool = False) -> dict[str, Any]:
     decision = row[19]
     status = "reopened" if decision == "approved" else (
         "reopen_requested" if row[12] is not None and decision is None else "closed")
+    review_mode, certification, certification_record = _certification(row)
     return {
         "close_id": str(row[0]),
         "period_start": row[1].isoformat(),
@@ -118,6 +146,9 @@ def _row(row: tuple[Any, ...], *, replayed: bool = False) -> dict[str, Any]:
         "closer_name": row[10],
         "closed_at": row[11].isoformat(),
         "status": status,
+        "review_mode": review_mode,
+        "certification": certification,
+        "certification_record": certification_record,
         "reopen_request": None if row[12] is None else {
             "request_id": str(row[12]),
             "reason_code": row[13],
@@ -131,6 +162,7 @@ def _row(row: tuple[Any, ...], *, replayed: bool = False) -> dict[str, Any]:
             "decided_by": str(row[21]) if row[21] else None,
             "decider_name": row[22],
             "decided_at": row[23].isoformat() if row[23] else None,
+            "review_mode": row[30] if len(row) > 30 else None,
         },
         "replayed": replayed,
         "financial_effect": "period_state_only",
@@ -275,7 +307,11 @@ def close_period(connection: psycopg.Connection, *, company_id: str,
     if packet["decision"] != "evidence_reviewed":
         raise ClosePeriodError(
             "accounting-period-not-reviewed", "review packet is not evidence_reviewed")
-    if packet["decided_by"] != actor_id or packet["prepared_by"] == actor_id:
+    # En `simple` el owner que preparo y reviso puede cerrar; el cierre nace
+    # `self_reviewed` y espera certificacion. En `estricto`, rechazo historico.
+    if packet["decided_by"] != actor_id or (
+            packet["prepared_by"] == actor_id
+            and not operating_profile.allows_self_review(connection, company_id)):
         raise ClosePeriodError(
             "accounting-period-segregation-of-duties",
             "only the assigned independent reviewer can close this period")
@@ -413,7 +449,8 @@ def decide_reopen(connection: psycopg.Connection, *, company_id: str,
     if requested is None:
         raise ClosePeriodError(
             "accounting-period-reopen-unavailable", "reopen request is unavailable")
-    if str(requested[1]) == actor_id:
+    if str(requested[1]) == actor_id and not operating_profile.allows_self_review(
+            connection, company_id):
         raise ClosePeriodError(
             "accounting-period-segregation-of-duties",
             "the requester cannot decide their own reopen request")
@@ -442,4 +479,69 @@ def decide_reopen(connection: psycopg.Connection, *, company_id: str,
     result = load_close(connection, str(requested[0]))
     if result is None:
         raise RuntimeError("reopen decision cannot be read back")
+    return result
+
+
+def certify_close(connection: psycopg.Connection, *, company_id: str,
+                  actor_id: str, close_id: str) -> dict[str, Any]:
+    """Certificacion independiente posterior de un cierre autorrevisado.
+
+    Es una fila nueva; el cierre no se muta. Quien certifica no puede haber
+    cerrado ni preparado el expediente y debe seguir siendo revisor elegible.
+    Repetir la llamada por el mismo certificador devuelve la misma fila.
+    """
+    close_id = _uuid(close_id, field="close_id")
+    _company_lock(connection, company_id)
+    current = load_close(connection, close_id)
+    if current is None:
+        raise ClosePeriodError(
+            "accounting-period-unavailable", "accounting period is unavailable")
+    record = current["certification_record"]
+    if record is not None:
+        if record["certified_by"] == actor_id:
+            return {**current, "replayed": True}
+        raise ClosePeriodError(
+            "accounting-period-already-certified", "the close is already certified")
+    if current["certification"] != "self_reviewed":
+        raise ClosePeriodError(
+            "accounting-period-already-certified",
+            "the close was born with independent review")
+    if current["status"] == "reopened":
+        raise ClosePeriodError(
+            "accounting-period-certification-unavailable",
+            "a reopened close cannot be certified")
+    packet = close_review.load_packet(connection, current["packet_id"])
+    if (actor_id == current["closed_by"] or packet is None
+            or actor_id == packet["prepared_by"]):
+        raise ClosePeriodError(
+            "accounting-period-segregation-of-duties",
+            "certification requires a person who did not prepare or close the period")
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT fincilia.is_close_reviewer_eligible(%s, %s)",
+            (company_id, actor_id))
+        eligible = bool(cursor.fetchone()[0])
+    if not eligible:
+        raise ClosePeriodError(
+            "accounting-period-certifier-ineligible",
+            "the person does not have close review access")
+    certification_id = str(uuid.uuid4())
+    with connection.transaction():
+        audit_event_id = repository.record_audit(
+            connection, subject_id=actor_id, company_id=company_id,
+            action="accounting.period.certify", resource_kind="accounting_period",
+            resource_ref=close_id, outcome="allowed", detail={
+                "certification_id": certification_id,
+                "snapshot_digest": current["snapshot_digest"],
+            })
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO fincilia.accounting_period_close_certification "
+                "(certification_id, company_id, close_id, observed_snapshot_digest, "
+                " certified_by, audit_event_id) VALUES (%s, %s, %s, %s, %s, %s)",
+                (certification_id, company_id, close_id, current["snapshot_digest"],
+                 actor_id, audit_event_id))
+    result = load_close(connection, close_id)
+    if result is None:
+        raise RuntimeError("certified accounting period cannot be read back")
     return result

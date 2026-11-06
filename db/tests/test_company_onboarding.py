@@ -139,9 +139,12 @@ class CompanyProvisioningTests(unittest.TestCase):
                 "firm_id", "engagement_id", "authorization_version", "permissions",
                 "account_id", "source_id", "link_id", "cycle_id",
                 "expectations_created", "replayed", "refreshed_session",
+                "operating_profile",
             },
             set(body),
         )
+        # ADR-039: sin respuesta en el alta, la API conserva el valor seguro.
+        self.assertEqual("estricto", body["operating_profile"])
         for field in ("company_id", "engagement_id", "account_id", "source_id",
                       "link_id", "cycle_id"):
             self.assertTrue(body[field], field)
@@ -186,6 +189,33 @@ class CompanyProvisioningTests(unittest.TestCase):
         detail = self.client.get(
             f"/api/v1/companies/{body['company_id']}", headers=self.auth())
         self.assertEqual(200, detail.status_code, detail.text)
+
+    def test_team_size_band_chooses_the_initial_operating_profile(self) -> None:
+        # ADR-039: 1-2 personas sugiere `simple`; 3 o mas, `estricto`; una
+        # eleccion explicita prevalece. El perfil inicial no es un cambio.
+        cases = (({"team_size_band": "1-2"}, "simple"),
+                 ({"team_size_band": "3+"}, "estricto"),
+                 ({"team_size_band": "1-2", "operating_profile": "estricto"},
+                  "estricto"))
+        for extra, expected in cases:
+            with self.subTest(extra=extra):
+                payload = {**self.payload(), **extra, "setup": None}
+                key = f"fnc-smb-{uuid.uuid4().hex}"
+                response = self.create(payload, key)
+                self.assertEqual(201, response.status_code, response.text)
+                self.assertEqual(expected, response.json()["operating_profile"])
+                detail = self.client.get(
+                    f"/api/v1/companies/{response.json()['company_id']}",
+                    headers=self.auth())
+                self.assertEqual(200, detail.status_code, detail.text)
+                self.assertEqual(expected, detail.json()["operating_profile"])
+                if expected == "simple":
+                    changed = {**payload, "team_size_band": "3+"}
+                    conflict = self.create(changed, key)
+                    self.assertEqual(409, conflict.status_code, conflict.text)
+        invalid = {**self.payload(), "team_size_band": "muchos", "setup": None}
+        rejected = self.create(invalid, f"fnc-smb-{uuid.uuid4().hex}")
+        self.assertEqual(422, rejected.status_code, rejected.text)
 
     def test_invalid_protected_values_are_never_reflected_by_validation(self) -> None:
         payload = self.payload()

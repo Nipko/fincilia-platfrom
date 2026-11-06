@@ -120,3 +120,83 @@ def revoke_role(connection: psycopg.Connection, *, subject_id: str,
         )
         row = cursor.fetchone()
     return bool(row and row[0])
+
+
+# --------------------------------------------------------------------------- #
+# Versiones del motor (ADR-039 §6, FNC-SMB-005)
+# --------------------------------------------------------------------------- #
+
+RELEASE_READER_ROLES = ("platform_superadmin", "platform_operator", "platform_auditor")
+
+
+def _require_platform_role(connection: psycopg.Connection,
+                           allowed: tuple[str, ...]) -> None:
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT fincilia.current_subject_has_platform_role(%s::text[])",
+            (list(allowed),))
+        row = cursor.fetchone()
+    if not row or row[0] is not True:
+        raise psycopg.errors.InsufficientPrivilege("platform access denied")
+
+
+def engine_releases(connection: psycopg.Connection) -> list[dict]:
+    """Versiones del motor con lo que se aprobaria. Solo roles de plataforma."""
+    from fincilia_contracts.release import digest_of
+
+    _require_platform_role(connection, RELEASE_READER_ROLES)
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT r.release_key, r.state, r.classification, "
+            "       r.canonical_schema_version, r.components, r.created_at, "
+            "       a.actor_identity, a.approval_ref, a.occurred_at, "
+            "       a.components_digest "
+            "FROM fincilia.engine_release r "
+            "LEFT JOIN fincilia.release_approval a "
+            "       ON a.release_id = r.release_id AND a.action = 'approved' "
+            "ORDER BY r.created_at DESC, r.release_key LIMIT 100")
+        rows = cursor.fetchall()
+    return [{
+        "release_key": row[0], "state": row[1], "classification": row[2],
+        "canonical_schema_version": row[3], "components": row[4] or [],
+        "components_digest": digest_of(row[4] or []),
+        "created_at": row[5].isoformat(),
+        "approval": None if row[6] is None else {
+            "actor_identity": row[6], "approval_ref": row[7],
+            "approved_at": row[8].isoformat(),
+            "components_digest": str(row[9]).strip(),
+            "covers_current_components": str(row[9]).strip() == digest_of(row[4] or []),
+        },
+    } for row in rows]
+
+
+def approve_engine_release(connection: psycopg.Connection, *, release_key: str,
+                           components_digest: str, approval_ref: str,
+                           rationale: str) -> dict:
+    """Firma lo que se mostro. La base vuelve a exigir el rol y los componentes."""
+    import json
+
+    from fincilia_contracts.release import digest_of
+
+    _require_platform_role(connection, ("platform_superadmin", "platform_operator"))
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT components FROM fincilia.engine_release WHERE release_key = %s",
+            (release_key,))
+        row = cursor.fetchone()
+    if row is None:
+        raise LookupError("engine release not found")
+    components = row[0] or []
+    if digest_of(components) != components_digest:
+        raise ValueError("the components shown are not the components stored")
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT release_id, release_key, state, actor_identity, approved_at "
+            "FROM fincilia.platform_admin_approve_engine_release("
+            "  %s, %s::jsonb, %s, %s, %s)",
+            (release_key, json.dumps(components), components_digest,
+             approval_ref, rationale))
+        result = cursor.fetchone()
+    return {"release_id": result[0], "release_key": result[1], "state": result[2],
+            "actor_identity": result[3], "approved_at": result[4].isoformat(),
+            "components_digest": components_digest}

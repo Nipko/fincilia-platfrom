@@ -375,11 +375,71 @@ class ReleaseGateApiTests(unittest.TestCase):
                 self.assertEqual(cursor.fetchone()[0], 0)
 
     def test_no_endpoint_changes_the_state_of_a_release_TST_P35_016(self) -> None:
-        # Recorrer la superficie publica: ninguna ruta nombra `release`.
+        # ADR-039 §6 (FNC-SMB-005): la unica superficie que nombra `release` es
+        # el plano de plataforma. Ninguna ruta de empresa la toca.
         paths = [route.path for route in self.client.app.routes]
         for path in paths:
+            if path.startswith("/api/v1/platform/"):
+                continue
             with self.subTest(path=path):
                 self.assertNotIn("release", path.lower())
+
+    def test_only_a_platform_operator_approves_from_the_web_FNC_SMB_005(self) -> None:
+        artifact, version = self.validated_mapping("platform")
+        blocked = self.prepare(artifact, version)
+        self.assertEqual(422, blocked.status_code, blocked.text)
+        listing_url = "/api/v1/platform/engine-releases"
+        approval_url = f"{listing_url}/{self.release_key}/approval"
+
+        # Ningun rol de empresa ve ni aprueba versiones.
+        for user in (PREPARER, REVIEWER):
+            with self.subTest(user=user):
+                self.assertEqual(403, self.client.get(
+                    listing_url, headers=self.auth(user)).status_code)
+                refused = self.client.post(
+                    approval_url, headers=self.auth(user),
+                    json={"components_digest": digest_of([]),
+                          "approval_ref": "SYN-REF", "rationale": "intento"})
+                self.assertEqual(403, refused.status_code, refused.text)
+
+        operator = self.auth("sofia@demo.local")  # superadmin sintetica del seed
+        listed = self.client.get(listing_url, headers=operator)
+        self.assertEqual(200, listed.status_code, listed.text)
+        ours = next(item for item in listed.json()
+                    if item["release_key"] == self.release_key)
+        self.assertEqual("draft", ours["state"])
+
+        stale = self.client.post(
+            approval_url, headers=operator,
+            json={"components_digest": "0" * 64, "approval_ref": "SYN-PLAT-1",
+                  "rationale": "componentes distintos de los mostrados"})
+        self.assertEqual(409, stale.status_code, stale.text)
+
+        approved = self.client.post(
+            approval_url, headers=operator,
+            json={"components_digest": ours["components_digest"],
+                  "approval_ref": "SYN-PLAT-1",
+                  "rationale": "aprobacion sintetica desde la consola"})
+        self.assertEqual(200, approved.status_code, approved.text)
+        self.assertEqual("approved", approved.json()["state"])
+        self.assertTrue(approved.json()["actor_identity"].startswith("platform:"))
+        again = self.client.post(
+            approval_url, headers=operator,
+            json={"components_digest": ours["components_digest"],
+                  "approval_ref": "SYN-PLAT-2", "rationale": "segunda firma"})
+        self.assertEqual(409, again.status_code, again.text)
+
+        # La empresa publica con la version vigente sin ningun paso fuera de la web.
+        allowed = self.prepare(artifact, version)
+        self.assertEqual(201, allowed.status_code, allowed.text)
+
+        with psycopg.connect(MIGRATOR_DSN, autocommit=True) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT count(*) FROM fincilia.platform_audit_event "
+                    "WHERE action = 'platform.engine_release.approve' "
+                    "AND resource_ref = %s", (self.release_key,))
+                self.assertEqual(1, cursor.fetchone()[0])
 
     def test_once_approved_the_same_request_succeeds_TST_P35_017(self) -> None:
         artifact, version = self.validated_mapping("approved")

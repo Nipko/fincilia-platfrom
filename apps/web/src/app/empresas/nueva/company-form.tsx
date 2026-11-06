@@ -7,6 +7,7 @@ import {
   type CompanyProvisionState,
 } from '@/app/actions';
 import type { ManagedFirm } from '@/lib/api';
+import { TEAM_SIZE_OPTIONS } from '@/lib/simple-mode';
 
 const INITIAL: CompanyProvisionState = { error: null };
 
@@ -70,10 +71,36 @@ export function CompanyForm({
         </div>
       </section>
 
-      <section className="card" aria-labelledby="initial-setup-heading">
+      <section className="card" aria-labelledby="team-size-heading">
         <div className="section-heading">
           <div>
             <span className="step-number">2</span>
+            <h2 id="team-size-heading">Cómo se revisan las finanzas</h2>
+          </div>
+          <span className="tag">Requerido</span>
+        </div>
+        <fieldset className="team-size-options">
+          <legend>¿Cuántas personas revisan las finanzas de la empresa?</legend>
+          {TEAM_SIZE_OPTIONS.map((option) => (
+            <label key={option.band}>
+              <input type="radio" name="teamSizeBand" value={option.band} required
+                     aria-describedby={`team-size-hint-${option.profile}`} />
+              <span>
+                <strong>{option.label}</strong>
+                <span className="field-help" id={`team-size-hint-${option.profile}`}>
+                  {option.hint}
+                </span>
+              </span>
+            </label>
+          ))}
+        </fieldset>
+        <p className="meta">Podrás cambiarlo después en los ajustes de la empresa.</p>
+      </section>
+
+      <section className="card" aria-labelledby="initial-setup-heading">
+        <div className="section-heading">
+          <div>
+            <span className="step-number">3</span>
             <h2 id="initial-setup-heading">Preparar la primera operacion</h2>
           </div>
           <label className="switch-label">

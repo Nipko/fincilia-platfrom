@@ -178,6 +178,29 @@ def seed(dsn: str, *, secret: str) -> dict[str, object]:
             if cursor.rowcount:
                 created.append("platform_role:sofia-superadmin")
 
+            # -- aprobacion de plataforma de la version local --------------- #
+            # ADR-039 §6: la aprueba la superadmin sintetica por la misma
+            # funcion que usa `/platform/engine-releases`, con referencia que
+            # dice a gritos que es la demo. La semilla beta no lo hace: alli la
+            # firma la da un operador real desde la consola de plataforma.
+            cursor.execute(
+                "SELECT state, components FROM fincilia.engine_release "
+                "WHERE release_key = %s", (ENGINE_RELEASE_KEY,))
+            release_row = cursor.fetchone()
+            if release_row is not None and release_row[0] == "draft":
+                from fincilia_contracts.release import digest_of
+
+                cursor.execute("SELECT set_config('fincilia.subject_id', %s, false)",
+                               (stable_id("subject", "sofia"),))
+                cursor.execute(
+                    "SELECT state FROM fincilia.platform_admin_approve_engine_release("
+                    "  %s, %s::jsonb, %s, %s, %s)",
+                    (ENGINE_RELEASE_KEY, json.dumps(release_row[1] or []),
+                     digest_of(release_row[1] or []), "LOCAL-SYNTHETIC-SEED",
+                     "aprobacion sintetica del entorno local; no aprueba nada real"))
+                cursor.execute("SELECT set_config('fincilia.subject_id', '', false)")
+                created.append(f"engine_release_approval:{ENGINE_RELEASE_KEY}")
+
             # -- empresas -------------------------------------------------- #
             for company in COMPANIES:
                 company_id = stable_id("company", company["key"])

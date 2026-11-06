@@ -268,5 +268,42 @@ class FailureClassificationOfExtractionTests(unittest.TestCase):
         self.assertEqual(jobs.FATAL, failure)
 
 
+class StructuredFormatTests(unittest.TestCase):
+    """FNC-SMB-002: factura DIAN y MT940 ya no fallan cerrado por falta de extractor."""
+
+    def test_no_promoted_format_is_left_without_extractor(self) -> None:
+        self.assertEqual(frozenset(), jobs.STRUCTURED_PENDING)
+        self.assertEqual({"dian_invoice", "mt940"}, set(jobs.STRUCTURED_TYPES))
+        self.assertEqual("scan-7", jobs.SCANNER_RELEASE)
+
+    def test_a_dian_invoice_is_profiled_by_shape_only(self) -> None:
+        from structured_factory import invoice
+
+        result, code, failure = jobs.run_profile(invoice(), internal_type="dian_invoice")
+        self.assertIsNone(code)
+        self.assertIsNone(failure)
+        self.assertEqual(9, result["column_count"])
+        self.assertNotIn("119000", repr(result))
+        self.assertNotIn("FNC-SYN-NIT-0002", repr(result))
+
+    def test_an_mt940_is_profiled_by_shape_only(self) -> None:
+        from structured_factory import mt940
+
+        result, code, failure = jobs.run_profile(mt940(), internal_type="mt940")
+        self.assertIsNone(code)
+        self.assertEqual(11, result["column_count"])
+        self.assertNotIn("SYN-CTA-0001", repr(result))
+
+    def test_an_unreadable_structured_file_is_fatal(self) -> None:
+        result, code, failure = jobs.run_profile(b"<Invoice>", internal_type="dian_invoice")
+        self.assertIsNone(result)
+        self.assertEqual("unprofilable", code)
+        self.assertEqual(jobs.FATAL, failure)
+        from fincilia_contracts.mt940 import MT940Error
+
+        self.assertEqual(("unextractable", jobs.FATAL),
+                         jobs.classify_extraction(MT940Error("broken")))
+
+
 if __name__ == "__main__":
     unittest.main()

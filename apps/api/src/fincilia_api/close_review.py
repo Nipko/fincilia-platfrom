@@ -21,7 +21,7 @@ from psycopg.types.json import Jsonb
 
 from fincilia_contracts.tenancy import derive_permissions
 
-from . import access, close_readiness, repository
+from . import access, close_readiness, operating_profile, repository
 
 
 MANIFEST_SCHEMA_VERSION = "close-evidence-v1"
@@ -181,7 +181,7 @@ PACKET_SELECT = (
     "p.assigned_reviewer_id, reviewer.display_name, p.prepared_at, "
     "d.decision_id, d.decision, d.reason_code, d.decided_by, decider.display_name, "
     "d.decided_at, fincilia.is_close_reviewer_eligible("
-    "p.company_id, p.assigned_reviewer_id) "
+    "p.company_id, p.assigned_reviewer_id), p.review_mode, d.review_mode "
     "FROM fincilia.close_review_packet p "
     "JOIN fincilia.subject author ON author.subject_id=p.prepared_by "
     "JOIN fincilia.subject reviewer ON reviewer.subject_id=p.assigned_reviewer_id "
@@ -214,6 +214,9 @@ def _packet_row(row: tuple[Any, ...], *, replayed: bool = False) -> dict[str, An
         "decider_name": row[17],
         "decided_at": row[18].isoformat() if row[18] else None,
         "reviewer_eligible": bool(row[19]),
+        # Modo planificado del expediente y modo efectivo de la decision.
+        "review_mode": row[20] if len(row) > 20 else "independent",
+        "decision_review_mode": row[21] if len(row) > 21 else None,
         "status": decision or "pending_review",
         "replayed": replayed,
         "financial_effect": "none",
@@ -327,7 +330,10 @@ def prepare_packet(connection: psycopg.Connection, *, company_id: str,
     start = _date(period_start, field="period_start")
     end = _date(period_end, field="period_end")
     reviewer_id = _uuid(assigned_reviewer_id, field="assigned_reviewer_id")
-    if reviewer_id == actor_id:
+    # En `simple` el owner puede asignarse su propio expediente; el expediente
+    # queda `self_reviewed`. En `estricto` se conserva el rechazo historico.
+    if reviewer_id == actor_id and not operating_profile.allows_self_review(
+            connection, company_id):
         raise CloseReviewError(
             "close-review-segregation-of-duties",
             "the preparer cannot be assigned to review their own packet")
@@ -424,7 +430,9 @@ def decide_packet(connection: psycopg.Connection, *, company_id: str,
     if packet["decision"] is not None:
         raise CloseReviewError(
             "close-review-already-decided", "the review packet is already terminal")
-    if packet["assigned_reviewer_id"] != actor_id or packet["prepared_by"] == actor_id:
+    if packet["assigned_reviewer_id"] != actor_id or (
+            packet["prepared_by"] == actor_id
+            and not operating_profile.allows_self_review(connection, company_id)):
         raise CloseReviewError(
             "close-review-segregation-of-duties",
             "only the assigned independent reviewer can decide this packet")

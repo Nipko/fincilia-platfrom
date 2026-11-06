@@ -352,6 +352,16 @@ def reconstruct(steps: tuple[TransformStep, ...], *, canonical_field: str,
             row_number = int(origin_locator["row_number"])
             cell["column_number"] = field_ordinal + 1
             cell["cell_a1"] = cell_a1(row_number, field_ordinal + 1)
+        elif origin_locator.get("locator_kind") in {"xml_element", "mt940_tag"}:
+            # Formatos estructurados (ADR-039 §5): el registro nombra el elemento
+            # o la etiqueta de cada campo. Se entrega solo el del campo pedido.
+            key = ("field_paths" if origin_locator["locator_kind"] == "xml_element"
+                   else "field_tags")
+            per_field = origin_locator.get(key) or []
+            if 0 <= field_ordinal < len(per_field):
+                cell["field_origin"] = per_field[field_ordinal]
+            cell.pop("field_paths", None)
+            cell.pop("field_tags", None)
 
     # Que identifica cada etapa. No es decorativo: es lo que permite volver al
     # fichero, comprobar, y decir en que punto exacto un texto se volvio decimal.

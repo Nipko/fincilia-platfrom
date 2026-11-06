@@ -34,6 +34,7 @@ from . import onboarding, repository
 PROVISIONING_AUTHORITY_ID = "4d1d048f-07af-5ccd-bd76-abace2124b63"
 IDEMPOTENCY_KEY = re.compile(r"^[A-Za-z0-9._:-]{16,128}$")
 SUPPORTED_COUNTRIES = frozenset({"AR", "CL", "CO", "MX", "PE"})
+OPERATING_PROFILES = frozenset({"simple", "estricto"})
 
 
 class CompanyOnboardingError(Exception):
@@ -102,7 +103,8 @@ def _tokens(*, tax_identifier: str, country_code: str,
 
 def _request_digest(*, firm_id: str, legal_name: str, country_code: str,
                     tax_token: str, setup: InitialSetup | None,
-                    account_request_token: str | None) -> str:
+                    account_request_token: str | None,
+                    operating_profile: str = "estricto") -> str:
     material: dict[str, Any] = {
         "firm_id": firm_id,
         "legal_name": legal_name,
@@ -110,6 +112,10 @@ def _request_digest(*, firm_id: str, legal_name: str, country_code: str,
         "tax_token": tax_token,
         "setup": None,
     }
+    # Solo entra a la huella cuando difiere del valor por defecto: los recibos
+    # idempotentes anteriores a ADR-039 conservan exactamente su digest.
+    if operating_profile != "estricto":
+        material["operating_profile"] = operating_profile
     if setup is not None:
         material["setup"] = {
             "account_family": setup.account_family,
@@ -210,8 +216,12 @@ def provision_company(connection: psycopg.Connection, *, company_id: str,
                       firm_id: str, subject_id: str, legal_name: str,
                       country_code: str, tax_identifier: str,
                       idempotency_key: str, tokenization_key: str,
-                      key_version: int, setup: InitialSetup | None) -> dict[str, Any]:
+                      key_version: int, setup: InitialSetup | None,
+                      operating_profile: str = "estricto") -> dict[str, Any]:
     """Crea toda la vertical o ninguna fila; una repeticion devuelve el recibo."""
+    if operating_profile not in OPERATING_PROFILES:
+        raise CompanyOnboardingError(
+            "operating-profile-invalid", "operating_profile must be simple or estricto")
     if not IDEMPOTENCY_KEY.fullmatch(idempotency_key):
         raise CompanyOnboardingError(
             "invalid-idempotency-key", "the idempotency key has an invalid shape")
@@ -227,6 +237,7 @@ def provision_company(connection: psycopg.Connection, *, company_id: str,
         firm_id=firm_id, legal_name=name, country_code=country,
         tax_token=tax_token, setup=setup,
         account_request_token=account_request_token,
+        operating_profile=operating_profile,
     )
     command_id = str(uuid.uuid4())
     replay = _reserve(
@@ -240,11 +251,15 @@ def provision_company(connection: psycopg.Connection, *, company_id: str,
     with connection.cursor() as cursor:
         try:
             with connection.transaction():
+                # El perfil elegido en el alta no es un cambio: nace con la
+                # empresa y queda en la auditoria de aprovisionamiento.
                 cursor.execute(
                     "INSERT INTO fincilia.company "
                     "(company_id, legal_name, tax_id_token, tax_id_key_version, "
-                    " country_code) VALUES (%s, %s, %s, %s, %s)",
-                    (company_id, name, tax_token, key_version, country),
+                    " country_code, operating_profile) "
+                    "VALUES (%s, %s, %s, %s, %s, %s)",
+                    (company_id, name, tax_token, key_version, country,
+                     operating_profile),
                 )
         except psycopg.errors.UniqueViolation:
             # No se revela si existe, quien la administra ni bajo que nombre.
@@ -334,6 +349,7 @@ def provision_company(connection: psycopg.Connection, *, company_id: str,
         "link_id": link_id,
         "cycle_id": cycle_id,
         "expectations_created": expectations_created,
+        "operating_profile": operating_profile,
         "replayed": False,
     }
     repository.record_audit(
@@ -345,6 +361,7 @@ def provision_company(connection: psycopg.Connection, *, company_id: str,
             "initial_account": account_id is not None,
             "initial_source": source_id is not None,
             "initial_cycle": cycle_id is not None,
+            "operating_profile": operating_profile,
         },
     )
     stored = {key: value for key, value in result.items() if key != "replayed"}

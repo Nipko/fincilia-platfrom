@@ -102,15 +102,21 @@ def operational_report(connection: psycopg.Connection, *, days: int,
             "movements", "rejected_records", "completeness_mismatch",
             "completeness_unknown", "lineage_invalidated"))
 
+        # Una aplicacion de regla revertida (V0069) conserva su fila
+        # `confirmed`, pero ya no confirma nada: cuenta como `reverted`.
         cursor.execute(
             "SELECT count(*), count(*) FILTER (WHERE d.decision IS NULL), "
-            "count(*) FILTER (WHERE d.decision = 'confirmed'), "
-            "count(*) FILTER (WHERE d.decision = 'rejected') "
+            "count(*) FILTER (WHERE d.decision = 'confirmed' "
+            "                 AND rv.reversal_id IS NULL), "
+            "count(*) FILTER (WHERE d.decision = 'rejected'), "
+            "count(*) FILTER (WHERE rv.reversal_id IS NOT NULL) "
             "FROM fincilia.match_candidate c LEFT JOIN fincilia.match_decision d "
             "ON d.candidate_id = c.candidate_id AND d.company_id = c.company_id "
+            "LEFT JOIN fincilia.match_decision_reversal rv "
+            "ON rv.decision_id = d.decision_id AND rv.company_id = d.company_id "
             "WHERE c.proposed_at >= %s::date AND c.proposed_at < %s::date", bounds)
         reconciliation = _counts(cursor.fetchone(), (
-            "candidates", "pending", "confirmed", "rejected"))
+            "candidates", "pending", "confirmed", "rejected", "reverted"))
 
         cursor.execute(
             "SELECT count(*), count(*) FILTER (WHERE status = 'open'), "
