@@ -46,6 +46,7 @@ owners nominales, revisión independiente ni el gate S1-READY.
 | [036](ADR-036-safe-pdf-ocr.md) | PDF seguro y OCR desacoplado | Proposed; parser local primero, proveedor externo pendiente |
 | [037](ADR-037-notification-delivery.md) | Entrega externa de notificaciones | Proposed; adaptadores reales desactivados |
 | [038](ADR-038-plans-entitlements-billing.md) | Planes, entitlements y facturación | Proposed; cobros reales desactivados |
+| [039](ADR-039-operating-profiles-and-review-modes.md) | Perfiles operativos, modos de revisión y reglas aprobadas | Accepted por FOUNDER-01 (FNC-PRD-002); revisión independiente pendiente |
 
 ## Estados
 

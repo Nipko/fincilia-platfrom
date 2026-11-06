@@ -204,7 +204,23 @@ dependencias de `FNC-GAT-002` ni afirmar que Sprint 1 está habilitado.
 | FNC-GAT-008 | A1/A6 | WEB-004, ACC-001, IAM-004 | Review pending | Inventario ejecutable de 12 dominios: 100 % implementación, 62 % aceptación sintética y 30 % operabilidad productiva; mobile excluido |
 | FNC-QA-011 | A5/A6 | QA-010, ING-007, NTF-002 | In progress | Aislamiento determinista de notificaciones y procesamiento documental en la suite PostgreSQL integral |
 
+## Pyme modo simple (FNC-PRD-002, ADR-039)
+
+FNC-PRD-002 fue aceptada por FOUNDER-01 el 2026-11-04 antes de RES-002 y COR-002;
+esas evidencias siguen pendientes y pueden revertir la decisión.
+
+| ID | Carril | Dependencias | Resultado verificable |
+|---|---|---|---|
+| FNC-SMB-001 | A1/A2 | PRD-002 | Perfiles `simple`/`estricto`, modos de revisión y certificación posterior del cierre |
+| FNC-SMB-002 | A5 | PRD-002 | Facturas DIAN UBL, MT940 y plantillas bancarias con fixtures sintéticos |
+| FNC-SMB-003 | A2 | SMB-001 | Tolerancias, explicación llana y reglas aprobadas por una persona |
+| FNC-SMB-004 | A6 | SMB-001, SMB-002, SMB-003 | Flujo pyme de tres pasos y bandeja de pendientes |
+| FNC-SMB-005 | A2 | SMB-001 | Publicación de datasets sin CLI para el usuario final |
+| FNC-SMB-006 | A6 | SMB-004 | Buzón de extractos, programación y resúmenes con canales externos apagados |
+
 ## No codificar todavía salvo autorización posterior explícita
+
+ADR-039 autoriza la confirmación por reglas aprobadas por una persona; el auto-match libre sigue fuera de alcance.
 
 - Ingesta de documentos reales o conectores reales.
 - Auto-match o informes financieros certificados.

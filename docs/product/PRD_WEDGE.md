@@ -7,8 +7,8 @@
 | Fase | F0 — validación y arquitectura ejecutable |
 | Gate relacionado | S1-READY |
 | Datos autorizados durante E0 | Exclusivamente sintéticos |
-| Comprador prioritario | Firma contable pequeña o mediana con 5–25 empresas activas |
-| Entidad servida | PYME; también puede ser compradora directa |
+| Comprador prioritario | Pyme sin personal contable dedicado (perfil `simple`) y firma contable que la acompaña (perfil `estricto` o revisor); ver FNC-PRD-002 |
+| Entidad servida | PYME; compra directa con su contador como revisor asíncrono |
 | Wedge | Factura/pedido emitido → pago → fee/retención/ajuste → liquidación → abono bancario → asiento/libro ERP → conciliación de movimientos y saldos → cierre con evidencia |
 
 ## 1. Propósito y promesa
@@ -36,6 +36,23 @@ El problema no es solo “emparejar dos filas”. El cierre debe responder, para
 - si el resultado puede reproducirse después sin alterar originales.
 
 ## 3. Segmentos y actores
+
+### 3.0 Enmienda FNC-PRD-002 (2026-11-04): pyme directa y perfiles operativos
+
+El Founder aceptó servir directamente a pymes sin personal contable. Cada empresa
+opera con un perfil (ADR-039):
+
+- `simple`: una o dos personas. El dueño sube, revisa y cierra solo; las
+  decisiones quedan `self_reviewed` y el cierre pasa a `certified` cuando el
+  contador u otro usuario elegible lo revisa después.
+- `estricto`: segregación de funciones de dos personas como en el resto de
+  este PRD.
+
+El flujo visible para la pyme tiene tres pasos: Subir → Revisar pendientes →
+Listo. El flujo de doce pasos de §7 se conserva como modo contador. Las
+fuentes prioritarias para pymes son el extracto bancario (plantillas por banco,
+MT940) y las facturas electrónicas DIAN emitidas como contraparte. Las
+hipótesis de §14 siguen abiertas y ahora incluyen a pymes independientes.
 
 ### 3.1 Comprador prioritario: firma contable
 
