@@ -15,6 +15,8 @@ const mocks = vi.hoisted(() => {
     ApiError,
     applyApprovedCorrections: vi.fn(),
     approveOverride: vi.fn(),
+    certifyAccountingPeriod: vi.fn(),
+    changeOperatingProfile: vi.fn(),
     fetchCorrectionTargets: vi.fn(),
     fetchCorrections: vi.fn(),
     fetchDataset: vi.fn(),
@@ -46,6 +48,14 @@ const mocks = vi.hoisted(() => {
     }),
     revalidatePath: vi.fn(),
     writeSession: vi.fn(),
+    applyReconciliationRules: vi.fn(),
+    approveReconciliationRule: vi.fn(),
+    changeReconciliationRuleStatus: vi.fn(),
+    changeUploadSchedule: vi.fn(),
+    createReconciliationRule: vi.fn(),
+    createTemplateMapping: vi.fn(),
+    proposeRuleFromDecision: vi.fn(),
+    revertRuleDecision: vi.fn(),
   };
 });
 
@@ -60,6 +70,8 @@ vi.mock('@/lib/api', () => ({
   ApiError: mocks.ApiError,
   applyApprovedCorrections: mocks.applyApprovedCorrections,
   approveOverride: mocks.approveOverride,
+  certifyAccountingPeriod: mocks.certifyAccountingPeriod,
+  changeOperatingProfile: mocks.changeOperatingProfile,
   fetchCorrectionTargets: mocks.fetchCorrectionTargets,
   fetchCorrections: mocks.fetchCorrections,
   fetchDataset: mocks.fetchDataset,
@@ -97,6 +109,14 @@ vi.mock('@/lib/api', () => ({
   triageQualityIssue: mocks.triageQualityIssue,
   updateAccount: vi.fn(),
   validateMapping: vi.fn(),
+  applyReconciliationRules: mocks.applyReconciliationRules,
+  approveReconciliationRule: mocks.approveReconciliationRule,
+  changeReconciliationRuleStatus: mocks.changeReconciliationRuleStatus,
+  changeUploadSchedule: mocks.changeUploadSchedule,
+  createReconciliationRule: mocks.createReconciliationRule,
+  createTemplateMapping: mocks.createTemplateMapping,
+  proposeRuleFromDecision: mocks.proposeRuleFromDecision,
+  revertRuleDecision: mocks.revertRuleDecision,
 }));
 
 import {
@@ -122,6 +142,15 @@ import {
   proposeReconcilingItemAction,
   decideReconcilingItemAction,
   registerAccountAction,
+  changeOperatingProfileAction,
+  certifyAccountingPeriodAction,
+  simpleDecideAction,
+  alwaysApplyAction,
+  applyRulesAction,
+  revertRuleDecisionAction,
+  ruleCommandAction,
+  applyTemplateMappingAction,
+  changeUploadScheduleAction,
 } from '../actions';
 
 function registrationForm(): FormData {
@@ -279,6 +308,7 @@ function companyProvisionForm(): FormData {
   form.set('countryCode', 'CO');
   form.set('taxIdentifier', 'SYN-900123456');
   form.set('idempotencyKey', 'onboarding-company-test-0001');
+  form.set('teamSizeBand', '1-2');
   form.set('includeSetup', 'on');
   form.set('accountFamily', 'bank_account');
   form.set('accountName', 'Cuenta operativa sintetica');
@@ -908,6 +938,7 @@ describe('company provisioning action', () => {
         firm_id: '5f0f7b18-0a7a-5c8e-9d2c-6a1f2b3c4d5e',
         legal_name: 'Empresa Sintetica del Norte SAS',
         tax_identifier: 'SYN-900123456',
+        team_size_band: '1-2',
         setup: expect.objectContaining({
           account_identifier: 'SYN-ACCOUNT-0001',
           anchor_date: '2026-08-01',
@@ -944,6 +975,26 @@ describe('company provisioning action', () => {
 
     expect(result.error).toContain('solicitud cambio');
     expect(result.error).not.toContain('SYN-900123456');
+  });
+
+  it('exige responder cuantas personas revisan las finanzas', async () => {
+    const form = companyProvisionForm();
+    form.delete('teamSizeBand');
+
+    const result = await provisionCompanyAction({ error: null }, form);
+
+    expect(result.error).toContain('personas revisan');
+    expect(mocks.provisionCompany).not.toHaveBeenCalled();
+  });
+
+  it('rechaza una banda de equipo fuera del contrato', async () => {
+    const form = companyProvisionForm();
+    form.set('teamSizeBand', 'simple');
+
+    const result = await provisionCompanyAction({ error: null }, form);
+
+    expect(result.error).toContain('personas revisan');
+    expect(mocks.provisionCompany).not.toHaveBeenCalled();
   });
 
   it('redirige al acceso cuando la sesion expiro sin capturar el redirect', async () => {
@@ -1246,5 +1297,304 @@ describe('quality center actions', () => {
       { status: 'resolved', reason_code: 'reviewed_source',
         rationale: 'La evidencia sintetica fue revisada y documentada.' },
     );
+  });
+});
+
+describe('operating profile and certification actions', () => {
+  const companyId = '5f0f7b18-0a7a-5c8e-9d2c-6a1f2b3c4d5e';
+  const closeId = '6f0f7b18-0a7a-5c8e-9d2c-6a1f2b3c4d5f';
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.readSession.mockResolvedValue({ token: 'token-sintetico', displayName: 'Sofia' });
+  });
+
+  function profileForm(reason = 'Ahora somos tres personas revisando.'): FormData {
+    const form = new FormData();
+    form.set('companyId', companyId);
+    form.set('operatingProfile', 'estricto');
+    form.set('reason', reason);
+    return form;
+  }
+
+  it('envia el perfil y el motivo; la API decide si es owner', async () => {
+    mocks.changeOperatingProfile.mockResolvedValue({ changed: true });
+
+    const result = await changeOperatingProfileAction({ error: null, done: null }, profileForm());
+
+    expect(mocks.changeOperatingProfile).toHaveBeenCalledWith('token-sintetico', companyId, {
+      operating_profile: 'estricto', reason: 'Ahora somos tres personas revisando.',
+    });
+    expect(result.done).toContain('Estricto');
+  });
+
+  it('rechaza un motivo corto sin llamar a la API', async () => {
+    const result = await changeOperatingProfileAction(
+      { error: null, done: null }, profileForm('corto'));
+
+    expect(result.error).toContain('motivo');
+    expect(mocks.changeOperatingProfile).not.toHaveBeenCalled();
+  });
+
+  it('explica el rechazo de quien no es owner', async () => {
+    mocks.changeOperatingProfile.mockRejectedValue(new mocks.ApiError(403, 'owner required'));
+
+    const result = await changeOperatingProfileAction({ error: null, done: null }, profileForm());
+
+    expect(result.error).toContain('dueño');
+  });
+
+  it('certifica un cierre autorrevisado', async () => {
+    mocks.certifyAccountingPeriod.mockResolvedValue({ replayed: false });
+    const form = new FormData();
+    form.set('companyId', companyId);
+    form.set('closeId', closeId);
+
+    const result = await certifyAccountingPeriodAction({ error: null, done: null }, form);
+
+    expect(mocks.certifyAccountingPeriod).toHaveBeenCalledWith('token-sintetico', companyId, closeId);
+    expect(result.done).toContain('certificado');
+  });
+
+  it('traduce la segregacion a lenguaje llano', async () => {
+    mocks.certifyAccountingPeriod.mockRejectedValue(new mocks.ApiError(
+      409, 'sod', 'accounting-period-segregation-of-duties'));
+    const form = new FormData();
+    form.set('companyId', companyId);
+    form.set('closeId', closeId);
+
+    const result = await certifyAccountingPeriodAction({ error: null, done: null }, form);
+
+    expect(result.error).toContain('no preparó ni cerró');
+  });
+});
+
+describe('acciones del modo pyme (FNC-SMB-003..006)', () => {
+  const companyId = '5f0f7b18-0a7a-5c8e-9d2c-6a1f2b3c4d5e';
+  const left = '1f0f7b18-0a7a-4c8e-9d2c-6a1f2b3c4d51';
+  const right = '2f0f7b18-0a7a-4c8e-9d2c-6a1f2b3c4d52';
+  const leftMovement = '3f0f7b18-0a7a-4c8e-9d2c-6a1f2b3c4d53';
+  const rightMovement = '4f0f7b18-0a7a-4c8e-9d2c-6a1f2b3c4d54';
+  const candidateId = '6f0f7b18-0a7a-4c8e-9d2c-6a1f2b3c4d56';
+  const decisionId = '7f0f7b18-0a7a-4c8e-9d2c-6a1f2b3c4d57';
+  const ruleId = '8f0f7b18-0a7a-4c8e-9d2c-6a1f2b3c4d58';
+  const key = 'smb-0123456789abcdef0123';
+  const empty = { error: null, done: null, decisionId: null, decision: null, reviewMode: null };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.readSession.mockResolvedValue({ token: 'token-sintetico', displayName: 'Sofia' });
+  });
+
+  function suggestionForm(decision: string): FormData {
+    const form = new FormData();
+    form.set('companyId', companyId);
+    form.set('idempotencyKey', key);
+    form.set('decision', decision);
+    form.set('leftDatasetId', left);
+    form.set('rightDatasetId', right);
+    form.set('leftMovementId', leftMovement);
+    form.set('rightMovementId', rightMovement);
+    return form;
+  }
+
+  it('confirma una sugerencia: propone con la tolerancia simple y decide', async () => {
+    mocks.proposeReconciliationReview.mockResolvedValue({ candidate_id: candidateId });
+    mocks.decideReconciliationReview.mockResolvedValue({
+      decision: { decision_id: decisionId, review_mode: 'self_reviewed' },
+    });
+
+    const result = await simpleDecideAction(empty, suggestionForm('confirmed'));
+
+    expect(mocks.proposeReconciliationReview).toHaveBeenCalledWith(
+      'token-sintetico', companyId, `${key}.propose`, expect.objectContaining({
+        left_movement_id: leftMovement, right_movement_id: rightMovement, max_days: 3,
+        tolerance_percent: '5', tolerance_amount: '20000',
+      }));
+    expect(mocks.decideReconciliationReview).toHaveBeenCalledWith(
+      'token-sintetico', companyId, candidateId, `${key}.decide-confirmed`,
+      'confirmed', 'documented_counterpart');
+    expect(result).toMatchObject({
+      decisionId, decision: 'confirmed', reviewMode: 'self_reviewed', error: null,
+    });
+    expect(result.done).toContain('autorrevisado');
+  });
+
+  it('rechaza un expediente abierto sin volver a proponerlo', async () => {
+    mocks.decideReconciliationReview.mockResolvedValue({
+      decision: { decision_id: decisionId, review_mode: 'self_reviewed' },
+    });
+    const form = new FormData();
+    form.set('companyId', companyId);
+    form.set('idempotencyKey', key);
+    form.set('decision', 'rejected');
+    form.set('candidateId', candidateId);
+
+    const result = await simpleDecideAction(empty, form);
+
+    expect(mocks.proposeReconciliationReview).not.toHaveBeenCalled();
+    expect(mocks.decideReconciliationReview).toHaveBeenCalledWith(
+      'token-sintetico', companyId, candidateId, `${key}.decide-rejected`,
+      'rejected', 'different_event');
+    expect(result.decisionId).toBeNull();
+  });
+
+  it('en estricto la segregacion se explica y no inventa una decision', async () => {
+    mocks.decideReconciliationReview.mockRejectedValue(
+      new mocks.ApiError(409, 'sod', 'segregation-of-duties'));
+    const form = new FormData();
+    form.set('companyId', companyId);
+    form.set('idempotencyKey', key);
+    form.set('decision', 'confirmed');
+    form.set('candidateId', candidateId);
+
+    const result = await simpleDecideAction(empty, form);
+
+    expect(result.error).toContain('segregacion');
+    expect(result.decisionId).toBeNull();
+  });
+
+  function ruleForm(): FormData {
+    const form = new FormData();
+    form.set('companyId', companyId);
+    form.set('decisionId', decisionId);
+    form.set('idempotencyKey', key);
+    return form;
+  }
+
+  const conditions = {
+    schema: 'fnc-rule-v1', description_contains: 'nit fnc syn nit 0091',
+    financial_account_id: null, direction: 'outflow', max_amount_difference: '0',
+    currency: 'COP',
+  };
+
+  it('«¿Aplicar siempre?» en simple: propone, crea y la misma persona aprueba', async () => {
+    mocks.proposeRuleFromDecision.mockResolvedValue({
+      source_decision_id: decisionId, conditions, operating_profile: 'simple',
+    });
+    mocks.createReconciliationRule.mockResolvedValue({
+      rule_id: ruleId, status: 'proposed', description: ['La descripción contiene «x»'],
+    });
+    mocks.approveReconciliationRule.mockResolvedValue({
+      rule_id: ruleId, status: 'active', approval: { review_mode: 'self_reviewed' },
+    });
+
+    const result = await alwaysApplyAction({ error: null, done: null, ruleStatus: null },
+      ruleForm());
+
+    expect(mocks.createReconciliationRule).toHaveBeenCalledWith(
+      'token-sintetico', companyId, `${key}.rule-create`,
+      { conditions, created_from_decision_id: decisionId });
+    expect(mocks.approveReconciliationRule).toHaveBeenCalledWith(
+      'token-sintetico', companyId, ruleId, `${key}.rule-approve`);
+    expect(result.ruleStatus).toBe('active');
+    expect(result.done).toContain('Regla activa · Autorrevisado');
+  });
+
+  it('«¿Aplicar siempre?» en estricto deja la regla propuesta para otra persona', async () => {
+    mocks.proposeRuleFromDecision.mockResolvedValue({
+      source_decision_id: decisionId, conditions, operating_profile: 'estricto',
+    });
+    mocks.createReconciliationRule.mockResolvedValue({
+      rule_id: ruleId, status: 'proposed', description: [],
+    });
+
+    const result = await alwaysApplyAction({ error: null, done: null, ruleStatus: null },
+      ruleForm());
+
+    expect(mocks.approveReconciliationRule).not.toHaveBeenCalled();
+    expect(result.ruleStatus).toBe('proposed');
+    expect(result.done).toContain('Otra persona');
+  });
+
+  it('aplica reglas, cuenta aplicadas y omitidas y ofrece deshacer', async () => {
+    mocks.applyReconciliationRules.mockResolvedValue({
+      active_rules: 1,
+      applied: [{ left_movement_id: leftMovement, right_movement_id: rightMovement,
+        rule_id: ruleId, decision_id: decisionId }],
+      skipped: [{ left_movement_id: 'a', right_movement_id: 'b', rule_id: ruleId,
+        reason: 'ambiguous' }],
+    });
+    const form = new FormData();
+    form.set('companyId', companyId);
+    form.set('leftDatasetId', left);
+    form.set('rightDatasetId', right);
+    form.set('idempotencyKey', key);
+
+    const result = await applyRulesAction(
+      { error: null, done: null, applied: [], skippedCount: 0 }, form);
+
+    expect(result.applied).toEqual([{ decisionId, leftMovementId: leftMovement,
+      rightMovementId: rightMovement }]);
+    expect(result.skippedCount).toBe(1);
+    expect(result.done).toContain('1 cruce(s)');
+
+    mocks.revertRuleDecision.mockResolvedValue({ status: 'reverted' });
+    const revert = new FormData();
+    revert.set('companyId', companyId);
+    revert.set('decisionId', decisionId);
+    revert.set('idempotencyKey', key);
+    const reverted = await revertRuleDecisionAction({ error: null, done: null }, revert);
+    expect(mocks.revertRuleDecision).toHaveBeenCalledWith(
+      'token-sintetico', companyId, decisionId, key, 'rule_too_broad');
+    expect(reverted.done).toContain('pendientes');
+  });
+
+  it('pausa una regla y rechaza acciones desconocidas sin llamar a la API', async () => {
+    mocks.changeReconciliationRuleStatus.mockResolvedValue({ status: 'paused' });
+    const form = new FormData();
+    form.set('companyId', companyId);
+    form.set('ruleId', ruleId);
+    form.set('idempotencyKey', key);
+    form.set('action', 'pause');
+    expect((await ruleCommandAction({ error: null, done: null }, form)).done)
+      .toContain('pausada');
+    form.set('action', 'delete');
+    expect((await ruleCommandAction({ error: null, done: null }, form)).error)
+      .toContain('contexto');
+    expect(mocks.changeReconciliationRuleStatus).toHaveBeenCalledTimes(1);
+  });
+
+  it('usa la plantilla y lleva al mapeo creado', async () => {
+    mocks.createTemplateMapping.mockResolvedValue({ mapping_version_id: decisionId });
+    const form = new FormData();
+    form.set('companyId', companyId);
+    form.set('artifactId', left);
+    form.set('dataSourceId', right);
+
+    await expect(applyTemplateMappingAction({ error: null }, form)).rejects
+      .toThrow('NEXT_REDIRECT');
+    expect(mocks.createTemplateMapping).toHaveBeenCalledWith(
+      'token-sintetico', companyId, left, right);
+    expect(mocks.redirect).toHaveBeenCalledWith(expect.stringContaining(`mapeo=${decisionId}`));
+  });
+
+  it('una plantilla que ya no encaja cae al mapeo manual', async () => {
+    mocks.createTemplateMapping.mockRejectedValue(
+      new mocks.ApiError(409, 'no', 'template-not-detected'));
+    const form = new FormData();
+    form.set('companyId', companyId);
+    form.set('artifactId', left);
+    form.set('dataSourceId', right);
+    expect((await applyTemplateMappingAction({ error: null }, form)).error)
+      .toContain('mapeo manual');
+  });
+
+  it('guarda la frecuencia de carga; quien no es owner recibe un motivo claro', async () => {
+    mocks.changeUploadSchedule.mockResolvedValue({ changed: true });
+    const form = new FormData();
+    form.set('companyId', companyId);
+    form.set('cadence', 'biweekly');
+    const saved = await changeUploadScheduleAction({ error: null, done: null }, form);
+    expect(mocks.changeUploadSchedule).toHaveBeenCalledWith(
+      'token-sintetico', companyId, 'biweekly');
+    expect(saved.done).toContain('sin enviar correos');
+
+    mocks.changeUploadSchedule.mockRejectedValue(new mocks.ApiError(403, 'owner'));
+    expect((await changeUploadScheduleAction({ error: null, done: null }, form)).error)
+      .toContain('dueño');
+    form.set('cadence', 'daily');
+    expect((await changeUploadScheduleAction({ error: null, done: null }, form)).error)
+      .toContain('semanal');
   });
 });

@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
 import { PageState } from '@/components/page-state';
+import { ReviewModeBadge } from '@/components/review-mode-badge';
 import { SignOut } from '@/app/empresas/sign-out';
 import { ApiError, fetchMe, type MatchReview } from '@/lib/api';
 import { reconciliationReviewUrl } from '@/lib/reconciliation';
@@ -33,6 +34,7 @@ const STATUS_LABELS: Record<MatchReview['status'], string> = {
   open: 'Pendiente',
   confirmed: 'Confirmada',
   rejected: 'Rechazada',
+  reverted: 'Deshecha',
 };
 
 const SIGNAL_LABELS: Record<string, string> = {
@@ -224,7 +226,8 @@ export default async function ReviewsPage({
                   <div>
                     <span className={`tag review-state review-state--${review.status}`}>
                       {STATUS_LABELS[review.status]}
-                    </span>
+                    </span>{' '}
+                    <ReviewModeBadge mode={review.decision?.review_mode ?? review.review_mode} />
                     <h3>{company.legal_name}</h3>
                   </div>
                   <Link href={expedienteUrl(company.company_id, review, filter, selection)}>
@@ -244,6 +247,13 @@ export default async function ReviewsPage({
                     </span>
                   ))}
                 </div>
+                {review.explanation?.length ? (
+                  <ul aria-label="Explicacion del candidato">
+                    {review.explanation.map((line, index) => (
+                      <li key={`${review.candidate_id}:${index}`}>{line}</li>
+                    ))}
+                  </ul>
+                ) : null}
                 <p className="meta">Registro humano sin efecto financiero.</p>
               </article>
             </li>

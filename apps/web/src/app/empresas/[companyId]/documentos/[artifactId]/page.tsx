@@ -5,8 +5,10 @@ import {
   ApiError,
   fetchDocument,
   fetchSource,
+  fetchTemplateDetection,
   type SourceDetail,
   type TableProfile,
+  type TemplateDetection,
 } from '@/lib/api';
 import {
   pageFromQuery,
@@ -14,8 +16,10 @@ import {
   withFlowContext,
 } from '@/lib/navigation';
 import { readSession } from '@/lib/session';
+import { templateOffer } from '@/lib/simple-mode';
 import { isUuid } from '@/lib/upload-policy';
 import { SheetSelector } from './sheet-selector';
+import { TemplateOfferPanel } from './template-offer';
 
 export const dynamic = 'force-dynamic';
 
@@ -140,6 +144,20 @@ export default async function DocumentPage({
     document.spreadsheet?.requires_selection && !document.spreadsheet.selection,
   );
 
+  // FNC-SMB-002/004: despues de procesar, ¿encaja una plantilla o un formato
+  // conocido? La deteccion no escribe nada; un 403 o un fallo dejan el mapeo
+  // manual como unico camino, sin suponer nada.
+  let detection: TemplateDetection | null = null;
+  if (document.zone !== 'quarantine' && !pendingSheetSelection) {
+    try {
+      detection = await fetchTemplateDetection(session.token, companyId, artifactId);
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401) redirect('/entrar');
+      detection = null;
+    }
+  }
+  const templateSourceId = document.data_source_id ?? source?.data_source_id ?? null;
+
   return (
     <main>
       <header className="bar">
@@ -174,6 +192,19 @@ export default async function DocumentPage({
           Fuente seleccionada: <strong>{source.display_name}</strong>. Se volvera a
           validar antes de guardar el mapeo.
         </p>
+      ) : null}
+
+      {detection ? (
+        <TemplateOfferPanel
+          companyId={companyId}
+          artifactId={artifactId}
+          dataSourceId={templateSourceId}
+          offer={templateOffer(detection)}
+          manualHref={withFlowContext(
+            `/empresas/${companyId}/documentos/${artifactId}/mapeo`,
+            { ...flowContext, fuente: templateSourceId },
+          )}
+        />
       ) : null}
 
       <section className="card">

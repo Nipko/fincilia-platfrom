@@ -36,6 +36,8 @@ test('TST-REG-005/006: una persona crea cuenta y primer espacio sin semillas', a
   await page.getByLabel('Identificador sintetico de cuenta')
     .fill(`SYN-ACCOUNT-${marker}`);
   await page.getByLabel('Nombre visible de la fuente').fill('Fuente de inicio');
+  // ADR-039: el alta pide el tamano del equipo; 3 o mas conserva `estricto`.
+  await page.getByRole('radio', { name: /3 o más/ }).check();
   await page.getByRole('button', { name: 'Crear empresa y continuar' }).click();
 
   await expect(page).toHaveURL(/\/empresas\/[0-9a-f-]+\/fuentes\?alta=creada$/);

@@ -23,11 +23,41 @@ export type CompanySummary = {
   roles: string[];
 };
 
+/** Perfil operativo por empresa (ADR-039). Lo resuelve la API, nunca el cliente. */
+export type OperatingProfile = 'simple' | 'estricto';
+
+/** Modo de revision de una decision humana (ADR-039 §2). */
+export type ReviewMode = 'independent' | 'self_reviewed' | 'approved_rule';
+
+/** Certificacion efectiva de un cierre contable (ADR-039 §3). */
+export type CloseCertification = 'self_reviewed' | 'certified';
+
 export type CompanyDetail = CompanySummary & {
   firm_id: string;
   engagement_id: string | null;
   authorization_version: number;
   permissions: string[];
+  /** Opcional mientras convive con APIs previas; ausente equivale a `estricto`. */
+  operating_profile?: OperatingProfile;
+};
+
+export type OperatingProfileChange = {
+  change_id: string;
+  version: number;
+  from_profile: OperatingProfile;
+  to_profile: OperatingProfile;
+  reason: string;
+  changed_by: string;
+  changed_by_name: string;
+  changed_at: string;
+};
+
+export type OperatingProfileState = {
+  company_id: string;
+  operating_profile: OperatingProfile;
+  can_change: boolean;
+  history: OperatingProfileChange[];
+  changed: boolean;
 };
 
 export type AuditEvent = {
@@ -240,12 +270,16 @@ export type InitialCompanySetup = {
   grace_days: number;
 };
 
+export type TeamSizeBand = '1-2' | '3+';
+
 export type CompanyProvisionInput = {
   firm_id: string;
   legal_name: string;
   country_code: string;
   tax_identifier: string;
   setup: InitialCompanySetup | null;
+  /** ADR-039: la banda sugiere el perfil; la API lo resuelve. */
+  team_size_band?: TeamSizeBand;
 };
 
 export type CompanyProvisionResult = CompanyDetail & {
@@ -420,6 +454,31 @@ export function fetchCompany(token: string, companyId: string): Promise<CompanyD
   });
 }
 
+export function fetchOperatingProfile(
+  token: string,
+  companyId: string,
+): Promise<OperatingProfileState> {
+  return request<OperatingProfileState>(
+    `/api/v1/companies/${encodeURIComponent(companyId)}/operating-profile`,
+    { token },
+  );
+}
+
+export function changeOperatingProfile(
+  token: string,
+  companyId: string,
+  input: { operating_profile: OperatingProfile; reason: string },
+): Promise<OperatingProfileState> {
+  return request<OperatingProfileState>(
+    `/api/v1/companies/${encodeURIComponent(companyId)}/operating-profile`,
+    {
+      method: 'PUT', token,
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(input),
+    },
+  );
+}
+
 export function fetchAudit(token: string, companyId: string): Promise<AuditEvent[]> {
   return request<AuditEvent[]>(
     `/api/v1/companies/${encodeURIComponent(companyId)}/audit?limit=25`,
@@ -575,8 +634,28 @@ export type SpreadsheetWorkspace = {
   selection: SpreadsheetSelection | null;
 };
 
+/** Tipos de documento estructurado que el worker puede describir. */
+export type DocumentKind =
+  | 'pdf'
+  | 'dian_invoice'
+  | 'mt940'
+  | 'text/csv'
+  | 'csv'
+  | 'xlsx'
+  | 'ods';
+
+/** Plantilla bancaria detectada; hipotesis sintetica hasta calibrarla (ADR-039 §5). */
+export type BankTemplateRef = {
+  template_id?: string;
+  id?: string;
+  version?: number | string;
+  calibration?: string;
+  source?: string;
+  source_url?: string;
+};
+
 export type PdfWorkspace = {
-  document_kind: 'pdf';
+  document_kind: DocumentKind;
   artifact_sha256?: string;
   page_count?: number;
   object_count?: number;
@@ -775,6 +854,8 @@ export type DatasetDetail = DatasetSummary & {
   engine_release: string;
   can_publish: boolean;
   publish_blockers: { code: string; detail: string }[];
+  review_mode?: ReviewMode | null;
+  template?: BankTemplateRef;
   manifest: {
     reproduction_key: string;
     reproducible: boolean;
@@ -818,6 +899,16 @@ export type ReconciliationCandidate = {
   right: CandidateMovement;
   date_distance_days: number;
   signals: string[];
+  /** Explicacion en lenguaje llano compuesta de senales deterministas. */
+  explanation?: string[];
+  /** Diferencia exacta en texto decimal; `null` si el monto coincide. */
+  amount_difference?: string | null;
+};
+
+/** Tolerancia de monto en texto decimal exacto; nunca `number`. */
+export type CandidateTolerance = {
+  amount: string;
+  percent: string;
 };
 
 export type CandidateDataset = {
@@ -843,6 +934,13 @@ export type CandidatePage = {
   candidates: ReconciliationCandidate[];
 };
 
+export type MatchDecisionReversal = {
+  reversal_id: string;
+  reason_code: string;
+  reversed_by: string;
+  reversed_at: string;
+};
+
 export type MatchDecision = {
   decision_id: string;
   decision: 'confirmed' | 'rejected';
@@ -850,6 +948,10 @@ export type MatchDecision = {
   decided_by: string;
   decided_by_name: string;
   decided_at: string;
+  review_mode?: ReviewMode | null;
+  rule_id?: string | null;
+  rule_version?: number | null;
+  reversal?: MatchDecisionReversal | null;
 };
 
 export type MatchReview = {
@@ -866,12 +968,15 @@ export type MatchReview = {
   proposed_by: string;
   proposed_by_name: string;
   proposed_at: string;
-  status: 'open' | 'confirmed' | 'rejected';
+  status: 'open' | 'confirmed' | 'rejected' | 'reverted';
   decision: MatchDecision | null;
   financial_effect: 'none';
   proves_balance_reconciliation: false;
   replayed?: boolean;
   created?: boolean;
+  explanation?: string[];
+  review_mode?: ReviewMode | null;
+  amount_difference?: string | null;
 };
 
 export type MatchGroupProposal = {
@@ -897,7 +1002,7 @@ export type MatchGroupProposal = {
   created?: boolean;
 };
 
-export type ReviewQueueStatus = 'open' | 'confirmed' | 'rejected' | 'all';
+export type ReviewQueueStatus = 'open' | 'confirmed' | 'rejected' | 'reverted' | 'all';
 
 export type ReviewQueuePage = {
   status: ReviewQueueStatus;
@@ -954,6 +1059,7 @@ export type MappingDefinition = {
   first_data_row: number;
   last_data_row: number | null;
   ignored_columns: number[];
+  template?: BankTemplateRef;
 };
 
 export type MappingPreviewMovement = {
@@ -1484,6 +1590,7 @@ export function fetchReconciliationCandidates(
   referenceMode: 'all' | 'matching' | 'different',
   offset: number,
   limit: number,
+  tolerance?: CandidateTolerance,
 ): Promise<CandidatePage> {
   const company = encodeURIComponent(companyId);
   const query = new URLSearchParams({
@@ -1494,6 +1601,10 @@ export function fetchReconciliationCandidates(
     offset: String(offset),
     limit: String(limit),
   });
+  if (tolerance) {
+    query.set('tolerance_amount', tolerance.amount);
+    query.set('tolerance_percent', tolerance.percent);
+  }
   return request<CandidatePage>(
     `/api/v1/companies/${company}/reconciliation/candidates?${query.toString()}`,
     { token },
@@ -1559,6 +1670,8 @@ export function proposeReconciliationReview(
     left_movement_id: string;
     right_movement_id: string;
     max_days: number;
+    tolerance_amount?: string;
+    tolerance_percent?: string;
   },
 ): Promise<MatchReview> {
   const company = encodeURIComponent(companyId);
@@ -1644,6 +1757,358 @@ export function proposeReconciliationGroup(
   );
 }
 
+// --------------------------------------------------------------------------- //
+// Modo pyme: movimientos sin cruce, resumen, reglas y plantillas (FNC-SMB-003..006)
+// --------------------------------------------------------------------------- //
+
+export type UnmatchedMovement = CandidateMovement & {
+  dataset_version_id: string;
+  side: 'left' | 'right';
+  financial_account_id: string;
+  has_open_candidate: boolean;
+};
+
+export type UnmatchedPage = {
+  left_dataset: CandidateDataset;
+  right_dataset: CandidateDataset;
+  offset: number;
+  limit: number;
+  total: number;
+  truncated: boolean;
+  items: UnmatchedMovement[];
+  financial_effect: 'none';
+  proves_balance_reconciliation: false;
+};
+
+export function fetchUnmatchedMovements(
+  token: string,
+  companyId: string,
+  leftDatasetId: string,
+  rightDatasetId: string,
+  offset = 0,
+  limit = 100,
+): Promise<UnmatchedPage> {
+  const query = new URLSearchParams({
+    left_dataset_id: leftDatasetId,
+    right_dataset_id: rightDatasetId,
+    offset: String(Math.max(0, offset)),
+    limit: String(Math.max(1, Math.min(200, limit))),
+  });
+  return request<UnmatchedPage>(
+    `/api/v1/companies/${encodeURIComponent(companyId)}/reconciliation/unmatched?${query.toString()}`,
+    { token },
+  );
+}
+
+export type ReconciliationSummary = {
+  period_start: string;
+  period_end: string;
+  eligible_movements: number;
+  matched: number;
+  pending: number;
+  to_review: number;
+  financial_effect: 'none';
+  proves_balance_reconciliation: false;
+  notice: string;
+};
+
+export function fetchReconciliationSummary(
+  token: string,
+  companyId: string,
+  period?: { start: string; end: string },
+): Promise<ReconciliationSummary> {
+  const query = new URLSearchParams();
+  if (period) {
+    query.set('period_start', period.start);
+    query.set('period_end', period.end);
+  }
+  const suffix = query.toString() ? `?${query.toString()}` : '';
+  return request<ReconciliationSummary>(
+    `/api/v1/companies/${encodeURIComponent(companyId)}/reconciliation/summary${suffix}`,
+    { token },
+  );
+}
+
+export type RuleStatus = 'proposed' | 'active' | 'paused' | 'retired';
+
+export type RuleConditions = {
+  schema?: string;
+  description_contains: string;
+  financial_account_id: string | null;
+  direction: 'inflow' | 'outflow' | null;
+  max_amount_difference: string;
+  currency: string;
+};
+
+export type ReconciliationRule = {
+  rule_id: string;
+  version: number;
+  conditions: RuleConditions;
+  description: string[];
+  created_by: string;
+  created_by_name: string;
+  created_at: string;
+  created_from_decision_id: string | null;
+  status: RuleStatus;
+  approval: {
+    approved_by: string;
+    approved_by_name: string;
+    review_mode: 'independent' | 'self_reviewed';
+    approved_at: string;
+  } | null;
+  applied_count: number;
+  reverted_count: number;
+  financial_effect: 'none';
+  replayed?: boolean;
+};
+
+export type RuleProposal = {
+  source_decision_id: string;
+  conditions: RuleConditions | null;
+  description?: string[];
+  reason?: string;
+  operating_profile: OperatingProfile;
+  approval_required?: string;
+};
+
+export type RuleApplication = {
+  left_movement_id: string;
+  right_movement_id: string;
+  rule_id: string;
+  candidate_id?: string;
+  decision_id?: string;
+  rule_version?: number;
+  decided_by?: string;
+  review_mode?: 'approved_rule';
+  reason?: string;
+};
+
+export type RuleApplyResult = {
+  left_dataset_id: string;
+  right_dataset_id: string;
+  max_days: number;
+  active_rules: number;
+  evaluated_candidates: number;
+  scan_truncated: boolean;
+  applied: RuleApplication[];
+  skipped: RuleApplication[];
+  financial_effect: 'none';
+  proves_balance_reconciliation: false;
+  replayed: boolean;
+};
+
+function ruleUrl(companyId: string, suffix = ''): string {
+  return `/api/v1/companies/${encodeURIComponent(companyId)}/reconciliation/rules${suffix}`;
+}
+
+function jsonCommand(
+  token: string,
+  idempotencyKey: string | null,
+  body: unknown,
+): RequestInit & { token: string } {
+  return {
+    method: 'POST',
+    token,
+    headers: {
+      'content-type': 'application/json',
+      ...(idempotencyKey ? { 'idempotency-key': idempotencyKey } : {}),
+    },
+    body: JSON.stringify(body),
+  };
+}
+
+export function fetchReconciliationRules(
+  token: string,
+  companyId: string,
+  status?: RuleStatus,
+): Promise<ReconciliationRule[]> {
+  const query = new URLSearchParams({ limit: '100' });
+  if (status) query.set('status', status);
+  return request<ReconciliationRule[]>(`${ruleUrl(companyId)}?${query.toString()}`, { token });
+}
+
+export function proposeRuleFromDecision(
+  token: string,
+  companyId: string,
+  decisionId: string,
+): Promise<RuleProposal> {
+  return request<RuleProposal>(
+    ruleUrl(companyId, '/proposal'),
+    jsonCommand(token, null, { decision_id: decisionId }),
+  );
+}
+
+/** La API rechaza claves extra: el esquema lo fija el servidor, no el cliente. */
+export function ruleConditionsForCreate(conditions: RuleConditions): Omit<RuleConditions, 'schema'> {
+  return {
+    description_contains: conditions.description_contains,
+    financial_account_id: conditions.financial_account_id,
+    direction: conditions.direction,
+    max_amount_difference: conditions.max_amount_difference,
+    currency: conditions.currency,
+  };
+}
+
+export function createReconciliationRule(
+  token: string,
+  companyId: string,
+  idempotencyKey: string,
+  body: { conditions: RuleConditions; created_from_decision_id: string | null },
+): Promise<ReconciliationRule> {
+  return request<ReconciliationRule>(
+    ruleUrl(companyId),
+    jsonCommand(token, idempotencyKey, {
+      conditions: ruleConditionsForCreate(body.conditions),
+      created_from_decision_id: body.created_from_decision_id,
+    }),
+  );
+}
+
+export function approveReconciliationRule(
+  token: string,
+  companyId: string,
+  ruleId: string,
+  idempotencyKey: string,
+): Promise<ReconciliationRule> {
+  return request<ReconciliationRule>(
+    ruleUrl(companyId, `/${encodeURIComponent(ruleId)}/approval`),
+    jsonCommand(token, idempotencyKey, {}),
+  );
+}
+
+export function changeReconciliationRuleStatus(
+  token: string,
+  companyId: string,
+  ruleId: string,
+  idempotencyKey: string,
+  action: 'pause' | 'resume' | 'retire',
+): Promise<ReconciliationRule> {
+  return request<ReconciliationRule>(
+    ruleUrl(companyId, `/${encodeURIComponent(ruleId)}/status`),
+    jsonCommand(token, idempotencyKey, { action }),
+  );
+}
+
+export function applyReconciliationRules(
+  token: string,
+  companyId: string,
+  idempotencyKey: string,
+  body: { left_dataset_id: string; right_dataset_id: string; max_days: number },
+): Promise<RuleApplyResult> {
+  return request<RuleApplyResult>(
+    ruleUrl(companyId, '/apply'),
+    jsonCommand(token, idempotencyKey, body),
+  );
+}
+
+export function revertRuleDecision(
+  token: string,
+  companyId: string,
+  decisionId: string,
+  idempotencyKey: string,
+  reasonCode: string,
+): Promise<MatchReview> {
+  return request<MatchReview>(
+    `/api/v1/companies/${encodeURIComponent(companyId)}/reconciliation/decisions/` +
+      `${encodeURIComponent(decisionId)}/reversal`,
+    jsonCommand(token, idempotencyKey, { reason_code: reasonCode }),
+  );
+}
+
+export type TemplateDetection = {
+  status: 'ready' | 'needs_review' | 'not_detected' | 'not_extracted';
+  template: (BankTemplateRef & {
+    bank?: string;
+    product?: string;
+    header_row?: number;
+    source_status?: string;
+  }) | null;
+  findings: string[];
+  manual_mapping_available: boolean;
+};
+
+export function fetchTemplateDetection(
+  token: string,
+  companyId: string,
+  artifactId: string,
+): Promise<TemplateDetection> {
+  return request<TemplateDetection>(
+    `/api/v1/companies/${encodeURIComponent(companyId)}/documents/` +
+      `${encodeURIComponent(artifactId)}/template-detection`,
+    { token },
+  );
+}
+
+export type TemplateMappingResult = {
+  mapping_version_id: string;
+  mapping_id?: string;
+  state: string;
+  validated: boolean;
+  blockers: Blocker[];
+  replayed?: boolean;
+};
+
+export function createTemplateMapping(
+  token: string,
+  companyId: string,
+  artifactId: string,
+  dataSourceId: string,
+): Promise<TemplateMappingResult> {
+  return request<TemplateMappingResult>(
+    `/api/v1/companies/${encodeURIComponent(companyId)}/documents/` +
+      `${encodeURIComponent(artifactId)}/template-mapping`,
+    jsonCommand(token, null, { data_source_id: dataSourceId, validate_when_clear: true }),
+  );
+}
+
+export type UploadCadence = 'weekly' | 'biweekly' | 'monthly';
+
+export type UploadSchedule = {
+  company_id: string;
+  cadence: UploadCadence | null;
+  can_change: boolean;
+  current_period: {
+    period_start: string;
+    period_end: string;
+    due_on: string;
+    uploaded: boolean;
+    reminder_state: 'received' | 'upcoming' | 'due_soon';
+  } | null;
+  history: Array<{
+    change_id: string;
+    version: number;
+    cadence: UploadCadence;
+    changed_by: string;
+    changed_by_name: string;
+    changed_at: string;
+  }>;
+  channels: { in_app: boolean; external: string[] };
+  notice: string;
+  changed: boolean;
+};
+
+export function fetchUploadSchedule(token: string, companyId: string): Promise<UploadSchedule> {
+  return request<UploadSchedule>(
+    `/api/v1/companies/${encodeURIComponent(companyId)}/upload-schedule`,
+    { token },
+  );
+}
+
+export function changeUploadSchedule(
+  token: string,
+  companyId: string,
+  cadence: UploadCadence,
+): Promise<UploadSchedule> {
+  return request<UploadSchedule>(
+    `/api/v1/companies/${encodeURIComponent(companyId)}/upload-schedule`,
+    {
+      method: 'PUT', token,
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ cadence }),
+    },
+  );
+}
+
 export type CorrectionTarget = {
   field: string;
   value_type: string;
@@ -1671,6 +2136,7 @@ export type CorrectionProposal = {
   review_rationale: string | null;
   reviewed_at: string | null;
   result_dataset_version_id: string | null;
+  review_mode?: ReviewMode | null;
 };
 
 export type CorrectionApplicationResult = {
@@ -2352,6 +2818,8 @@ export type CloseReviewPacket = {
   decided_by: string | null;
   decider_name: string | null;
   decided_at: string | null;
+  review_mode?: ReviewMode | null;
+  decision_review_mode?: ReviewMode | null;
   reviewer_eligible: boolean;
   status: 'pending_review' | 'evidence_reviewed' | 'changes_requested';
   replayed: boolean;
@@ -2462,6 +2930,14 @@ export type AccountingPeriodReopen = {
   decided_by: string | null;
   decider_name: string | null;
   decided_at: string | null;
+  review_mode?: ReviewMode | null;
+};
+
+export type AccountingPeriodCertification = {
+  certification_id: string;
+  certified_by: string;
+  certifier_name: string;
+  certified_at: string;
 };
 
 export type AccountingPeriodClose = {
@@ -2478,6 +2954,10 @@ export type AccountingPeriodClose = {
   closer_name: string;
   closed_at: string;
   status: 'closed' | 'reopen_requested' | 'reopened';
+  /** Ausente en APIs previas a ADR-039: equivale a independiente y certificado. */
+  review_mode?: ReviewMode | null;
+  certification?: CloseCertification;
+  certification_record?: AccountingPeriodCertification | null;
   reopen_request: AccountingPeriodReopen | null;
   replayed: boolean;
   financial_effect: 'period_state_only';
@@ -2515,6 +2995,19 @@ export function closeAccountingPeriod(
       headers: { 'content-type': 'application/json', 'idempotency-key': idempotencyKey },
       body: JSON.stringify({ packet_id: packetId }),
     },
+  );
+}
+
+export function certifyAccountingPeriod(
+  token: string,
+  companyId: string,
+  closeId: string,
+): Promise<AccountingPeriodClose> {
+  const company = encodeURIComponent(companyId);
+  const close = encodeURIComponent(closeId);
+  return request<AccountingPeriodClose>(
+    `/api/v1/companies/${company}/accounting-periods/${close}/certification`,
+    { method: 'POST', token },
   );
 }
 
@@ -2711,6 +3204,7 @@ export type ReconcilingItem = {
   lineage_state: 'required_pending' | 'complete' | 'invalidated';
   created_at: string;
   replayed?: boolean;
+  review_mode?: ReviewMode | null;
 };
 
 export type BalanceReconciliationStatement = {

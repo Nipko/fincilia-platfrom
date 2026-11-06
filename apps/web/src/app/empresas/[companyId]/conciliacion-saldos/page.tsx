@@ -11,6 +11,7 @@ import {
   type CompletenessControlResult,
 } from '@/lib/api';
 import { readSession } from '@/lib/session';
+import { ReviewModeBadge } from '@/components/review-mode-badge';
 
 import {
   AssessmentControl,
@@ -258,6 +259,7 @@ export default async function BalanceReconciliationPage({ params }: {
               <p className="reconciliation-item-amount">{exactMoney(item.amount)} {item.currency_code}</p>
               <p className="meta">{REASON_LABELS[item.reason_code] ?? item.reason_code} ·{' '}
                 decision v{item.decision_version} · {item.lineage_state}</p>
+              <ReviewModeBadge mode={item.review_mode} />
               <ItemDecisionControl companyId={companyId} item={item} canApprove={canApprove} />
             </article>)}
           </div> : <p className="card" role="status">No hay partidas propuestas.</p>}

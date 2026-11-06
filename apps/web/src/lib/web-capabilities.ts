@@ -98,6 +98,7 @@ export const SUPPRESSION_LABELS: Readonly<Record<string, string>> = {
   destination_unavailable: 'Destino no disponible',
   hard_bounce: 'El proveedor rechazó permanentemente el destino',
   provider_complaint: 'Destino suprimido por reporte del destinatario',
+  in_app_only: 'Recordatorio solo dentro de Fincilia; no se envía correo',
 };
 
 export function summarizeDeliveries(

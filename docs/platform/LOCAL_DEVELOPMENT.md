@@ -209,10 +209,16 @@ en él, y son dos permisos distintos.
 ### Antes de poder publicar: aprobar la versión del motor
 
 Publicar afirma que algo se puede reproducir, y esa afirmación se apoya en una
-versión del motor que alguien miró. La semilla la deja en `draft` a propósito:
-aprobar es una decisión humana y ni el agente ni el sembrador la toman por ti.
+versión del motor que alguien miró. Desde ADR-039 §6 (FNC-SMB-005) la aprueba un
+operador o superadmin **de plataforma** desde la API `/api/v1/platform/engine-releases`
+(`GET` para ver componentes y digest, `POST .../{release_key}/approval` con ese
+digest, una referencia y un motivo); ninguna empresa aprueba versiones y el
+usuario final nunca ve este paso. La semilla local la aprueba con la superadmin
+sintética por esa misma función, con referencia `LOCAL-SYNTHETIC-SEED`; la
+semilla beta la deja en `draft` para que la firme un operador real.
 
-Primero mira qué vas a firmar:
+La CLI sigue disponible para operación de plataforma. Primero mira qué vas a
+firmar:
 
 ```bash
 docker compose -f infra/local/compose.yaml -p fincilia-local --profile migrate run --rm migrate python -m db.admin.releases show --release fnc-p3-mapping-0.1.0

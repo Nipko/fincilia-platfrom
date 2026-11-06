@@ -1,22 +1,55 @@
+import { randomUUID } from 'node:crypto';
+
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 
 import {
   ApiError,
+  fetchAccountingPeriods,
   fetchAudit,
+  fetchBalanceReconciliation,
   fetchCompany,
   fetchDatasets,
   fetchDocuments,
   fetchExpectations,
+  fetchMe,
+  fetchReconciliationCandidates,
+  fetchReconciliationSummary,
+  fetchReviewQueue,
   fetchSourcesFull,
+  fetchUnmatchedMovements,
+  fetchUploadSchedule,
+  type AccountingPeriodClose,
   type ArtifactSummary,
   type AuditEvent,
+  type BalanceReconciliationWorkspace,
   type DatasetSummary,
   type Expectation,
+  type MatchReview,
+  type ReconciliationSummary,
   type Source,
+  type UnmatchedPage,
+  type UploadSchedule,
+  type CandidatePage,
 } from '@/lib/api';
 import { summarizeDatasets, summarizeExpectations } from '@/lib/portfolio';
 import { readSession } from '@/lib/session';
+import {
+  buildPendingInbox,
+  buildSuggestions,
+  candidateExplanation,
+  latestClose,
+  operatingProfileOf,
+  PROFILE_LABELS,
+  ruleApplications,
+  selectSimplePair,
+  SIMPLE_CANDIDATE_TOLERANCE,
+  SIMPLE_MAX_DAYS,
+  unpairedMovements,
+  type PendingEntry,
+} from '@/lib/simple-mode';
+import { SimpleHome } from './simple-home';
+import type { InboxDecisionItem, SimpleInboxProps } from './simple-inbox';
 import { UploadForm } from './upload';
 
 export const dynamic = 'force-dynamic';
@@ -37,6 +70,150 @@ const PROMOTION_REASONS: Record<string, string> = {
   content_inspected_ocr: 'el PDF se inspecciono completamente mediante OCR local',
   unscannable: 'no se pudo examinar',
 };
+
+type Loaded<T> = { state: 'ok'; value: T } | { state: 'restricted' } | { state: 'unavailable' };
+
+async function load<T>(allowed: boolean, operation: () => Promise<T>): Promise<Loaded<T>> {
+  if (!allowed) return { state: 'restricted' };
+  try {
+    return { state: 'ok', value: await operation() };
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) redirect('/entrar');
+    if (error instanceof ApiError && error.status === 403) return { state: 'restricted' };
+    return { state: 'unavailable' };
+  }
+}
+
+type SimpleData = {
+  actorId: string;
+  pending: PendingEntry[] | null;
+  pendingPartial: boolean;
+  close: AccountingPeriodClose | null | 'restricted' | 'unavailable';
+  inbox: SimpleInboxProps | null;
+  summary: ReconciliationSummary | 'restricted' | 'unavailable';
+  schedule: UploadSchedule | 'restricted' | 'unavailable';
+};
+
+function commandKey(): string {
+  return `smb-${randomUUID()}`;
+}
+
+function loadedOr<T>(value: Loaded<T>): T | 'restricted' | 'unavailable' {
+  return value.state === 'ok' ? value.value : value.state;
+}
+
+async function loadSimpleData(
+  token: string,
+  companyId: string,
+  permissions: readonly string[],
+  datasets: DatasetSummary[] | null,
+  documents: ArtifactSummary[] | null,
+): Promise<SimpleData> {
+  const canReadMovements = permissions.includes('movement.read');
+  const pair = datasets && documents ? selectSimplePair(datasets, documents) : null;
+  const [me, reviews, workspace, periods, confirmed, unmatched, candidates, summary,
+    schedule] = await Promise.all([
+    load(true, () => fetchMe(token)),
+    load<MatchReview[]>(canReadMovements, async () =>
+      (await fetchReviewQueue(token, companyId, 'open', 0, 100)).items),
+    load<BalanceReconciliationWorkspace>(canReadMovements, () =>
+      fetchBalanceReconciliation(token, companyId, 100)),
+    load(permissions.includes('report.read'), () =>
+      fetchAccountingPeriods(token, companyId, 100)),
+    load<MatchReview[]>(canReadMovements, async () =>
+      (await fetchReviewQueue(token, companyId, 'confirmed', 0, 100)).items),
+    load<UnmatchedPage>(canReadMovements && pair !== null, () =>
+      fetchUnmatchedMovements(token, companyId, pair!.leftDatasetId, pair!.rightDatasetId,
+        0, 100)),
+    // Tolerancia por defecto del modo simple: las retenciones y comisiones
+    // aparecen como candidatos con su diferencia explicada; decide una persona.
+    load<CandidatePage>(canReadMovements && pair !== null, () =>
+      fetchReconciliationCandidates(token, companyId, pair!.leftDatasetId,
+        pair!.rightDatasetId, SIMPLE_MAX_DAYS, 'all', 0, 50, SIMPLE_CANDIDATE_TOLERANCE)),
+    load<ReconciliationSummary>(canReadMovements, () =>
+      fetchReconciliationSummary(token, companyId)),
+    load<UploadSchedule>(true, () => fetchUploadSchedule(token, companyId)),
+  ]);
+  let inbox: SimpleInboxProps | null = null;
+  if (canReadMovements) {
+    const openReviews = reviews.state === 'ok' ? reviews.value : [];
+    const free = unmatched.state === 'ok' ? unmatched.value.items : [];
+    const suggestions = candidates.state === 'ok'
+      ? buildSuggestions(candidates.value.candidates, free, openReviews)
+      : [];
+    const decisions: InboxDecisionItem[] = [
+      ...openReviews.map((review) => ({
+        key: `candidate:${review.candidate_id}`,
+        candidateId: review.candidate_id,
+        leftMovementId: null,
+        rightMovementId: null,
+        title: review.confirmation_conflict
+          ? 'Posible cruce en conflicto'
+          : 'Posible cruce por confirmar',
+        detail: `Propuesto por ${review.proposed_by_name} · ${review.date_distance_days} día(s) de diferencia`,
+        explanation: candidateExplanation(review),
+        conflict: review.confirmation_conflict,
+        decisionKey: commandKey(),
+        ruleKey: commandKey(),
+      })),
+      ...suggestions.map((suggestion) => ({
+        key: suggestion.key,
+        candidateId: null,
+        leftMovementId: suggestion.leftMovementId,
+        rightMovementId: suggestion.rightMovementId,
+        title: suggestion.title,
+        detail: suggestion.detail,
+        explanation: suggestion.explanation,
+        conflict: false,
+        decisionKey: commandKey(),
+        ruleKey: commandKey(),
+      })),
+    ];
+    const applications = (confirmed.state === 'ok' ? ruleApplications(confirmed.value) : [])
+      .map((review) => ({
+        decisionId: review.decision!.decision_id,
+        detail: `Regla v${review.decision!.rule_version ?? 1} · aprobada por `
+          + `${review.decision!.decided_by_name} · ${review.decision!.decided_at.slice(0, 10)}`,
+        revertKey: commandKey(),
+      }));
+    const unpaired = unpairedMovements(free, suggestions);
+    inbox = {
+      companyId,
+      pair,
+      decisions,
+      applications,
+      unpaired: unpaired.slice(0, 20),
+      unpairedTotal: unpaired.length,
+      canConfirm: permissions.includes('match.confirm'),
+      canReject: permissions.includes('match.reject'),
+      canPropose: permissions.includes('match.propose'),
+      canCreateRule: permissions.includes('match.propose'),
+      applyKey: commandKey(),
+      revertKeyPrefix: commandKey(),
+    };
+  }
+  const pending = canReadMovements
+    ? buildPendingInbox(companyId, {
+        reviews: reviews.state === 'ok' ? reviews.value : null,
+        datasets,
+        items: workspace.state === 'ok' ? workspace.value.items : null,
+        statements: workspace.state === 'ok' ? workspace.value.statements : null,
+      })
+    : null;
+  return {
+    actorId: me.state === 'ok' ? me.value.subject_id : '',
+    pending,
+    pendingPartial: canReadMovements && (
+      reviews.state !== 'ok' || workspace.state !== 'ok' || datasets === null
+      || (workspace.state === 'ok' && workspace.value.truncated)),
+    close: periods.state === 'ok'
+      ? latestClose(periods.value.items)
+      : periods.state,
+    inbox,
+    summary: loadedOr(summary),
+    schedule: loadedOr(schedule),
+  };
+}
 
 function formatWhen(value: string): string {
   // Sin libreria de fechas: el ISO ya viene del servidor y recortarlo no
@@ -182,6 +359,34 @@ export default async function CompanyPage({
     }
   }
 
+  const profile = operatingProfileOf(company);
+  const simple = profile === 'simple'
+    ? await loadSimpleData(session.token, companyId, company.permissions, datasets,
+      documentsVisible ? documents : null)
+    : null;
+
+  const uploadBlock = uploadSourcesVisible ? (
+    <div className="card">
+      <UploadForm
+        companyId={companyId}
+        sources={uploadSources}
+        initialSourceId={initialSourceId}
+      />
+      <p className="meta">
+        CSV, PDF, libro de calculo, factura electronica DIAN (XML) o extracto
+        MT940, hasta 25 MB. El tipo se decide por los primeros bytes, no por la
+        extension.
+      </p>
+      <p className="meta">
+        Cada archivo que se sube entra en <strong>cuarentena</strong>. Sale de ahi
+        cuando su contenido se ha inspeccionado entero y no aparece nada
+        sensible. Si un libro tiene varias hojas, eliges una de forma explicita
+        antes de perfilar o extraer. Lo que no se puede inspeccionar se queda en
+        cuarentena, y se dice por que.
+      </p>
+    </div>
+  ) : null;
+
   return (
     <main className="company-home">
       <header className="bar page-hero company-hero">
@@ -192,6 +397,7 @@ export default async function CompanyPage({
             <span className="status-pill status-pill--ok">{company.status}</span>
             <span>{company.country_code}</span>
             <span>Autorizacion v{company.authorization_version}</span>
+            <span>Perfil {PROFILE_LABELS[profile]}</span>
           </div>
         </div>
       </header>
@@ -213,13 +419,44 @@ export default async function CompanyPage({
           {company.permissions.includes('movement.read') ? (
             <><Link href={`/empresas/${companyId}/saldos`}><span aria-hidden="true">≋</span> Saldos</Link>
               <Link href={`/empresas/${companyId}/conciliacion-saldos`}><span aria-hidden="true">⇄</span> Conciliar saldos</Link>
-              <Link href={`/empresas/${companyId}/conciliacion`}><span aria-hidden="true">⌘</span> Cruzar movimientos</Link></>
+              <Link href={`/empresas/${companyId}/conciliacion`}><span aria-hidden="true">⌘</span> Cruzar movimientos</Link>
+              <Link href={`/empresas/${companyId}/reglas`}><span aria-hidden="true">≡</span> Reglas</Link></>
           ) : null}
           {company.permissions.includes('document.read') ? (
             <Link href={`/empresas/${companyId}/documentos`}><span aria-hidden="true">▤</span> Documentos</Link>
           ) : null}
           <Link href={`/empresas/${companyId}/fuentes`}><span aria-hidden="true">⌁</span> Fuentes y cuentas</Link>
+          <Link href={`/empresas/${companyId}/ajustes`}><span aria-hidden="true">⚙</span> Ajustes</Link>
       </nav>
+
+      {simple ? (
+        <SimpleHome
+          companyId={companyId}
+          actorId={simple.actorId}
+          permissions={company.permissions}
+          upload={uploadBlock ?? (
+            <p className="meta">Tu acceso no permite subir archivos en esta empresa.</p>
+          )}
+          pending={simple.pending}
+          pendingPartial={simple.pendingPartial}
+          close={simple.close}
+          inbox={simple.inbox}
+          summary={simple.summary}
+          schedule={simple.schedule}
+        />
+      ) : (
+        <section className="card mode-switch" aria-labelledby="accountant-mode-heading">
+          <div>
+            <p className="eyebrow">Modo contador</p>
+            <h2 id="accountant-mode-heading">Flujo contable en siete etapas</h2>
+            <p className="meta">
+              Perfil estricto: cada decision la confirma una persona distinta de
+              quien la propuso.
+            </p>
+          </div>
+          <Link href={`/empresas/${companyId}/flujo-contable`}>Abrir flujo contable →</Link>
+        </section>
+      )}
 
       <details className="card access-details">
         <summary>
@@ -249,6 +486,7 @@ export default async function CompanyPage({
         </div>
       </details>
 
+      {simple ? null : (<>
       <section className="workspace-section" aria-labelledby="operational-load">
         <div className="section-heading">
           <div>
@@ -296,27 +534,7 @@ export default async function CompanyPage({
         </div>
         <Link href={`/empresas/${companyId}/documentos`}>Abrir centro de documentos →</Link>
       </div>
-      {uploadSourcesVisible ? (
-        <div className="card">
-          <UploadForm
-            companyId={companyId}
-            sources={uploadSources}
-            initialSourceId={initialSourceId}
-          />
-          <p className="meta">
-            CSV, PDF o libro de calculo, hasta 25 MB. El tipo se decide por los
-            primeros bytes, no por la extension.
-          </p>
-          <p className="meta">
-            Todo lo que se sube entra en <strong>cuarentena</strong>. Sale de ahi
-            cuando su contenido se ha inspeccionado entero y no aparece nada
-            sensible. Hoy se sabe hacer con CSV y con XLSX sin formulas ni
-            contenido activo; si tiene varias hojas, eliges una de forma
-            explicita antes de perfilar o extraer. Los demas formatos se quedan
-            en cuarentena, y se dice por que.
-          </p>
-        </div>
-      ) : null}
+      {uploadBlock}
 
       {!documentsVisible ? (
         <p className="card">
@@ -420,6 +638,7 @@ export default async function CompanyPage({
           muestra. No es que este vacio: no corresponde a esta cuenta.
         </p>
       )}
+      </>)}
     </main>
   );
 }

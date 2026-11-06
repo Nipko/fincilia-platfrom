@@ -43,7 +43,7 @@ type UploadItem = {
   nextHref: string | null;
 };
 
-const ACCEPTED_EXTENSIONS = '.csv,.pdf,.xlsx,.ods,.zip';
+const ACCEPTED_EXTENSIONS = '.csv,.pdf,.xlsx,.ods,.zip,.xml,.sta,.mt940';
 export const MAX_BATCH_FILES = 10;
 export const MAX_BATCH_BYTES = 100 * 1024 * 1024;
 const UPLOAD_CONCURRENCY = 2;

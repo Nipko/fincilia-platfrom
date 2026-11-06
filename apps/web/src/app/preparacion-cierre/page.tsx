@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
 import { SignOut } from '@/app/empresas/sign-out';
+import { CertifyCloseControl } from '@/app/empresas/[companyId]/certify-control';
+import { ReviewModeBadge } from '@/components/review-mode-badge';
 import {
   ApiError,
   fetchMe,
@@ -33,6 +35,7 @@ import {
   type StatementLineageSnapshot,
 } from '@/lib/close-readiness';
 import { readSession } from '@/lib/session';
+import { closeCertificationView, mayOfferCertification } from '@/lib/simple-mode';
 
 import {
   CloseAccountingPeriodControl,
@@ -234,6 +237,7 @@ function CloseReviewPanel({
                     <p className="notice ok" role="status">
                       <strong>{REVIEW_STATUS_LABELS[packet.decision]}</strong>{' '}
                       por {packet.decider_name}.{' '}
+                      <ReviewModeBadge mode={packet.decision_review_mode ?? packet.review_mode} />{' '}
                       {packet.reason_code
                         ? REVIEW_REASON_LABELS[packet.reason_code] ?? packet.reason_code
                         : null}.
@@ -278,13 +282,23 @@ function CloseReviewPanel({
             {formatReviewTimestamp(periodClose.closed_at)}. Snapshot{' '}
             <code className="digest">{periodClose.snapshot_digest}</code>
           </p>
+          {periodClose.status !== 'reopened' ? (
+            <p>
+              <strong>{closeCertificationView(periodClose).label}</strong>{' '}
+              <ReviewModeBadge mode={periodClose.review_mode} />
+            </p>
+          ) : null}
+          {mayOfferCertification(periodClose, actorId, periodPermissions) ? (
+            <CertifyCloseControl companyId={companyId} closeId={periodClose.close_id} />
+          ) : null}
           {periodClose.reopen_request ? (
             <p>
               <strong>Solicitud:</strong> {periodClose.reopen_request.reason_code} por{' '}
               {periodClose.reopen_request.requester_name}.{' '}
               {periodClose.reopen_request.decision
                 ? `Decision: ${periodClose.reopen_request.decision}.`
-                : 'Pendiente de una segunda persona.'}
+                : 'Pendiente de una segunda persona.'}{' '}
+              <ReviewModeBadge mode={periodClose.reopen_request.review_mode} />
             </p>
           ) : null}
           {periodClose.status === 'closed'

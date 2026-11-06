@@ -17,6 +17,7 @@ from fastapi.testclient import TestClient
 
 from db.seed.local import DEFAULT_SECRET, stable_id
 from db.tests.test_api_authorization import build_settings
+from db.tests import test_reconciliation_candidates as rec
 from db.tests.test_reconciliation_decisions import ReconciliationDecisionTests
 from fincilia_api.main import create_app
 
@@ -55,6 +56,47 @@ def run_reconciliation_fixture() -> str:
     if not result.wasSuccessful():
         raise RuntimeError("the PostgreSQL reconciliation fixture failed")
     return ReconciliationDecisionTests.release_key
+
+
+class SmbInboxFixture(ReconciliationDecisionTests):
+    """Par sintetico para la bandeja pyme (FNC-SMB-004): exactos, uno con
+    diferencia (retencion simulada) y una comision sin pareja. Se publica con un
+    revisor distinto; la prueba E2E cambia el perfil por la API y lo restaura."""
+
+    def test_smb_inbox_pair(self) -> None:
+        import uuid as _uuid
+        m = _uuid.uuid4().hex[:6]
+        source, account = self.second_channel()
+        left = self.dataset([
+            ("13/02/2026", f"Pago NIT FNC-SYN-NIT-0091 factura uno {m}", f"SMB-1-{m}",
+             "-100.000,00"),
+            ("16/02/2026", f"Pago NIT FNC-SYN-NIT-0091 factura dos {m}", f"SMB-2-{m}",
+             "-200.000,00"),
+            ("19/02/2026", f"Pago NIT FNC-SYN-NIT-0091 factura tres {m}", f"SMB-3-{m}",
+             "-300.000,00"),
+            ("22/02/2026", f"Comision bancaria sintetica {m}", f"SMB-4-{m}", "-9.500,00"),
+            ("25/02/2026", f"Pago con retencion FNC-SYN-NIT-0092 {m}", f"SMB-5-{m}",
+             "-97.500,00"),
+        ], marker=f"smb-bank-{m}", source=rec.SOURCE, account=rec.ACCOUNT)
+        right = self.dataset([
+            ("13/02/2026", "Abono NIT FNC-SYN-NIT-0091", f"INV-1-{m}", "100.000,00"),
+            ("16/02/2026", "Abono NIT FNC-SYN-NIT-0091", f"INV-2-{m}", "200.000,00"),
+            ("19/02/2026", "Abono NIT FNC-SYN-NIT-0091", f"INV-3-{m}", "300.000,00"),
+            ("25/02/2026", "Factura FNC-SYN-NIT-0092", f"INV-5-{m}", "100.000,00"),
+        ], marker=f"smb-invoices-{m}", source=source, account=account)
+        for dataset_id in (left, right):
+            published = self.client.post(
+                f"/api/v1/companies/{ESPIGA}/datasets/{dataset_id}/publish",
+                headers=self.auth(REVIEWER))
+            self.assertEqual(200, published.status_code, published.text)
+            self.assertEqual("published", published.json()["state"])
+
+
+def run_smb_fixture() -> None:
+    suite = unittest.TestSuite([SmbInboxFixture("test_smb_inbox_pair")])
+    result = unittest.TextTestRunner(verbosity=1).run(suite)
+    if not result.wasSuccessful():
+        raise RuntimeError("the PostgreSQL SMB inbox fixture failed")
 
 
 def publish_and_create_cycle(release_key: str) -> dict[str, int]:
@@ -127,6 +169,8 @@ def publish_and_create_cycle(release_key: str) -> dict[str, int]:
 def main() -> int:
     release_key = run_reconciliation_fixture()
     result = publish_and_create_cycle(release_key)
+    # Despues de publicar el resto: este par queda como el mas reciente.
+    run_smb_fixture()
     print(json.dumps({
         "ok": True,
         "data_ceiling": "synthetic_only",

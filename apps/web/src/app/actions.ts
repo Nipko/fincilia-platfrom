@@ -13,6 +13,8 @@ import {
   applyApprovedCorrections,
   approveOverride,
   type Blocker,
+  certifyAccountingPeriod,
+  changeOperatingProfile,
   continueDataset,
   fetchCorrectionTargets,
   fetchCorrections,
@@ -59,8 +61,26 @@ import {
   validateMapping,
   type MappingDefinition,
   type MappingPreview,
+  applyReconciliationRules,
+  approveReconciliationRule,
+  changeReconciliationRuleStatus,
+  changeUploadSchedule,
+  createReconciliationRule,
+  createTemplateMapping,
+  proposeRuleFromDecision,
+  revertRuleDecision,
 } from '@/lib/api';
 import { clearSession, readSession, writeSession } from '@/lib/session';
+import {
+  cadenceLabel,
+  derivedKey,
+  parseCadence,
+  parseOperatingProfile,
+  parseTeamSizeBand,
+  SIMPLE_CANDIDATE_TOLERANCE,
+  SIMPLE_MAX_DAYS,
+  validProfileReason,
+} from '@/lib/simple-mode';
 
 export type NotificationActionState = { error: string | null; done: string | null };
 
@@ -564,12 +584,16 @@ export async function provisionCompanyAction(
   const taxIdentifier = String(formData.get('taxIdentifier') ?? '').trim();
   const idempotencyKey = String(formData.get('idempotencyKey') ?? '');
   const includeSetup = formData.get('includeSetup') === 'on';
+  const teamSizeBand = parseTeamSizeBand(formData.get('teamSizeBand'));
   if (
     !UUID_PATTERN.test(firmId) || legalName.length < 2 || legalName.length > 300 ||
     !COUNTRY_CODES.has(countryCode) || taxIdentifier.length < 4 ||
     taxIdentifier.length > 64 || !COMPANY_IDEMPOTENCY_PATTERN.test(idempotencyKey)
   ) {
     return { error: 'Revisa la firma, nombre, pais e identificacion protegida.' };
+  }
+  if (teamSizeBand === null) {
+    return { error: 'Indica cuántas personas revisan las finanzas de la empresa.' };
   }
 
   let setup = null;
@@ -619,6 +643,7 @@ export async function provisionCompanyAction(
       country_code: countryCode,
       tax_identifier: taxIdentifier,
       setup,
+      team_size_band: teamSizeBand,
     }, idempotencyKey);
     await writeSession(
       result.refreshed_session.token,
@@ -2192,5 +2217,443 @@ export async function continueDatasetAction(
     };
   } catch (error) {
     return { error: explain(error, 'No se pudo continuar.'), progress: null };
+  }
+}
+
+// --------------------------------------------------------------------------- //
+// Perfil operativo y certificacion posterior (ADR-039, FNC-SMB-004)
+// --------------------------------------------------------------------------- //
+
+export type OperatingProfileActionState = { error: string | null; done: string | null };
+
+export async function changeOperatingProfileAction(
+  _previous: OperatingProfileActionState,
+  formData: FormData,
+): Promise<OperatingProfileActionState> {
+  const session = await readSession();
+  if (!session) redirect('/entrar');
+  const companyId = String(formData.get('companyId') ?? '');
+  const profile = parseOperatingProfile(formData.get('operatingProfile'));
+  const reason = String(formData.get('reason') ?? '').trim();
+  if (!UUID_PATTERN.test(companyId) || profile === null) {
+    return { error: 'El perfil elegido no es válido.', done: null };
+  }
+  if (!validProfileReason(reason)) {
+    return { error: 'Explica el motivo del cambio en 10 a 500 caracteres.', done: null };
+  }
+  try {
+    // La API vuelve a exigir que quien cambia sea owner; la web no decide.
+    const result = await changeOperatingProfile(session.token, companyId, {
+      operating_profile: profile, reason,
+    });
+    revalidatePath(`/empresas/${companyId}`);
+    revalidatePath(`/empresas/${companyId}/ajustes`);
+    return {
+      error: null,
+      done: result.changed
+        ? `Perfil cambiado a ${profile === 'simple' ? 'Simple' : 'Estricto'}. Las decisiones anteriores no cambian.`
+        : 'La empresa ya tenía ese perfil; no se registró un cambio.',
+    };
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) redirect('/entrar');
+    if (error instanceof ApiError && error.status === 403) {
+      return { error: 'Solo el dueño de la empresa puede cambiar el perfil.', done: null };
+    }
+    if (error instanceof ApiError && error.status === 422) {
+      return { error: 'El perfil o el motivo no son válidos.', done: null };
+    }
+    return { error: 'No se pudo cambiar el perfil. Intenta de nuevo.', done: null };
+  }
+}
+
+export type CertificationActionState = { error: string | null; done: string | null };
+
+const CERTIFICATION_ERRORS: Record<string, string> = {
+  'accounting-period-already-certified': 'Este cierre ya está certificado.',
+  'accounting-period-certification-unavailable': 'Un periodo reabierto no se puede certificar.',
+  'accounting-period-certifier-ineligible': 'Tu acceso no permite certificar cierres.',
+  'accounting-period-segregation-of-duties':
+    'Debe certificar una persona que no preparó ni cerró el periodo.',
+};
+
+export async function certifyAccountingPeriodAction(
+  _previous: CertificationActionState,
+  formData: FormData,
+): Promise<CertificationActionState> {
+  const session = await readSession();
+  if (!session) redirect('/entrar');
+  const companyId = String(formData.get('companyId') ?? '');
+  const closeId = String(formData.get('closeId') ?? '');
+  if (!UUID_PATTERN.test(companyId) || !UUID_PATTERN.test(closeId)) {
+    return { error: 'El cierre visible ya no es válido.', done: null };
+  }
+  try {
+    const result = await certifyAccountingPeriod(session.token, companyId, closeId);
+    revalidatePath(`/empresas/${companyId}`);
+    revalidatePath('/preparacion-cierre');
+    return {
+      error: null,
+      done: result.replayed
+        ? 'Ya habías certificado este cierre.'
+        : 'Cierre certificado. Queda registrado como revisado por otra persona.',
+    };
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) redirect('/entrar');
+    if (error instanceof ApiError && error.code && CERTIFICATION_ERRORS[error.code]) {
+      return { error: CERTIFICATION_ERRORS[error.code] ?? null, done: null };
+    }
+    if (error instanceof ApiError && error.status === 403) {
+      return { error: 'Tu acceso cambió o el cierre ya no está disponible.', done: null };
+    }
+    return { error: 'No se pudo certificar el cierre. Intenta de nuevo.', done: null };
+  }
+}
+
+// --------------------------------------------------------------------------- //
+// Modo pyme: bandeja, reglas, plantillas y cadencia (FNC-SMB-003..006). Cada
+// paso llama a la API, que vuelve a exigir permiso, perfil, SoD y elegibilidad.
+// --------------------------------------------------------------------------- //
+
+export type SimpleDecisionState = {
+  error: string | null;
+  done: string | null;
+  decisionId: string | null;
+  decision: 'confirmed' | 'rejected' | null;
+  reviewMode: string | null;
+};
+
+const SIMPLE_REASONS = {
+  confirmed: 'documented_counterpart',
+  rejected: 'different_event',
+} as const;
+
+// La bandeja no se revalida a proposito: un refresco del arbol desmontaria la
+// tarjeta recien decidida y con ella la oferta «¿Aplicar siempre?» o el boton
+// «Deshacer». Las paginas son dinamicas: la siguiente carga lee el estado nuevo.
+function rulePaths(companyId: string): void {
+  revalidatePath(`/empresas/${companyId}/reglas`);
+}
+
+export async function simpleDecideAction(
+  _previous: SimpleDecisionState,
+  formData: FormData,
+): Promise<SimpleDecisionState> {
+  const session = await readSession();
+  if (!session) redirect('/entrar');
+  const companyId = String(formData.get('companyId') ?? '');
+  const decision = String(formData.get('decision') ?? '');
+  const base = String(formData.get('idempotencyKey') ?? '');
+  let candidateId = String(formData.get('candidateId') ?? '');
+  const leftDatasetId = String(formData.get('leftDatasetId') ?? '');
+  const rightDatasetId = String(formData.get('rightDatasetId') ?? '');
+  const leftMovementId = String(formData.get('leftMovementId') ?? '');
+  const rightMovementId = String(formData.get('rightMovementId') ?? '');
+  const empty: SimpleDecisionState = {
+    error: null, done: null, decisionId: null, decision: null, reviewMode: null,
+  };
+  if (!UUID_PATTERN.test(companyId) || (decision !== 'confirmed' && decision !== 'rejected')
+      || !IDEMPOTENCY_PATTERN.test(base)) {
+    return { ...empty, error: 'La decisión visible ya no tiene un contexto válido.' };
+  }
+  const proposeKey = derivedKey(base, 'propose');
+  const decideKey = derivedKey(base, `decide-${decision}`);
+  if (!proposeKey || !decideKey) {
+    return { ...empty, error: 'La decisión visible ya no tiene un contexto válido.' };
+  }
+  try {
+    if (!UUID_PATTERN.test(candidateId)) {
+      if (![leftDatasetId, rightDatasetId, leftMovementId, rightMovementId]
+        .every((value) => UUID_PATTERN.test(value))) {
+        return { ...empty, error: 'El cruce sugerido ya no tiene un contexto válido.' };
+      }
+      // La sugerencia se registra con la misma tolerancia con la que se buscó:
+      // la API vuelve a derivar el par y la diferencia desde los movimientos.
+      const proposed = await proposeReconciliationReview(session.token, companyId, proposeKey, {
+        left_dataset_id: leftDatasetId,
+        right_dataset_id: rightDatasetId,
+        left_movement_id: leftMovementId,
+        right_movement_id: rightMovementId,
+        max_days: SIMPLE_MAX_DAYS,
+        tolerance_amount: SIMPLE_CANDIDATE_TOLERANCE.amount,
+        tolerance_percent: SIMPLE_CANDIDATE_TOLERANCE.percent,
+      });
+      candidateId = proposed.candidate_id;
+    }
+    const result = await decideReconciliationReview(
+      session.token, companyId, candidateId, decideKey,
+      decision, SIMPLE_REASONS[decision],
+    );
+    const mode = result.decision?.review_mode ?? null;
+    return {
+      error: null,
+      decision,
+      reviewMode: mode,
+      decisionId: decision === 'confirmed' && mode !== 'approved_rule'
+        ? result.decision?.decision_id ?? null
+        : null,
+      done: decision === 'confirmed'
+        ? `Cruce confirmado${mode === 'self_reviewed' ? ' (autorrevisado)' : ''}.`
+        : 'Cruce rechazado. Los movimientos siguen pendientes.',
+    };
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) redirect('/entrar');
+    const explained = reviewError(error);
+    return { ...empty, error: explained.error };
+  }
+}
+
+export type AlwaysApplyState = {
+  error: string | null;
+  done: string | null;
+  ruleStatus: 'active' | 'proposed' | null;
+};
+
+export async function alwaysApplyAction(
+  _previous: AlwaysApplyState,
+  formData: FormData,
+): Promise<AlwaysApplyState> {
+  const session = await readSession();
+  if (!session) redirect('/entrar');
+  const companyId = String(formData.get('companyId') ?? '');
+  const decisionId = String(formData.get('decisionId') ?? '');
+  const base = String(formData.get('idempotencyKey') ?? '');
+  const createKey = derivedKey(base, 'rule-create');
+  const approveKey = derivedKey(base, 'rule-approve');
+  if (!UUID_PATTERN.test(companyId) || !UUID_PATTERN.test(decisionId)
+      || !createKey || !approveKey) {
+    return { error: 'La decisión ya no tiene un contexto válido.', done: null, ruleStatus: null };
+  }
+  try {
+    const proposal = await proposeRuleFromDecision(session.token, companyId, decisionId);
+    if (!proposal.conditions) {
+      return {
+        error: 'No se pudo describir una regla clara a partir de este cruce.',
+        done: null, ruleStatus: null,
+      };
+    }
+    const rule = await createReconciliationRule(session.token, companyId, createKey, {
+      conditions: proposal.conditions,
+      created_from_decision_id: decisionId,
+    });
+    // El perfil lo resolvio el servidor. En `simple` la misma persona aprueba
+    // en el mismo gesto y queda autorrevisada; en `estricto` aprueba otra.
+    if (proposal.operating_profile === 'simple' && rule.status === 'proposed') {
+      const approved = await approveReconciliationRule(
+        session.token, companyId, rule.rule_id, approveKey);
+      return {
+        error: null,
+        ruleStatus: approved.status === 'active' ? 'active' : 'proposed',
+        done: approved.status === 'active'
+          ? `Regla activa · ${approved.approval?.review_mode === 'self_reviewed'
+            ? 'Autorrevisado' : 'Revisado por otra persona'}. ${rule.description.join('. ')}.`
+          : 'Regla creada; queda pendiente de aprobación.',
+      };
+    }
+    return {
+      error: null,
+      ruleStatus: rule.status === 'active' ? 'active' : 'proposed',
+      done: rule.status === 'active'
+        ? 'La regla ya estaba activa.'
+        : 'Regla propuesta. Otra persona debe aprobarla en Reglas antes de que se aplique.',
+    };
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) redirect('/entrar');
+    if (error instanceof ApiError && error.status === 409) {
+      return {
+        error: 'La regla no se pudo crear o aprobar ahora (estado, clave o segregación de funciones).',
+        done: null, ruleStatus: null,
+      };
+    }
+    if (error instanceof ApiError && error.status === 403) {
+      return { error: 'Tu acceso no permite crear reglas.', done: null, ruleStatus: null };
+    }
+    return { error: 'No se pudo crear la regla. Intenta de nuevo.', done: null, ruleStatus: null };
+  }
+}
+
+export type RuleCommandState = { error: string | null; done: string | null };
+
+const RULE_DONE: Record<string, string> = {
+  approve: 'Regla aprobada y activa.',
+  pause: 'Regla pausada. Las decisiones anteriores se conservan.',
+  resume: 'Regla reanudada.',
+  retire: 'Regla retirada. Las decisiones anteriores se conservan.',
+};
+
+export async function ruleCommandAction(
+  _previous: RuleCommandState,
+  formData: FormData,
+): Promise<RuleCommandState> {
+  const session = await readSession();
+  if (!session) redirect('/entrar');
+  const companyId = String(formData.get('companyId') ?? '');
+  const ruleId = String(formData.get('ruleId') ?? '');
+  const action = String(formData.get('action') ?? '');
+  const key = String(formData.get('idempotencyKey') ?? '');
+  if (!UUID_PATTERN.test(companyId) || !UUID_PATTERN.test(ruleId)
+      || !IDEMPOTENCY_PATTERN.test(key) || !(action in RULE_DONE)) {
+    return { error: 'La regla visible ya no tiene un contexto válido.', done: null };
+  }
+  try {
+    if (action === 'approve') {
+      await approveReconciliationRule(session.token, companyId, ruleId, key);
+    } else {
+      await changeReconciliationRuleStatus(
+        session.token, companyId, ruleId, key, action as 'pause' | 'resume' | 'retire');
+    }
+    rulePaths(companyId);
+    return { error: null, done: RULE_DONE[action] ?? null };
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) redirect('/entrar');
+    if (error instanceof ApiError && error.code === 'segregation-of-duties') {
+      return { error: 'En el perfil estricto otra persona debe aprobar la regla.', done: null };
+    }
+    if (error instanceof ApiError && error.status === 403) {
+      return { error: 'Tu acceso no permite cambiar reglas.', done: null };
+    }
+    return { error: 'La regla no admite ese cambio ahora.', done: null };
+  }
+}
+
+export type ApplyRulesState = {
+  error: string | null;
+  done: string | null;
+  applied: Array<{ decisionId: string; leftMovementId: string; rightMovementId: string }>;
+  skippedCount: number;
+};
+
+export async function applyRulesAction(
+  _previous: ApplyRulesState,
+  formData: FormData,
+): Promise<ApplyRulesState> {
+  const session = await readSession();
+  if (!session) redirect('/entrar');
+  const companyId = String(formData.get('companyId') ?? '');
+  const leftDatasetId = String(formData.get('leftDatasetId') ?? '');
+  const rightDatasetId = String(formData.get('rightDatasetId') ?? '');
+  const key = String(formData.get('idempotencyKey') ?? '');
+  const empty: ApplyRulesState = { error: null, done: null, applied: [], skippedCount: 0 };
+  if (![companyId, leftDatasetId, rightDatasetId].every((value) => UUID_PATTERN.test(value))
+      || !IDEMPOTENCY_PATTERN.test(key)) {
+    return { ...empty, error: 'Los archivos visibles ya no tienen un contexto válido.' };
+  }
+  try {
+    const result = await applyReconciliationRules(session.token, companyId, key, {
+      left_dataset_id: leftDatasetId,
+      right_dataset_id: rightDatasetId,
+      max_days: SIMPLE_MAX_DAYS,
+    });
+    const applied = result.applied.flatMap((item) => (item.decision_id ? [{
+      decisionId: item.decision_id,
+      leftMovementId: item.left_movement_id,
+      rightMovementId: item.right_movement_id,
+    }] : []));
+    return {
+      error: null,
+      applied,
+      skippedCount: result.skipped.length,
+      done: `Reglas aplicadas: ${applied.length} cruce(s) confirmados por regla, `
+        + `${result.skipped.length} omitido(s)${result.active_rules === 0 ? ' (no hay reglas activas)' : ''}.`,
+    };
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) redirect('/entrar');
+    if (error instanceof ApiError && error.status === 403) {
+      return { ...empty, error: 'Los archivos no están verificados o tu acceso no permite aplicar reglas.' };
+    }
+    return { ...empty, error: 'No se pudieron aplicar las reglas. Intenta de nuevo.' };
+  }
+}
+
+export type RevertState = { error: string | null; done: string | null };
+
+export async function revertRuleDecisionAction(
+  _previous: RevertState,
+  formData: FormData,
+): Promise<RevertState> {
+  const session = await readSession();
+  if (!session) redirect('/entrar');
+  const companyId = String(formData.get('companyId') ?? '');
+  const decisionId = String(formData.get('decisionId') ?? '');
+  const key = String(formData.get('idempotencyKey') ?? '');
+  if (!UUID_PATTERN.test(companyId) || !UUID_PATTERN.test(decisionId)
+      || !IDEMPOTENCY_PATTERN.test(key)) {
+    return { error: 'La aplicación visible ya no tiene un contexto válido.', done: null };
+  }
+  try {
+    await revertRuleDecision(session.token, companyId, decisionId, key, 'rule_too_broad');
+    return { error: null, done: 'Deshecho. Los dos movimientos vuelven a pendientes.' };
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) redirect('/entrar');
+    if (error instanceof ApiError && error.code === 'decision-already-reverted') {
+      return { error: null, done: 'Esta aplicación ya estaba deshecha.' };
+    }
+    if (error instanceof ApiError && error.code === 'period-closed') {
+      return { error: 'El periodo de este cruce está cerrado; no se puede deshacer.', done: null };
+    }
+    return { error: 'No se pudo deshacer la aplicación.', done: null };
+  }
+}
+
+export type TemplateMappingState = { error: string | null };
+
+export async function applyTemplateMappingAction(
+  _previous: TemplateMappingState,
+  formData: FormData,
+): Promise<TemplateMappingState> {
+  const session = await readSession();
+  if (!session) redirect('/entrar');
+  const companyId = String(formData.get('companyId') ?? '');
+  const artifactId = String(formData.get('artifactId') ?? '');
+  const dataSourceId = String(formData.get('dataSourceId') ?? '');
+  if (![companyId, artifactId, dataSourceId].every((value) => UUID_PATTERN.test(value))) {
+    return { error: 'El documento o su fuente ya no son válidos.' };
+  }
+  let mappingVersionId: string;
+  try {
+    const created = await createTemplateMapping(session.token, companyId, artifactId, dataSourceId);
+    mappingVersionId = created.mapping_version_id;
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) redirect('/entrar');
+    if (error instanceof ApiError && error.status === 409) {
+      return { error: 'La plantilla ya no encaja de forma inequívoca. Usa el mapeo manual.' };
+    }
+    if (error instanceof ApiError && error.status === 403) {
+      return { error: 'Tu acceso no permite mapear este documento.' };
+    }
+    return { error: 'No se pudo aplicar la plantilla. Usa el mapeo manual.' };
+  }
+  revalidatePath(`/empresas/${companyId}/documentos/${artifactId}`);
+  const query = new URLSearchParams({ mapeo: mappingVersionId, fuente: dataSourceId });
+  redirect(`/empresas/${companyId}/documentos/${artifactId}/mapeo?${query.toString()}`);
+}
+
+export type UploadScheduleState = { error: string | null; done: string | null };
+
+export async function changeUploadScheduleAction(
+  _previous: UploadScheduleState,
+  formData: FormData,
+): Promise<UploadScheduleState> {
+  const session = await readSession();
+  if (!session) redirect('/entrar');
+  const companyId = String(formData.get('companyId') ?? '');
+  const cadence = parseCadence(formData.get('cadence'));
+  if (!UUID_PATTERN.test(companyId) || cadence === null) {
+    return { error: 'Elige semanal, quincenal o mensual.', done: null };
+  }
+  try {
+    const result = await changeUploadSchedule(session.token, companyId, cadence);
+    revalidatePath(`/empresas/${companyId}`);
+    return {
+      error: null,
+      done: result.changed
+        ? `Guardado: ${cadenceLabel(cadence).toLowerCase()}. Te lo recordaremos aquí, sin enviar correos.`
+        : 'Ya tenías esa frecuencia.',
+    };
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) redirect('/entrar');
+    if (error instanceof ApiError && error.status === 403) {
+      return { error: 'Solo el dueño de la empresa puede cambiar la frecuencia.', done: null };
+    }
+    return { error: 'No se pudo guardar la frecuencia.', done: null };
   }
 }
